@@ -106,8 +106,8 @@ async fn main(spawner: Spawner) {
     let pwr = Output::new(p.PIN_23, Level::Low);
 
     let state = STATE.init(cyw43::State::new());
-    let (net_device, mut control, runner) = cyw43::new(state, pwr, spi, CYW43_FW).await;
-    let _ = net_device; // Mark as intentionally unused for now
+    let (_net_device, mut control, runner) = cyw43::new(state, pwr, spi, CYW43_FW).await;
+    // Note: _net_device will be used when implementing TCP/UDP networking features
 
     // Spawn the WiFi driver task
     spawner.must_spawn(wifi_task(runner));

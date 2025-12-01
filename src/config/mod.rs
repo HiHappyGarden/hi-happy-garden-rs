@@ -27,6 +27,9 @@ pub const MAX_SSID_LEN: usize = 32;
 /// Maximum length for WiFi password
 pub const MAX_PASSWD_LEN: usize = 64;
 
+/// Minimum length for WiFi password (WPA2 requirement)
+pub const MIN_PASSWD_LEN: usize = 8;
+
 /// Maximum number of zones supported
 pub const MAX_ZONES: usize = 4;
 
@@ -78,9 +81,10 @@ impl AppConfig {
         config
     }
 
-    /// Check if WiFi is configured
+    /// Check if WiFi is configured with valid credentials
     pub fn is_wifi_configured(&self) -> bool {
-        !self.wifi_ssid.is_empty() && !self.wifi_passwd.is_empty()
+        !self.wifi_ssid.is_empty() 
+            && self.wifi_passwd.len() >= MIN_PASSWD_LEN
     }
 }
 

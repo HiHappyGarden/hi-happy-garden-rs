@@ -24,6 +24,9 @@ use embassy_rp::gpio::Output;
 
 use crate::config::MAX_ZONES;
 
+/// Default irrigation duration in seconds (5 minutes)
+pub const DEFAULT_IRRIGATION_DURATION_SECS: u32 = 300;
+
 /// Zone identifier
 #[derive(Debug, Clone, Copy, PartialEq, Eq, defmt::Format)]
 pub enum ZoneId {
@@ -126,12 +129,11 @@ impl<'a> IrrigationController<'a> {
         Self { zones }
     }
 
-    /// Start irrigation on a specific zone
+    /// Start irrigation on a specific zone with default duration
     pub fn start_zone(&mut self, zone_id: ZoneId) {
         let index = zone_id as usize;
         if index < MAX_ZONES {
-            // Default duration of 5 minutes (300 seconds)
-            self.zones[index].turn_on(300);
+            self.zones[index].turn_on(DEFAULT_IRRIGATION_DURATION_SECS);
         }
     }
 
