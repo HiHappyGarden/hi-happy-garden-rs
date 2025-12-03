@@ -1,0 +1,17 @@
+[package]
+name = "hhg-hardware"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["staticlib", "rlib"]  
+
+[dependencies]
+hhg-traits = { path = "../hhg-traits" }
+panic-halt = "1.0"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
