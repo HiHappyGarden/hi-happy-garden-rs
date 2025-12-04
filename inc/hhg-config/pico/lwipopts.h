@@ -7,7 +7,7 @@
 
 // allow override in some examples
 #ifndef NO_SYS
-#define NO_SYS                      1
+#define NO_SYS                      0  // Use FreeRTOS with lwIP
 #endif
 // allow override in some examples
 #ifndef LWIP_SOCKET
@@ -20,9 +20,7 @@
 #define MEM_LIBC_MALLOC             0
 #endif
 #define MEM_ALIGNMENT               4
-#ifndef MEM_SIZE
 #define MEM_SIZE                    4000
-#endif
 #define MEMP_NUM_TCP_SEG            32
 #define MEMP_NUM_ARP_QUEUE          10
 #define PBUF_POOL_SIZE              24
@@ -53,16 +51,23 @@
 #define LWIP_NETIF_TX_SINGLE_PBUF   1
 #define DHCP_DOES_ARP_CHECK         0
 #define LWIP_DHCP_DOES_ACD_CHECK    0
+#define LWIP_ALTCP                  1
+#define LWIP_ALTCP_TLS              1
+#define LWIP_ALTCP_TLS_MBEDTLS      1
+#define LWIP_MQTT 8
 
 #ifndef NDEBUG
-#define LWIP_DEBUG                  1
+#define LWIP_DEBUG                  0
 #define LWIP_STATS                  1
 #define LWIP_STATS_DISPLAY          1
+
 #endif
 
-#define ETHARP_DEBUG                LWIP_DBG_OFF
+#define LWIP_DBG_MIN_LEVEL LWIP_DBG_LEVEL_ALL
+
+#define ETHARP_DEBUG                LWIP_DBG_ON
 #define NETIF_DEBUG                 LWIP_DBG_OFF
-#define PBUF_DEBUG                  LWIP_DBG_OFF
+#define PBUF_DEBUG                  LWIP_DBG_ON
 #define API_LIB_DEBUG               LWIP_DBG_OFF
 #define API_MSG_DEBUG               LWIP_DBG_OFF
 #define SOCKETS_DEBUG               LWIP_DBG_OFF
@@ -71,10 +76,10 @@
 #define IP_DEBUG                    LWIP_DBG_OFF
 #define IP_REASS_DEBUG              LWIP_DBG_OFF
 #define RAW_DEBUG                   LWIP_DBG_OFF
-#define MEM_DEBUG                   LWIP_DBG_OFF
-#define MEMP_DEBUG                  LWIP_DBG_OFF
+#define MEM_DEBUG                   LWIP_DBG_ON
+#define MEMP_DEBUG                  LWIP_DBG_ON
 #define SYS_DEBUG                   LWIP_DBG_OFF
-#define TCP_DEBUG                   LWIP_DBG_OFF
+#define TCP_DEBUG                   LWIP_DBG_ON
 #define TCP_INPUT_DEBUG             LWIP_DBG_OFF
 #define TCP_OUTPUT_DEBUG            LWIP_DBG_OFF
 #define TCP_RTO_DEBUG               LWIP_DBG_OFF
@@ -88,5 +93,19 @@
 #define PPP_DEBUG                   LWIP_DBG_OFF
 #define SLIP_DEBUG                  LWIP_DBG_OFF
 #define DHCP_DEBUG                  LWIP_DBG_OFF
+
+#if !NO_SYS
+#define TCPIP_THREAD_STACKSIZE 1024
+#define DEFAULT_THREAD_STACKSIZE 1024
+#define DEFAULT_RAW_RECVMBOX_SIZE 8
+#define TCPIP_MBOX_SIZE 8
+#define LWIP_TIMEVAL_PRIVATE 0
+
+// not necessary, can be done either way
+#define LWIP_TCPIP_CORE_LOCKING_INPUT 1
+
+// ping_thread sets socket receive timeout, so enable this feature
+#define LWIP_SO_RCVTIMEO 1
+#endif
 
 #endif /* __LWIPOPTS_H__ */

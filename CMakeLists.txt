@@ -81,7 +81,7 @@ add_custom_command(
     VERBATIM
 )
 
-add_custom_target(hhg_hardware_build ALL DEPENDS ${RUST_HHG_HARDWARE_PATH})
+add_custom_target(hhg_hardware ALL DEPENDS ${RUST_HHG_HARDWARE_PATH})
 
 # --- Compilazione automatica di hhg-app ---
 add_custom_command(
@@ -92,7 +92,10 @@ add_custom_command(
     VERBATIM
 )
 
-add_custom_target(hhg_app_build ALL DEPENDS ${RUST_HHG_APP_PATH})
+add_custom_target(hhg_app ALL DEPENDS ${RUST_HHG_APP_PATH})
+
+
+
 
 add_executable(hi-happy-garden-rs 
         ${SOURCES}
@@ -100,7 +103,7 @@ add_executable(hi-happy-garden-rs
 )
 
 # Add dependency on Rust build
-add_dependencies(hi-happy-garden-rs  hhg_hardware_build hhg_app_build)
+add_dependencies(${PROJECT_NAME}  hhg_hardware hhg_app)
 
 # Link Rust static library
 target_link_libraries(${PROJECT_NAME}
@@ -115,18 +118,18 @@ pico_set_program_version(${PROJECT_NAME} "0.1.0")
 pico_enable_stdio_uart(${PROJECT_NAME} 1)
 pico_enable_stdio_usb(${PROJECT_NAME} 0)
 
-# Add the standard library to the build
-target_link_libraries(${PROJECT_NAME}
-        pico_stdlib)
-
 # Add the standard include files to the build
 target_include_directories(${PROJECT_NAME} PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
-        ${CMAKE_CURRENT_LIST_DIR}/inc/hhg-config
+        ${CMAKE_CURRENT_LIST_DIR}/inc/hhg-config/pico
 )
 
 # Add any user requested libraries
 target_link_libraries(${PROJECT_NAME} 
+        pico_cyw43_arch_lwip_sys_freertos
+        pico_lwip_mbedtls
+        pico_mbedtls
+        pico_lwip_mqtt
         pico_stdlib
         pico_multicore
         pico_unique_id

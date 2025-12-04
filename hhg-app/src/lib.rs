@@ -1,5 +1,7 @@
 #![no_std]
 
+extern crate alloc;
+
 // Il panic handler è fornito da hhg-hardware
 extern crate hhg_hardware;
 

@@ -12,7 +12,7 @@ crate-type = ["staticlib", "rlib"]
 
 [dependencies]
 hhg-traits = { path = "../hhg-traits" }
-panic-halt = "1.0"
+osal-rs = { path = "../osal-rs/osal-rs", features = ["freertos"] }
 
 [profile.dev]
 panic = "abort"
