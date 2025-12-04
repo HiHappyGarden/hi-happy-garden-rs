@@ -32,6 +32,13 @@ endif()
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
+# Set the FreeRTOS kernel path and config directory BEFORE adding the port
+set(FREERTOS_KERNEL_PATH ${CMAKE_SOURCE_DIR}/FreeRTOS-Kernel)
+set(FREERTOS_CONFIG_FILE_DIRECTORY ${CMAKE_SOURCE_DIR}/inc/hhg-config)
+
+# Include the RP2350_ARM_NTZ port BEFORE pico_sdk_init()
+add_subdirectory(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/Community-Supported-Ports/GCC/RP2350_ARM_NTZ FreeRTOS-Kernel)
+
 project(hi-happy-garden-rs C CXX ASM)
 
 add_definitions(-DCYW43_LWIP=1)
@@ -115,11 +122,16 @@ target_link_libraries(${PROJECT_NAME}
 # Add the standard include files to the build
 target_include_directories(${PROJECT_NAME} PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
+        ${CMAKE_CURRENT_LIST_DIR}/inc/hhg-config
 )
 
 # Add any user requested libraries
 target_link_libraries(${PROJECT_NAME} 
-        pico_cyw43_arch_lwip_threadsafe_background
+        pico_stdlib
+        pico_multicore
+        pico_unique_id
+        FreeRTOS-Kernel
+        FreeRTOS-Kernel-Heap4
 )
 
 # Suppress stack warning
