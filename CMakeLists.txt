@@ -30,7 +30,7 @@ endif()
 # ====================================================================================
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
-include(pico_sdk_import.cmake)
+include(pico-sdk/external/pico_sdk_import.cmake)
 
 # Set the FreeRTOS kernel path and config directory BEFORE adding the port
 set(FREERTOS_KERNEL_PATH ${CMAKE_SOURCE_DIR}/FreeRTOS-Kernel)
@@ -51,6 +51,22 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.c")
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
+
+# --- cJSON Integration from GitHub ---
+include(FetchContent)
+FetchContent_Declare(
+    cJSON
+    GIT_REPOSITORY https://github.com/DaveGamble/cJSON.git
+    GIT_TAG        v1.7.19
+)
+
+# Configure cJSON options
+set(ENABLE_CJSON_TEST OFF CACHE BOOL "Disable cJSON tests")
+set(ENABLE_CJSON_UTILS ON CACHE BOOL "Enable cJSON utils")
+set(BUILD_SHARED_AND_STATIC_LIBS OFF CACHE BOOL "Build only static library")
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static library")
+
+FetchContent_MakeAvailable(cJSON)
 
 # Configure Rust build
 set(CARGO_TARGET "thumbv8m.main-none-eabi")
@@ -135,6 +151,7 @@ target_link_libraries(${PROJECT_NAME}
         pico_unique_id
         FreeRTOS-Kernel
         FreeRTOS-Kernel-Heap4
+        cjson
 )
 
 # Suppress stack warning
