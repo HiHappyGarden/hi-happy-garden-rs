@@ -48,8 +48,8 @@ pico_sdk_init()
 # Configure Rust build
 set(CARGO_TARGET "thumbv8m.main-none-eabi")
 set(CARGO_BUILD_DIR "${CMAKE_BINARY_DIR}/rust")
-set(Rust_CARGO_TARGET "thumbv8m.main-none-eabi")
-set(Rust_CARGO_TARGET_ARCH "thumbv8m")
+# set(Rust_CARGO_TARGET "thumbv8m.main-none-eabi")
+# set(Rust_CARGO_TARGET_ARCH "thumbv8m")
 
 # Determine Rust build profile based on CMAKE_BUILD_TYPE
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
