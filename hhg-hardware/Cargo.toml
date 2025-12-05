@@ -8,7 +8,10 @@ readme = "README.md"
 repository = "https://github.com/HiHappyGarden/hi-happy-garden-rs"
 
 [lib]
-crate-type = ["staticlib", "rlib"]  
+crate-type = ["staticlib", "rlib"]
+
+[features]
+pico = []
 
 [dependencies]
 hhg-traits = { path = "../hhg-traits" }

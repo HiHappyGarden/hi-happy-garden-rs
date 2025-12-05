@@ -30,7 +30,7 @@ endif()
 # ====================================================================================
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
-include(pico-sdk/external/pico_sdk_import.cmake)
+include(${PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
 # Set the FreeRTOS kernel path and config directory BEFORE adding the port
 set(FREERTOS_KERNEL_PATH ${CMAKE_SOURCE_DIR}/FreeRTOS-Kernel)
@@ -43,8 +43,6 @@ project(hi-happy-garden-rs C CXX ASM)
 
 add_definitions(-DCYW43_LWIP=1)
 add_definitions(-DCYW43_HOST_NAME=\"${PROJECT_NAME}\")
-
-include_directories(inc)
 
 file(GLOB_RECURSE INCLUDES CONFIGURE_DEPENDS "inc/*.hpp" "inc/*.h")
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.c")
@@ -91,7 +89,7 @@ set(RUST_HHG_APP_PATH ${CMAKE_SOURCE_DIR}/hhg-app/target/${CARGO_TARGET}/${RUST_
 # --- Compilazione automatica di hhg-hardware ---
 add_custom_command(
     OUTPUT ${RUST_HHG_HARDWARE_PATH}
-    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-hardware cargo build --target ${CARGO_TARGET} ${RUST_PROFILE}
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-hardware cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --features pico
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/hhg-hardware
     COMMENT "Building Rust library: hhg-hardware"
     VERBATIM
@@ -109,9 +107,6 @@ add_custom_command(
 )
 
 add_custom_target(hhg_app ALL DEPENDS ${RUST_HHG_APP_PATH})
-
-
-
 
 add_executable(hi-happy-garden-rs 
         ${SOURCES}
@@ -138,6 +133,7 @@ pico_enable_stdio_usb(${PROJECT_NAME} 0)
 target_include_directories(${PROJECT_NAME} PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
         ${CMAKE_CURRENT_LIST_DIR}/inc/hhg-config/pico
+        ${CMAKE_CURRENT_LIST_DIR}/inc/hhg-ffi/pico
 )
 
 # Add any user requested libraries
