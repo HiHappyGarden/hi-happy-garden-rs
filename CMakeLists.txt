@@ -44,14 +44,9 @@ project(hi-happy-garden-rs C CXX ASM)
 add_definitions(-DCYW43_LWIP=1)
 add_definitions(-DCYW43_HOST_NAME=\"${PROJECT_NAME}\")
 
-file(GLOB_RECURSE INCLUDES CONFIGURE_DEPENDS "inc/*.hpp" "inc/*.h")
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.c")
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
-
-# Add osal-rs-ffi-freertos library AFTER pico_sdk_init()
-add_subdirectory(osal-rs/osal-rs-ffi-freertos)
 
 # --- cJSON Integration from GitHub ---
 include(FetchContent)
@@ -67,7 +62,13 @@ set(ENABLE_CJSON_UTILS ON CACHE BOOL "Enable cJSON utils")
 set(BUILD_SHARED_AND_STATIC_LIBS OFF CACHE BOOL "Build only static library")
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static library")
 
+# Suppress deprecation warning from cJSON's old CMake version requirement
+set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
+
 FetchContent_MakeAvailable(cJSON)
+
+# Re-enable deprecation warnings for the rest of the project
+set(CMAKE_WARN_DEPRECATED ON CACHE BOOL "" FORCE)
 
 # Configure Rust build
 set(CARGO_TARGET "thumbv8m.main-none-eabi")
@@ -111,13 +112,20 @@ add_custom_command(
 
 add_custom_target(hhg_app ALL DEPENDS ${RUST_HHG_APP_PATH})
 
+file(GLOB_RECURSE INCLUDES CONFIGURE_DEPENDS "inc/*.hpp" "inc/*.h")
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.c")
+file(GLOB_RECURSE CUSUTOM_INCLUDES CONFIGURE_DEPENDS "osal-rs/osal-rs-ffi-freertos/inc/*.h")
+file(GLOB_RECURSE CUSUTOM_SOURCES CONFIGURE_DEPENDS "osal-rs/osal-rs-ffi-freertos/src/*.c")
+
 add_executable(hi-happy-garden-rs 
         ${SOURCES}
         ${INCLUDES}
+        ${CUSUTOM_SOURCES}
+        ${CUSUTOM_INCLUDES}
 )
 
 # Add dependency on Rust build
-add_dependencies(${PROJECT_NAME}  hhg_hardware hhg_app)
+add_dependencies(${PROJECT_NAME} hhg_hardware hhg_app)
 
 # Link Rust static library
 target_link_libraries(${PROJECT_NAME}
@@ -152,7 +160,6 @@ target_link_libraries(${PROJECT_NAME}
         FreeRTOS-Kernel
         FreeRTOS-Kernel-Heap4
         cjson
-        osal-rs-ffi-freertos
 )
 
 # Suppress stack warning
