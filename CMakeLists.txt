@@ -90,10 +90,39 @@ endif()
 set(RUST_HHG_HARDWARE_PATH ${CMAKE_SOURCE_DIR}/hhg-hardware/target/${CARGO_TARGET}/${RUST_PROFILE_DIR}/libhhg_hardware.a)
 set(RUST_HHG_APP_PATH ${CMAKE_SOURCE_DIR}/hhg-app/target/${CARGO_TARGET}/${RUST_PROFILE_DIR}/libhhg_app.a)
 
+# Traccia dipendenze per osal-rs
+file(GLOB_RECURSE OSAL_RS_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/osal-rs/osal-rs/src/*.rs"
+    "${CMAKE_SOURCE_DIR}/osal-rs/osal-rs-build/src/*.rs"
+    "${CMAKE_SOURCE_DIR}/osal-rs/osal-rs/Cargo.toml"
+    "${CMAKE_SOURCE_DIR}/osal-rs/osal-rs-build/Cargo.toml"
+    "${CMAKE_SOURCE_DIR}/osal-rs/Cargo.toml"
+    "${CMAKE_SOURCE_DIR}/osal-rs/osal-rs/build.rs"
+)
+
+# Traccia dipendenze per hhg-hardware
+file(GLOB_RECURSE HHG_HARDWARE_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/hhg-hardware/src/*.rs"
+    "${CMAKE_SOURCE_DIR}/hhg-hardware/Cargo.toml"
+)
+
+# Traccia dipendenze per hhg-app
+file(GLOB_RECURSE HHG_APP_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/hhg-app/src/*.rs"
+    "${CMAKE_SOURCE_DIR}/hhg-app/Cargo.toml"
+)
+
+# Traccia dipendenze per hhg-traits
+file(GLOB_RECURSE HHG_TRAITS_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/hhg-traits/src/*.rs"
+    "${CMAKE_SOURCE_DIR}/hhg-traits/Cargo.toml"
+)
+
 # --- Compilazione automatica di hhg-hardware ---
 add_custom_command(
     OUTPUT ${RUST_HHG_HARDWARE_PATH}
-    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-hardware cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --verbose --features pico 
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-hardware cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --features pico 
+    DEPENDS ${HHG_HARDWARE_SOURCES} ${OSAL_RS_SOURCES} ${HHG_TRAITS_SOURCES}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/hhg-hardware
     COMMENT "Building Rust library: hhg-hardware"
     VERBATIM
@@ -105,7 +134,8 @@ add_custom_target(hhg_hardware ALL DEPENDS ${RUST_HHG_HARDWARE_PATH})
 # --- Compilazione automatica di hhg-app ---
 add_custom_command(
     OUTPUT ${RUST_HHG_APP_PATH}
-    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-app cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --verbose
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-app cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} 
+    DEPENDS ${HHG_APP_SOURCES} ${HHG_HARDWARE_SOURCES} ${OSAL_RS_SOURCES} ${HHG_TRAITS_SOURCES}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/hhg-app
     COMMENT "Building Rust library: hhg-app"
     VERBATIM
