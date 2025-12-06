@@ -50,6 +50,9 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.c")
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
+# Add osal-rs-ffi-freertos library AFTER pico_sdk_init()
+add_subdirectory(osal-rs/osal-rs-ffi-freertos)
+
 # --- cJSON Integration from GitHub ---
 include(FetchContent)
 FetchContent_Declare(
@@ -134,6 +137,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
         ${CMAKE_CURRENT_LIST_DIR}/inc/hhg-config/pico
         ${CMAKE_CURRENT_LIST_DIR}/inc/hhg-ffi/pico
+        ${CMAKE_CURRENT_LIST_DIR}/osal-rs/osal-rs-ffi-freertos/inc
 )
 
 # Add any user requested libraries
@@ -148,6 +152,7 @@ target_link_libraries(${PROJECT_NAME}
         FreeRTOS-Kernel
         FreeRTOS-Kernel-Heap4
         cjson
+        osal-rs-ffi-freertos
 )
 
 # Suppress stack warning
