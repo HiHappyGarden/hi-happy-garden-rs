@@ -93,10 +93,11 @@ set(RUST_HHG_APP_PATH ${CMAKE_SOURCE_DIR}/hhg-app/target/${CARGO_TARGET}/${RUST_
 # --- Compilazione automatica di hhg-hardware ---
 add_custom_command(
     OUTPUT ${RUST_HHG_HARDWARE_PATH}
-    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-hardware cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --features pico
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-hardware cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --verbose --features pico 
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/hhg-hardware
     COMMENT "Building Rust library: hhg-hardware"
     VERBATIM
+    USES_TERMINAL
 )
 
 add_custom_target(hhg_hardware ALL DEPENDS ${RUST_HHG_HARDWARE_PATH})
@@ -104,10 +105,11 @@ add_custom_target(hhg_hardware ALL DEPENDS ${RUST_HHG_HARDWARE_PATH})
 # --- Compilazione automatica di hhg-app ---
 add_custom_command(
     OUTPUT ${RUST_HHG_APP_PATH}
-    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-app cargo build --target ${CARGO_TARGET} ${RUST_PROFILE}
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-app cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --verbose
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/hhg-app
     COMMENT "Building Rust library: hhg-app"
     VERBATIM
+    USES_TERMINAL
 )
 
 add_custom_target(hhg_app ALL DEPENDS ${RUST_HHG_APP_PATH})
