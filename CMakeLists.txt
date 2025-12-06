@@ -116,14 +116,14 @@ add_custom_target(hhg_app ALL DEPENDS ${RUST_HHG_APP_PATH})
 
 file(GLOB_RECURSE INCLUDES CONFIGURE_DEPENDS "inc/*.hpp" "inc/*.h")
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.c")
-file(GLOB_RECURSE CUSUTOM_INCLUDES CONFIGURE_DEPENDS "osal-rs/osal-rs-ffi-freertos/inc/*.h")
-file(GLOB_RECURSE CUSUTOM_SOURCES CONFIGURE_DEPENDS "osal-rs/osal-rs-ffi-freertos/src/*.c")
+# file(GLOB_RECURSE CUSUTOM_INCLUDES CONFIGURE_DEPENDS "osal-rs/osal-rs-build/osal-rs-ffi-freertos/inc/*.h")
+# file(GLOB_RECURSE CUSUTOM_SOURCES CONFIGURE_DEPENDS "osal-rs/osal-rs-build/osal-rs-ffi-freertos/src/*.c")
 
 add_executable(hi-happy-garden-rs 
         ${SOURCES}
         ${INCLUDES}
-        ${CUSUTOM_SOURCES}
-        ${CUSUTOM_INCLUDES}
+        # ${CUSUTOM_SOURCES}
+        # ${CUSUTOM_INCLUDES}
 )
 
 # Add dependency on Rust build
@@ -147,7 +147,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
         ${CMAKE_CURRENT_LIST_DIR}/inc/hhg-config/pico
         ${CMAKE_CURRENT_LIST_DIR}/inc/hhg-ffi/pico
-        ${CMAKE_CURRENT_LIST_DIR}/osal-rs/osal-rs-ffi-freertos/inc
+        ${CMAKE_CURRENT_LIST_DIR}/osal-rs/osal-rs-build/osal-rs-ffi-freertos/inc
 )
 
 # Add any user requested libraries

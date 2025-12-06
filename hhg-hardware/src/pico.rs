@@ -1,3 +1,7 @@
+mod hardware;
+
+pub use hardware::*;
+
 use core::ffi::c_char;
 
 // TaskHandle_t is a pointer to void in FreeRTOS
@@ -20,4 +24,6 @@ pub unsafe extern "C" fn vApplicationStackOverflowHook(_x_task: TaskHandle_t, _p
     // The underscore prefix already marks these as intentionally unused in Rust
     loop {}
 }
+
+
 
