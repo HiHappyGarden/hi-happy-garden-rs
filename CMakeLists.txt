@@ -86,11 +86,11 @@ else()
 endif()
 
 
-# Percorsi delle librerie Rust
+# Rust library paths
 set(RUST_HHG_HARDWARE_PATH ${CMAKE_SOURCE_DIR}/hhg-hardware/target/${CARGO_TARGET}/${RUST_PROFILE_DIR}/libhhg_hardware.a)
 set(RUST_HHG_APP_PATH ${CMAKE_SOURCE_DIR}/hhg-app/target/${CARGO_TARGET}/${RUST_PROFILE_DIR}/libhhg_app.a)
 
-# Traccia dipendenze per osal-rs
+# Track dependencies for osal-rs
 file(GLOB_RECURSE OSAL_RS_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/osal-rs/osal-rs/src/*.rs"
     "${CMAKE_SOURCE_DIR}/osal-rs/osal-rs-build/src/*.rs"
@@ -100,25 +100,25 @@ file(GLOB_RECURSE OSAL_RS_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/osal-rs/osal-rs/build.rs"
 )
 
-# Traccia dipendenze per hhg-hardware
+# Track dependencies for hhg-hardware
 file(GLOB_RECURSE HHG_HARDWARE_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/hhg-hardware/src/*.rs"
     "${CMAKE_SOURCE_DIR}/hhg-hardware/Cargo.toml"
 )
 
-# Traccia dipendenze per hhg-app
+# Track dependencies for hhg-app
 file(GLOB_RECURSE HHG_APP_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/hhg-app/src/*.rs"
     "${CMAKE_SOURCE_DIR}/hhg-app/Cargo.toml"
 )
 
-# Traccia dipendenze per hhg-traits
+# Track dependencies for hhg-traits
 file(GLOB_RECURSE HHG_TRAITS_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/hhg-traits/src/*.rs"
     "${CMAKE_SOURCE_DIR}/hhg-traits/Cargo.toml"
 )
 
-# --- Compilazione automatica di hhg-hardware ---
+# --- Automatic compilation of hhg-hardware ---
 add_custom_command(
     OUTPUT ${RUST_HHG_HARDWARE_PATH}
     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-hardware cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --features pico 
@@ -131,7 +131,7 @@ add_custom_command(
 
 add_custom_target(hhg_hardware ALL DEPENDS ${RUST_HHG_HARDWARE_PATH})
 
-# --- Compilazione automatica di hhg-app ---
+# --- Automatic compilation of hhg-app ---
 add_custom_command(
     OUTPUT ${RUST_HHG_APP_PATH}
     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-app cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} 
