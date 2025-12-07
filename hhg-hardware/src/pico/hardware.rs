@@ -1,5 +1,5 @@
 
-use osal_rs::{ System, SystemTrait };
+use osal_rs::os::{System, SystemFn};
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn hardware_main() {

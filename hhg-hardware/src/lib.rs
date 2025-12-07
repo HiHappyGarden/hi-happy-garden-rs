@@ -3,8 +3,8 @@
 extern crate alloc;
 extern crate osal_rs;
 
-use osal_rs::types::TickType;
-use osal_rs::config::{CPU_CLOCK_HZ, TICK_RATE_HZ};
+use osal_rs::os::types::TickType;
+use osal_rs::os::config::{CPU_CLOCK_HZ, TICK_RATE_HZ};
 
 #[cfg(feature = "pico")]
 pub mod pico;
