@@ -44,8 +44,6 @@ int main()
 
     xTaskCreate(my_task, "application_task", configMINIMAL_STACK_SIZE, NULL, MY_TASK_PRIORITY, NULL);
 
-    vTaskStartScheduler();
-
     hardware_start_os();
 
     // we should never return from FreeRTOS

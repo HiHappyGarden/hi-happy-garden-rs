@@ -1,6 +1,5 @@
 mod hardware;
 
-pub use hardware::*;
 
 use core::ffi::c_char;
 
