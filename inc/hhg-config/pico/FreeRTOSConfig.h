@@ -149,7 +149,6 @@ to exclude the API function. */
 #define INCLUDE_xTaskGetHandle                  1
 #define INCLUDE_xTaskResumeFromISR              1
 #define INCLUDE_xQueueGetMutexHolder            1
-
 #if PICO_RP2350
 #define configENABLE_MPU                        0
 #define configENABLE_TRUSTZONE                  0
@@ -157,7 +156,7 @@ to exclude the API function. */
 #define configENABLE_FPU                        1
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY    16
 #endif
-
+#define configUSE_TASK_NOTIFICATIONS            1
 /* A header file that defines trace macro can be included here. */
 
 #endif /* FREERTOS_CONFIG_H */
