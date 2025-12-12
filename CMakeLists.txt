@@ -144,8 +144,8 @@ add_custom_command(
 
 add_custom_target(hhg_app ALL DEPENDS ${RUST_HHG_APP_PATH})
 
-file(GLOB_RECURSE INCLUDES CONFIGURE_DEPENDS "inc/*.hpp" "inc/*.h")
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.c")
+file(GLOB_RECURSE INCLUDES CONFIGURE_DEPENDS "inc/*.hpp" "inc/*.h" "osal-rs/osal-rs-build/osal-rs-ffi-freertos/inc/*.h")
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.c" "osal-rs/osal-rs-build/osal-rs-ffi-freertos/src/*.c")
 # file(GLOB_RECURSE CUSUTOM_INCLUDES CONFIGURE_DEPENDS "osal-rs/osal-rs-build/osal-rs-ffi-freertos/inc/*.h")
 # file(GLOB_RECURSE CUSUTOM_SOURCES CONFIGURE_DEPENDS "osal-rs/osal-rs-build/osal-rs-ffi-freertos/src/*.c")
 
