@@ -7,8 +7,6 @@
 
 #define MY_TASK_PRIORITY  2
 
-extern uint64_t app_add(uint64_t left, uint64_t right);
-
 extern void app_main(void);
 extern void hardware_main(void);
 extern void hardware_start_os(void);
@@ -57,11 +55,10 @@ void my_task(void *data) {
 
     printf("user task started\n");
 
-    uint64_t a = 0;
+    
     for (;;) {
         // Do something interesting here
-        a = app_add(a, 1);
-        printf("Hello, world! count%lld\n", a);
+        printf("Hello, world!\n");
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
     // Do not let a task procedure return
