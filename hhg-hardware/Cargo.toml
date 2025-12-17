@@ -12,6 +12,7 @@ crate-type = ["staticlib", "rlib"]
 
 [features]
 pico = []
+examples = []
 
 [dependencies]
 hhg-traits = { path = "../hhg-traits" }
@@ -19,6 +20,10 @@ osal-rs = { path = "../osal-rs/osal-rs", features = ["freertos"] }
 
 [profile.dev]
 panic = "abort"
+debug = true
 
 [profile.release]
 panic = "abort"
+debug = true
+opt-level = "z"
+lto = true

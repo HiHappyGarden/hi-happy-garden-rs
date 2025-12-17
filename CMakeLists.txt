@@ -121,7 +121,7 @@ file(GLOB_RECURSE HHG_TRAITS_SOURCES CONFIGURE_DEPENDS
 # --- Automatic compilation of hhg-hardware ---
 add_custom_command(
     OUTPUT ${RUST_HHG_HARDWARE_PATH}
-    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-hardware cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --features pico 
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-hardware cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --features pico,examples 
     DEPENDS ${HHG_HARDWARE_SOURCES} ${OSAL_RS_SOURCES} ${HHG_TRAITS_SOURCES}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/hhg-hardware
     COMMENT "Building Rust library: hhg-hardware"
