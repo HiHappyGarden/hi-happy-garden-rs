@@ -121,7 +121,7 @@ file(GLOB_RECURSE HHG_TRAITS_SOURCES CONFIGURE_DEPENDS
 # --- Automatic compilation of hhg-hardware ---
 add_custom_command(
     OUTPUT ${RUST_HHG_HARDWARE_PATH}
-    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-hardware cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --features pico,examples 
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-hardware cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --features pico,tests 
     DEPENDS ${HHG_HARDWARE_SOURCES} ${OSAL_RS_SOURCES} ${HHG_TRAITS_SOURCES}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/hhg-hardware
     COMMENT "Building Rust library: hhg-hardware"
@@ -144,10 +144,8 @@ add_custom_command(
 
 add_custom_target(hhg_app ALL DEPENDS ${RUST_HHG_APP_PATH})
 
-file(GLOB_RECURSE INCLUDES CONFIGURE_DEPENDS "inc/*.hpp" "inc/*.h" "osal-rs/osal-rs-build/osal-rs-ffi-freertos/inc/*.h")
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.c" "osal-rs/osal-rs-build/osal-rs-ffi-freertos/src/*.c")
-# file(GLOB_RECURSE CUSUTOM_INCLUDES CONFIGURE_DEPENDS "osal-rs/osal-rs-build/osal-rs-ffi-freertos/inc/*.h")
-# file(GLOB_RECURSE CUSUTOM_SOURCES CONFIGURE_DEPENDS "osal-rs/osal-rs-build/osal-rs-ffi-freertos/src/*.c")
+file(GLOB_RECURSE INCLUDES CONFIGURE_DEPENDS "inc/*.hpp" "inc/*.h" "osal-rs/osal-rs-build/osal-rs-ffi-freertos/inc/*.h" "osal-rs/osal-rs-porting/freeretos/inc/*.h")
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.c" "osal-rs/osal-rs-build/osal-rs-ffi-freertos/src/*.c" "osal-rs/osal-rs-porting/freeretos/src/*.c")
 
 add_executable(hi-happy-garden-rs 
         ${SOURCES}
@@ -178,6 +176,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/inc/hhg-config/pico
         ${CMAKE_CURRENT_LIST_DIR}/inc/hhg-ffi/pico
         ${CMAKE_CURRENT_LIST_DIR}/osal-rs/osal-rs-build/osal-rs-ffi-freertos/inc
+        ${CMAKE_CURRENT_LIST_DIR}/osal-rs/osal-rs-porting/freeretos/inc
 )
 
 # Add any user requested libraries

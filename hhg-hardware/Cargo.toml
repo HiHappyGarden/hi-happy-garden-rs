@@ -12,11 +12,12 @@ crate-type = ["staticlib", "rlib"]
 
 [features]
 pico = []
-examples = []
+tests = []
 
 [dependencies]
 hhg-traits = { path = "../hhg-traits" }
 osal-rs = { path = "../osal-rs/osal-rs", features = ["freertos"] }
+osal-rs-tests = { path = "../osal-rs/osal-rs-tests", features = ["freertos"] }
 
 [profile.dev]
 panic = "abort"
