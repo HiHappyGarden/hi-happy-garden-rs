@@ -2,10 +2,6 @@
 #include <stdlib.h>
 #include <pico/stdlib.h>
 #include <pico/stdio.h>
-#include <FreeRTOS.h>
-#include <task.h>
-
-#define MY_TASK_PRIORITY  2
 
 extern void app_main(void);
 extern void hardware_main(void);
@@ -40,7 +36,6 @@ int main()
     //     printf("IP address %d.%d.%d.%d\n", ip_address[0], ip_address[1], ip_address[2], ip_address[3]);
     // }
 
-    xTaskCreate(my_task, "application_task", configMINIMAL_STACK_SIZE, NULL, MY_TASK_PRIORITY, NULL);
 
     hardware_start_os();
 
@@ -48,19 +43,4 @@ int main()
     panic_unsupported();
 
     return EXIT_SUCCESS;
-}
-
-void my_task(void *data) {
-    (void)data; // unused parameter
-
-    printf("user task started\n");
-
-    
-    for (;;) {
-        // Do something interesting here
-        printf("Hello, world!\n");
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-    // Do not let a task procedure return
-    vTaskDelete(NULL);
 }
