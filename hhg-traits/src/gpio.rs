@@ -1,48 +1,24 @@
 use core::ptr::null_mut;
 
-use alloc::boxed::Box;
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 use osal_rs::utils::{Error, Result, Ptr};
 
 
-
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Type<'a> {
-    pub id: i32,
-    pub name: &'a str,
+#[derive(Clone, PartialEq, Eq)]
+pub enum Type<'a> {
+    NotInitialized,
+    Input,
+    InputAnalog,
+    Output,
+    OutputPWM,
+    Pheriferal(&'a str)
 }
+
+type InterruptCallback = Arc<dyn Fn() + Send + Sync>;
 
 #[allow(unused)]
-impl<'a> Type<'a> {
-    const fn default() -> Self {
-        Self { 
-            id: 0, 
-            name: "NOT_INTIALIZED" 
-        }
-    }
-}
-
-impl<'a> Type<'a> {
-    pub fn new(id: i32, name: &'a str) -> Self {
-        Self {
-            id,
-            name,
-        }
-    }
-
-    pub fn get_id(&self) -> i32 {
-        self.id
-    }
-
-    pub fn get_name(&self) -> &'a str {
-        self.name
-    }
-}
-
-type InterruptCallback = Box<dyn Fn()>;
-
-#[allow(unused)]
+#[derive(Clone)]
 pub struct GpioConfig<'a, const NAME_SIZE: usize = 16> {
     name : [u8; NAME_SIZE],
     io_type: Type<'a>,
@@ -65,7 +41,7 @@ impl<'a, const NAME_SIZE: usize> GpioConfig<'a, NAME_SIZE> {
     pub const fn default() -> Self {
         Self { 
             name: [b' '; NAME_SIZE], 
-            io_type: Type::default(), 
+            io_type: Type::NotInitialized, 
             default_value: 0, 
             gpio_base: null_mut(),
             pin: 0, 
@@ -106,6 +82,7 @@ impl<'a, const NAME_SIZE: usize> GpioConfig<'a, NAME_SIZE> {
     }
 }
 
+#[derive(Clone)]
 pub struct GpioConfigs<'a> (Vec<GpioConfig<'a>>);
 
 impl<'a> GpioConfigs<'a> {
@@ -127,7 +104,7 @@ impl<'a> GpioConfigs<'a> {
 }
 
 pub trait GpioFn {
-    fn new(gpio_configs: GpioConfigs) -> Self
+    fn new() -> Self
     where 
         Self: Sized;
 
