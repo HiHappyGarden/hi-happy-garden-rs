@@ -20,6 +20,7 @@ Makefile
 
 # IDE
 .vscode/
+.vscode_/
 .idea/
 *.swp
 *.swo

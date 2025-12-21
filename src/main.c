@@ -2,16 +2,29 @@
 #include <stdlib.h>
 #include <pico/stdlib.h>
 #include <pico/stdio.h>
+#include <hardware/clocks.h>
 
 extern void app_main(void);
 extern void hardware_main(void);
 extern void hardware_start_os(void);
 
-static void my_task(void *data);
-
 int main()
 {
     stdio_init_all();
+
+    // // Diagnostic: Print system clock frequency before starting FreeRTOS
+    // uint32_t sys_clock_hz = clock_get_hz(clk_sys);
+    // printf("System clock frequency: %u Hz\n", sys_clock_hz);
+    
+    // if (sys_clock_hz == 0) 
+    // {
+    //     printf("ERROR: System clock not initialized!\n");
+    //     panic("System clock is 0");
+    // }
+    
+    // // Expected SysTick reload value
+    // uint32_t expected_reload = (sys_clock_hz / 1000) - 1;  // configTICK_RATE_HZ = 1000
+    // printf("Expected SysTick reload value: %u\n", expected_reload);
 
     hardware_main();
 

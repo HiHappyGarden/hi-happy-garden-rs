@@ -20,13 +20,10 @@ fn app_main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> R
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn app_main() {
 
-    log_info!(APP_TAG, "Creating pico hardware test thread...");
+    log_info!(APP_TAG, "Creating pico app test thread...");
 
     match Thread::new("app_main_thread", 4096, 3, app_main_thread).spawn(None) {
-        Ok(spawned) =>  {
-            log_info!(APP_TAG, "Thread spawned successfully!");
-            unsafe  { APP_THREAD = Some(spawned)}
-        }
+        Ok(spawned) => unsafe  { APP_THREAD = Some(spawned)},
         Err(e) => panic!("Failed to spawn app_main_thread: {:?}", e)
     };
 

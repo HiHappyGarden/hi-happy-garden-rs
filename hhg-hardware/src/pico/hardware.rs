@@ -10,14 +10,49 @@ use osal_rs::log::set_enable_color;
 use osal_rs::utils::Result;
 use osal_rs::{log_info};
 
- #[cfg(not(feature = "tests"))]
-static HARDWARE_THREAD: Option<Thread> = None;
+use crate::pico::hardware::ffi::{get_g_setup_called, print_systick_status};
+
+mod ffi {
+    unsafe extern "C" {
+        pub(super) fn print_systick_status();
+
+        pub(super) fn get_g_setup_called() -> u32;
+    }
+}
+
+
+static mut HARDWARE_THREAD: Option<Thread> = None;
 
 const APP_TAG: &str = "hardware_main";
 
 
- #[cfg(not(feature = "tests"))]
-fn hardware_main_thread(_thread: Box<dyn ThreadFn>, param: Option<ThreadParam>) -> Result<ThreadParam>{
+//  #[cfg(not(feature = "tests"))]
+fn hardware_main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Result<ThreadParam>{
+    unsafe {
+        loop {
+
+            if get_g_setup_called() == 1 {
+                break;
+            }
+        }
+
+        print_systick_status();
+    }
+    
+
+    log_info!(APP_TAG, "Initial tick count: {}", System::get_tick_count());
+    
+    // Test that ticks are incrementing over time
+    for i in 0..5 {
+        let tick_before = System::get_tick_count();
+        System::delay(100);  // Delay 100 ticks (100ms @ 1000Hz)
+        let tick_after = System::get_tick_count();
+        let elapsed = tick_after - tick_before;
+        log_info!(APP_TAG, "Iteration {}: Delayed 100 ticks, actual elapsed: {}", i, elapsed);
+    }
+    
+    log_info!(APP_TAG, "Tick count test completed successfully!");
+    
     Ok(Arc::new(()))
 }
 
@@ -33,7 +68,7 @@ pub unsafe extern "C" fn hardware_main() {
         log_info!(APP_TAG, "Creating pico hardware test thread...");
 
         match Thread::new("hardware_main_thread", 4096, 3, hardware_main_thread).spawn(None) {
-            Ok(_spawned) =>  log_info!(APP_TAG, "Thread spawned successfully!"),
+            Ok(spawned) =>  unsafe {HARDWARE_THREAD = Some(spawned)},
             Err(e) => panic!("Failed to spawn hardware_main_thread: {:?}", e)
         };
     }

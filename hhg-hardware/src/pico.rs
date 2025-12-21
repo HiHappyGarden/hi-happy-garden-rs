@@ -1,4 +1,5 @@
 mod hardware;
+pub mod gpio;
 
 use core::ffi::c_char;
 use osal_rs::os::types::ThreadHandle;

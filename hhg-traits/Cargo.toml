@@ -11,3 +11,4 @@ repository = "https://github.com/HiHappyGarden/hi-happy-garden-rs"
 crate-type = ["rlib"]  
 
 [dependencies]
+osal-rs = { path = "../osal-rs/osal-rs", features = ["freertos"] }
