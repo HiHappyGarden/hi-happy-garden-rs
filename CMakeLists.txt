@@ -44,7 +44,6 @@ project(hi-happy-garden-rs C CXX ASM)
 add_definitions(-DCYW43_LWIP=1)
 add_definitions(-DCYW43_HOST_NAME=\"${PROJECT_NAME}\")
 
-
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
@@ -75,6 +74,17 @@ set(CARGO_TARGET "thumbv8m.main-none-eabi")
 set(CARGO_BUILD_DIR "${CMAKE_BINARY_DIR}/rust")
 # set(Rust_CARGO_TARGET "thumbv8m.main-none-eabi")
 # set(Rust_CARGO_TARGET_ARCH "thumbv8m")
+
+
+option(HHG_TESTS "Enable tests" OFF)
+message(STATUS "  HHG_TESTS: ${HHG_TESTS}")
+
+if(HHG_TESTS)
+    set(HHG_TESTS_FEATURE "tests")
+    add_compile_definitions(HHG_TESTS=1)
+else()
+    set(HHG_TESTS_FEATURE "")
+endif()
 
 # Determine Rust build profile based on CMAKE_BUILD_TYPE
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -121,7 +131,7 @@ file(GLOB_RECURSE HHG_TRAITS_SOURCES CONFIGURE_DEPENDS
 # --- Automatic compilation of hhg-hardware ---
 add_custom_command(
     OUTPUT ${RUST_HHG_HARDWARE_PATH}
-    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-hardware cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --features pico,tests 
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-hardware cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --features pico,${HHG_TESTS_FEATURE} 
     DEPENDS ${HHG_HARDWARE_SOURCES} ${OSAL_RS_SOURCES} ${HHG_TRAITS_SOURCES}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/hhg-hardware
     COMMENT "Building Rust library: hhg-hardware"

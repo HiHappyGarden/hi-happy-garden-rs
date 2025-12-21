@@ -1,0 +1,20 @@
+[workspace]
+resolver = "2"
+members = [
+    "hhg-hardware",
+    "hhg-app",
+    "hhg-traits",
+    "osal-rs/osal-rs",
+    "osal-rs/osal-rs-build",
+    "osal-rs/osal-rs-tests",
+]
+
+[profile.dev]
+panic = "abort"
+debug = true
+
+[profile.release]
+panic = "abort"
+debug = true
+opt-level = "z"
+lto = true
