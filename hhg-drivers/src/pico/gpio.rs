@@ -1,13 +1,38 @@
 use core::ptr::null_mut;
 
-use alloc::vec::{self, Vec};
-use hhg_traits::gpio::{GpioConfig, GpioConfigs, GpioFn, Type};
+use alloc::string::{String, ToString};
+use hhg_traits::gpio::{GpioConfig, GpioConfigs, Gpio as GpioFn, Type};
 
 const NAME_SIZE : usize = 16usize;
 
+pub enum GpioType {
+    EncoderA,
+    EncoderB,
+    EncoderBtn,
+    Btn,
+    LedRed,
+    LedGreen,
+    LedBlue
+}
+ 
+impl ToString for GpioType {
+    fn to_string(&self) -> String {
+        use GpioType::*;
+        match self {
+            EncoderA => "EncoderA".to_string(),
+            EncoderB => "EncoderB".to_string(),
+            EncoderBtn => "EncoderBtn".to_string(),
+            Btn => "Btn".to_string(),
+            LedRed => "LedRed".to_string(),
+            LedGreen => "LedGreen".to_string(),
+            LedBlue => "LedBlue".to_string(),
+        }
+    }
+}
+
 
 pub struct Gpio {
-    gpio_configs: GpioConfigs<'static>
+    gpio_configs: GpioConfigs<'static, 10>
 }
 
 
@@ -17,10 +42,11 @@ impl GpioFn for Gpio {
 
         let mut gpio_configs = GpioConfigs::new();
         
-        if let Ok(a) = GpioConfig::<NAME_SIZE>::new("ENCODER_A", Type::Input,0, null_mut(), 1, None, None, None) {
-            gpio_configs.push(a);
-        }
+        
+        gpio_configs.push(GpioConfig::<NAME_SIZE>::new(&GpioType::EncoderA, Type::Input,0, null_mut(), 1, None, None, None));
+        
 
+        gpio_configs[&GpioType::EncoderA].clone();
         
 
         Self { 

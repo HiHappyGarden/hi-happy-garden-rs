@@ -1,7 +1,11 @@
+
+use core::ops::{Index, IndexMut};
 use core::ptr::null_mut;
 
+use alloc::string::ToString;
 use alloc::sync::Arc;
-use alloc::vec::Vec;
+
+use osal_rs::from_str_to_array;
 use osal_rs::utils::{Error, Result, Ptr};
 
 
@@ -52,7 +56,7 @@ impl<'a, const NAME_SIZE: usize> GpioConfig<'a, NAME_SIZE> {
     }
 
     pub fn new(
-        name : &str,
+        name : &dyn ToString,
         io_type: Type<'a>,
         default_value: u8,
         gpio_base: Ptr,
@@ -60,15 +64,21 @@ impl<'a, const NAME_SIZE: usize> GpioConfig<'a, NAME_SIZE> {
         adc_channel: Option<u32>,
         adc_rank: Option<u32>,
         interrupt_callback: Option<InterruptCallback>
-    ) -> Result<Self> {
-        if name.len() > NAME_SIZE {
-            Err(Error::Unhandled("name too big"))
-        } else {
-            let mut name_array = [b' '; NAME_SIZE];
-            let bytes = name.as_bytes();
-            name_array[..bytes.len()].copy_from_slice(bytes);
-            
-            Ok(Self {
+    ) -> Self {
+        
+            // let mut name_array = [b' '; NAME_SIZE];
+            // let bytes = name.as_bytes();
+            // if name.len() > NAME_SIZE {
+            //     name_array[..bytes.len()].copy_from_slice(bytes[..NAME_SIZE]);
+            // } else {
+            //     name_array[..bytes.len()].copy_from_slice(bytes);
+            // }
+
+
+            let name = name.to_string();
+
+            from_str_to_array!(&name, name_array, NAME_SIZE);
+            Self {
                 name: name_array,
                 io_type,
                 default_value,
@@ -77,33 +87,85 @@ impl<'a, const NAME_SIZE: usize> GpioConfig<'a, NAME_SIZE> {
                 adc_channel,
                 adc_rank,
                 interrupt_callback
-            })
-        }
+            }
+        
     }
 }
 
 #[derive(Clone)]
-pub struct GpioConfigs<'a> (Vec<GpioConfig<'a>>);
+pub struct GpioConfigs<'a, const SIZE: usize> {
+    array: [Option<GpioConfig<'a>>; SIZE],
+    len: usize,
+    no_found: Option<GpioConfig<'a>>
+}
 
-impl<'a> GpioConfigs<'a> {
 
-    pub fn new() -> Self {
-        Self(Vec::new())
-    }
+impl<'a, const SIZE: usize> Index<&dyn ToString> for GpioConfigs<'a, SIZE> {
+    type Output = Option<GpioConfig<'a>>;
 
-    pub fn get(&self, name: &str) -> Result<&GpioConfig<'a>> {
-        match self.0.iter().find(|it| it.name == name.as_bytes() ) {
-            Some(gpio_config) => Ok(gpio_config),
-            None => Err(Error::NotFound),
-        }
-    }
-
-    pub fn push(&mut self, value: GpioConfig<'a>) {
-        self.0.push(value);
+    fn index(&self, name: &dyn ToString) -> &Self::Output {
+        let name_bytes = name.to_string();
+        let name_bytes = name_bytes.as_bytes();
+        
+        self.array.iter()
+            .find(|it| {
+                if let Some(config) = it {
+                    config.name == name_bytes
+                } else {
+                    false
+                }
+            })
+            .unwrap_or(&None)
     }
 }
 
-pub trait GpioFn {
+// impl<'a, const SIZE: usize> IndexMut<&dyn ToString> for GpioConfigs<'a, SIZE> {
+    
+//     fn index_mut(&mut self, name: &dyn ToString) -> &mut Self::Output {
+//         let name_bytes = name.to_string();
+//         let name_bytes = name_bytes.as_bytes();
+
+//         for (i, it) in self.array.iter().enumerate() {
+//             if let Some(config) = it {
+//                 if config.name == name_bytes {
+//                     return &mut self.array[i];
+//                 }
+//             }
+//         }
+
+//         &mut self.no_found
+//     }
+// }
+
+impl<'a, const SIZE: usize> GpioConfigs<'a, SIZE> {
+
+    pub fn new() -> Self {
+        Self{
+            array: [const {None}; SIZE],
+            len: 0,
+            no_found: const {None}
+        }
+    }
+
+    pub fn push(&mut self, config: GpioConfig<'a>) -> bool {
+        let name_bytes = config.to_string();
+        let name_bytes = name_bytes.as_bytes();
+
+        for (i, it) in self.array.iter().enumerate() {
+            if let Some(config) = it {
+                if config.name == name_bytes {
+                     &mut self.array[i];
+                     return true
+                }
+            }
+        }
+
+        false
+    }
+
+}
+
+pub trait Gpio {
     fn new() -> Self
     where 
         Self: Sized;
