@@ -14,13 +14,12 @@ const APP_TAG: &str = "app_main";
 
 
 fn app_main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Result<ThreadParam>{
+    log_info!(APP_TAG, "Start app main");
     Ok(Arc::new(()))
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn app_main() {
-
-    log_info!(APP_TAG, "Creating pico app test thread...");
 
     match Thread::new("app_main_thread", 4096, 3, app_main_thread).spawn(None) {
         Ok(spawned) => unsafe  { APP_THREAD = Some(spawned)},

@@ -1,8 +1,12 @@
+#include "hhg-config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <pico/stdlib.h>
 #include <pico/stdio.h>
 #include <hardware/clocks.h>
+
+
 
 extern void app_main(void);
 extern void hardware_main(void);
@@ -25,6 +29,10 @@ int main()
     // // Expected SysTick reload value
     // uint32_t expected_reload = (sys_clock_hz / 1000) - 1;  // configTICK_RATE_HZ = 1000
     // printf("Expected SysTick reload value: %u\n", expected_reload);
+
+    printf("===================================\r\n");
+    printf("=== Hi Happy Garden RS %s ======\r\n", HHG_VER);
+    printf("===================================\r\n\r\n");
 
     hardware_main();
 

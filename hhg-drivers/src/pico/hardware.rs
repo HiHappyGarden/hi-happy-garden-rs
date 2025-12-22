@@ -30,7 +30,6 @@ const APP_TAG: &str = "hardware_main";
 fn hardware_main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Result<ThreadParam>{
     unsafe {
         loop {
-
             if get_g_setup_called() == 1 {
                 break;
             }
@@ -39,9 +38,10 @@ fn hardware_main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>)
         print_systick_status();
     }
     
-
     log_info!(APP_TAG, "Initial tick count: {}", System::get_tick_count());
     
+    log_info!(APP_TAG, "Start hardware main");
+
     // Test that ticks are incrementing over time
     for i in 0..5 {
         let tick_before = System::get_tick_count();
@@ -65,8 +65,6 @@ pub unsafe extern "C" fn hardware_main() {
 
     #[cfg(not(feature = "tests"))]
     {
-        log_info!(APP_TAG, "Creating pico hardware test thread...");
-
         match Thread::new("hardware_main_thread", 4096, 3, hardware_main_thread).spawn(None) {
             Ok(spawned) =>  unsafe {HARDWARE_THREAD = Some(spawned)},
             Err(e) => panic!("Failed to spawn hardware_main_thread: {:?}", e)

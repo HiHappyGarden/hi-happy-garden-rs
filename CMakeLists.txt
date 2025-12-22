@@ -39,7 +39,7 @@ set(FREERTOS_CONFIG_FILE_DIRECTORY ${CMAKE_SOURCE_DIR}/inc/hhg-config)
 # Include the RP2350_ARM_NTZ port BEFORE pico_sdk_init()
 add_subdirectory(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/Community-Supported-Ports/GCC/RP2350_ARM_NTZ FreeRTOS-Kernel)
 
-project(hi-happy-garden-rs C CXX ASM)
+project(hi-happy-garden-rs VERSION "0.1.0" LANGUAGES CXX C ASM)
 
 add_definitions(-DCYW43_LWIP=1)
 add_definitions(-DCYW43_HOST_NAME=\"${PROJECT_NAME}\")
@@ -75,9 +75,10 @@ set(CARGO_BUILD_DIR "${CMAKE_BINARY_DIR}/rust")
 # set(Rust_CARGO_TARGET "thumbv8m.main-none-eabi")
 # set(Rust_CARGO_TARGET_ARCH "thumbv8m")
 
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/hhg-config.h.in ${CMAKE_CURRENT_SOURCE_DIR}/inc/hhg-config/pico/hhg-config.h)
 
 option(HHG_TESTS "Enable tests" OFF)
-message(STATUS "  HHG_TESTS: ${HHG_TESTS}")
+message(STATUS "HHG_TESTS: ${HHG_TESTS}")
 
 if(HHG_TESTS)
     set(HHG_TESTS_FEATURE "tests")
@@ -174,7 +175,7 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 pico_set_program_name(${PROJECT_NAME} "hi-happy-garden-rs")
-pico_set_program_version(${PROJECT_NAME} "0.1.0")
+pico_set_program_version(${PROJECT_NAME} ${PROJECT_VERSION})
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(${PROJECT_NAME} 1)
