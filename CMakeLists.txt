@@ -97,7 +97,7 @@ endif()
 
 
 # Rust library paths
-set(RUST_HHG_HARDWARE_PATH ${CMAKE_SOURCE_DIR}/hhg-hardware/target/${CARGO_TARGET}/${RUST_PROFILE_DIR}/libhhg_hardware.a)
+set(RUST_HHG_DRIVERS_PATH ${CMAKE_SOURCE_DIR}/hhg-drivers/target/${CARGO_TARGET}/${RUST_PROFILE_DIR}/libhhg_drivers.a)
 set(RUST_HHG_APP_PATH ${CMAKE_SOURCE_DIR}/hhg-app/target/${CARGO_TARGET}/${RUST_PROFILE_DIR}/libhhg_app.a)
 
 # Track dependencies for osal-rs
@@ -110,10 +110,10 @@ file(GLOB_RECURSE OSAL_RS_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/osal-rs/osal-rs/build.rs"
 )
 
-# Track dependencies for hhg-hardware
-file(GLOB_RECURSE HHG_HARDWARE_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_SOURCE_DIR}/hhg-hardware/src/*.rs"
-    "${CMAKE_SOURCE_DIR}/hhg-hardware/Cargo.toml"
+# Track dependencies for hhg-drivers
+file(GLOB_RECURSE HHG_DRIVERS_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/hhg-drivers/src/*.rs"
+    "${CMAKE_SOURCE_DIR}/hhg-drivers/Cargo.toml"
 )
 
 # Track dependencies for hhg-app
@@ -128,24 +128,24 @@ file(GLOB_RECURSE HHG_TRAITS_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/hhg-traits/Cargo.toml"
 )
 
-# --- Automatic compilation of hhg-hardware ---
+# --- Automatic compilation of hhg-drivers ---
 add_custom_command(
-    OUTPUT ${RUST_HHG_HARDWARE_PATH}
-    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-hardware cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --features pico,${HHG_TESTS_FEATURE} 
-    DEPENDS ${HHG_HARDWARE_SOURCES} ${OSAL_RS_SOURCES} ${HHG_TRAITS_SOURCES}
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/hhg-hardware
-    COMMENT "Building Rust library: hhg-hardware"
+    OUTPUT ${RUST_HHG_DRIVERS_PATH}
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-drivers cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --features pico,${HHG_TESTS_FEATURE} 
+    DEPENDS ${HHG_DRIVERS_SOURCES} ${OSAL_RS_SOURCES} ${HHG_TRAITS_SOURCES}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/hhg-drivers
+    COMMENT "Building Rust library: hhg-drivers"
     VERBATIM
     USES_TERMINAL
 )
 
-add_custom_target(hhg_hardware ALL DEPENDS ${RUST_HHG_HARDWARE_PATH})
+add_custom_target(hhg_drivers ALL DEPENDS ${RUST_HHG_DRIVERS_PATH})
 
 # --- Automatic compilation of hhg-app ---
 add_custom_command(
     OUTPUT ${RUST_HHG_APP_PATH}
     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-app cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} 
-    DEPENDS ${HHG_APP_SOURCES} ${HHG_HARDWARE_SOURCES} ${OSAL_RS_SOURCES} ${HHG_TRAITS_SOURCES}
+    DEPENDS ${HHG_APP_SOURCES} ${HHG_DRIVERS_SOURCES} ${OSAL_RS_SOURCES} ${HHG_TRAITS_SOURCES}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/hhg-app
     COMMENT "Building Rust library: hhg-app"
     VERBATIM
@@ -165,11 +165,11 @@ add_executable(hi-happy-garden-rs
 )
 
 # Add dependency on Rust build
-add_dependencies(${PROJECT_NAME} hhg_hardware hhg_app)
+add_dependencies(${PROJECT_NAME} hhg_drivers hhg_app)
 
 # Link Rust static library
 target_link_libraries(${PROJECT_NAME}
-    ${RUST_HHG_HARDWARE_PATH} 
+    ${RUST_HHG_DRIVERS_PATH} 
     ${RUST_HHG_APP_PATH}
 )
 

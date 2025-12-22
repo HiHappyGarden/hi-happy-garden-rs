@@ -12,7 +12,7 @@ crate-type = ["staticlib", "rlib"]
 
 [dependencies]
 hhg-traits = { path = "../hhg-traits" }
-hhg-hardware = { path = "../hhg-hardware" }
+hhg-drivers = { path = "../hhg-drivers" }
 osal-rs = { path = "../osal-rs/osal-rs", features = ["freertos"] }
 cjson-bindings = { version = "0.5.0" }
 

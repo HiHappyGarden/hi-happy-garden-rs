@@ -4,7 +4,7 @@ dirs=(
     "build"
     "hhg-app/target"
     "hhg-traits/target"
-    "hhg-hardware/target"
+    "hhg-drivers/target"
     "osal-rs/osal-rs-build/target"
     "osal-rs/osal-rs-tests/target"
 )
