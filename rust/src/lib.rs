@@ -1,0 +1,108 @@
+#![no_std]
+
+extern crate alloc;
+extern crate osal_rs;
+
+mod app;
+mod drivers;
+mod traits;
+
+
+
+use alloc::boxed::Box;
+
+use osal_rs::os::types::TickType;
+use osal_rs::os::{System, SystemFn, Thread, ThreadFn, ThreadParam};
+use osal_rs::log::set_enable_color;
+use osal_rs::utils::Result;
+use osal_rs::{log_info};
+
+use crate::ffi::{get_g_setup_called, print_systick_status};
+
+mod ffi {
+    unsafe extern "C" {
+        pub(super) fn print_systick_status();
+
+        pub(super) fn get_g_setup_called() -> u32;
+    }
+}
+
+const APP_TAG: &str = "rust";
+
+
+//  #[cfg(not(feature = "tests"))]
+fn main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Result<ThreadParam>{
+    unsafe {
+        loop {
+            if get_g_setup_called() == 1 {
+                break;
+            }
+        }
+
+        print_systick_status();
+    }
+    
+    log_info!(APP_TAG, "Initial tick count: {}", System::get_tick_count());
+    
+    
+    loop {
+        System::delay(TickType::MAX);
+    }
+}
+
+
+
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn start() {
+    set_enable_color(false);
+
+    #[cfg(not(feature = "tests"))]
+    {
+        match Thread::new("hardware_main_thread", 4096, 3, main_thread).spawn(None) {
+            Ok(_) =>  log_info!(APP_TAG, "Start main thread\r\n"),
+            Err(e) => panic!("Failed to spawn hardware_main_thread: {:?}", e)
+        };
+    }
+
+    #[cfg(feature = "tests")]
+    {
+        perform_tests();
+    }
+}
+
+
+
+
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn start_os() {
+    System::start();
+}
+
+
+
+// #[cfg(feature = "tests")]
+// fn perform_tests() {
+
+
+//     log_info!(APP_TAG, "Creating osal rs test thread...");
+
+//     match Thread::new("osal_rs_test", 4096, 3, Box::new(|_, _| {
+//         use osal_rs::utils::Error;
+
+
+//         match osal_rs_tests::freertos::run_all_tests() {
+//             Ok(_) => log_info!(APP_TAG, "All tests passed!"),
+//             Err(e) => panic!("Tests failed with error: {:?}", e)
+//         };
+
+//         Err(Error::Unhandled(""))
+//     })).spawn(None) {
+//         Ok(_spawned) =>  log_info!(APP_TAG, "Thread spawned successfully!"),
+//         Err(e) => panic!("Failed to spawn osal rs test thread: {:?}", e)
+//     };
+// }
+
+
+

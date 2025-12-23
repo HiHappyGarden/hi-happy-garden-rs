@@ -1,4 +1,4 @@
-use hhg_traits::initializable::Initializable;
+use crate::traits::initializable::Initializable;
 
 
 pub struct Hardware {

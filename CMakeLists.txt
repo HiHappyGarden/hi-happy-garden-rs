@@ -72,8 +72,6 @@ set(CMAKE_WARN_DEPRECATED ON CACHE BOOL "" FORCE)
 # Configure Rust build
 set(CARGO_TARGET "thumbv8m.main-none-eabi")
 set(CARGO_BUILD_DIR "${CMAKE_BINARY_DIR}/rust")
-# set(Rust_CARGO_TARGET "thumbv8m.main-none-eabi")
-# set(Rust_CARGO_TARGET_ARCH "thumbv8m")
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/hhg-config.h.in ${CMAKE_CURRENT_SOURCE_DIR}/inc/hhg-config/pico/hhg-config.h)
 
@@ -98,8 +96,7 @@ endif()
 
 
 # Rust library paths
-set(RUST_HHG_DRIVERS_PATH ${CMAKE_SOURCE_DIR}/hhg-drivers/target/${CARGO_TARGET}/${RUST_PROFILE_DIR}/libhhg_drivers.a)
-# set(RUST_HHG_APP_PATH ${CMAKE_SOURCE_DIR}/hhg-app/target/${CARGO_TARGET}/${RUST_PROFILE_DIR}/libhhg_app.a)
+set(RUST_PATH ${CMAKE_SOURCE_DIR}/rust/target/${CARGO_TARGET}/${RUST_PROFILE_DIR}/librust.a)
 
 # Track dependencies for osal-rs
 file(GLOB_RECURSE OSAL_RS_SOURCES CONFIGURE_DEPENDS
@@ -112,48 +109,24 @@ file(GLOB_RECURSE OSAL_RS_SOURCES CONFIGURE_DEPENDS
 )
 
 # Track dependencies for hhg-drivers
-file(GLOB_RECURSE HHG_DRIVERS_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_SOURCE_DIR}/hhg-drivers/src/*.rs"
-    "${CMAKE_SOURCE_DIR}/hhg-drivers/Cargo.toml"
+file(GLOB_RECURSE RUST_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/rust/src/*.rs"
+    "${CMAKE_SOURCE_DIR}/rust/Cargo.toml"
 )
 
-# Track dependencies for hhg-app
-# file(GLOB_RECURSE HHG_APP_SOURCES CONFIGURE_DEPENDS
-#     "${CMAKE_SOURCE_DIR}/hhg-app/src/*.rs"
-#     "${CMAKE_SOURCE_DIR}/hhg-app/Cargo.toml"
-# )
-
-# Track dependencies for hhg-traits
-file(GLOB_RECURSE HHG_TRAITS_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_SOURCE_DIR}/hhg-traits/src/*.rs"
-    "${CMAKE_SOURCE_DIR}/hhg-traits/Cargo.toml"
-)
-
-# --- Automatic compilation of hhg-drivers ---
+# --- Automatic compilation of rust ---
 add_custom_command(
-    OUTPUT ${RUST_HHG_DRIVERS_PATH}
-    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-drivers cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --features pico,${HHG_TESTS_FEATURE} 
-    DEPENDS ${HHG_DRIVERS_SOURCES} ${OSAL_RS_SOURCES} ${HHG_TRAITS_SOURCES}
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/hhg-drivers
-    COMMENT "Building Rust library: hhg-drivers"
+    OUTPUT ${RUST_PATH}
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/rust cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --features pico,${HHG_TESTS_FEATURE} 
+    DEPENDS ${RUST_SOURCES} ${OSAL_RS_SOURCES} ${HHG_TRAITS_SOURCES}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/rust
+    COMMENT "Building Rust library: rust"
     VERBATIM
     USES_TERMINAL
 )
 
-add_custom_target(hhg_drivers ALL DEPENDS ${RUST_HHG_DRIVERS_PATH})
+add_custom_target(rust ALL DEPENDS ${RUST_PATH})
 
-# --- Automatic compilation of hhg-app ---
-# add_custom_command(
-#     OUTPUT ${RUST_HHG_APP_PATH}
-#     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-app cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} 
-#     DEPENDS ${HHG_APP_SOURCES} ${HHG_DRIVERS_SOURCES} ${OSAL_RS_SOURCES} ${HHG_TRAITS_SOURCES}
-#     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/hhg-app
-#     COMMENT "Building Rust library: hhg-app"
-#     VERBATIM
-#     USES_TERMINAL
-# )
-
-# add_custom_target(hhg_app ALL DEPENDS ${RUST_HHG_APP_PATH})
 
 file(GLOB_RECURSE INCLUDES CONFIGURE_DEPENDS "inc/*.hpp" "inc/*.h" "osal-rs/osal-rs-build/osal-rs-ffi-freertos/inc/*.h" "osal-rs/osal-rs-porting/freeretos/inc/*.h")
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.c" "osal-rs/osal-rs-build/osal-rs-ffi-freertos/src/*.c" "osal-rs/osal-rs-porting/freeretos/src/*.c")
@@ -161,18 +134,14 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.c" "osal-rs/osal-
 add_executable(hi-happy-garden-rs 
         ${SOURCES}
         ${INCLUDES}
-        # ${CUSUTOM_SOURCES}
-        # ${CUSUTOM_INCLUDES}
 )
 
 # Add dependency on Rust build
-# add_dependencies(${PROJECT_NAME} hhg_drivers hhg_app)
-add_dependencies(${PROJECT_NAME} hhg_drivers)
+add_dependencies(${PROJECT_NAME} rust)
 
 # Link Rust static library
 target_link_libraries(${PROJECT_NAME}
-    ${RUST_HHG_DRIVERS_PATH} 
-    # ${RUST_HHG_APP_PATH}
+    ${RUST_PATH} 
 )
 
 pico_set_program_name(${PROJECT_NAME} "hi-happy-garden-rs")

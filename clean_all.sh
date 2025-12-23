@@ -2,11 +2,7 @@
 
 dirs=(
     "build"
-    "hhg-app/target"
-    "hhg-traits/target"
-    "hhg-drivers/target"
-    "osal-rs/osal-rs-build/target"
-    "osal-rs/osal-rs-tests/target"
+    "hhg-rust/target"
 )
 
 for dir in "${dirs[@]}"; do

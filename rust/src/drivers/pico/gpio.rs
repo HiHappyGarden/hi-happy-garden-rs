@@ -1,7 +1,7 @@
 use core::ptr::null_mut;
 
 use alloc::string::{String, ToString};
-use hhg_traits::gpio::{GpioConfig, GpioConfigs, Gpio as GpioFn, Type};
+use crate::traits::gpio::{GpioConfig, GpioConfigs, Gpio as GpioFn, Type};
 
 const NAME_SIZE : usize = 16usize;
 
