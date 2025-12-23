@@ -1,4 +1,4 @@
-mod hardware;
+pub mod hardware;
 pub mod gpio;
 
 use core::ffi::c_char;

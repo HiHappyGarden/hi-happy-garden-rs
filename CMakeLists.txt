@@ -99,7 +99,7 @@ endif()
 
 # Rust library paths
 set(RUST_HHG_DRIVERS_PATH ${CMAKE_SOURCE_DIR}/hhg-drivers/target/${CARGO_TARGET}/${RUST_PROFILE_DIR}/libhhg_drivers.a)
-set(RUST_HHG_APP_PATH ${CMAKE_SOURCE_DIR}/hhg-app/target/${CARGO_TARGET}/${RUST_PROFILE_DIR}/libhhg_app.a)
+# set(RUST_HHG_APP_PATH ${CMAKE_SOURCE_DIR}/hhg-app/target/${CARGO_TARGET}/${RUST_PROFILE_DIR}/libhhg_app.a)
 
 # Track dependencies for osal-rs
 file(GLOB_RECURSE OSAL_RS_SOURCES CONFIGURE_DEPENDS
@@ -118,10 +118,10 @@ file(GLOB_RECURSE HHG_DRIVERS_SOURCES CONFIGURE_DEPENDS
 )
 
 # Track dependencies for hhg-app
-file(GLOB_RECURSE HHG_APP_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_SOURCE_DIR}/hhg-app/src/*.rs"
-    "${CMAKE_SOURCE_DIR}/hhg-app/Cargo.toml"
-)
+# file(GLOB_RECURSE HHG_APP_SOURCES CONFIGURE_DEPENDS
+#     "${CMAKE_SOURCE_DIR}/hhg-app/src/*.rs"
+#     "${CMAKE_SOURCE_DIR}/hhg-app/Cargo.toml"
+# )
 
 # Track dependencies for hhg-traits
 file(GLOB_RECURSE HHG_TRAITS_SOURCES CONFIGURE_DEPENDS
@@ -143,17 +143,17 @@ add_custom_command(
 add_custom_target(hhg_drivers ALL DEPENDS ${RUST_HHG_DRIVERS_PATH})
 
 # --- Automatic compilation of hhg-app ---
-add_custom_command(
-    OUTPUT ${RUST_HHG_APP_PATH}
-    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-app cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} 
-    DEPENDS ${HHG_APP_SOURCES} ${HHG_DRIVERS_SOURCES} ${OSAL_RS_SOURCES} ${HHG_TRAITS_SOURCES}
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/hhg-app
-    COMMENT "Building Rust library: hhg-app"
-    VERBATIM
-    USES_TERMINAL
-)
+# add_custom_command(
+#     OUTPUT ${RUST_HHG_APP_PATH}
+#     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/hhg-app cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} 
+#     DEPENDS ${HHG_APP_SOURCES} ${HHG_DRIVERS_SOURCES} ${OSAL_RS_SOURCES} ${HHG_TRAITS_SOURCES}
+#     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/hhg-app
+#     COMMENT "Building Rust library: hhg-app"
+#     VERBATIM
+#     USES_TERMINAL
+# )
 
-add_custom_target(hhg_app ALL DEPENDS ${RUST_HHG_APP_PATH})
+# add_custom_target(hhg_app ALL DEPENDS ${RUST_HHG_APP_PATH})
 
 file(GLOB_RECURSE INCLUDES CONFIGURE_DEPENDS "inc/*.hpp" "inc/*.h" "osal-rs/osal-rs-build/osal-rs-ffi-freertos/inc/*.h" "osal-rs/osal-rs-porting/freeretos/inc/*.h")
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.c" "osal-rs/osal-rs-build/osal-rs-ffi-freertos/src/*.c" "osal-rs/osal-rs-porting/freeretos/src/*.c")
@@ -166,12 +166,13 @@ add_executable(hi-happy-garden-rs
 )
 
 # Add dependency on Rust build
-add_dependencies(${PROJECT_NAME} hhg_drivers hhg_app)
+# add_dependencies(${PROJECT_NAME} hhg_drivers hhg_app)
+add_dependencies(${PROJECT_NAME} hhg_drivers)
 
 # Link Rust static library
 target_link_libraries(${PROJECT_NAME}
     ${RUST_HHG_DRIVERS_PATH} 
-    ${RUST_HHG_APP_PATH}
+    # ${RUST_HHG_APP_PATH}
 )
 
 pico_set_program_name(${PROJECT_NAME} "hi-happy-garden-rs")

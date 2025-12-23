@@ -1,12 +1,12 @@
 
-use core::ops::{Index, IndexMut};
+use core::ops::{Index};
 use core::ptr::null_mut;
 
 use alloc::string::ToString;
 use alloc::sync::Arc;
 
 use osal_rs::from_str_to_array;
-use osal_rs::utils::{Error, Result, Ptr};
+use osal_rs::utils::{Ptr};
 
 
 #[derive(Clone, PartialEq, Eq)]
@@ -95,7 +95,7 @@ impl<'a, const NAME_SIZE: usize> GpioConfig<'a, NAME_SIZE> {
 #[derive(Clone)]
 pub struct GpioConfigs<'a, const SIZE: usize> {
     array: [Option<GpioConfig<'a>>; SIZE],
-    len: usize,
+    index: usize,
     no_found: Option<GpioConfig<'a>>
 }
 
@@ -142,19 +142,22 @@ impl<'a, const SIZE: usize> GpioConfigs<'a, SIZE> {
     pub fn new() -> Self {
         Self{
             array: [const {None}; SIZE],
-            len: 0,
+            index: 0,
             no_found: const {None}
         }
     }
 
     pub fn push(&mut self, config: GpioConfig<'a>) -> bool {
-        let name_bytes = config.to_string();
-        let name_bytes = name_bytes.as_bytes();
+
+        if self.index >= SIZE {
+            return false
+        }
 
         for (i, it) in self.array.iter().enumerate() {
-            if let Some(config) = it {
-                if config.name == name_bytes {
-                     &mut self.array[i];
+            if let Some(c) = it {
+                if c.name == config.name {
+                     self.array[i] = Some(config.clone());
+                     self.index += 1;
                      return true
                 }
             }

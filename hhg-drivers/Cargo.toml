@@ -11,13 +11,16 @@ repository = "https://github.com/HiHappyGarden/hi-happy-garden-rs"
 crate-type = ["staticlib", "rlib"]
 
 [features]
+default = ["pico"]
 pico = []
 tests = []
 
 [dependencies]
 hhg-traits = { path = "../hhg-traits" }
+hhg-app = { path = "../hhg-app" }
 osal-rs = { path = "../osal-rs/osal-rs", features = ["freertos"] }
 osal-rs-tests = { path = "../osal-rs/osal-rs-tests", features = ["freertos"] }
+once_cell = { version = "1.21", default-features = false, features = ["alloc"] }
 
 [profile.dev]
 panic = "abort"

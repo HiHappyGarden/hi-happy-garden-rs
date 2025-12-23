@@ -8,9 +8,8 @@
 
 
 
-extern void app_main(void);
-extern void hardware_main(void);
-extern void hardware_start_os(void);
+extern void start(void);
+extern void start_os(void);
 
 int main()
 {
@@ -34,9 +33,7 @@ int main()
     printf("=== Hi Happy Garden RS %s ======\r\n", HHG_VER);
     printf("===================================\r\n\r\n");
 
-    hardware_main();
-
-    app_main();
+    start();
 
     // // Initialise the Wi-Fi chip
     // if (cyw43_arch_init()) {
@@ -58,7 +55,7 @@ int main()
     // }
 
 
-    hardware_start_os();
+    start_os();
 
     // we should never return from FreeRTOS
     panic_unsupported();
