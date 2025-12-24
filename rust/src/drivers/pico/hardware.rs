@@ -1,7 +1,7 @@
 use osal_rs::log_info;
 use osal_rs::utils::Result;
 
-use crate::traits::initializable::Initializable;
+use crate::traits::state::Initializable;
 use crate::traits::gpio::{Gpio as CpioFn};
 use super::gpio::*;
 
@@ -19,9 +19,7 @@ impl Initializable for Hardware {
         self.gpio.init()?;
 
         Ok(())
-    }
-
-   
+    } 
 }
 
 impl Hardware {

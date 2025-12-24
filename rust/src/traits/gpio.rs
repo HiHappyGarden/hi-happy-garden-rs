@@ -1,107 +1,117 @@
+#![allow(dead_code)]
 
-use core::ops::{Index};
-use core::ptr::null_mut;
+use core::any::Any; 
+use core::ops::Index;
+use core::usize;
 
+use alloc::{string::String, sync::Arc};
 use alloc::string::ToString;
-use alloc::sync::Arc;
 
-use osal_rs::from_str_to_array;
-use osal_rs::utils::Ptr;
+use osal_rs::utils::{Bytes, Error, OsalRsBool, Ptr, Result};
 
+pub type InterruptCallback = Arc<dyn Fn() + Send + Sync>;
+pub type PeripheralData = Arc<dyn Any + Send + Sync>;
 
-#[derive(Clone, PartialEq, Eq)]
-pub enum Type<'a> {
-    NotInitialized,
-    Input,
-    InputAnalog,
-    Output,
-    OutputPWM,
-    Pheriferal(&'a str)
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum InterruptType
+{
+	RisingEdge,
+	FallingEdge,
+	BothEdge,
+	HigthLevel,
+	LowLevel,
 }
 
-type InterruptCallback = Arc<dyn Fn() + Send + Sync>;
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum InputType
+{
+	NoPull,
+	PullUp,
+	PullDown
+}
 
-#[allow(unused)]
+#[derive(Clone, Debug)]
+pub enum Type {
+    NotInitialized,
+    Input(Option<Ptr>, u32, InputType), //base, pin
+    InputAnalog(Option<Ptr>, u32, u32, u32), //base, pin, channel, ranck
+    Output(Option<Ptr>, u32), 
+    OutputPWM(Option<Ptr>, u32),
+    Pheriferal(Option<Ptr>, u32, PeripheralData)
+}
+
+
+
+
 #[derive(Clone)]
-pub struct GpioConfig<'a, const NAME_SIZE: usize = 16> {
-    name : [u8; NAME_SIZE],
-    io_type: Type<'a>,
-    default_value: u8,
-    gpio_base: Ptr,
-    pin: u32,
-    adc_channel: Option<u32>,
-    adc_rank: Option<u32>,
-    interrupt_callback: Option<InterruptCallback>
+pub struct GpioConfig<const NAME_SIZE: usize = 16> {
+    name : Bytes<NAME_SIZE>,
+    io_type: Type,
+    pub default_value: u32,
+    pub interrupt_type: InterruptType,
+    pub interrupt_enable: bool,
+    pub interrupt_callback: Option<InterruptCallback>,
 } 
 
-impl<'a, const NAME_SIZE: usize> PartialEq for GpioConfig<'a, NAME_SIZE> {
+
+impl<const NAME_SIZE: usize> PartialEq for GpioConfig<NAME_SIZE> {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
     }
 }
 
-#[allow(unused)]
-impl<'a, const NAME_SIZE: usize> GpioConfig<'a, NAME_SIZE> {
-    pub const fn default() -> Self {
+impl<const NAME_SIZE: usize> ToString for GpioConfig<NAME_SIZE> {
+    fn to_string(&self) -> String {
+        self.name.to_string()
+    }
+}
+
+impl<const NAME_SIZE: usize> GpioConfig<NAME_SIZE> {
+    
+    pub fn default() -> Self {
+        use Type::*;
+        use InterruptType::*;
         Self { 
-            name: [b' '; NAME_SIZE], 
-            io_type: Type::NotInitialized, 
+            name: Bytes::new_by_str(""), 
+            io_type: NotInitialized, 
             default_value: 0, 
-            gpio_base: null_mut(),
-            pin: 0, 
-            adc_channel: None, 
-            adc_rank: None, 
-            interrupt_callback: None 
-        }
+            interrupt_type: RisingEdge,
+            interrupt_enable: false,
+            interrupt_callback: None,        }
     }
 
     pub fn new(
         name : &dyn ToString,
-        io_type: Type<'a>,
-        default_value: u8,
-        gpio_base: Ptr,
-        pin: u32,
-        adc_channel: Option<u32>,
-        adc_rank: Option<u32>,
-        interrupt_callback: Option<InterruptCallback>
+        io_type: Type,
+        default_value: u32,
     ) -> Self {
-        
-            // let mut name_array = [b' '; NAME_SIZE];
-            // let bytes = name.as_bytes();
-            // if name.len() > NAME_SIZE {
-            //     name_array[..bytes.len()].copy_from_slice(bytes[..NAME_SIZE]);
-            // } else {
-            //     name_array[..bytes.len()].copy_from_slice(bytes);
-            // }
+        use InterruptType::*;
 
+        let name = name.to_string();
 
-            let name = name.to_string();
+        Self {
+            name: Bytes::new_by_string(&name),
+            io_type,
+            default_value,
+            interrupt_type: RisingEdge,
+            interrupt_enable: false,
+            interrupt_callback: None,        }
+    }
 
-            from_str_to_array!(&name, name_array, NAME_SIZE);
-            Self {
-                name: name_array,
-                io_type,
-                default_value,
-                gpio_base,
-                pin,
-                adc_channel,
-                adc_rank,
-                interrupt_callback
-            }
-        
+    pub fn get_io_type(&self) -> Type {
+        self.io_type.clone()
     }
 }
 
 #[derive(Clone)]
-pub struct GpioConfigs<'a, const SIZE: usize> {
-    array: [Option<GpioConfig<'a>>; SIZE],
+pub struct GpioConfigs<const SIZE: usize> {
+    array: [Option<GpioConfig>; SIZE],
     index: usize,
-    no_found: Option<GpioConfig<'a>>
 }
 
 
-impl<'a, const SIZE: usize> Index<&dyn ToString> for GpioConfigs<'a, SIZE> {
-    type Output = Option<GpioConfig<'a>>;
+impl<const SIZE: usize> Index<&dyn ToString> for GpioConfigs<SIZE> {
+    type Output = Option<GpioConfig>;
 
     fn index(&self, name: &dyn ToString) -> &Self::Output {
         let name_bytes = name.to_string();
@@ -110,7 +120,7 @@ impl<'a, const SIZE: usize> Index<&dyn ToString> for GpioConfigs<'a, SIZE> {
         self.array.iter()
             .find(|it| {
                 if let Some(config) = it {
-                    config.name == name_bytes
+                    config.name.0 == name_bytes
                 } else {
                     false
                 }
@@ -119,38 +129,19 @@ impl<'a, const SIZE: usize> Index<&dyn ToString> for GpioConfigs<'a, SIZE> {
     }
 }
 
-// impl<'a, const SIZE: usize> IndexMut<&dyn ToString> for GpioConfigs<'a, SIZE> {
-    
-//     fn index_mut(&mut self, name: &dyn ToString) -> &mut Self::Output {
-//         let name_bytes = name.to_string();
-//         let name_bytes = name_bytes.as_bytes();
-
-//         for (i, it) in self.array.iter().enumerate() {
-//             if let Some(config) = it {
-//                 if config.name == name_bytes {
-//                     return &mut self.array[i];
-//                 }
-//             }
-//         }
-
-//         &mut self.no_found
-//     }
-// }
-
-impl<'a, const SIZE: usize> GpioConfigs<'a, SIZE> {
+impl<const SIZE: usize> GpioConfigs<SIZE> {
 
     pub fn new() -> Self {
         Self{
             array: [const {None}; SIZE],
             index: 0,
-            no_found: const {None}
         }
     }
 
-    pub fn push(&mut self, config: GpioConfig<'a>) -> bool {
+    pub fn push(&mut self, config: GpioConfig) -> Result<String> {
 
         if self.index >= SIZE {
-            return false
+            return Err(Error::OutOfIndex)
         }
 
         for (i, it) in self.array.iter().enumerate() {
@@ -158,12 +149,12 @@ impl<'a, const SIZE: usize> GpioConfigs<'a, SIZE> {
                 if c.name == config.name {
                      self.array[i] = Some(config.clone());
                      self.index += 1;
-                     return true
+                     return Ok(config.name.to_string())
                 }
             }
         }
 
-        false
+        Err(Error::NotFound)
     }
 
 }
@@ -173,6 +164,19 @@ pub trait Gpio {
     where 
         Self: Sized;
 
-    
+    fn write(&self, name: &dyn ToString, state: bool) -> OsalRsBool;
 
+    fn read(&self, name: &dyn ToString, state: bool) -> Result<u32>;
+
+    fn set_interrupt(
+        &mut self, 
+        name: &dyn ToString,
+        interrupt_type: InterruptType,
+        interrupt_enable: bool,
+        interrupt_callback: Option<InterruptCallback>
+    ) -> OsalRsBool;
+
+    fn enable_interrupt(&mut self, name: &dyn ToString, anable: bool) -> OsalRsBool;
+
+    fn len(&self) -> u32;
 }

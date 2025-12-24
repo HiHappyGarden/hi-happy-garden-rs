@@ -1,3 +1,3 @@
 pub mod gpio; 
-pub mod initializable;
+pub mod state;
 

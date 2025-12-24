@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+
 pub(super) mod hardware;
 pub(super) mod gpio;
 

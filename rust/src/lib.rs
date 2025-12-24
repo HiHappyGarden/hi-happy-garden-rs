@@ -24,8 +24,8 @@ use osal_rs::log::set_enable_color;
 use osal_rs::utils::Result;
 use osal_rs::{log_fatal, log_info};
 
-use crate::drivers::platform::{self, Hardware};
-use crate::traits::initializable::Initializable;
+use crate::drivers::platform::{Hardware};
+use crate::traits::state::Initializable;
 use crate::ffi::{get_g_setup_called, print_systick_status};
 
 
@@ -91,27 +91,27 @@ pub unsafe extern "C" fn start_os() {
 
 
 
-// #[cfg(feature = "tests")]
-// fn perform_tests() {
+#[cfg(feature = "tests")]
+fn perform_tests() {
 
 
-//     log_info!(APP_TAG, "Creating osal rs test thread...");
+    log_info!(APP_TAG, "Creating osal rs test thread...");
 
-//     match Thread::new("osal_rs_test", 4096, 3, Box::new(|_, _| {
-//         use osal_rs::utils::Error;
+    match Thread::new("osal_rs_test", 4096, 3, Box::new(|_, _| {
+        use osal_rs::utils::Error;
 
 
-//         match osal_rs_tests::freertos::run_all_tests() {
-//             Ok(_) => log_info!(APP_TAG, "All tests passed!"),
-//             Err(e) => panic!("Tests failed with error: {:?}", e)
-//         };
+        match osal_rs_tests::freertos::run_all_tests() {
+            Ok(_) => log_info!(APP_TAG, "All tests passed!"),
+            Err(e) => panic!("Tests failed with error: {:?}", e)
+        };
 
-//         Err(Error::Unhandled(""))
-//     })).spawn(None) {
-//         Ok(_spawned) =>  log_info!(APP_TAG, "Thread spawned successfully!"),
-//         Err(e) => panic!("Failed to spawn osal rs test thread: {:?}", e)
-//     };
-// }
+        Err(Error::Unhandled(""))
+    })).spawn(None) {
+        Ok(_spawned) =>  log_info!(APP_TAG, "Thread spawned successfully!"),
+        Err(e) => panic!("Failed to spawn osal rs test thread: {:?}", e)
+    };
+}
 
 
 

@@ -5,6 +5,7 @@
 #include <pico/stdlib.h>
 #include <pico/stdio.h>
 #include <hardware/clocks.h>
+#include <hardware/gpio.h>
 
 
 

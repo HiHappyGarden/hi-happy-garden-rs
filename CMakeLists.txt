@@ -139,11 +139,6 @@ add_executable(hi-happy-garden-rs
 # Add dependency on Rust build
 add_dependencies(${PROJECT_NAME} rust)
 
-# Link Rust static library
-target_link_libraries(${PROJECT_NAME}
-    ${RUST_PATH} 
-)
-
 pico_set_program_name(${PROJECT_NAME} "hi-happy-garden-rs")
 pico_set_program_version(${PROJECT_NAME} ${PROJECT_VERSION})
 
@@ -162,6 +157,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 # Add any user requested libraries
 target_link_libraries(${PROJECT_NAME} 
+        ${RUST_PATH}
         pico_cyw43_arch_lwip_sys_freertos
         pico_lwip_mbedtls
         pico_mbedtls
@@ -169,6 +165,8 @@ target_link_libraries(${PROJECT_NAME}
         pico_stdlib
         pico_multicore
         pico_unique_id
+        hardware_gpio
+        hardware_pwm
         FreeRTOS-Kernel
         FreeRTOS-Kernel-Heap4
         cjson
