@@ -8,17 +8,6 @@ mod drivers;
 mod traits;
 
 
-
-use alloc::boxed::Box;
-
-use osal_rs::os::types::TickType;
-use osal_rs::os::{System, SystemFn, Thread, ThreadFn, ThreadParam};
-use osal_rs::log::set_enable_color;
-use osal_rs::utils::Result;
-use osal_rs::{log_info};
-
-use crate::ffi::{get_g_setup_called, print_systick_status};
-
 mod ffi {
     unsafe extern "C" {
         pub(super) fn print_systick_status();
@@ -26,6 +15,19 @@ mod ffi {
         pub(super) fn get_g_setup_called() -> u32;
     }
 }
+
+use alloc::boxed::Box;
+
+use osal_rs::os::types::TickType;
+use osal_rs::os::{System, SystemFn, Thread, ThreadFn, ThreadParam};
+use osal_rs::log::set_enable_color;
+use osal_rs::utils::Result;
+use osal_rs::{log_fatal, log_info};
+
+use crate::drivers::platform::{self, Hardware};
+use crate::traits::initializable::Initializable;
+use crate::ffi::{get_g_setup_called, print_systick_status};
+
 
 const APP_TAG: &str = "rust";
 
@@ -41,10 +43,17 @@ fn main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Resul
 
         print_systick_status();
     }
-    
     log_info!(APP_TAG, "Initial tick count: {}", System::get_tick_count());
     
+    let mut hardware = Hardware::new();
+
+    if let Err(err) = hardware.init() {
+        log_fatal!(APP_TAG, "{:?}", err);
+    }
     
+    
+
+
     loop {
         System::delay(TickType::MAX);
     }

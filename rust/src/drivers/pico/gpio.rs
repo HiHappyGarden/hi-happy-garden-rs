@@ -1,7 +1,8 @@
 use core::ptr::null_mut;
 
 use alloc::string::{String, ToString};
-use crate::traits::gpio::{GpioConfig, GpioConfigs, Gpio as GpioFn, Type};
+use osal_rs::utils::Result;
+use crate::traits::{gpio::{Gpio as GpioFn, GpioConfig, GpioConfigs, Type}, initializable::Initializable};
 
 const NAME_SIZE : usize = 16usize;
 
@@ -52,5 +53,13 @@ impl GpioFn for Gpio {
         Self { 
             gpio_configs 
         }
+    }
+}
+
+impl Initializable for Gpio {
+    fn init(&mut self) -> Result<()> {
+        
+
+        Ok(())
     }
 }

@@ -1,8 +1,11 @@
-pub mod hardware;
-pub mod gpio;
+pub(super) mod hardware;
+pub(super) mod gpio;
 
 use core::ffi::c_char;
 use osal_rs::os::types::ThreadHandle;
+
+pub use crate::drivers::pico::gpio::*;
+pub use crate::drivers::pico::hardware::*;
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vApplicationMallocFailedHook() -> ! {

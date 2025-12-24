@@ -6,7 +6,7 @@ use alloc::string::ToString;
 use alloc::sync::Arc;
 
 use osal_rs::from_str_to_array;
-use osal_rs::utils::{Ptr};
+use osal_rs::utils::Ptr;
 
 
 #[derive(Clone, PartialEq, Eq)]
