@@ -63,3 +63,14 @@ void hhg_pwm_set_gpio_level(uint gpio, uint16_t level) {
     pwm_set_gpio_level(gpio, level);
 }
 
+void hhg_gpio_set_irq_enabled_with_callback(uint gpio, uint32_t events, bool enabled, gpio_irq_callback_t callback) {
+    gpio_set_irq_enabled_with_callback(gpio, events, enabled, callback);
+}
+
+void hhd_irq_set_enabled(uint num, bool enabled) {
+    irq_set_enabled(num, enabled);
+}
+
+void hhg_gpio_set_irq_enabled(uint gpio, uint32_t events, bool enabled) {
+    gpio_set_irq_enabled(gpio, events, enabled);
+}

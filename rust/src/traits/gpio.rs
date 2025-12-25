@@ -24,9 +24,9 @@ pub enum InterruptType
 
 #[derive(Clone, Debug)]
 pub struct InterruptConfig {
-    irq_type: InterruptType,
-    enable: bool,
-    callback: InterruptCallback,
+    pub irq_type: InterruptType,
+    pub enable: bool,
+    pub callback: InterruptCallback,
 }
 
 impl InterruptConfig {
@@ -54,7 +54,7 @@ pub enum InputType
 #[derive(Clone, Debug)]
 pub enum Type {
     NotInitialized,
-    Input(Option<Ptr>, u32, InputType), //base, pin
+    Input(Option<Ptr>, u32, InputType), //base, pin, pull
     InputAnalog(Option<Ptr>, u32, u32, u32), //base, pin, channel, ranck
     Output(Option<Ptr>, u32), 
     OutputPWM(Option<Ptr>, u32),

@@ -16,7 +16,7 @@ mod ffi {
 
     #[repr(u32)]
     #[derive(Clone, Copy)]
-    pub enum gpio_function_t {
+    pub(super) enum gpio_function_t {
         GPIO_FUNC_HSTX = 0,
         GPIO_FUNC_SPI = 1,
         GPIO_FUNC_UART = 2,
@@ -34,6 +34,17 @@ mod ffi {
         GPIO_FUNC_NULL = 0x1f,
     }
 
+    #[repr(u32)]
+    #[derive(Clone, Copy)]
+    pub(super) enum gpio_irq_level {
+        GPIO_IRQ_LEVEL_LOW = 0x1,  
+        GPIO_IRQ_LEVEL_HIGH = 0x2, 
+        GPIO_IRQ_EDGE_FALL = 0x4,  
+        GPIO_IRQ_EDGE_RISE = 0x8  
+    }
+
+    pub(super) const IO_IRQ_BANK0: u8 =  21;
+
     unsafe extern "C" {
         pub(super) fn hhg_gpio_init(gpio: u32);
         pub(super) fn hhg_gpio_set_dir(gpio: u32, out: bool);
@@ -48,6 +59,9 @@ mod ffi {
         pub(super) fn hhg_pwm_config_set_clkdiv(c: *mut pwm_config, div: f32);
         pub(super) fn hhg_pwm_init(slice_num: u32, c: *mut pwm_config, start: bool);
         pub(super) fn hhg_pwm_set_gpio_level(gpio: u32, level: u16);
+        pub(super) fn hhg_gpio_set_irq_enabled_with_callback(gpio: u32, events: u32, enabled: bool, callback: extern "C" fn());
+        pub(super) fn hhg_gpio_set_irq_enabled(gpio: u32, events: u32, enabled: bool);
+        pub(super) fn hhd_irq_set_enabled(irq: u8, enabled: bool);
     }   
 }
 
@@ -57,7 +71,7 @@ use core::str::FromStr;
 use alloc::string::{String, ToString};
 use osal_rs::{log_info, println};
 use osal_rs::utils::{Error, Result, OsalRsBool};
-use crate::drivers::pico::gpio::ffi::{GPIO_IN, hhg_gpio_init, gpio_function_t, hhg_gpio_get, hhg_gpio_pull_down, hhg_gpio_pull_up, hhg_gpio_put, hhg_gpio_set_dir, hhg_gpio_set_function, hhg_pwm_config_set_clkdiv, hhg_pwm_get_default_config, hhg_pwm_gpio_to_slice_num, hhg_pwm_init, hhg_pwm_set_gpio_level};
+use crate::drivers::pico::gpio::ffi::{GPIO_IN, IO_IRQ_BANK0, gpio_function_t, hhd_irq_set_enabled, hhg_gpio_get, hhg_gpio_init, hhg_gpio_pull_down, hhg_gpio_pull_up, hhg_gpio_put, hhg_gpio_set_dir, hhg_gpio_set_function, hhg_gpio_set_irq_enabled, hhg_gpio_set_irq_enabled_with_callback, hhg_pwm_config_set_clkdiv, hhg_pwm_get_default_config, hhg_pwm_gpio_to_slice_num, hhg_pwm_init, hhg_pwm_set_gpio_level};
 use crate::traits::gpio::{Gpio as GpioFn, GpioConfig, GpioConfigs, InputType, InterruptCallback, InterruptConfig, InterruptType, InterruptType::*, Type};
 use crate::traits::state::{Deinitializable, Initializable};
 use GpioType::*;
@@ -322,19 +336,23 @@ impl GpioFn for Gpio {
         callback: InterruptCallback
     ) -> OsalRsBool {
 
+        use ffi::gpio_irq_level::*;
 
         if let Some(config) = &mut self.gpio_configs[name] {
             match &config.get_io_type() {
                 Type::Input(_, pin, _) => {
                     
-                    match &irq_type {
-                        RisingEdge => todo!(),
-                        FallingEdge => todo!(),
-                        BothEdge => todo!(),
-                        HigthLevel => todo!(),
-                        LowLevel => todo!(),
+                    unsafe {
+                        match &irq_type {
+                            RisingEdge => hhg_gpio_set_irq_enabled_with_callback(*pin, GPIO_IRQ_EDGE_RISE as u32, enable, callback),
+                            FallingEdge => hhg_gpio_set_irq_enabled_with_callback(*pin, GPIO_IRQ_EDGE_FALL as u32, enable, callback),
+                            BothEdge => hhg_gpio_set_irq_enabled_with_callback(*pin, GPIO_IRQ_EDGE_RISE as u32 | GPIO_IRQ_EDGE_FALL as u32, enable, callback),
+                            HigthLevel => hhg_gpio_set_irq_enabled_with_callback(*pin, GPIO_IRQ_LEVEL_HIGH as u32, enable, callback),
+                            LowLevel => hhg_gpio_set_irq_enabled_with_callback(*pin, GPIO_IRQ_LEVEL_LOW as u32, enable, callback),
+                        }
+                        hhd_irq_set_enabled(IO_IRQ_BANK0, true);
                     }
-                    
+
                     config.irq = Some(InterruptConfig::new(irq_type, enable, callback));
                     OsalRsBool::True
                 },
@@ -346,8 +364,41 @@ impl GpioFn for Gpio {
     
     }
 
-    fn enable_interrupt(&mut self, name: &dyn ToString, anable: bool) -> OsalRsBool {
-        todo!()
+    fn enable_interrupt(&mut self, name: &dyn ToString, enable: bool) -> OsalRsBool {
+
+        use ffi::gpio_irq_level::*;
+
+        if let Some(config) = &mut self.gpio_configs[name] {
+            match &config.get_io_type() {
+                Type::Input(_, pin, _) => {
+                    
+
+                    match &mut config.irq {
+                        Some(irq) => {
+
+                            unsafe {
+                                match &irq.irq_type {
+                                    RisingEdge => hhg_gpio_set_irq_enabled(*pin, GPIO_IRQ_EDGE_RISE as u32, enable),
+                                    FallingEdge => hhg_gpio_set_irq_enabled(*pin, GPIO_IRQ_EDGE_FALL as u32, enable),
+                                    BothEdge => hhg_gpio_set_irq_enabled(*pin, GPIO_IRQ_EDGE_RISE as u32 | GPIO_IRQ_EDGE_FALL as u32, enable),
+                                    HigthLevel => hhg_gpio_set_irq_enabled(*pin, GPIO_IRQ_LEVEL_HIGH as u32, enable),
+                                    LowLevel => hhg_gpio_set_irq_enabled(*pin, GPIO_IRQ_LEVEL_LOW as u32, enable),
+                                }
+                            }
+                            irq.enable = enable;
+                            OsalRsBool::True
+                        }
+                        None => OsalRsBool::False,
+                    }
+
+                    
+                },
+                _ => OsalRsBool::False,
+            }
+        } else {
+            OsalRsBool::False
+        }
+
     }
 
     fn len(&self) -> u32 {
