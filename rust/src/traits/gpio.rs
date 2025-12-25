@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use core::any::Any; 
-use core::ops::{Deref, Index, IndexMut};
+use core::ops::{Index, IndexMut};
 use core::usize;
 
 use alloc::{string::String, sync::Arc};

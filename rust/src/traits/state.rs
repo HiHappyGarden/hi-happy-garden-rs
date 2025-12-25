@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use osal_rs::utils::Result;
 
 
