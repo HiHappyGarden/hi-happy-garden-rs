@@ -68,25 +68,21 @@ pub unsafe extern "C" fn start() {
 
     #[cfg(not(feature = "tests"))]
     {
-        match Thread::new("hardware_main_thread", 4096, 3, main_thread).spawn(None) {
-            Ok(_) =>  log_info!(APP_TAG, "Start main thread\r\n"),
+        let _thread = match Thread::new("hardware_main_thread", 4096, 3, main_thread).spawn(None) {
+            Ok(spawned) =>  {
+                log_info!(APP_TAG, "Start main thread\r\n");
+                spawned
+            }
             Err(e) => panic!("Failed to spawn hardware_main_thread: {:?}", e)
         };
+
+        System::start();
     }
 
     #[cfg(feature = "tests")]
     {
         perform_tests();
     }
-}
-
-
-
-
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn start_os() {
-    System::start();
 }
 
 

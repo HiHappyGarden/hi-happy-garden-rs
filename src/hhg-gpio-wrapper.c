@@ -20,6 +20,11 @@ void hhg_gpio_put(uint gpio, bool value) {
     gpio_put(gpio, value);
 }
 
+bool hhg_gpio_get(uint gpio) {
+    return gpio_get(gpio);
+}
+
+
 void hhg_gpio_pull_up(uint gpio) {
     gpio_pull_up(gpio);
 }
@@ -52,3 +57,9 @@ void hhg_pwm_config_set_clkdiv(pwm_config *c, float div) {
 void hhg_pwm_init(uint slice_num, pwm_config *c, bool start) {
     pwm_init(slice_num, c, start);
 }
+
+
+void hhg_pwm_set_gpio_level(uint gpio, uint16_t level) {
+    pwm_set_gpio_level(gpio, level);
+}
+

@@ -38,6 +38,7 @@ mod ffi {
         pub(super) fn hhg_gpio_init(gpio: u32);
         pub(super) fn hhg_gpio_set_dir(gpio: u32, out: bool);
         pub(super) fn hhg_gpio_put(gpio: u32, value: bool);
+        pub(super) fn hhg_gpio_get(gpio: u32) -> bool;
         pub(super) fn hhg_gpio_pull_up(gpio: u32);
         pub(super) fn hhg_gpio_pull_down(gpio: u32);
         pub(super) fn hhg_gpio_disable_pulls(gpio: u32);
@@ -46,6 +47,7 @@ mod ffi {
         pub(super) fn hhg_pwm_get_default_config() -> pwm_config;
         pub(super) fn hhg_pwm_config_set_clkdiv(c: *mut pwm_config, div: f32);
         pub(super) fn hhg_pwm_init(slice_num: u32, c: *mut pwm_config, start: bool);
+        pub(super) fn hhg_pwm_set_gpio_level(gpio: u32, level: u16);
     }   
 }
 
@@ -53,17 +55,16 @@ mod ffi {
 use core::str::FromStr;
 
 use alloc::string::{String, ToString};
-use osal_rs::log_info;
-use osal_rs::utils::{Error, Result};
-use ffi::hhg_gpio_init;
-use crate::drivers::pico::gpio::ffi::{GPIO_IN, gpio_function_t, hhg_gpio_pull_down, hhg_gpio_pull_up, hhg_gpio_put, hhg_gpio_set_dir, hhg_gpio_set_function, hhg_pwm_config_set_clkdiv, hhg_pwm_get_default_config, hhg_pwm_gpio_to_slice_num, hhg_pwm_init};
-use crate::traits::gpio::{Gpio as GpioFn, GpioConfig, GpioConfigs, Type, InterruptCallback, InputType};
+use osal_rs::{log_info, println};
+use osal_rs::utils::{Error, Result, OsalRsBool};
+use crate::drivers::pico::gpio::ffi::{GPIO_IN, hhg_gpio_init, gpio_function_t, hhg_gpio_get, hhg_gpio_pull_down, hhg_gpio_pull_up, hhg_gpio_put, hhg_gpio_set_dir, hhg_gpio_set_function, hhg_pwm_config_set_clkdiv, hhg_pwm_get_default_config, hhg_pwm_gpio_to_slice_num, hhg_pwm_init, hhg_pwm_set_gpio_level};
+use crate::traits::gpio::{Gpio as GpioFn, GpioConfig, GpioConfigs, InputType, InterruptCallback, InterruptConfig, InterruptType, InterruptType::*, Type};
 use crate::traits::state::{Deinitializable, Initializable};
 use GpioType::*;
 
 
 const NAME_MAX_SIZE: usize = 16usize;
-const GPIO_CONFIGS_SIZE: usize = 10usize;
+const GPIO_CONFIGS_SIZE: usize = 7usize;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum GpioType {
@@ -129,12 +130,12 @@ impl Initializable for Gpio {
 
                 Some(ref config) => {
 
-                    log_info!("GPIO", "Initializing GPIO: {}", config.clone().to_string());
-
                     match &config.get_io_type() {
                     
                         Type::Input(_, pin, input_type) => {
                             unsafe {
+                                log_info!("GPIO", "GPIO input: {}", config.clone().to_string());
+
                                 hhg_gpio_init(*pin);   
                                 hhg_gpio_set_dir(*pin, GPIO_IN);
 
@@ -149,6 +150,9 @@ impl Initializable for Gpio {
                         },
                     
                         Type::OutputPWM(_, pin) => {
+                            
+                            log_info!("GPIO", "GPIO output PWM: {}", config.clone().to_string());
+                            
                             unsafe {
                                 hhg_gpio_set_function(*pin, gpio_function_t::GPIO_FUNC_PWM as u32);
                                 let slice_num = hhg_pwm_gpio_to_slice_num(*pin);
@@ -262,25 +266,87 @@ impl GpioFn for Gpio {
     }
 
 
-    fn write(&self, name: &dyn ToString, state: bool) -> osal_rs::utils::OsalRsBool {
-        todo!()
+    fn write(&self, name: &dyn ToString, state: bool) -> OsalRsBool {
+        unsafe {
+            if let Some(config) = &self.gpio_configs[name] {
+                match &config.get_io_type() {
+                    Type::Output(_, pin) => {
+                        hhg_gpio_put(*pin, state);
+                        OsalRsBool::True
+                    },
+                    _ => OsalRsBool::False,
+                }
+            } else {
+                OsalRsBool::False
+            }
+        }
     }
 
-    fn read(&self, name: &dyn ToString, state: bool) -> Result<u32> {
-        todo!()
+    fn read(&self, name: &dyn ToString) -> Result<u32> {
+        unsafe {
+            if let Some(config) = &self.gpio_configs[name] {
+                match &config.get_io_type() {
+                    Type::Input(_, pin, _) => {
+                        let value = hhg_gpio_get(*pin);
+                        Ok(value as u32)
+                    },
+                    _ => Err(Error::InvalidType),
+                }
+            } else {
+                Err(Error::NotFound)
+            }
+        }
+    }
+
+    fn set_pwm(&self, name: &dyn ToString, pwm_duty_cycle: u16) -> OsalRsBool {
+        unsafe {
+            if let Some(config) = &self.gpio_configs[name] {
+                match &config.get_io_type() {
+                    Type::OutputPWM(_, pin) => {
+                        hhg_pwm_set_gpio_level(*pin, pwm_duty_cycle);
+                        OsalRsBool::True
+                    },
+                    _ => OsalRsBool::False,
+                }
+            } else {
+                OsalRsBool::False
+            }
+        }
     }
 
     fn set_interrupt(
         &mut self, 
         name: &dyn ToString,
-        interrupt_type: crate::traits::gpio::InterruptType,
-        interrupt_enable: bool,
-        interrupt_callback: Option<InterruptCallback>
-    ) -> osal_rs::utils::OsalRsBool {
-        todo!()
+        irq_type: InterruptType,
+        enable: bool,
+        callback: InterruptCallback
+    ) -> OsalRsBool {
+
+
+        if let Some(config) = &mut self.gpio_configs[name] {
+            match &config.get_io_type() {
+                Type::Input(_, pin, _) => {
+                    
+                    match &irq_type {
+                        RisingEdge => todo!(),
+                        FallingEdge => todo!(),
+                        BothEdge => todo!(),
+                        HigthLevel => todo!(),
+                        LowLevel => todo!(),
+                    }
+                    
+                    config.irq = Some(InterruptConfig::new(irq_type, enable, callback));
+                    OsalRsBool::True
+                },
+                _ => OsalRsBool::False,
+            }
+        } else {
+            OsalRsBool::False
+        }
+    
     }
 
-    fn enable_interrupt(&mut self, name: &dyn ToString, anable: bool) -> osal_rs::utils::OsalRsBool {
+    fn enable_interrupt(&mut self, name: &dyn ToString, anable: bool) -> OsalRsBool {
         todo!()
     }
 
