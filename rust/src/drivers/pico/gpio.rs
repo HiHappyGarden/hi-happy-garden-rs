@@ -79,6 +79,7 @@ use GpioType::*;
 
 const NAME_MAX_SIZE: usize = 16usize;
 const GPIO_CONFIGS_SIZE: usize = 7usize;
+const APP_TAG: &str = "GPIO";
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum GpioType {
@@ -148,7 +149,7 @@ impl Initializable for Gpio {
                     
                         Type::Input(_, pin, input_type) => {
                             unsafe {
-                                log_info!("GPIO", "GPIO input: {}", config.clone().to_string());
+                                log_info!(APP_TAG, "Input: {}", config.clone().to_string());
 
                                 hhg_gpio_init(*pin);   
                                 hhg_gpio_set_dir(*pin, GPIO_IN);
@@ -165,7 +166,7 @@ impl Initializable for Gpio {
                     
                         Type::OutputPWM(_, pin) => {
                             
-                            log_info!("GPIO", "GPIO output PWM: {}", config.clone().to_string());
+                            log_info!(APP_TAG, "Output PWM: {}", config.clone().to_string());
                             
                             unsafe {
                                 hhg_gpio_set_function(*pin, gpio_function_t::GPIO_FUNC_PWM as u32);
@@ -342,6 +343,9 @@ impl GpioFn for Gpio {
             match &config.get_io_type() {
                 Type::Input(_, pin, _) => {
                     
+
+                    log_info!(APP_TAG, "Interrupt: {} enabled:{enable}", name.to_string());
+
                     unsafe {
                         match &irq_type {
                             RisingEdge => hhg_gpio_set_irq_enabled_with_callback(*pin, GPIO_IRQ_EDGE_RISE as u32, enable, callback),
@@ -375,6 +379,8 @@ impl GpioFn for Gpio {
 
                     match &mut config.irq {
                         Some(irq) => {
+
+                            log_info!(APP_TAG, "Interrupt: {} enabled:{enable}", name.to_string());
 
                             unsafe {
                                 match &irq.irq_type {
