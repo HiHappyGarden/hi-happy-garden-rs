@@ -132,11 +132,14 @@ pub struct Gpio {
     idx: isize,
 }
    
+unsafe impl Send for Gpio {}
+unsafe impl Sync for Gpio {}
 
 
-impl Initializable for Gpio {
+impl Initializable<'_> for Gpio {
     fn init(&mut self) -> Result<()> {
         
+        log_info!(APP_TAG, "Init GPIO");
 
         for i in 0..=self.idx {
             let idx = self.names[i as usize];
@@ -154,10 +157,11 @@ impl Initializable for Gpio {
                                 hhg_gpio_init(*pin);   
                                 hhg_gpio_set_dir(*pin, GPIO_IN);
 
+                                use InputType::*;
                                 match input_type {
-                                    InputType::NoPull => (),
-                                    InputType::PullUp => hhg_gpio_pull_up(*pin),
-                                    InputType::PullDown => hhg_gpio_pull_down(*pin),
+                                    NoPull => (),
+                                    PullUp => hhg_gpio_pull_up(*pin),
+                                    PullDown => hhg_gpio_pull_down(*pin),
                                 }
 
                                 hhg_gpio_put(*pin, config.default_value != 0);

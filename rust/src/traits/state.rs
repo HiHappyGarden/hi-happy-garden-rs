@@ -3,9 +3,9 @@
 use osal_rs::utils::Result;
 
 
-pub trait Initializable {
+pub trait Initializable<'a> {
     
-    fn init(&mut self) -> Result<()>;
+    fn init(&'a mut self) -> Result<()>;
     
 }
 

@@ -199,7 +199,7 @@ impl<const SIZE: usize> GpioConfigs<SIZE> {
 
 }
 
-pub trait Gpio {
+pub trait Gpio : Sized + Sync + Send {
     fn new() -> Self
     where 
         Self: Sized;
