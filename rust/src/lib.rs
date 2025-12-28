@@ -16,15 +16,14 @@ mod ffi {
     }
 }
 
+
 use alloc::boxed::Box;
 
-use alloc::sync::Arc;
 use osal_rs::os::types::TickType;
-use osal_rs::os::{Mutex, MutexFn, System, SystemFn, Thread, ThreadFn, ThreadParam};
+use osal_rs::os::{System, SystemFn, Thread, ThreadFn, ThreadParam};
 use osal_rs::log::set_enable_color;
 use osal_rs::utils::Result;
-use osal_rs::{log_error, log_fatal, log_info};
-use osal_rs_tests::freertos::thread_tests;
+use osal_rs::{log_fatal, log_info};
 
 use crate::drivers::platform::Hardware;
 use crate::traits::state::Initializable;
@@ -34,7 +33,8 @@ use crate::ffi::{get_g_setup_called, print_systick_status};
 const APP_TAG: &str = "rust";
 
 
-//  #[cfg(not(feature = "tests"))]
+
+#[cfg(not(feature = "tests"))]
 fn main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Result<ThreadParam>{
     unsafe {
         loop {
@@ -52,32 +52,6 @@ fn main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Resul
     if let Err(err) = hardware.init() {
         log_fatal!(APP_TAG, "Hardware error: {:?}", err);
     }
-    
-    let i = Arc::new(Mutex::new(0u32));
-
-
-
-      
-
-    let _thread = match Thread::new("main_thread", 4096, 3,  |_thread, _param| {
-
-        // let mut num = i.lock().unwrap();
-        // *num += 1;
-
-        // let z = i.get_mut();
-        // *z += 1;
-        // log_info!(APP_TAG, "Tick: {}", *z);
-
-
-        Ok(Arc::new(()))
-    }).spawn(None) {
-        Ok(spawned) =>  {
-            log_info!(APP_TAG, "Start main thread\r\n");
-            spawned
-        }
-        Err(e) => panic!("Failed to spawn main_thread: {:?}", e)
-    };
-
 
     loop {
         System::delay(TickType::MAX);
@@ -93,7 +67,8 @@ pub unsafe extern "C" fn start() {
 
     #[cfg(not(feature = "tests"))]
     {
-        let _thread = match Thread::new("main_thread", 4096, 3, main_thread).spawn(None) {
+        let mut thread = Thread::new("main_thread", 4096, 3);
+        let _thread = match thread.spawn(None, main_thread) {
             Ok(spawned) =>  {
                 log_info!(APP_TAG, "Start main thread\r\n");
                 spawned
