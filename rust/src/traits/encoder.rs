@@ -1,13 +1,13 @@
-use core::cell::RefCell;
-
+use alloc::sync::Arc;
+use osal_rs::os::Mutex;
 use osal_rs::utils::Result;
 
 use crate::drivers::platform::Gpio;
 
-pub trait Encoder<'a> {
-    fn new(gpio: &'a RefCell<Gpio>) -> Self
+pub trait Encoder {
+    fn new(gpio: Arc<Mutex<Gpio>>) -> Self
     where 
         Self: Sized;
 
-    fn init(&mut self, gpio: &'a mut RefCell<Gpio>) -> Result<()>;
+    fn init(&mut self, gpio: &mut Arc<Mutex<Gpio>>) -> Result<()>;
 }

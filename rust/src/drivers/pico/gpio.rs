@@ -136,7 +136,7 @@ unsafe impl Send for Gpio {}
 unsafe impl Sync for Gpio {}
 
 
-impl Initializable<'_> for Gpio {
+impl Initializable for Gpio {
     fn init(&mut self) -> Result<()> {
         
         log_info!(APP_TAG, "Init GPIO");
@@ -243,7 +243,7 @@ impl GpioFn for Gpio {
         if let Ok(name) = gpio_configs.push(
             GpioConfig::<NAME_MAX_SIZE>::new(
             &Btn, 
-            Type::Input(None, 19, InputType::PullUp), 
+            Type::Input(None, 19, InputType::PullDown), 
             0)
         ) {
             names[3] = GpioType::from_str(&name).unwrap();

@@ -1,7 +1,11 @@
+
 use osal_rs::log_info;
+use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::utils::Result;
 
 use alloc::rc::Rc;
+
+use alloc::sync::Arc;
 use core::cell::RefCell;
 
 use crate::traits::state::Initializable;
@@ -14,42 +18,36 @@ use crate::drivers::platform::{Gpio, Button, Encoder};
 
 const APP_TAG: &str = "Hardware";
 
-pub struct Hardware<'a> {
-    gpio: Rc<RefCell<Gpio>>,
-    encoder: Encoder<'a>,
-    button: Button<'a>,
+pub struct Hardware {
+    gpio: Arc<Mutex<Gpio>>,
+    encoder: Encoder,
+    button: Button,
 }
 
-impl<'a> Initializable<'a> for Hardware<'a> {
-    fn init(&'a mut self) -> Result<()> {
+impl Initializable for Hardware {
+    fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init hardware");
 
-        self.gpio.borrow_mut().init()?;
+        self.gpio.lock()?.init()?;
 
-        // Get raw pointer to RefCell<Gpio>
-        let gpio_ref = Rc::as_ptr(&self.gpio);
-        
-        unsafe {
-            // Cast to RefCell<Gpio> directly, not dyn trait
-            self.encoder.init(&mut *(gpio_ref as *mut RefCell<Gpio>))?;
-            self.button.init(&mut *(gpio_ref as *mut RefCell<Gpio>))?;
-        }
+        self.encoder.init(&mut Arc::clone(&self.gpio))?;
+
+        self.button.init(&mut Arc::clone(&self.gpio))?;
 
         Ok(())
     } 
 }
 
-impl<'a> Hardware<'a> {
+impl Hardware {
     pub fn new() -> Self {
-        let gpio = Rc::new(RefCell::new(Gpio::new()));
-        let gpio_ref = Rc::as_ptr(&gpio);
+        let gpio = Arc::new(Mutex::new(Gpio::new()));
+        let gpio_clone = Arc::clone(&gpio);
         
-        unsafe {
-            Self { 
-                gpio,
-                encoder: Encoder::new(&*(gpio_ref as *const RefCell<Gpio>)),
-                button: Button::new(&*(gpio_ref as *const RefCell<Gpio>)),
-            }
+        Self { 
+            gpio,
+            encoder: Encoder::new(Arc::clone(&gpio_clone)),
+            button: Button::new(Arc::clone(&gpio_clone)),
         }
+        
     }
 }

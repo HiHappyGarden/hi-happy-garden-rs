@@ -67,13 +67,13 @@ pub unsafe extern "C" fn start() {
 
     #[cfg(not(feature = "tests"))]
     {
-        let mut thread = Thread::new("main_thread", 4096, 3);
+        let mut thread = Thread::new("main_trd", 4096, 3);
         let _thread = match thread.spawn(None, main_thread) {
             Ok(spawned) =>  {
                 log_info!(APP_TAG, "Start main thread\r\n");
                 spawned
             }
-            Err(e) => panic!("Failed to spawn main_thread: {:?}", e)
+            Err(e) => panic!("Failed to spawn main_trd: {:?}", e)
         };
 
         System::start();
