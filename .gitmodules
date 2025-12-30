@@ -7,3 +7,6 @@
 [submodule "osal-rs"]
 	path = osal-rs
 	url = https://github.com/HiHappyGarden/osal-rs.git
+[submodule "parser-rs"]
+	path = parser-rs
+	url = https://github.com/HiHappyGarden/at-parser-rs
