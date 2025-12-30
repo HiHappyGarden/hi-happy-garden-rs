@@ -7,3 +7,6 @@
 [submodule "parser-rs"]
 	path = parser-rs
 	url = https://github.com/HiHappyGarden/at-parser-rs
+[submodule "FreeRTOS-Kernel"]
+	path = FreeRTOS-Kernel
+	url = https://github.com/raspberrypi/FreeRTOS-Kernel.git
