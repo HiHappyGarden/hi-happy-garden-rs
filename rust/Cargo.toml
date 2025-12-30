@@ -18,6 +18,7 @@ tests = []
 [dependencies]
 osal-rs = { path = "../osal-rs/osal-rs", features = ["freertos"] }
 osal-rs-tests = { path = "../osal-rs/osal-rs-tests", features = ["freertos"] }
+parser-rs = { path = "../parser-rs" }
 
 [profile.dev]
 panic = "abort"

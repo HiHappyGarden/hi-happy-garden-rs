@@ -2,7 +2,7 @@
 
 dirs=(
     "build"
-    "hhg-rust/target"
+    "rust/target"
 )
 
 for dir in "${dirs[@]}"; do
