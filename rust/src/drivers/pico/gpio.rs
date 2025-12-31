@@ -72,17 +72,26 @@ use alloc::string::{String, ToString};
 use osal_rs::{log_info, println};
 use osal_rs::utils::{Error, Result, OsalRsBool};
 use crate::drivers::pico::gpio::ffi::{GPIO_IN, IO_IRQ_BANK0, gpio_function_t, hhd_irq_set_enabled, hhg_gpio_get, hhg_gpio_init, hhg_gpio_pull_down, hhg_gpio_pull_up, hhg_gpio_put, hhg_gpio_set_dir, hhg_gpio_set_function, hhg_gpio_set_irq_enabled, hhg_gpio_set_irq_enabled_with_callback, hhg_pwm_config_set_clkdiv, hhg_pwm_get_default_config, hhg_pwm_gpio_to_slice_num, hhg_pwm_init, hhg_pwm_set_gpio_level};
-use crate::traits::gpio::{Gpio as GpioFn, GpioConfig, GpioConfigs, InputType, InterruptCallback, InterruptConfig, InterruptType, InterruptType::*, Type};
+use crate::drivers::gpio::{GpioConfig, GpioConfigs, GpioName, GpioInputType, InterruptCallback, InterruptConfig, InterruptType::{self, *}, GpioType};
 use crate::traits::state::{Deinitializable, Initializable};
-use GpioType::*;
+use GpioPippo::*;
 
 
-const NAME_MAX_SIZE: usize = 16usize;
-const GPIO_CONFIGS_SIZE: usize = 7usize;
-const APP_TAG: &str = "GPIO";
+const APP_TAG: &str = "PICO GPIO";
+const GPIO_CONFIG_SIZE: usize = 7;
+
+static GPIO_TABLE: [GpioConfig; GPIO_CONFIG_SIZE] = [
+    GpioConfig::new(&EncoderA, GpioType::Input(None, 21, GpioInputType::PullDown), 0),
+    GpioConfig::new(&EncoderB, GpioType::Input(None, 20, GpioInputType::PullDown), 0),
+    GpioConfig::new(&EncoderBtn, GpioType::Input(None, 19, GpioInputType::PullUp), 0),
+    GpioConfig::new(&Btn, GpioType::Input(None, 19, GpioInputType::PullDown), 0),
+    GpioConfig::new(&LedRed, GpioType::OutputPWM(None, 13), 0),
+    GpioConfig::new(&LedGreen, GpioType::OutputPWM(None, 14), 0),
+    GpioConfig::new(&LedBlue, GpioType::OutputPWM(None, 15), 0),
+];
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum GpioType {
+pub enum GpioPippo {
     NoUsed,
     EncoderA,
     EncoderB,
@@ -93,22 +102,22 @@ pub enum GpioType {
     LedBlue,
 }
  
-impl ToString for GpioType {
-    fn to_string(&self) -> String {
+impl GpioName for GpioPippo {
+    fn as_str(&self) -> &str {
         match self {
-            NoUsed => "NoUsed".to_string(),
-            EncoderA => "EncoderA".to_string(),
-            EncoderB => "EncoderB".to_string(),
-            EncoderBtn => "EncoderBtn".to_string(),
-            Btn => "Btn".to_string(),
-            LedRed => "LedRed".to_string(),
-            LedGreen => "LedGreen".to_string(),
-            LedBlue => "LedBlue".to_string(),
+            NoUsed => "NoUsed",
+            EncoderA => "EncoderA",
+            EncoderB => "EncoderB",
+            EncoderBtn => "EncoderBtn",
+            Btn => "Btn",
+            LedRed => "LedRed",
+            LedGreen => "LedGreen",
+            LedBlue => "LedBlue",
         }
     }
 }
 
-impl FromStr for GpioType {
+impl FromStr for GpioPippo {
     type Err = Error;
 
     fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
@@ -127,8 +136,7 @@ impl FromStr for GpioType {
 }
 
 pub struct Gpio {
-    names: [GpioType; GPIO_CONFIGS_SIZE],
-    gpio_configs: GpioConfigs<GPIO_CONFIGS_SIZE>,
+    gpio_configs: GpioConfigs<'static, GPIO_CONFIGS_SIZE>,
     idx: isize,
 }
    
@@ -142,22 +150,21 @@ impl Initializable for Gpio {
         log_info!(APP_TAG, "Init GPIO");
 
         for i in 0..=self.idx {
-            let idx = self.names[i as usize];
 
-            match self.gpio_configs[&idx] {
+            match self.gpio_configs[i] {
 
                 Some(ref config) => {
 
                     match &config.get_io_type() {
                     
-                        Type::Input(_, pin, input_type) => {
+                        GpioType::Input(_, pin, input_type) => {
                             unsafe {
-                                log_info!(APP_TAG, "Input: {}", config.clone().to_string());
+                                log_info!(APP_TAG, "Input: {}", config.get_name());
 
                                 hhg_gpio_init(*pin);   
                                 hhg_gpio_set_dir(*pin, GPIO_IN);
 
-                                use InputType::*;
+                                use GpioInputType::*;
                                 match input_type {
                                     NoPull => (),
                                     PullUp => hhg_gpio_pull_up(*pin),
@@ -168,9 +175,9 @@ impl Initializable for Gpio {
                             }
                         },
                     
-                        Type::OutputPWM(_, pin) => {
+                        GpioType::OutputPWM(_, pin) => {
                             
-                            log_info!(APP_TAG, "Output PWM: {}", config.clone().to_string());
+                            log_info!(APP_TAG, "Output PWM: {}", config.get_name());
                             
                             unsafe {
                                 hhg_gpio_set_function(*pin, gpio_function_t::GPIO_FUNC_PWM as u32);
@@ -181,10 +188,10 @@ impl Initializable for Gpio {
                             }
                         },
                     
-                        Type::NotInitialized => return Err(Error::NullPtr),
-                        Type::InputAnalog(_, _, _, _) => return Err(Error::NullPtr),
-                        Type::Output(_, _) => return Err(Error::NullPtr),
-                        Type::Pheriferal(_, _, _) => return Err(Error::NullPtr),
+                        GpioType::NotInitialized => return Err(Error::NullPtr),
+                        GpioType::InputAnalog(_, _, _, _) => return Err(Error::NullPtr),
+                        GpioType::Output(_, _) => return Err(Error::NullPtr),
+                        GpioType::Pheriferal(_, _, _) => return Err(Error::NullPtr),
                     
                     }
                 
@@ -207,89 +214,23 @@ impl Deinitializable for Gpio {
     }
 }
 
-impl GpioFn for Gpio {
-    fn new() -> Self {
-
-        let mut names = [GpioType::NoUsed; GPIO_CONFIGS_SIZE];
-        let mut gpio_configs = GpioConfigs::new();
-        
-        if let Ok(name) = gpio_configs.push(
-            GpioConfig::<NAME_MAX_SIZE>::new(
-            &EncoderA, 
-            Type::Input(None, 21, InputType::PullDown), 
-            0)
-        ) {
-            names[0] = GpioType::from_str(&name).unwrap();
-        }
-
-        if let Ok(name) = gpio_configs.push(
-            GpioConfig::<NAME_MAX_SIZE>::new(
-            &EncoderB, 
-            Type::Input(None, 20, InputType::PullDown), 
-            0)
-        ) {
-            names[1] = GpioType::from_str(&name).unwrap();
-        }
-
-        if let Ok(name) = gpio_configs.push(
-            GpioConfig::<NAME_MAX_SIZE>::new(
-            &EncoderBtn, 
-            Type::Input(None, 19, InputType::PullUp), 
-            0)
-        ) {
-            names[2] = GpioType::from_str(&name).unwrap();
-        }
-
-        if let Ok(name) = gpio_configs.push(
-            GpioConfig::<NAME_MAX_SIZE>::new(
-            &Btn, 
-            Type::Input(None, 19, InputType::PullDown), 
-            0)
-        ) {
-            names[3] = GpioType::from_str(&name).unwrap();
-        }
-
-        if let Ok(name) = gpio_configs.push(
-            GpioConfig::<NAME_MAX_SIZE>::new(
-            &LedRed, 
-            Type::OutputPWM(None, 13), 
-            0)
-        ) {
-            names[4] = GpioType::from_str(&name).unwrap();
-        }
-
-        if let Ok(name) = gpio_configs.push(
-            GpioConfig::<NAME_MAX_SIZE>::new(
-            &LedGreen, 
-            Type::OutputPWM(None, 14), 
-            0)
-        ) {
-            names[5] = GpioType::from_str(&name).unwrap();
-        }
-
-        if let Ok(name) = gpio_configs.push(
-            GpioConfig::<NAME_MAX_SIZE>::new(
-            &LedBlue, 
-            Type::OutputPWM(None, 15), 
-            0)
-        ) {
-            names[6] = GpioType::from_str(&name).unwrap();
-        }
 
 
+
+impl Gpio {
+    pub fn new(gpio_configs: &GpioConfigs<'static, GPIO_CONFIGS_SIZE>) -> Self {
         Self {
-            names,
-            gpio_configs,
-            idx: 6,
+            gpio_configs: gpio_configs.clone(),
+            idx: GPIO_CONFIGS_SIZE as isize - 1,
         }
     }
 
 
-    fn write(&self, name: &dyn ToString, state: bool) -> OsalRsBool {
+    pub fn write(&self, name: &dyn GpioName, state: bool) -> OsalRsBool {
         unsafe {
             if let Some(config) = &self.gpio_configs[name] {
                 match &config.get_io_type() {
-                    Type::Output(_, pin) => {
+                    GpioType::Output(_, pin) => {
                         hhg_gpio_put(*pin, state);
                         OsalRsBool::True
                     },
@@ -301,11 +242,11 @@ impl GpioFn for Gpio {
         }
     }
 
-    fn read(&self, name: &dyn ToString) -> Result<u32> {
+    pub fn read(&self, name: &dyn GpioName) -> Result<u32> {
         unsafe {
             if let Some(config) = &self.gpio_configs[name] {
                 match &config.get_io_type() {
-                    Type::Input(_, pin, _) => {
+                    GpioType::Input(_, pin, _) => {
                         let value = hhg_gpio_get(*pin);
                         Ok(value as u32)
                     },
@@ -317,11 +258,11 @@ impl GpioFn for Gpio {
         }
     }
 
-    fn set_pwm(&self, name: &dyn ToString, pwm_duty_cycle: u16) -> OsalRsBool {
+    pub fn set_pwm(&self, name: &dyn GpioName, pwm_duty_cycle: u16) -> OsalRsBool {
         unsafe {
             if let Some(config) = &self.gpio_configs[name] {
                 match &config.get_io_type() {
-                    Type::OutputPWM(_, pin) => {
+                    GpioType::OutputPWM(_, pin) => {
                         hhg_pwm_set_gpio_level(*pin, pwm_duty_cycle);
                         OsalRsBool::True
                     },
@@ -333,9 +274,9 @@ impl GpioFn for Gpio {
         }
     }
 
-    fn set_interrupt(
+    pub fn set_interrupt(
         &mut self, 
-        name: &dyn ToString,
+        name: &dyn GpioName,
         irq_type: InterruptType,
         enable: bool,
         callback: InterruptCallback
@@ -345,10 +286,10 @@ impl GpioFn for Gpio {
 
         if let Some(config) = &mut self.gpio_configs[name] {
             match &config.get_io_type() {
-                Type::Input(_, pin, _) => {
+                GpioType::Input(_, pin, _) => {
                     
 
-                    log_info!(APP_TAG, "Interrupt: {} enabled:{enable}", name.to_string());
+                    log_info!(APP_TAG, "Interrupt: {} enabled:{enable}", name.as_str());
 
                     unsafe {
                         match &irq_type {
@@ -372,19 +313,19 @@ impl GpioFn for Gpio {
     
     }
 
-    fn enable_interrupt(&mut self, name: &dyn ToString, enable: bool) -> OsalRsBool {
+    pub fn enable_interrupt(&mut self, name: &dyn GpioName, enable: bool) -> OsalRsBool {
 
         use ffi::gpio_irq_level::*;
 
         if let Some(config) = &mut self.gpio_configs[name] {
             match &config.get_io_type() {
-                Type::Input(_, pin, _) => {
+                GpioType::Input(_, pin, _) => {
                     
 
                     match &mut config.irq {
                         Some(irq) => {
 
-                            log_info!(APP_TAG, "Interrupt: {} enabled:{enable}", name.to_string());
+                            log_info!(APP_TAG, "Interrupt: {} enabled:{enable}", name.as_str());
 
                             unsafe {
                                 match &irq.irq_type {
@@ -411,7 +352,7 @@ impl GpioFn for Gpio {
 
     }
 
-    fn len(&self) -> u32 {
+    pub fn len(&self) -> u32 {
         self.idx as u32 + 1
     }
 }

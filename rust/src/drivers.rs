@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 mod button;
 mod encoder;
-
+pub(super) mod gpio; 
 
 #[cfg(feature = "pico")]
 mod pico;

@@ -7,7 +7,6 @@ use osal_rs::utils::Result;
 
 use crate::drivers::platform::Gpio;
 use crate::traits::state::Initializable;
-use crate::traits::encoder::Encoder as EncoderFn;
 
 const APP_TAG: &str = "Encoder";
 
@@ -15,14 +14,14 @@ pub struct Encoder {
     gpio: Arc<Mutex<Gpio>>,
 }
 
-impl EncoderFn for Encoder {
-    fn new(gpio: Arc<Mutex<Gpio>>) -> Self {
+impl Encoder {
+    pub fn new(gpio: Arc<Mutex<Gpio>>) -> Self {
         Self {
             gpio: gpio,
         }
     }
 
-    fn init(&mut self, gpio: &mut Arc<Mutex<Gpio>>) -> Result<()> {
+    pub fn init(&mut self, gpio: &mut Arc<Mutex<Gpio>>) -> Result<()> {
         log_info!(APP_TAG, "Init encoder");
 
         Ok(())

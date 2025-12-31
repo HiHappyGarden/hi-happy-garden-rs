@@ -9,9 +9,6 @@ use alloc::sync::Arc;
 use core::cell::RefCell;
 
 use crate::traits::state::Initializable;
-use crate::traits::gpio::{Gpio as GpioFn};
-use crate::traits::button::{Button as ButtonFn};
-use crate::traits::encoder::{Encoder as EncoderFn};
 
 
 use crate::drivers::platform::{Gpio, Button, Encoder};
