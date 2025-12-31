@@ -11,7 +11,7 @@ use alloc::sync::Arc;
 use osal_rs::{log_info, log_warning};
 use osal_rs::utils::{Error, OsalRsBool, Ptr, Result};
 
-use crate::traits::state::Initializable;
+use crate::traits::state::{Deinitializable, Initializable};
 
 const APP_TAG: &str = "GPIO";
 
@@ -27,6 +27,16 @@ pub enum InterruptType
 	BothEdge,
 	HigthLevel,
 	LowLevel,
+}
+
+//// GPIO ////
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum GpioInputType
+{
+	NoPull,
+	PullUp,
+	PullDown
 }
 
 #[derive(Clone, Debug)]
@@ -49,17 +59,6 @@ impl InterruptConfig {
         }
     }   
 }
-
-//// GPIO ////
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum GpioInputType
-{
-	NoPull,
-	PullUp,
-	PullDown
-}
-
 
 pub type GpioPeripheralData = Arc<dyn Any + Send + Sync>;
 
@@ -106,9 +105,9 @@ pub struct GpioFn {
     pub peripheral: Option<fn(Option<Ptr>, u32, GpioPeripheralData) -> Result<()>>,
     pub deinit: Option<fn() -> Result<()>>,
     pub read: Option<fn(Option<Ptr>, u32) -> Result<u32>>,
-    pub write: Option<fn(Option<Ptr>, u32, u32) -> OsalRsBool>,
+    pub write: Option<fn(Option<Ptr>, u32, u32) -> Result<()>>,
     pub set_pwm: Option<fn(Option<Ptr>, u32, f32) -> Result<()>>,
-    pub set_interrupt: Option<fn(Option<Ptr>, u32, u32, bool) -> Result<()>>,
+    pub set_interrupt: Option<fn(Option<Ptr>, u32, InterruptType, InterruptCallback, bool) -> Result<()>>,
     pub enable_interrupt: Option<fn(Option<Ptr>, u32, bool) -> Result<()>>,
 }
 
@@ -117,9 +116,9 @@ unsafe impl Sync for GpioFn {}
 
 
 pub struct Gpio<'a, const GPIO_CONFIG_SIZE: usize> {
-    gpio_functions: &'a GpioFn,
-    gpio_input_type_functions: &'a GpioInputTypeFn,
-    gpio_configs: &'a GpioConfigs<'a, GPIO_CONFIG_SIZE>,
+    functions: &'a GpioFn,
+    input_type_functions: &'a GpioInputTypeFn,
+    configs: &'a mut GpioConfigs<'a, GPIO_CONFIG_SIZE>,
     idx: isize,
 }
 
@@ -132,13 +131,13 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<'_, GPIO_CONFIG_SIZE>
         
         log_info!(APP_TAG, "Init GPIO");
 
-        if let Some(init) = self.gpio_functions.init {
+        if let Some(init) = self.functions.init {
             init()?;
         }
 
         for i in 0..=self.idx {
 
-            match self.gpio_configs[i] {
+            match self.configs[i] {
 
                 Some(ref config) => {
 
@@ -148,25 +147,25 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<'_, GPIO_CONFIG_SIZE>
                             
                             
 
-                            if let Some(input) = self.gpio_functions.input {
+                            if let Some(input) = self.functions.input {
                                 log_info!(APP_TAG, "Input: {}", config.get_name());
 
                                 input(*base, *pin, *input_type)?;
 
                                 use GpioInputType::*;
                                 match input_type {
-                                    NoPull => if let Some(no_pull) = self.gpio_input_type_functions.no_pull {
+                                    NoPull => if let Some(no_pull) = self.input_type_functions.no_pull {
                                         no_pull(*base, *pin);
                                     },
-                                    PullUp => if let Some(pull_up) = self.gpio_input_type_functions.pull_up {
+                                    PullUp => if let Some(pull_up) = self.input_type_functions.pull_up {
                                         pull_up(*base, *pin);
                                     },
-                                    PullDown => if let Some(pull_down) = self.gpio_input_type_functions.pull_down {
+                                    PullDown => if let Some(pull_down) = self.input_type_functions.pull_down {
                                         pull_down(*base, *pin);
                                     },
                                 }
 
-                                if let Some(write) = self.gpio_functions.write {
+                                if let Some(write) = self.functions.write {
                                     write(*base, *pin, config.default_value);
                                 }
                             } else {
@@ -178,7 +177,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<'_, GPIO_CONFIG_SIZE>
                     
                         GpioType::OutputPWM(base, pin) => {
                             
-                            if let Some(output_pwm) = self.gpio_functions.output_pwm {
+                            if let Some(output_pwm) = self.functions.output_pwm {
                                 log_info!(APP_TAG, "Output PWM: {}", config.get_name());
                                 output_pwm(*base, *pin, config.default_value)?;
                             } else {
@@ -193,7 +192,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<'_, GPIO_CONFIG_SIZE>
                         },
                         GpioType::InputAnalog(base, pin, channel, ranck) => {
                             
-                            if let Some(input_analog) = self.gpio_functions.input_analog {
+                            if let Some(input_analog) = self.functions.input_analog {
                                 log_info!(APP_TAG, "Input Analog: {}", config.get_name());
                                 input_analog(*base, *pin, *channel, *ranck)?;
                             } else {
@@ -204,7 +203,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<'_, GPIO_CONFIG_SIZE>
                             
                             
                             
-                            if let Some(output) = self.gpio_functions.output {
+                            if let Some(output) = self.functions.output {
                                 log_info!(APP_TAG, "Output: {}", config.get_name());
                                 output(*base, *pin, config.default_value)?;
                             } else {
@@ -213,7 +212,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<'_, GPIO_CONFIG_SIZE>
                         },
                         GpioType::Pheriferal(base, pin, peripheral_data) => {
 
-                            if let Some(peripheral) = self.gpio_functions.peripheral {
+                            if let Some(peripheral) = self.functions.peripheral {
                                 log_info!(APP_TAG, "Peripheral: {}", config.get_name());
                                 peripheral(*base, *pin, peripheral_data.clone())?;
                             } else {
@@ -231,6 +230,195 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<'_, GPIO_CONFIG_SIZE>
         }
 
         Ok(())
+    }
+}
+
+impl<const GPIO_CONFIG_SIZE: usize> Deinitializable for Gpio<'_, GPIO_CONFIG_SIZE> {
+
+    fn deinit(&mut self) -> Result<()> {
+       
+        if let Some(deinit) = self.functions.deinit {
+            deinit()?;
+        } else {
+            log_warning!(APP_TAG, "Deinit function not defined");
+        } 
+        Ok(())
+    }
+}
+
+
+
+impl<'a, const GPIO_CONFIG_SIZE: usize> Gpio<'a, GPIO_CONFIG_SIZE> {
+    pub const fn new(functions: &'a GpioFn, input_type_functions: &'a GpioInputTypeFn, configs: &'a mut GpioConfigs<'a, GPIO_CONFIG_SIZE>,) -> Self {
+        Self {
+            functions,
+            input_type_functions,
+            configs,
+            idx: GPIO_CONFIG_SIZE as isize - 1,
+        }
+    }
+
+
+    pub fn write(&self, name: &dyn GpioName, state: bool) -> OsalRsBool {
+
+        if let Some(config) = &self.configs[name] {
+            match &config.get_io_type() {
+                GpioType::Output(base, pin) => 
+                    
+                    match &self.functions.write {
+                        Some(write) => 
+                            if write(*base, *pin, if state { 1 } else { 0 }).is_ok() {
+                                OsalRsBool::True
+                            } else {
+                                OsalRsBool::False   
+                            }
+                        ,
+                        None => OsalRsBool::False,
+                    }
+
+                ,
+                _ => OsalRsBool::False,
+            }
+        } else {
+            OsalRsBool::False
+        }
+
+    }
+
+    pub fn read(&self, name: &dyn GpioName) -> Result<u32> {
+        
+        if let Some(config) = &self.configs[name] {
+            match &config.get_io_type() {
+                GpioType::Input(base, pin, _) => {
+                    if let Some(read) = self.functions.read {
+                        return read(*base, *pin).map_err(|_| Error::Unhandled("GPIO Read Error"));
+                    } else {
+                        return Err(Error::NotFound);
+                    }
+                }
+                _ => Err(Error::InvalidType),
+            }
+        } else {
+            Err(Error::NotFound)
+        }
+        
+    }
+
+    pub fn set_pwm(&self, name: &dyn GpioName, pwm_duty_cycle: u16) -> OsalRsBool {
+
+        if let Some(config) = &self.configs[name] {
+            match &config.get_io_type() {
+                GpioType::OutputPWM(base, pin) => 
+                    if let Some(set_pwm) = self.functions.set_pwm {
+                        if set_pwm(*base, *pin, pwm_duty_cycle as f32).is_ok() {
+                            OsalRsBool::True
+                        } else {
+                            OsalRsBool::False   
+                        }
+                    } else {
+                        OsalRsBool::False
+                    }
+                ,
+                _ => OsalRsBool::False,
+            }
+        } else {
+            OsalRsBool::False
+        }
+        
+    }
+
+    pub fn set_interrupt(
+        &mut self, 
+        name: &dyn GpioName,
+        irq_type: InterruptType,
+        enable: bool,
+        callback: InterruptCallback
+    ) -> OsalRsBool {
+
+
+
+        if let Some(config) = &mut self.configs[name] {
+            match &config.get_io_type() {
+                GpioType::Input(base, pin, input_type) => {
+                    
+
+                    log_info!(APP_TAG, "Interrupt: {} enabled:{enable}", name.as_str());
+
+                    let ret : OsalRsBool;
+                    if let Some(set_interrupt) = self.functions.set_interrupt {
+                        
+                        if set_interrupt(*base, *pin, irq_type.clone(), callback, enable).is_ok() {
+                            ret = OsalRsBool::True;
+                        } else {
+                            ret = OsalRsBool::False;
+                        }
+
+                    } else {
+                        return OsalRsBool::False
+                    } 
+
+                    if ret == OsalRsBool::False {
+                        return ret;
+                    }
+                    config.irq = Some(InterruptConfig::new(irq_type, enable, callback));
+                    OsalRsBool::True
+                },
+                _ => OsalRsBool::False,
+            }
+        } else {
+            OsalRsBool::False
+        }
+    
+    }
+
+    pub fn enable_interrupt(&mut self, name: &dyn GpioName, enable: bool) -> OsalRsBool {
+
+        if let Some(config) = &mut self.configs[name] {
+            match &config.get_io_type() {
+                GpioType::Input(base, pin, _) => {
+                    
+
+                    match &mut config.irq {
+                        Some(irq) => {
+
+                            log_info!(APP_TAG, "Interrupt: {} enabled:{enable}", name.as_str());
+
+
+                            let ret : OsalRsBool;
+                            if let Some(enable_interrupt) = self.functions.enable_interrupt {
+                                
+                                if enable_interrupt(*base, *pin, enable).is_ok() {
+                                    ret = OsalRsBool::True;
+                                } else {
+                                    ret = OsalRsBool::False;
+                                }
+
+                            } else {
+                                return OsalRsBool::False
+                            } 
+
+                            if ret == OsalRsBool::False {
+                                return ret;
+                            }
+
+                            irq.enable = enable;
+                            OsalRsBool::True
+                        }
+                        None => OsalRsBool::False,
+                    }
+
+                    
+                },
+                _ => OsalRsBool::False,
+            }
+        } else {
+            OsalRsBool::False
+        }
+
+    }
+
+    pub fn len(&self) -> u32 {
+        self.idx as u32 + 1
     }
 }
 
