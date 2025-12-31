@@ -8,15 +8,15 @@ use alloc::rc::Rc;
 use alloc::sync::Arc;
 use core::cell::RefCell;
 
+use crate::drivers::pico::{GPIO_FN, GPIO_CONFIG, GPIO_CONFIG_SIZE};
 use crate::traits::state::Initializable;
 
-
-use crate::drivers::platform::{Gpio, Button, Encoder};
+use crate::drivers::platform::{Button, Encoder, Gpio};
 
 const APP_TAG: &str = "Hardware";
 
 pub struct Hardware {
-    gpio: Arc<Mutex<Gpio>>,
+    gpio: Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>,
     encoder: Encoder,
     button: Button,
 }
@@ -37,7 +37,7 @@ impl Initializable for Hardware {
 
 impl Hardware {
     pub fn new() -> Self {
-        let gpio = Arc::new(Mutex::new(Gpio::new()));
+        let gpio = Arc::new(Mutex::new(Gpio::<GPIO_CONFIG_SIZE>::new(&GPIO_FN, unsafe { &mut GPIO_CONFIG })));
         let gpio_clone = Arc::clone(&gpio);
         
         Self { 

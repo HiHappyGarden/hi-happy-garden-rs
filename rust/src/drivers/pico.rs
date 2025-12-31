@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 
 pub(super) mod hardware;
-pub(super) mod gpio;
+pub(crate) mod gpio;
 
 use core::ffi::c_char;
 use osal_rs::os::types::ThreadHandle;

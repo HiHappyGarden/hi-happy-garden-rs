@@ -3,7 +3,7 @@
 use core::any::Any; 
 use core::fmt::write;
 use core::ops::{Index, IndexMut};
-use core::usize;
+use core::{default, usize};
 
 use alloc::str;
 use alloc::sync::Arc;
@@ -65,10 +65,10 @@ pub type GpioPeripheralData = Arc<dyn Any + Send + Sync>;
 #[derive(Clone, Debug)]
 pub enum GpioType {
     NotInitialized,
-    Input(Option<Ptr>, u32, GpioInputType), //base, pin, pull
+    Input(Option<Ptr>, u32, GpioInputType, u32), //base, pin, gpioInputType, default value
     InputAnalog(Option<Ptr>, u32, u32, u32), //base, pin, channel, ranck
-    Output(Option<Ptr>, u32), //base, pin
-    OutputPWM(Option<Ptr>, u32), //base, pin
+    Output(Option<Ptr>, u32, u32), //base, pin, default value
+    OutputPWM(Option<Ptr>, u32, u32), //base, pin, default value
     Pheriferal(Option<Ptr>, u32, GpioPeripheralData) //base, pin, peripheral data
 }
 
@@ -85,28 +85,19 @@ impl GpioName for GpioNameEmpty {
     }
 }
 
-#[derive(Clone)]
-pub struct GpioInputTypeFn {
-    pub no_pull: Option<fn(Option<Ptr>, u32)>,
-    pub pull_up: Option<fn(Option<Ptr>, u32)>,
-    pub pull_down: Option<fn(Option<Ptr>, u32)>,
-}
-
-unsafe impl Send for GpioInputTypeFn {}
-unsafe impl Sync for GpioInputTypeFn {}
 
 #[derive(Clone)]
 pub struct GpioFn {
     pub init: Option<fn() -> Result<()>>,
-    pub input: Option<fn(Option<Ptr>, u32, GpioInputType) -> Result<u32>>,
-    pub input_analog: Option<fn(Option<Ptr>, u32, u32, u32) -> Result<u32>>,
-    pub output: Option<fn(Option<Ptr>, u32, u32) -> Result<()>>,
-    pub output_pwm: Option<fn(Option<Ptr>, u32, u32) -> Result<()>>,
-    pub peripheral: Option<fn(Option<Ptr>, u32, GpioPeripheralData) -> Result<()>>,
+    pub input: Option<fn(&GpioConfig, Option<Ptr>, u32, GpioInputType, u32) -> Result<()>>,
+    pub input_analog: Option<fn(&GpioConfig, Option<Ptr>, u32, u32, u32) -> Result<u32>>,
+    pub output: Option<fn(&GpioConfig, Option<Ptr>, u32, u32) -> Result<()>>,
+    pub output_pwm: Option<fn(&GpioConfig, Option<Ptr>, u32, u32) -> Result<()>>,
+    pub peripheral: Option<fn(&GpioConfig, Option<Ptr>, u32, GpioPeripheralData) -> Result<()>>,
     pub deinit: Option<fn() -> Result<()>>,
     pub read: Option<fn(Option<Ptr>, u32) -> Result<u32>>,
     pub write: Option<fn(Option<Ptr>, u32, u32) -> Result<()>>,
-    pub set_pwm: Option<fn(Option<Ptr>, u32, f32) -> Result<()>>,
+    pub set_pwm: Option<fn(Option<Ptr>, u32, u32) -> Result<()>>,
     pub set_interrupt: Option<fn(Option<Ptr>, u32, InterruptType, InterruptCallback, bool) -> Result<()>>,
     pub enable_interrupt: Option<fn(Option<Ptr>, u32, bool) -> Result<()>>,
 }
@@ -115,18 +106,17 @@ unsafe impl Send for GpioFn {}
 unsafe impl Sync for GpioFn {}
 
 
-pub struct Gpio<'a, const GPIO_CONFIG_SIZE: usize> {
-    functions: &'a GpioFn,
-    input_type_functions: &'a GpioInputTypeFn,
-    configs: &'a mut GpioConfigs<'a, GPIO_CONFIG_SIZE>,
+pub struct Gpio<const GPIO_CONFIG_SIZE: usize> {
+    functions: &'static GpioFn,
+    configs: GpioConfigs<'static, GPIO_CONFIG_SIZE>,
     idx: isize,
 }
 
-unsafe impl<const GPIO_CONFIG_SIZE: usize> Send for Gpio<'_, GPIO_CONFIG_SIZE> {}
-unsafe impl<const GPIO_CONFIG_SIZE: usize> Sync for Gpio<'_, GPIO_CONFIG_SIZE> {}
+unsafe impl<const GPIO_CONFIG_SIZE: usize> Send for Gpio<GPIO_CONFIG_SIZE> {}
+unsafe impl<const GPIO_CONFIG_SIZE: usize> Sync for Gpio<GPIO_CONFIG_SIZE> {}
 
 
-impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<'_, GPIO_CONFIG_SIZE> {
+impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<GPIO_CONFIG_SIZE> {
     fn init(&mut self) -> Result<()> {
         
         log_info!(APP_TAG, "Init GPIO");
@@ -142,88 +132,63 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<'_, GPIO_CONFIG_SIZE>
                 Some(ref config) => {
 
                     match &config.get_io_type() {
-                    
-                        GpioType::Input(base, pin, input_type) => {
+                        GpioType::NotInitialized => log_info!(APP_TAG, "Not Initialized: {}", config.get_name()),
+                        GpioType::Input(base, pin, input_type, default_value) => 
                             
-                            
-
                             if let Some(input) = self.functions.input {
                                 log_info!(APP_TAG, "Input: {}", config.get_name());
 
-                                input(*base, *pin, *input_type)?;
+                                input(&config, *base, *pin, *input_type, *default_value)?;
 
-                                use GpioInputType::*;
-                                match input_type {
-                                    NoPull => if let Some(no_pull) = self.input_type_functions.no_pull {
-                                        no_pull(*base, *pin);
-                                    },
-                                    PullUp => if let Some(pull_up) = self.input_type_functions.pull_up {
-                                        pull_up(*base, *pin);
-                                    },
-                                    PullDown => if let Some(pull_down) = self.input_type_functions.pull_down {
-                                        pull_down(*base, *pin);
-                                    },
-                                }
-
-                                if let Some(write) = self.functions.write {
-                                    write(*base, *pin, config.default_value);
-                                }
                             } else {
                                 log_warning!(APP_TAG, "Input function not defined for: {}", config.get_name());
                             }
+                        ,
 
-
-                        }
-                    
-                        GpioType::OutputPWM(base, pin) => {
-                            
-                            if let Some(output_pwm) = self.functions.output_pwm {
-                                log_info!(APP_TAG, "Output PWM: {}", config.get_name());
-                                output_pwm(*base, *pin, config.default_value)?;
-                            } else {
-                                log_warning!(APP_TAG, "Output PWM function not defined for: {}", config.get_name());
-                            }
-                        },
-                    
-                        GpioType::NotInitialized => {
-                            
-                            log_info!(APP_TAG, "Not Initialized: {}", config.get_name());
-                        
-                        },
-                        GpioType::InputAnalog(base, pin, channel, ranck) => {
+                        GpioType::InputAnalog(base, pin, channel, ranck) => 
                             
                             if let Some(input_analog) = self.functions.input_analog {
                                 log_info!(APP_TAG, "Input Analog: {}", config.get_name());
-                                input_analog(*base, *pin, *channel, *ranck)?;
+                                input_analog(&config, *base, *pin, *channel, *ranck)?;
                             } else {
                                 log_warning!(APP_TAG, "Input Analog function not defined for: {}", config.get_name());
                             }
-                        },
-                        GpioType::Output(base, pin) => {
-                            
-                            
-                            
+
+                        ,
+                        
+                        GpioType::Output(base, pin, default_value) => 
+    
                             if let Some(output) = self.functions.output {
                                 log_info!(APP_TAG, "Output: {}", config.get_name());
-                                output(*base, *pin, config.default_value)?;
+                                output(&config, *base, *pin, *default_value)?;
                             } else {
                                 log_warning!(APP_TAG, "Output function not defined for: {}", config.get_name());
                             }
-                        },
-                        GpioType::Pheriferal(base, pin, peripheral_data) => {
+                        ,
+                    
+                        GpioType::OutputPWM(base, pin, default_value) => 
+                            
+                            if let Some(output_pwm) = self.functions.output_pwm {
+                                log_info!(APP_TAG, "Output PWM: {}", config.get_name());
+                                output_pwm(&config, *base, *pin, *default_value)?;
+                            } else {
+                                log_warning!(APP_TAG, "Output PWM function not defined for: {}", config.get_name());
+                            }
+                        ,
+
+                        GpioType::Pheriferal(base, pin, peripheral_data) => 
 
                             if let Some(peripheral) = self.functions.peripheral {
                                 log_info!(APP_TAG, "Peripheral: {}", config.get_name());
-                                peripheral(*base, *pin, peripheral_data.clone())?;
+                                peripheral(&config, *base, *pin, peripheral_data.clone())?;
                             } else {
                                 log_warning!(APP_TAG, "Peripheral function not defined for: {}", config.get_name());
                             }
-                        },
+                        
                     
                     }
                 
                 },
-
                 None => return Err(Error::NotFound)
                 
             }
@@ -233,7 +198,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<'_, GPIO_CONFIG_SIZE>
     }
 }
 
-impl<const GPIO_CONFIG_SIZE: usize> Deinitializable for Gpio<'_, GPIO_CONFIG_SIZE> {
+impl<const GPIO_CONFIG_SIZE: usize> Deinitializable for Gpio<GPIO_CONFIG_SIZE> {
 
     fn deinit(&mut self) -> Result<()> {
        
@@ -248,26 +213,25 @@ impl<const GPIO_CONFIG_SIZE: usize> Deinitializable for Gpio<'_, GPIO_CONFIG_SIZ
 
 
 
-impl<'a, const GPIO_CONFIG_SIZE: usize> Gpio<'a, GPIO_CONFIG_SIZE> {
-    pub const fn new(functions: &'a GpioFn, input_type_functions: &'a GpioInputTypeFn, configs: &'a mut GpioConfigs<'a, GPIO_CONFIG_SIZE>,) -> Self {
+impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
+    pub fn new(functions: &'static GpioFn, array: &'static mut [Option<GpioConfig<'static>>; GPIO_CONFIG_SIZE],) -> Self {
         Self {
             functions,
-            input_type_functions,
-            configs,
+            configs: GpioConfigs::new(array),
             idx: GPIO_CONFIG_SIZE as isize - 1,
         }
     }
 
 
-    pub fn write(&self, name: &dyn GpioName, state: bool) -> OsalRsBool {
+    pub fn write(&self, name: &dyn GpioName, state: u32) -> OsalRsBool {
 
         if let Some(config) = &self.configs[name] {
             match &config.get_io_type() {
-                GpioType::Output(base, pin) => 
+                GpioType::Output(base, pin, _) => 
                     
                     match &self.functions.write {
                         Some(write) => 
-                            if write(*base, *pin, if state { 1 } else { 0 }).is_ok() {
+                            if write(*base, *pin, state).is_ok() {
                                 OsalRsBool::True
                             } else {
                                 OsalRsBool::False   
@@ -289,7 +253,7 @@ impl<'a, const GPIO_CONFIG_SIZE: usize> Gpio<'a, GPIO_CONFIG_SIZE> {
         
         if let Some(config) = &self.configs[name] {
             match &config.get_io_type() {
-                GpioType::Input(base, pin, _) => {
+                GpioType::Input(base, pin, _, _) => {
                     if let Some(read) = self.functions.read {
                         return read(*base, *pin).map_err(|_| Error::Unhandled("GPIO Read Error"));
                     } else {
@@ -308,9 +272,9 @@ impl<'a, const GPIO_CONFIG_SIZE: usize> Gpio<'a, GPIO_CONFIG_SIZE> {
 
         if let Some(config) = &self.configs[name] {
             match &config.get_io_type() {
-                GpioType::OutputPWM(base, pin) => 
+                GpioType::OutputPWM(base, pin,_) => 
                     if let Some(set_pwm) = self.functions.set_pwm {
-                        if set_pwm(*base, *pin, pwm_duty_cycle as f32).is_ok() {
+                        if set_pwm(*base, *pin, pwm_duty_cycle as u32).is_ok() {
                             OsalRsBool::True
                         } else {
                             OsalRsBool::False   
@@ -339,7 +303,7 @@ impl<'a, const GPIO_CONFIG_SIZE: usize> Gpio<'a, GPIO_CONFIG_SIZE> {
 
         if let Some(config) = &mut self.configs[name] {
             match &config.get_io_type() {
-                GpioType::Input(base, pin, input_type) => {
+                GpioType::Input(base, pin, _, _) => {
                     
 
                     log_info!(APP_TAG, "Interrupt: {} enabled:{enable}", name.as_str());
@@ -375,7 +339,7 @@ impl<'a, const GPIO_CONFIG_SIZE: usize> Gpio<'a, GPIO_CONFIG_SIZE> {
 
         if let Some(config) = &mut self.configs[name] {
             match &config.get_io_type() {
-                GpioType::Input(base, pin, _) => {
+                GpioType::Input(base, pin, _, _) => {
                     
 
                     match &mut config.irq {
@@ -423,13 +387,12 @@ impl<'a, const GPIO_CONFIG_SIZE: usize> Gpio<'a, GPIO_CONFIG_SIZE> {
 }
 
 
-//// GPIO Configuration ////
+// //// GPIO Configuration ////
 
 #[derive(Clone)]
 pub struct GpioConfig<'a> {
     name : &'a dyn GpioName,
     io_type: GpioType,
-    pub default_value: u32,
     pub irq: Option<InterruptConfig>,
 } 
 
@@ -443,27 +406,26 @@ impl PartialEq for GpioConfig<'_> {
     }
 }
 
-impl<'a> GpioConfig<'a> {
-    
-    pub fn default() -> Self {
+impl Default for GpioConfig<'_> {
+    fn default() -> Self {
         Self { 
             name: &GpioNameEmpty::Empty, 
             io_type: GpioType::NotInitialized, 
-            default_value: 0, 
             irq: None,        
         }
     }
+}
 
+impl<'a> GpioConfig<'a> {
+    
     pub const fn new (
         name : &'a dyn GpioName,
         io_type: GpioType,
-        default_value: u32,
     ) -> Self {
 
         Self {
             name: name,
             io_type,
-            default_value,
             irq: None
         }
     }
@@ -477,14 +439,15 @@ impl<'a> GpioConfig<'a> {
     }
 }
 
-#[derive(Clone)]
-pub struct GpioConfigs<'a, const SIZE: usize> {
-    array: [Option<GpioConfig<'a>>; SIZE],
+//// GPIO Configuration Constainer ////
+
+
+struct GpioConfigs<'a, const GPIO_CONFIG_SIZE: usize> {
+    array: &'a mut [Option<GpioConfig<'a>>; GPIO_CONFIG_SIZE],
     index: usize,
 }
 
-
-impl<'a, const SIZE: usize> Index<&dyn GpioName> for GpioConfigs<'a, SIZE> {
+impl<'a, const GPIO_CONFIG_SIZE: usize> Index<&dyn GpioName> for GpioConfigs<'a, GPIO_CONFIG_SIZE> {
     type Output = Option<GpioConfig<'a>>;
 
     fn index(&self, name: &dyn GpioName) -> &Self::Output {
@@ -501,7 +464,7 @@ impl<'a, const SIZE: usize> Index<&dyn GpioName> for GpioConfigs<'a, SIZE> {
     }
 }
 
-impl<'a, const SIZE: usize> Index<isize> for GpioConfigs<'a, SIZE> {
+impl<'a, const GPIO_CONFIG_SIZE: usize> Index<isize> for GpioConfigs<'a, GPIO_CONFIG_SIZE> {
     type Output = Option<GpioConfig<'a>>;
 
     fn index(&self, name: isize) -> &Self::Output {
@@ -509,7 +472,7 @@ impl<'a, const SIZE: usize> Index<isize> for GpioConfigs<'a, SIZE> {
     }
 }
 
-impl<'a, const SIZE: usize> IndexMut<&dyn GpioName> for GpioConfigs<'a, SIZE> {
+impl<'a, const GPIO_CONFIG_SIZE: usize> IndexMut<&dyn GpioName> for GpioConfigs<'a, GPIO_CONFIG_SIZE> {
 
     fn index_mut(&mut self, name: &dyn GpioName) -> &mut Self::Output {
         
@@ -534,36 +497,13 @@ impl<'a, const SIZE: usize> IndexMut<&dyn GpioName> for GpioConfigs<'a, SIZE> {
 }
 
 
-impl<'a, const SIZE: usize> GpioConfigs<'a, SIZE> {
+impl<'a, const GPIO_CONFIG_SIZE: usize> GpioConfigs<'a, GPIO_CONFIG_SIZE> {
 
-    pub const fn new() -> Self {
+    const fn new(array: &'a mut [Option<GpioConfig<'a>>; GPIO_CONFIG_SIZE] ) -> Self {
         Self{
-            array: [const {None}; SIZE],
-            index: 0,
+            array,
+            index: GPIO_CONFIG_SIZE,
         }
     }
-
-    pub fn push(&mut self, config: GpioConfig<'a>) -> Result<&'a str> {
-
-        if self.index >= SIZE {
-            return Err(Error::OutOfIndex)
-        }
-
-        for (i, it) in self.array.iter().enumerate() {
-            if let Some(c) = it {
-                if c.name.as_str() == config.name.as_str() {
-                     self.array[i] = Some(config.clone());
-                     return Ok(config.name.as_str())
-                }
-            }
-        }
-
-        self.array[self.index] = Some(config.clone());
-        self.index += 1;
-        
-
-        Ok(config.name.as_str())
-    }
-
 }
 
