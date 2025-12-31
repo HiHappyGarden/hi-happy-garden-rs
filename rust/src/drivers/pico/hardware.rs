@@ -37,7 +37,7 @@ impl Initializable for Hardware {
 
 impl Hardware {
     pub fn new() -> Self {
-        let gpio = Arc::new(Mutex::new(Gpio::<GPIO_CONFIG_SIZE>::new(&GPIO_FN, unsafe { &mut GPIO_CONFIG })));
+        let gpio = Arc::new(Mutex::new(Gpio::<GPIO_CONFIG_SIZE>::new(&GPIO_FN, &raw mut GPIO_CONFIG )));
         let gpio_clone = Arc::clone(&gpio);
         
         Self { 

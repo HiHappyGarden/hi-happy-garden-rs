@@ -214,10 +214,10 @@ impl<const GPIO_CONFIG_SIZE: usize> Deinitializable for Gpio<GPIO_CONFIG_SIZE> {
 
 
 impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
-    pub fn new(functions: &'static GpioFn, array: &'static mut [Option<GpioConfig<'static>>; GPIO_CONFIG_SIZE],) -> Self {
+    pub fn new(functions: &'static GpioFn, array: *mut [Option<GpioConfig<'static>>; GPIO_CONFIG_SIZE],) -> Self {
         Self {
             functions,
-            configs: GpioConfigs::new(array),
+            configs: GpioConfigs::new(unsafe { &mut *array } ),
             idx: GPIO_CONFIG_SIZE as isize - 1,
         }
     }
