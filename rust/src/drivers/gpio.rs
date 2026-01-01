@@ -45,7 +45,7 @@ pub enum InterruptType
 	RisingEdge,
 	FallingEdge,
 	BothEdge,
-	HigthLevel,
+	HighLevel,
 	LowLevel,
 }
 
@@ -145,7 +145,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<GPIO_CONFIG_SIZE> {
             init()?;
         }
 
-        for i in 0..self.configs.idx() {
+        for i in 0..=self.configs.idx() {
 
             match self.configs[i] {
 
@@ -439,7 +439,7 @@ impl<'a> GpioConfig<'a> {
 #[derive(Clone)]
 pub struct GpioConfigs<'a, const GPIO_CONFIG_SIZE: usize> {
     array: [Option<GpioConfig<'a>>; GPIO_CONFIG_SIZE],
-    index: usize,
+    index: isize,
 }
 
 impl<'a, const GPIO_CONFIG_SIZE: usize> Index<&dyn GpioName> for GpioConfigs<'a, GPIO_CONFIG_SIZE> {
@@ -463,6 +463,10 @@ impl<'a, const GPIO_CONFIG_SIZE: usize> Index<usize> for GpioConfigs<'a, GPIO_CO
     type Output = Option<GpioConfig<'a>>;
 
     fn index(&self, idx: usize) -> &Self::Output {
+        if idx > self.index as usize {
+            return &None;
+        }
+        
         &self.array[idx]
     }
 }
@@ -484,7 +488,7 @@ impl<'a, const GPIO_CONFIG_SIZE: usize> IndexMut<&dyn GpioName> for GpioConfigs<
         if index_find > -1 {
             &mut self.array[index_find as usize]
         } else {
-            let ret = &mut self.array[self.index];
+            let ret = &mut self.array[self.index as usize];
             self.index += 1;
             ret
         }
@@ -502,15 +506,19 @@ impl<'a, const GPIO_CONFIG_SIZE: usize> GpioConfigs<'a, GPIO_CONFIG_SIZE> {
     }
 
     pub const fn new_with_array(array: [Option<GpioConfig<'a>>; GPIO_CONFIG_SIZE]) -> Self {
+        let index = array.len();
+        let index = if index > GPIO_CONFIG_SIZE { GPIO_CONFIG_SIZE } else { index };
+        let index = index as isize - 1;
+
         Self{
             array,
-            index: 0,
+            index,
         }
     }
 
     pub fn push(&mut self, config: GpioConfig<'a>) -> Result<&'a str> {
 
-        if self.index >= GPIO_CONFIG_SIZE {
+        if self.index >= GPIO_CONFIG_SIZE as isize {
             return Err(Error::OutOfIndex)
         }
 
@@ -523,7 +531,7 @@ impl<'a, const GPIO_CONFIG_SIZE: usize> GpioConfigs<'a, GPIO_CONFIG_SIZE> {
             }
         }
 
-        self.array[self.index] = Some(config.clone());
+        self.array[self.index as usize] = Some(config.clone());
         self.index += 1;
         
 
@@ -531,8 +539,13 @@ impl<'a, const GPIO_CONFIG_SIZE: usize> GpioConfigs<'a, GPIO_CONFIG_SIZE> {
     }
 
 
+    #[inline]
     pub fn idx(&self) -> usize {
-        self.index
+        if self.index < 0 {
+            0usize
+        } else {    
+            self.index as usize
+        }
     }
 }
 

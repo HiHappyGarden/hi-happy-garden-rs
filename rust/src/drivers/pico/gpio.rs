@@ -234,7 +234,7 @@ fn set_interrupt(_: &GpioConfig, _: Option<Ptr>, pin: u32, irq_type: InterruptTy
             RisingEdge => hhg_gpio_set_irq_enabled_with_callback(pin, GPIO_IRQ_EDGE_RISE as u32, enable, callback),
             FallingEdge => hhg_gpio_set_irq_enabled_with_callback(pin, GPIO_IRQ_EDGE_FALL as u32, enable, callback),
             BothEdge => hhg_gpio_set_irq_enabled_with_callback(pin, GPIO_IRQ_EDGE_RISE as u32 | GPIO_IRQ_EDGE_FALL as u32, enable, callback),
-            HigthLevel => hhg_gpio_set_irq_enabled_with_callback(pin, GPIO_IRQ_LEVEL_HIGH as u32, enable, callback),
+            HighLevel => hhg_gpio_set_irq_enabled_with_callback(pin, GPIO_IRQ_LEVEL_HIGH as u32, enable, callback),
             LowLevel => hhg_gpio_set_irq_enabled_with_callback(pin, GPIO_IRQ_LEVEL_LOW as u32, enable, callback),
         }
         hhd_irq_set_enabled(IO_IRQ_BANK0, true);
@@ -256,7 +256,7 @@ fn enable_interrupt(config: &GpioConfig, _: Option<Ptr>, pin: u32, enable: bool)
             RisingEdge => hhg_gpio_set_irq_enabled(pin, GPIO_IRQ_EDGE_RISE as u32, enable),
             FallingEdge => hhg_gpio_set_irq_enabled(pin, GPIO_IRQ_EDGE_FALL as u32, enable),
             BothEdge => hhg_gpio_set_irq_enabled(pin, GPIO_IRQ_EDGE_RISE as u32 | GPIO_IRQ_EDGE_FALL as u32, enable),
-            HigthLevel => hhg_gpio_set_irq_enabled(pin, GPIO_IRQ_LEVEL_HIGH as u32, enable),
+            HighLevel => hhg_gpio_set_irq_enabled(pin, GPIO_IRQ_LEVEL_HIGH as u32, enable),
             LowLevel => hhg_gpio_set_irq_enabled(pin, GPIO_IRQ_LEVEL_LOW as u32, enable),
         }
     }

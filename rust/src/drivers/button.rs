@@ -25,8 +25,9 @@ use alloc::sync::Arc;
 
 use osal_rs::{log_error, log_info, print};
 use osal_rs::os::{Mutex, MutexFn, System, SystemFn, Thread, ThreadFn};
-use osal_rs::utils::Result;
+use osal_rs::utils::{Error, OsalRsBool, Result};
 
+use crate::drivers::gpio::InterruptType;
 use crate::drivers::platform::{self, Gpio, GpioPeripheral, GPIO_CONFIG_SIZE};
 use crate::traits::state::Initializable;
 
@@ -38,6 +39,9 @@ pub struct Button {
     thread: Thread,
 }
 
+extern "C" fn button_isr() {
+    log_info!(APP_TAG, "low level detected");
+}
 
 impl Button {
     pub fn new(gpio_ref: GpioPeripheral, gpio: Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>) -> Self {
@@ -52,7 +56,10 @@ impl Button {
         log_info!(APP_TAG, "Init button");
 
 
-
+        if gpio.lock()?.set_interrupt(&self.gpio_ref, InterruptType::RisingEdge, true, button_isr) == OsalRsBool::False {
+            log_error!(APP_TAG, "Error setting button interrupt");
+            return Err(Error::NotFound);
+        }
 
 
         // let gpio_clone = Arc::clone(gpio);
