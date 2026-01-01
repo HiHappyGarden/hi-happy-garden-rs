@@ -8,6 +8,7 @@ use core::{default, usize};
 use alloc::str;
 use alloc::sync::Arc;
 
+use osal_rs::os::config;
 use osal_rs::{log_info, log_warning};
 use osal_rs::utils::{Error, OsalRsBool, Ptr, Result};
 
@@ -95,11 +96,11 @@ pub struct GpioFn {
     pub output_pwm: Option<fn(&GpioConfig, Option<Ptr>, u32, u32) -> Result<()>>,
     pub peripheral: Option<fn(&GpioConfig, Option<Ptr>, u32, GpioPeripheralData) -> Result<()>>,
     pub deinit: Option<fn() -> Result<()>>,
-    pub read: Option<fn(Option<Ptr>, u32) -> Result<u32>>,
-    pub write: Option<fn(Option<Ptr>, u32, u32) -> Result<()>>,
-    pub set_pwm: Option<fn(Option<Ptr>, u32, u32) -> Result<()>>,
-    pub set_interrupt: Option<fn(Option<Ptr>, u32, InterruptType, InterruptCallback, bool) -> Result<()>>,
-    pub enable_interrupt: Option<fn(Option<Ptr>, u32, bool) -> Result<()>>,
+    pub read: Option<fn(&GpioConfig, Option<Ptr>, u32) -> Result<u32>>,
+    pub write: Option<fn(&GpioConfig, Option<Ptr>, u32, u32) -> OsalRsBool>,
+    pub set_pwm: Option<fn(&GpioConfig, Option<Ptr>, u32, u32) -> OsalRsBool>,
+    pub set_interrupt: Option<fn(&GpioConfig, Option<Ptr>, u32, InterruptType, InterruptCallback, bool) -> OsalRsBool>,
+    pub enable_interrupt: Option<fn(&GpioConfig, Option<Ptr>, u32, bool) -> OsalRsBool>,
 }
 
 unsafe impl Send for GpioFn {}
@@ -109,7 +110,7 @@ unsafe impl Sync for GpioFn {}
 pub struct Gpio<const GPIO_CONFIG_SIZE: usize> {
     functions: &'static GpioFn,
     configs: GpioConfigs<'static, GPIO_CONFIG_SIZE>,
-    idx: isize,
+    //idx: isize,
 }
 
 unsafe impl<const GPIO_CONFIG_SIZE: usize> Send for Gpio<GPIO_CONFIG_SIZE> {}
@@ -125,7 +126,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<GPIO_CONFIG_SIZE> {
             init()?;
         }
 
-        for i in 0..=self.idx {
+        for i in 0..self.configs.idx() {
 
             match self.configs[i] {
 
@@ -214,11 +215,10 @@ impl<const GPIO_CONFIG_SIZE: usize> Deinitializable for Gpio<GPIO_CONFIG_SIZE> {
 
 
 impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
-    pub fn new(functions: &'static GpioFn, array: *mut [Option<GpioConfig<'static>>; GPIO_CONFIG_SIZE],) -> Self {
+    pub const fn new(functions: &'static GpioFn, configs: GpioConfigs<'static, GPIO_CONFIG_SIZE>) -> Self {
         Self {
             functions,
-            configs: GpioConfigs::new(unsafe { &mut *array } ),
-            idx: GPIO_CONFIG_SIZE as isize - 1,
+            configs
         }
     }
 
@@ -230,13 +230,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
                 GpioType::Output(base, pin, _) => 
                     
                     match &self.functions.write {
-                        Some(write) => 
-                            if write(*base, *pin, state).is_ok() {
-                                OsalRsBool::True
-                            } else {
-                                OsalRsBool::False   
-                            }
-                        ,
+                        Some(write) => write(&config, *base, *pin, state),
                         None => OsalRsBool::False,
                     }
 
@@ -255,9 +249,9 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
             match &config.get_io_type() {
                 GpioType::Input(base, pin, _, _) => {
                     if let Some(read) = self.functions.read {
-                        return read(*base, *pin).map_err(|_| Error::Unhandled("GPIO Read Error"));
+                        read(&config, *base, *pin).map_err(|_| Error::Unhandled("GPIO Read Error"))
                     } else {
-                        return Err(Error::NotFound);
+                        Err(Error::NotFound)
                     }
                 }
                 _ => Err(Error::InvalidType),
@@ -274,11 +268,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
             match &config.get_io_type() {
                 GpioType::OutputPWM(base, pin,_) => 
                     if let Some(set_pwm) = self.functions.set_pwm {
-                        if set_pwm(*base, *pin, pwm_duty_cycle as u32).is_ok() {
-                            OsalRsBool::True
-                        } else {
-                            OsalRsBool::False   
-                        }
+                        set_pwm(&config, *base, *pin, pwm_duty_cycle as u32)
                     } else {
                         OsalRsBool::False
                     }
@@ -310,13 +300,9 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
 
                     let ret : OsalRsBool;
                     if let Some(set_interrupt) = self.functions.set_interrupt {
-                        
-                        if set_interrupt(*base, *pin, irq_type.clone(), callback, enable).is_ok() {
-                            ret = OsalRsBool::True;
-                        } else {
-                            ret = OsalRsBool::False;
-                        }
 
+                        ret = set_interrupt(&config, *base, *pin, irq_type.clone(), callback, enable);
+                    
                     } else {
                         return OsalRsBool::False
                     } 
@@ -341,7 +327,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
             match &config.get_io_type() {
                 GpioType::Input(base, pin, _, _) => {
                     
-
+                    let config_clone = config.clone();
                     match &mut config.irq {
                         Some(irq) => {
 
@@ -350,13 +336,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
 
                             let ret : OsalRsBool;
                             if let Some(enable_interrupt) = self.functions.enable_interrupt {
-                                
-                                if enable_interrupt(*base, *pin, enable).is_ok() {
-                                    ret = OsalRsBool::True;
-                                } else {
-                                    ret = OsalRsBool::False;
-                                }
-
+                                ret = enable_interrupt(&config_clone, *base, *pin, enable);
                             } else {
                                 return OsalRsBool::False
                             } 
@@ -379,10 +359,6 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
             OsalRsBool::False
         }
 
-    }
-
-    pub fn len(&self) -> u32 {
-        self.idx as u32 + 1
     }
 }
 
@@ -441,9 +417,9 @@ impl<'a> GpioConfig<'a> {
 
 //// GPIO Configuration Constainer ////
 
-
-struct GpioConfigs<'a, const GPIO_CONFIG_SIZE: usize> {
-    array: &'a mut [Option<GpioConfig<'a>>; GPIO_CONFIG_SIZE],
+#[derive(Clone)]
+pub struct GpioConfigs<'a, const GPIO_CONFIG_SIZE: usize> {
+    array: [Option<GpioConfig<'a>>; GPIO_CONFIG_SIZE],
     index: usize,
 }
 
@@ -464,11 +440,11 @@ impl<'a, const GPIO_CONFIG_SIZE: usize> Index<&dyn GpioName> for GpioConfigs<'a,
     }
 }
 
-impl<'a, const GPIO_CONFIG_SIZE: usize> Index<isize> for GpioConfigs<'a, GPIO_CONFIG_SIZE> {
+impl<'a, const GPIO_CONFIG_SIZE: usize> Index<usize> for GpioConfigs<'a, GPIO_CONFIG_SIZE> {
     type Output = Option<GpioConfig<'a>>;
 
-    fn index(&self, name: isize) -> &Self::Output {
-        &self.array[name as usize]
+    fn index(&self, idx: usize) -> &Self::Output {
+        &self.array[idx]
     }
 }
 
@@ -499,11 +475,45 @@ impl<'a, const GPIO_CONFIG_SIZE: usize> IndexMut<&dyn GpioName> for GpioConfigs<
 
 impl<'a, const GPIO_CONFIG_SIZE: usize> GpioConfigs<'a, GPIO_CONFIG_SIZE> {
 
-    const fn new(array: &'a mut [Option<GpioConfig<'a>>; GPIO_CONFIG_SIZE] ) -> Self {
+    pub const fn new() -> Self {
+        Self{
+            array: [const { None }; GPIO_CONFIG_SIZE],
+            index: 0,
+        }
+    }
+
+    pub const fn new_with_array(array: [Option<GpioConfig<'a>>; GPIO_CONFIG_SIZE]) -> Self {
         Self{
             array,
-            index: GPIO_CONFIG_SIZE,
+            index: 0,
         }
+    }
+
+    pub fn push(&mut self, config: GpioConfig<'a>) -> Result<&'a str> {
+
+        if self.index >= GPIO_CONFIG_SIZE {
+            return Err(Error::OutOfIndex)
+        }
+
+        for (i, it) in self.array.iter().enumerate() {
+            if let Some(c) = it {
+                if c.name.as_str() == config.name.as_str() {
+                     self.array[i] = Some(config.clone());
+                     return Ok(config.name.as_str())
+                }
+            }
+        }
+
+        self.array[self.index] = Some(config.clone());
+        self.index += 1;
+        
+
+        Ok(config.name.as_str())
+    }
+
+
+    pub fn idx(&self) -> usize {
+        self.index
     }
 }
 
