@@ -1,4 +1,21 @@
-
+/***************************************************************************
+ *
+ * Hi Happy Garden
+ * Copyright (C) 2023/2026 Antonio Salsi <passy.linux@zresa.it>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***************************************************************************/
 
 mod ffi {
     #![allow(non_camel_case_types)]
@@ -88,8 +105,8 @@ pub const GPIO_CONFIG_SIZE: usize = 7;
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum GpioPeripheral {
     NoUsed,
-    EncoderA,
-    EncoderB,
+    EncoderCCw,
+    EncoderCW,
     EncoderBtn,
     Btn,
     LedRed,
@@ -101,8 +118,8 @@ impl GpioName for GpioPeripheral {
     fn as_str(&self) -> &str {
         match self {
             NoUsed => "NoUsed",
-            EncoderA => "EncoderA",
-            EncoderB => "EncoderB",
+            EncoderCCw => "EncoderCCw",
+            EncoderCW => "EncoderCW",
             EncoderBtn => "EncoderBtn",
             Btn => "Btn",
             LedRed => "LedRed",
@@ -118,8 +135,8 @@ impl FromStr for GpioPeripheral {
     fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
         match s {
             "NoUsed" => Ok(NoUsed),
-            "EncoderA" => Ok(EncoderA),
-            "EncoderB" => Ok(EncoderB),
+            "EncoderCCw" => Ok(EncoderCCw),
+            "EncoderCW" => Ok(EncoderCW),
             "EncoderBtn" => Ok(EncoderBtn),
             "Btn" => Ok(Btn),
             "LedRed" => Ok(LedRed),
@@ -147,8 +164,8 @@ pub static GPIO_FN : GpioFn = GpioFn {
 
 pub fn get_gpio_configs() -> GpioConfigs<'static, GPIO_CONFIG_SIZE> {
     GpioConfigs::new_with_array([
-        Some(GpioConfig::new(&EncoderA, GpioType::Input(None, 21, GpioInputType::PullDown, 0))),
-        Some(GpioConfig::new(&EncoderB, GpioType::Input(None, 20, GpioInputType::PullDown, 0))),
+        Some(GpioConfig::new(&EncoderCCw, GpioType::Input(None, 21, GpioInputType::PullDown, 0))),
+        Some(GpioConfig::new(&EncoderCW, GpioType::Input(None, 20, GpioInputType::PullDown, 0))),
         Some(GpioConfig::new(&EncoderBtn, GpioType::Input(None, 19, GpioInputType::PullUp, 0))),
         Some(GpioConfig::new(&Btn, GpioType::Input(None, 19, GpioInputType::PullDown, 0))),
         Some(GpioConfig::new(&LedRed, GpioType::OutputPWM(None, 13, 0))),

@@ -3,6 +3,8 @@
 dirs=(
     "build"
     "rust/target"
+    "at-parser-rs/target"
+    "osal-rs/target"
 )
 
 for dir in "${dirs[@]}"; do

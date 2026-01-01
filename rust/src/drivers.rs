@@ -11,8 +11,8 @@ mod pico;
 use crate::drivers::pico as plt;
 
 pub mod platform {
+    pub use crate::drivers::plt::gpio::*;
     pub use crate::drivers::plt::hardware::*;
-    pub use crate::drivers::plt::get_gpio_configs;
     pub use crate::drivers::button::*;
     pub use crate::drivers::encoder::*;
     pub use crate::drivers::gpio::*;
