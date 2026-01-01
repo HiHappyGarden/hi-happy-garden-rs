@@ -167,7 +167,7 @@ pub fn get_gpio_configs() -> GpioConfigs<'static, GPIO_CONFIG_SIZE> {
         Some(GpioConfig::new(&EncoderCCw, GpioType::Input(None, 21, GpioInputType::PullDown, 0))),
         Some(GpioConfig::new(&EncoderCW, GpioType::Input(None, 20, GpioInputType::PullDown, 0))),
         Some(GpioConfig::new(&EncoderBtn, GpioType::Input(None, 19, GpioInputType::PullUp, 0))),
-        Some(GpioConfig::new(&Btn, GpioType::Input(None, 19, GpioInputType::PullDown, 0))),
+        Some(GpioConfig::new(&Btn, GpioType::Input(None, 19, GpioInputType::PullUp, 0))),
         Some(GpioConfig::new(&LedRed, GpioType::OutputPWM(None, 13, 0))),
         Some(GpioConfig::new(&LedGreen, GpioType::OutputPWM(None, 14, 0))),
         Some(GpioConfig::new(&LedBlue, GpioType::OutputPWM(None, 15, 0))),

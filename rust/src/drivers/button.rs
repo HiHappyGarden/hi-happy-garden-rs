@@ -18,6 +18,7 @@
  ***************************************************************************/
  
 use core::cell::RefCell;
+use core::sync::atomic::{AtomicU32, Ordering};
 use core::time::Duration;
 
 use alloc::str;
@@ -32,6 +33,9 @@ use crate::drivers::platform::{self, Gpio, GpioPeripheral, GPIO_CONFIG_SIZE};
 use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "Button";
+const DEBOUNCE_TIME_US: u32 = 150_000; // Tempo di debounce in microsecondi (150ms)
+
+static LAST_INTERRUPT_TIME: AtomicU32 = AtomicU32::new(0);
 
 pub struct Button {
     gpio_ref: GpioPeripheral,
@@ -40,7 +44,19 @@ pub struct Button {
 }
 
 extern "C" fn button_isr() {
-    log_info!(APP_TAG, "low level detected");
+    let current_time = System::get_current_time_us().as_micros() as u32;
+    let last_time = LAST_INTERRUPT_TIME.load(Ordering::Relaxed);
+    
+    // Controlla se è passato abbastanza tempo dall'ultimo interrupt
+    // Gestisce anche il wraparound del timer usando la sottrazione wrapping
+    let elapsed = current_time.wrapping_sub(last_time);
+    
+    if elapsed >= DEBOUNCE_TIME_US {
+        LAST_INTERRUPT_TIME.store(current_time, Ordering::Relaxed);
+        log_info!(APP_TAG, "Button pressed (debounced)");
+        
+        // Qui puoi inserire la logica che vuoi eseguire al click del bottone
+    }
 }
 
 impl Button {
