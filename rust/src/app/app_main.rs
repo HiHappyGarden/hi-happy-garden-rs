@@ -1,3 +1,8 @@
+use alloc::boxed::Box;
+use alloc::sync::Arc;
+use osal_rs::log_info;
+use osal_rs::utils::Result;
+
 /***************************************************************************
  *
  * Hi Happy Garden
@@ -16,25 +21,42 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
- 
- // use hhg_drivers::pico::hardware::{self, Hardware};
-// use hhg_traits::initializable::Initializable;
-// use osal_rs::utils::Result; 
 
 
+use crate::drivers::platform::Hardware;
+use crate::traits::button::{ButtonState, OnClickable};
+use crate::traits::state::Initializable;
 
-// pub struct AppMain {
-//     hardware: &'static Hardware
-// }
+const APP_TAG: &str = "AppMain";
 
-// impl Initializable for AppMain{
-//     fn init() -> Result<()> {
-//         todo!()
-//     }
-// }
+pub struct AppMain<'a> {
+    hardware: &'a mut Hardware
+}
 
-// impl AppMain {
-//     pub const fn new(hardware: &'static Hardware) -> Self {
-//         Self { hardware }
-//     }
-// }
+impl Initializable for AppMain<'_> {
+    fn init(&mut self) -> Result<()> {
+        log_info!(APP_TAG, "Init app main");
+
+        self.hardware.set_on_click(Box::new(|state| {
+            match state {
+                ButtonState::Pressed => {
+                    log_info!(APP_TAG, "Button Pressed");
+                },
+                ButtonState::Released => {
+                    log_info!(APP_TAG, "Button Released");
+                },
+                ButtonState::None => {}
+            }
+        }));
+        
+        Ok(())
+    }
+}
+
+impl<'a> AppMain<'a> {
+    pub fn new(hardware: &'a mut Hardware) -> Self {
+        AppMain {
+            hardware
+        }
+    }
+}

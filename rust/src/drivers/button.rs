@@ -32,7 +32,7 @@ use once_cell::race::OnceBox;
 use osal_rs::os::config::MINIMAL_STACK_SIZE;
 use osal_rs::os::types::{StackType, TickType};
 use osal_rs::{log_error, log_info, print};
-use osal_rs::os::{EventGroup, EventGroupFn, Mutex, MutexFn, System, SystemFn, Thread, ThreadFn, ThreadParam};
+use osal_rs::os::{EventGroup, EventGroupFn, Mutex, MutexFn, System, SystemFn, Thread, ThreadFn, ThreadParam, Timer, TimerFn};
 use osal_rs::utils::{Error, OsalRsBool, Result};
 
 use crate::drivers::gpio::{InterruptCallback, InterruptType};
@@ -65,7 +65,7 @@ pub struct Button {
     callback: InterruptCallback,
     thread: Thread,
     param: Option<ThreadParam>,
-    clickable_callback: Option<Arc<ButtonCallback>>,
+    clickable_callback: Arc<Mutex<Option<Box<ButtonCallback>>>>,
 }
 
 
@@ -86,8 +86,10 @@ extern "C" fn button_isr() {
 }
 
 impl OnClickable for Button {
-    fn set_callback(&mut self, callback: Arc<ButtonCallback>) {
-        self.clickable_callback = Some(callback);
+    fn set_on_click(&mut self, callback: Box<ButtonCallback>) {
+        if let Ok(mut cb) = self.clickable_callback.lock() {
+            *cb = Some(callback);
+        }
     }
 
     fn get_state(&self) -> ButtonState {
@@ -111,8 +113,8 @@ impl Button {
             gpio,
             callback: button_isr,
             thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_THREAD_STACK, OsalThreadPriority::Normal),
-            param: Some(Arc::clone(event_handler) as Arc<dyn core::any::Any + Send + Sync>),
-            clickable_callback: None,
+            param: Some(Arc::clone(event_handler) as ThreadParam),
+            clickable_callback: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -123,7 +125,7 @@ impl Button {
             callback,
             thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_THREAD_STACK, OsalThreadPriority::Normal),
             param,
-            clickable_callback: None,
+            clickable_callback: Arc::new(Mutex::new(None)),
         }
     }
     
@@ -149,10 +151,12 @@ impl Button {
             return Err(Error::NullPtr);
         };
 
-        let clickable_callback = self.clickable_callback.clone();
+        let clickable_callback = Arc::clone(&self.clickable_callback);
 
-        self.thread.spawn(Some(event_handler as Arc<dyn core::any::Any + Send + Sync>), move |_thread, _param| {
+        self.thread.spawn(Some(event_handler as ThreadParam), move |_thread, _param| {
             let event_handler = EVENT_HANDLER.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
+
+            
 
             let mut debounce: TickType = 0;
             loop {
@@ -164,12 +168,16 @@ impl Button {
                     continue;
                 }
                 if bits & BUTTON_PRESSED == BUTTON_PRESSED {
-                    if let Some(callback) = &clickable_callback {
-                        callback(ButtonState::Pressed);
+                    if let Ok(cb) = clickable_callback.lock() {
+                        if let Some(callback) = &*cb {
+                            callback(ButtonState::Pressed);
+                        }
                     }
                 } else if bits & BUTTON_RELEASED == BUTTON_RELEASED {
-                    if let Some(callback) = &clickable_callback {
-                        callback(ButtonState::Released);
+                    if let Ok(cb) = clickable_callback.lock() {
+                        if let Some(callback) = &*cb {
+                            callback(ButtonState::Released);
+                        }
                     }
                 }
 

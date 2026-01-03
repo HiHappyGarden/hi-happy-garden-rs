@@ -47,7 +47,7 @@ use osal_rs::{log_fatal, log_info};
 use crate::drivers::platform::Hardware;
 use crate::traits::state::Initializable;
 use crate::ffi::{get_g_setup_called, print_systick_status};
-
+use crate::app::AppMain;
 
 const APP_TAG: &str = "rust";
 
@@ -70,6 +70,14 @@ fn main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Resul
 
     if let Err(err) = hardware.init() {
         log_fatal!(APP_TAG, "Hardware error: {:?}", err);
+        panic!("Hardware initialization failed");
+    }
+
+    let mut app = AppMain::new(&mut hardware);
+
+    if let Err(err) = app.init() {
+        log_fatal!(APP_TAG, "App error: {:?}", err);
+        panic!("App initialization failed");
     }
 
     loop {
@@ -88,11 +96,13 @@ pub unsafe extern "C" fn start() {
     {
         let mut thread = Thread::new("main_trd", 4096, 3);
         let _thread = match thread.spawn(None, main_thread) {
+            
             Ok(spawned) =>  {
                 log_info!(APP_TAG, "Start main thread\r\n");
                 spawned
             }
             Err(e) => panic!("Failed to spawn main_trd: {:?}", e)
+
         };
 
         System::start();

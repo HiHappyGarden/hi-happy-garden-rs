@@ -18,7 +18,9 @@
  ***************************************************************************/
 #![allow(dead_code)]
 
-use alloc::sync::Arc;
+use alloc::boxed::Box;
+
+
 
  pub enum ButtonState {
      Pressed,
@@ -29,6 +31,6 @@ use alloc::sync::Arc;
  pub type ButtonCallback = dyn Fn(ButtonState) + Send + Sync;
 
  pub trait OnClickable {
-     fn set_callback(&mut self, callback: Arc<ButtonCallback>);
+     fn set_on_click(&mut self, callback: Box<ButtonCallback>);
      fn get_state(&self) -> ButtonState;
  }

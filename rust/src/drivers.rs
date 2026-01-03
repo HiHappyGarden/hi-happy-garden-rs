@@ -16,6 +16,4 @@ pub mod platform {
     pub use crate::drivers::button::*;
     pub use crate::drivers::encoder::*;
     pub use crate::drivers::gpio::*;
-
-
 }

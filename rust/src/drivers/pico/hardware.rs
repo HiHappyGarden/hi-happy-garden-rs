@@ -17,6 +17,7 @@
  *
  ***************************************************************************/
 
+use alloc::boxed::Box;
 use osal_rs::log_info;
 use osal_rs::os::types::UBaseType;
 use osal_rs::os::{Mutex, MutexFn, ToPriority};
@@ -99,8 +100,8 @@ impl Initializable for Hardware {
 }
 
 impl OnClickable for Hardware {
-    fn set_callback(&mut self, callback: Arc<ButtonCallback>) {
-        self.button.set_callback(callback);
+    fn set_on_click(&mut self, callback: Box<ButtonCallback>) {
+        self.button.set_on_click(callback);
     }
 
     fn get_state(&self) -> ButtonState {
