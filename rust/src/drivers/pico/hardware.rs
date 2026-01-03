@@ -18,7 +18,8 @@
  ***************************************************************************/
 
 use osal_rs::log_info;
-use osal_rs::os::{Mutex, MutexFn};
+use osal_rs::os::types::UBaseType;
+use osal_rs::os::{Mutex, MutexFn, ToPriority};
 use osal_rs::utils::Result;
 
 use alloc::rc::Rc;
@@ -33,6 +34,48 @@ use crate::traits::state::Initializable;
 use crate::drivers::platform::{Button, Encoder, Gpio, GpioConfigs, GpioPeripheral};
 
 const APP_TAG: &str = "Hardware";
+
+
+#[allow(dead_code)]
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum OsalThreadPriority {
+    None = 0,
+    Idle = 1,
+    Low = 4,
+    BelowNormal = 8,
+    Normal = 12,
+    AboveNormal = 16,
+    BelowHigh = 19,
+    High = 23,
+    AboveHigh = 27,
+    Realtime = 31,
+}
+
+impl ToPriority for OsalThreadPriority {
+    fn to_priority(&self) -> UBaseType {
+        *self as UBaseType
+    }
+}
+
+#[allow(unused)]
+impl OsalThreadPriority {
+    pub fn from_priority(priority: UBaseType) -> Self {
+        match priority {
+            1 => OsalThreadPriority::Idle,
+            2..=4 => OsalThreadPriority::Low,
+            5..=8 => OsalThreadPriority::BelowNormal,
+            9..=12 => OsalThreadPriority::Normal,
+            13..=16 => OsalThreadPriority::AboveNormal,
+            17..=19 => OsalThreadPriority::BelowHigh,
+            20..=23 => OsalThreadPriority::High,
+            24..=27 => OsalThreadPriority::AboveHigh,
+            28..=31 => OsalThreadPriority::Realtime,
+            _ => OsalThreadPriority::None,
+        }
+    }
+}
+
 
 pub struct Hardware {
     gpio: Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>,

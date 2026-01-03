@@ -36,7 +36,7 @@ use osal_rs::os::{EventGroup, EventGroupFn, Mutex, MutexFn, System, SystemFn, Th
 use osal_rs::utils::{Error, OsalRsBool, Result};
 
 use crate::drivers::gpio::{InterruptCallback, InterruptType};
-use crate::drivers::platform::{self, GPIO_CONFIG_SIZE, Gpio, GpioPeripheral, OaslThreadPriority};
+use crate::drivers::platform::{self, GPIO_CONFIG_SIZE, Gpio, GpioPeripheral, OsalThreadPriority};
 use crate::traits::state::Initializable;
 
 use button_events::*;
@@ -90,7 +90,7 @@ impl Button {
             gpio_ref,
             gpio,
             callback: button_isr,
-            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_THREAD_STACK, OaslThreadPriority::Normal),
+            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_THREAD_STACK, OsalThreadPriority::Normal),
             param: Some(Arc::clone(event_handler) as Arc<dyn core::any::Any + Send + Sync>),
         }
     }
@@ -100,7 +100,7 @@ impl Button {
             gpio_ref,
             gpio,
             callback,
-            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_THREAD_STACK, OaslThreadPriority::Normal),
+            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_THREAD_STACK, OsalThreadPriority::Normal),
             param,
         }
     }
