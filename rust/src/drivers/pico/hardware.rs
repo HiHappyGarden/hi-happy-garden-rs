@@ -28,6 +28,7 @@ use alloc::sync::Arc;
 use core::cell::RefCell;
 
 use crate::drivers::gpio;
+use crate::traits::button::{ButtonCallback, ButtonState, OnClickable};
 use super::gpio::{GPIO_FN, get_gpio_configs, GPIO_CONFIG_SIZE};
 use crate::traits::state::Initializable;
 
@@ -95,6 +96,16 @@ impl Initializable for Hardware {
 
         Ok(())
     } 
+}
+
+impl OnClickable for Hardware {
+    fn set_callback(&mut self, callback: Arc<ButtonCallback>) {
+        self.button.set_callback(callback);
+    }
+
+    fn get_state(&self) -> ButtonState {
+        self.button.get_state()
+    }
 }
 
 impl Hardware {
