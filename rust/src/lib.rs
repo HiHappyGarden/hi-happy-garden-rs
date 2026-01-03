@@ -94,12 +94,10 @@ pub unsafe extern "C" fn start() {
 
     #[cfg(not(feature = "tests"))]
     {
-        use osal_rs::minimal_stack_size;
-
         use crate::drivers::platform::OsalThreadPriority;
 
-        let mut thread = Thread::new_with_to_priority("main_trd", 4096, OsalThreadPriority::Low);
-        let _thread = match thread.spawn(None, main_thread) {
+        let mut thread = Thread::new_with_to_priority("main_trd", 1024, OsalThreadPriority::Normal);
+        let _ = match thread.spawn(None, main_thread) {
             
             Ok(spawned) =>  {
                 log_info!(APP_TAG, "Start main thread\r\n");

@@ -45,7 +45,7 @@ static BUTTON_STATE: AtomicU32 = AtomicU32::new(0);
 pub struct Encoder {
     gpio_ccw_ref: GpioPeripheral,
     gpio_cw_ref: GpioPeripheral,
-    //btn: Button,
+    btn: Button,
     thread: Thread,
     
 }
@@ -73,15 +73,15 @@ impl Encoder {
         Self {
             gpio_ccw_ref,
             gpio_cw_ref,
-            //btn: Button::new_with_external_callback(gpio_btn_ref, gpio, encoder_button_isr, Some(Arc::clone(event_handler) as ThreadParam) ),
-            thread: Thread::new_with_to_priority(APP_THREAD_NAME, minimal_stack_size!() * 2, OsalThreadPriority::Normal)
+            btn: Button::new_with_external_callback(gpio_btn_ref, gpio, encoder_button_isr, Some(Arc::clone(event_handler) as ThreadParam) ),
+            thread: Thread::new_with_to_priority(APP_THREAD_NAME, minimal_stack_size!(), OsalThreadPriority::Normal)
         }
     }
 
     pub fn init(&mut self, gpio: &mut Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>) -> Result<()> {
         log_info!(APP_TAG, "Init encoder");
 
-        //self.btn.init(gpio)?;
+        self.btn.init(gpio)?;
 
 
         let gpio_clone = Arc::clone(&gpio);
@@ -97,13 +97,14 @@ impl Encoder {
                 let cw = gpio_clone.lock().unwrap().read(&gpio_cw_ref).unwrap_or(0u32);
                 let ccw = gpio_clone.lock().unwrap().read(&gpio_ccw_ref).unwrap_or(0u32);
 
-                log_info!(APP_TAG, "Encoder state: CW={}, CCW={}", cw, ccw);
+                // log_info!(APP_TAG, "Encoder state: CW={}, CCW={}", cw, ccw);
 
                 System::delay(100);
             }
 
 
         })?;
+
 
 
         Ok(())

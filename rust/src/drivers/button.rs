@@ -30,7 +30,7 @@ use alloc::boxed::Box;
 use once_cell::race::OnceBox;
 
 use osal_rs::os::types::{StackType, TickType};
-use osal_rs::{log_error, log_info, print, minimal_stack_size};
+use osal_rs::{log_error, log_info};
 use osal_rs::os::{EventGroup, EventGroupFn, Mutex, MutexFn, System, SystemFn, Thread, ThreadFn, ThreadParam, Timer, TimerFn};
 use osal_rs::utils::{Error, OsalRsBool, Result};
 
@@ -43,6 +43,7 @@ use button_events::*;
 
 const APP_TAG: &str = "Button";
 const APP_THREAD_NAME: &str = "button_trd";
+const APP_STACK_SIZE: StackType = 512;
 const APP_DEBOUNCE_TIME: TickType = 50;
 
 
@@ -110,7 +111,7 @@ impl Button {
             gpio_ref,
             gpio,
             callback: button_isr,
-            thread: Thread::new_with_to_priority(APP_THREAD_NAME, minimal_stack_size!(), OsalThreadPriority::Normal),
+            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, OsalThreadPriority::Normal),
             param: Some(Arc::clone(event_handler) as ThreadParam),
             clickable_callback: Arc::new(Mutex::new(None)),
         }
@@ -121,7 +122,7 @@ impl Button {
             gpio_ref,
             gpio,
             callback,
-            thread: Thread::new_with_to_priority(APP_THREAD_NAME, minimal_stack_size!(), OsalThreadPriority::Normal),
+            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, OsalThreadPriority::Normal),
             param,
             clickable_callback: Arc::new(Mutex::new(None)),
         }
