@@ -45,6 +45,8 @@ use button_events::*;
 const APP_TAG: &str = "Button";
 const APP_THREAD_NAME: &str = "button_trd";
 const APP_THREAD_STACK: StackType = MINIMAL_STACK_SIZE as StackType;
+const APP_DEBOUNCE_TIME: TickType = 50;
+
 
 static EVENT_HANDLER: OnceBox<Arc<EventGroup>> = OnceBox::new();
 static BUTTON_STATE: AtomicU32 = AtomicU32::new(0);
@@ -158,7 +160,7 @@ impl Button {
                 let bits = event_handler.wait(BUTTON_PRESSED | BUTTON_RELEASED, TickType::MAX);
                 event_handler.clear(bits);
 
-                if debounce != 0 && System::get_tick_count() - debounce < 50 {
+                if debounce != 0 && System::get_tick_count() - debounce < APP_DEBOUNCE_TIME {
                     continue;
                 }
                 if bits & BUTTON_PRESSED == BUTTON_PRESSED {
