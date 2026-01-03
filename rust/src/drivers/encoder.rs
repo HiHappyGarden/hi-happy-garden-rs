@@ -24,8 +24,7 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 
 use once_cell::race::OnceBox;
-use osal_rs::log_info;
-use osal_rs::os::config::MINIMAL_STACK_SIZE;
+use osal_rs::{log_info, minimal_stack_size};
 use osal_rs::os::types::StackType;
 use osal_rs::os::{EventGroup, EventGroupFn, Mutex, MutexFn, System, SystemFn, Thread, ThreadFn, ThreadParam};
 use osal_rs::utils::Result;
@@ -38,7 +37,6 @@ use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "Encoder";
 const APP_THREAD_NAME: &str = "encoder_trd";
-const APP_THREAD_STACK: StackType = MINIMAL_STACK_SIZE as StackType;
 
 static EVENT_HANDLER: OnceBox<Arc<EventGroup>> = OnceBox::new();
 static BUTTON_STATE: AtomicU32 = AtomicU32::new(0);
@@ -47,7 +45,7 @@ static BUTTON_STATE: AtomicU32 = AtomicU32::new(0);
 pub struct Encoder {
     gpio_ccw_ref: GpioPeripheral,
     gpio_cw_ref: GpioPeripheral,
-    btn: Button,
+    //btn: Button,
     thread: Thread,
     
 }
@@ -75,15 +73,15 @@ impl Encoder {
         Self {
             gpio_ccw_ref,
             gpio_cw_ref,
-            btn: Button::new_with_external_callback(gpio_btn_ref, gpio, encoder_button_isr, Some(Arc::clone(event_handler) as ThreadParam) ),
-            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_THREAD_STACK, OsalThreadPriority::Normal)
+            //btn: Button::new_with_external_callback(gpio_btn_ref, gpio, encoder_button_isr, Some(Arc::clone(event_handler) as ThreadParam) ),
+            thread: Thread::new_with_to_priority(APP_THREAD_NAME, minimal_stack_size!() * 2, OsalThreadPriority::Normal)
         }
     }
 
     pub fn init(&mut self, gpio: &mut Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>) -> Result<()> {
         log_info!(APP_TAG, "Init encoder");
 
-        self.btn.init(gpio)?;
+        //self.btn.init(gpio)?;
 
 
         let gpio_clone = Arc::clone(&gpio);
