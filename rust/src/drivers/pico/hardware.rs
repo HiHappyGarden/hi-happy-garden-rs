@@ -29,7 +29,7 @@ use alloc::sync::Arc;
 use core::cell::RefCell;
 
 use crate::drivers::gpio;
-use crate::traits::button::{ButtonCallback, ButtonState, OnClickable};
+use crate::traits::button::{ButtonCallback, ButtonState, OnClickable as ButtonClickable};
 use super::gpio::{GPIO_FN, get_gpio_configs, GPIO_CONFIG_SIZE};
 use crate::traits::state::Initializable;
 
@@ -99,7 +99,7 @@ impl Initializable for Hardware {
     } 
 }
 
-impl OnClickable for Hardware {
+impl ButtonClickable for Hardware {
     fn set_on_click(&mut self, callback: Box<ButtonCallback>) {
         self.button.set_on_click(callback);
     }
