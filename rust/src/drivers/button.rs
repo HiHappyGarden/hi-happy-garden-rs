@@ -37,6 +37,7 @@ use osal_rs::utils::{Error, OsalRsBool, Result};
 
 use crate::drivers::gpio::{InterruptCallback, InterruptType};
 use crate::drivers::platform::{self, GPIO_CONFIG_SIZE, Gpio, GpioPeripheral, OsalThreadPriority};
+use crate::traits::button::{ButtonCallback, ButtonState, OnClickable};
 use crate::traits::state::Initializable;
 
 use button_events::*;
@@ -61,7 +62,8 @@ pub struct Button {
     gpio: Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>,
     callback: InterruptCallback,
     thread: Thread,
-    param: Option<ThreadParam>
+    param: Option<ThreadParam>,
+    clickable_callback: Option<Arc<ButtonCallback>>,
 }
 
 
@@ -81,6 +83,22 @@ extern "C" fn button_isr() {
     }
 }
 
+impl OnClickable for Button {
+    fn set_callback(&mut self, callback: Arc<ButtonCallback>) {
+        self.clickable_callback = Some(callback);
+    }
+
+    fn get_state(&self) -> ButtonState {
+        let state = BUTTON_STATE.load(Ordering::Relaxed);
+        match state {
+            x if x & BUTTON_PRESSED == BUTTON_PRESSED => ButtonState::Pressed,
+            x if x & BUTTON_RELEASED == BUTTON_RELEASED => ButtonState::Released,
+            _ => ButtonState::None,
+        }
+    }
+}
+
+
 impl Button {
     pub fn new(gpio_ref: GpioPeripheral, gpio: Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>) -> Self {
 
@@ -92,6 +110,7 @@ impl Button {
             callback: button_isr,
             thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_THREAD_STACK, OsalThreadPriority::Normal),
             param: Some(Arc::clone(event_handler) as Arc<dyn core::any::Any + Send + Sync>),
+            clickable_callback: None,
         }
     }
 
@@ -102,6 +121,7 @@ impl Button {
             callback,
             thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_THREAD_STACK, OsalThreadPriority::Normal),
             param,
+            clickable_callback: None,
         }
     }
     
@@ -127,8 +147,9 @@ impl Button {
             return Err(Error::NullPtr);
         };
 
+        let clickable_callback = self.clickable_callback.clone();
 
-        self.thread.spawn(Some(event_handler as Arc<dyn core::any::Any + Send + Sync>), |_thread, _param| {
+        self.thread.spawn(Some(event_handler as Arc<dyn core::any::Any + Send + Sync>), move |_thread, _param| {
             let event_handler = EVENT_HANDLER.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
 
             let mut debounce: TickType = 0;
@@ -141,9 +162,13 @@ impl Button {
                     continue;
                 }
                 if bits & BUTTON_PRESSED == BUTTON_PRESSED {
-                    print!("Button Pressed!\n");
+                    if let Some(callback) = &clickable_callback {
+                        callback(ButtonState::Pressed);
+                    }
                 } else if bits & BUTTON_RELEASED == BUTTON_RELEASED {
-                    print!("Button Released!\n");
+                    if let Some(callback) = &clickable_callback {
+                        callback(ButtonState::Released);
+                    }
                 }
 
                 debounce = System::get_tick_count();

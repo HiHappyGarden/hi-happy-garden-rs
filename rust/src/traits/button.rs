@@ -18,16 +18,17 @@
  ***************************************************************************/
 #![allow(dead_code)]
 
-use osal_rs::utils::Result;
+use alloc::sync::Arc;
 
  pub enum ButtonState {
      Pressed,
      Released,
+     None
  }
 
- pub type ButtonCallback = dyn Fn(ButtonState);
+ pub type ButtonCallback = dyn Fn(ButtonState) + Send + Sync;
 
- pub trait ButtonTrait {
-     fn set_callback(&mut self, callback: &ButtonCallback);
-     fn get_state(&self) -> Result<ButtonState>;
+ pub trait OnClickable {
+     fn set_callback(&mut self, callback: Arc<ButtonCallback>);
+     fn get_state(&self) -> ButtonState;
  }
