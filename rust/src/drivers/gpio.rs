@@ -152,11 +152,11 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<GPIO_CONFIG_SIZE> {
                 Some(ref config) => {
 
                     match &config.get_io_type() {
-                        GpioType::NotInitialized => log_info!(APP_TAG, "Not Initialized: {}", config.get_name()),
+                        GpioType::NotInitialized => log_info!(APP_TAG, "Not Initialized:{}", config.get_name()),
                         GpioType::Input(base, pin, input_type, default_value) => 
                             
                             if let Some(input) = self.functions.input {
-                                log_info!(APP_TAG, "Input: {}", config.get_name());
+                                log_info!(APP_TAG, "Input:{}", config.get_name());
 
                                 input(&config, *base, *pin, *input_type, *default_value)?;
 
@@ -168,7 +168,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<GPIO_CONFIG_SIZE> {
                         GpioType::InputAnalog(base, pin, channel, ranck) => 
                             
                             if let Some(input_analog) = self.functions.input_analog {
-                                log_info!(APP_TAG, "Input Analog: {}", config.get_name());
+                                log_info!(APP_TAG, "Input Analog:{}", config.get_name());
                                 input_analog(&config, *base, *pin, *channel, *ranck)?;
                             } else {
                                 log_warning!(APP_TAG, "Input Analog function not defined for: {}", config.get_name());
@@ -179,7 +179,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<GPIO_CONFIG_SIZE> {
                         GpioType::Output(base, pin, default_value) => 
     
                             if let Some(output) = self.functions.output {
-                                log_info!(APP_TAG, "Output: {}", config.get_name());
+                                log_info!(APP_TAG, "Output:{}", config.get_name());
                                 output(&config, *base, *pin, *default_value)?;
                             } else {
                                 log_warning!(APP_TAG, "Output function not defined for: {}", config.get_name());
@@ -189,7 +189,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<GPIO_CONFIG_SIZE> {
                         GpioType::OutputPWM(base, pin, default_value) => 
                             
                             if let Some(output_pwm) = self.functions.output_pwm {
-                                log_info!(APP_TAG, "Output PWM: {}", config.get_name());
+                                log_info!(APP_TAG, "Output PWM:{}", config.get_name());
                                 output_pwm(&config, *base, *pin, *default_value)?;
                             } else {
                                 log_warning!(APP_TAG, "Output PWM function not defined for: {}", config.get_name());
@@ -199,7 +199,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<GPIO_CONFIG_SIZE> {
                         GpioType::Pheriferal(base, pin, peripheral_data) => 
 
                             if let Some(peripheral) = self.functions.peripheral {
-                                log_info!(APP_TAG, "Peripheral: {}", config.get_name());
+                                log_info!(APP_TAG, "Peripheral:{}", config.get_name());
                                 peripheral(&config, *base, *pin, peripheral_data.clone())?;
                             } else {
                                 log_warning!(APP_TAG, "Peripheral function not defined for: {}", config.get_name());
@@ -315,11 +315,11 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
                 GpioType::Input(base, pin, _, _) => {
                     
 
-                    log_info!(APP_TAG, "Interrupt: {} enabled:{enable}", name.as_str());
+                    
 
                     let ret : OsalRsBool;
                     if let Some(set_interrupt) = self.functions.set_interrupt {
-
+                        log_info!(APP_TAG, "Interrupt:{} type:{:?} enabled:{enable}", name.as_str(), irq_type);
                         ret = set_interrupt(&config, *base, *pin, irq_type.clone(), callback, enable);
                     
                     } else {

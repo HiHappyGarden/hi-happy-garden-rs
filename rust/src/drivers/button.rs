@@ -16,83 +16,140 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
- 
+
+#![allow(dead_code)]
+
 use core::cell::RefCell;
-use core::sync::atomic::{AtomicU32, Ordering};
+use core::ptr::fn_addr_eq;
+use core::str;
+use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use core::time::Duration;
 
-use alloc::str;
 use alloc::sync::Arc;
+use alloc::boxed::Box;
+use once_cell::race::OnceBox;
 
+use osal_rs::os::config::MINIMAL_STACK_SIZE;
+use osal_rs::os::types::{StackType, TickType};
 use osal_rs::{log_error, log_info, print};
-use osal_rs::os::{Mutex, MutexFn, System, SystemFn, Thread, ThreadFn};
+use osal_rs::os::{EventGroup, EventGroupFn, Mutex, MutexFn, System, SystemFn, Thread, ThreadFn, ThreadParam};
 use osal_rs::utils::{Error, OsalRsBool, Result};
 
-use crate::drivers::gpio::InterruptType;
-use crate::drivers::platform::{self, Gpio, GpioPeripheral, GPIO_CONFIG_SIZE};
+use crate::drivers::gpio::{InterruptCallback, InterruptType};
+use crate::drivers::platform::{self, GPIO_CONFIG_SIZE, Gpio, GpioPeripheral, OaslThreadPriority};
 use crate::traits::state::Initializable;
 
-const APP_TAG: &str = "Button";
-const DEBOUNCE_TIME_US: u32 = 150_000; // Tempo di debounce in microsecondi (150ms)
+use button_events::*;
 
-static LAST_INTERRUPT_TIME: AtomicU32 = AtomicU32::new(0);
+const APP_TAG: &str = "Button";
+const APP_THREAD_NAME: &str = "button_trd";
+const APP_THREAD_STACK: StackType = MINIMAL_STACK_SIZE as StackType;
+
+static EVENT_HANDLER: OnceBox<Arc<EventGroup>> = OnceBox::new();
+static BUTTON_STATE: AtomicU32 = AtomicU32::new(0);
+
+pub mod button_events {
+    use osal_rs::os::types::EventBits;
+
+    pub const BUTTON_NONE: EventBits = 0x0000;
+    pub const BUTTON_PRESSED: EventBits = 0x0001;
+    pub const BUTTON_RELEASED: EventBits = 0x0002;
+}
 
 pub struct Button {
     gpio_ref: GpioPeripheral,
     gpio: Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>,
+    callback: InterruptCallback,
     thread: Thread,
+    param: Option<ThreadParam>
 }
 
+
+
+
 extern "C" fn button_isr() {
-    let current_time = System::get_current_time_us().as_micros() as u32;
-    let last_time = LAST_INTERRUPT_TIME.load(Ordering::Relaxed);
-    
-    // Controlla se è passato abbastanza tempo dall'ultimo interrupt
-    // Gestisce anche il wraparound del timer usando la sottrazione wrapping
-    let elapsed = current_time.wrapping_sub(last_time);
-    
-    if elapsed >= DEBOUNCE_TIME_US {
-        LAST_INTERRUPT_TIME.store(current_time, Ordering::Relaxed);
-        log_info!(APP_TAG, "Button pressed (debounced)");
-        
-        // Qui puoi inserire la logica che vuoi eseguire al click del bottone
+    let event_handler = EVENT_HANDLER.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
+
+    let state = BUTTON_STATE.load(Ordering::Relaxed);
+
+    if state == 0 || state & BUTTON_RELEASED == BUTTON_RELEASED {
+        BUTTON_STATE.store(BUTTON_PRESSED, Ordering::Relaxed);
+        event_handler.set_from_isr(BUTTON_PRESSED).unwrap();
+    } else if state & BUTTON_PRESSED == BUTTON_PRESSED {
+        BUTTON_STATE.store(BUTTON_RELEASED, Ordering::Relaxed);
+        event_handler.set_from_isr(BUTTON_RELEASED).unwrap();
     }
 }
 
 impl Button {
     pub fn new(gpio_ref: GpioPeripheral, gpio: Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>) -> Self {
+
+        let event_handler = EVENT_HANDLER.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
+
         Self {
             gpio_ref,
             gpio,
-            thread: Thread::new("button_trd", 1024, 3)
+            callback: button_isr,
+            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_THREAD_STACK, OaslThreadPriority::Normal),
+            param: Some(Arc::clone(event_handler) as Arc<dyn core::any::Any + Send + Sync>),
+        }
+    }
+
+    pub fn new_with_external_callback(gpio_ref: GpioPeripheral, gpio: Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>, callback: InterruptCallback, param: Option<ThreadParam>) -> Self {
+        Self {
+            gpio_ref,
+            gpio,
+            callback,
+            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_THREAD_STACK, OaslThreadPriority::Normal),
+            param,
         }
     }
     
     pub fn init(&mut self, gpio: &mut Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>) -> Result<()> {
         log_info!(APP_TAG, "Init button");
 
+        
 
-        if gpio.lock()?.set_interrupt(&self.gpio_ref, InterruptType::RisingEdge, true, button_isr) == OsalRsBool::False {
+        if gpio.lock()?.set_interrupt(&self.gpio_ref, InterruptType::BothEdge, true, self.callback) == OsalRsBool::False {
             log_error!(APP_TAG, "Error setting button interrupt");
             return Err(Error::NotFound);
         }
 
+        
 
-        // let gpio_clone = Arc::clone(gpio);
+        let event_handler = if let Some(param) = &self.param {
+            param.clone().downcast::<EventGroup>().map_err(|_| {
+                log_error!(APP_TAG, "Error downcasting event handler");
+                Error::InvalidType
+            })?
+        } else {
+            log_error!(APP_TAG, "No event handler provided");
+            return Err(Error::NullPtr);
+        };
 
-        // self.thread.spawn_simple(move || {
 
-            
-        //     loop {
-        //         match gpio_clone.lock().unwrap().read(&GpioPeripheral::Btn) {
-        //             Ok(value) => log_info!(APP_TAG, "Button:{}", value),
-        //             Err(_) => log_error!(APP_TAG, "Error reading button"),
-        //         }
+        self.thread.spawn(Some(event_handler as Arc<dyn core::any::Any + Send + Sync>), |_thread, _param| {
+            let event_handler = EVENT_HANDLER.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
 
-        //         System::delay_with_to_tick(Duration::from_millis(500u64));
-        //     }
+            let mut debounce: TickType = 0;
+            loop {
+                
+                let bits = event_handler.wait(BUTTON_PRESSED | BUTTON_RELEASED, TickType::MAX);
+                event_handler.clear(bits);
 
-        // })?;
+                if debounce != 0 && System::get_tick_count() - debounce < 50 {
+                    continue;
+                }
+                if bits & BUTTON_PRESSED == BUTTON_PRESSED {
+                    print!("Button Pressed!\n");
+                } else if bits & BUTTON_RELEASED == BUTTON_RELEASED {
+                    print!("Button Released!\n");
+                }
+
+                debounce = System::get_tick_count();
+            }
+
+        })?;
 
         Ok(())
     }
