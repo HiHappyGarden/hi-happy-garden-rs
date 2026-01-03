@@ -132,7 +132,9 @@ impl Button {
     pub fn init(&mut self, gpio: &mut Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>) -> Result<()> {
         log_info!(APP_TAG, "Init button");
 
-        
+        if !fn_addr_eq(self.callback, button_isr as InterruptCallback) {
+            log_info!(APP_TAG, "Using external callback for button ISR");
+        }
 
         if gpio.lock()?.set_interrupt(&self.gpio_ref, InterruptType::BothEdge, true, self.callback) == OsalRsBool::False {
             log_error!(APP_TAG, "Error setting button interrupt");
