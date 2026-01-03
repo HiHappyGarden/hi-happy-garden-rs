@@ -63,17 +63,18 @@ impl ToPriority for OsalThreadPriority {
 #[allow(unused)]
 impl OsalThreadPriority {
     pub fn from_priority(priority: UBaseType) -> Self {
+        use OsalThreadPriority::*;
         match priority {
-            1 => OsalThreadPriority::Idle,
-            2..=4 => OsalThreadPriority::Low,
-            5..=8 => OsalThreadPriority::BelowNormal,
-            9..=12 => OsalThreadPriority::Normal,
-            13..=16 => OsalThreadPriority::AboveNormal,
-            17..=19 => OsalThreadPriority::BelowHigh,
-            20..=23 => OsalThreadPriority::High,
-            24..=27 => OsalThreadPriority::AboveHigh,
-            28..=31 => OsalThreadPriority::Realtime,
-            _ => OsalThreadPriority::None,
+            1 => Idle,
+            2..=4 => Low,
+            5..=8 => BelowNormal,
+            9..=12 => Normal,
+            13..=16 => AboveNormal,
+            17..=19 => BelowHigh,
+            20..=23 => High,
+            24..=27 => AboveHigh,
+            28..=31 => Realtime,
+            _ => None,
         }
     }
 }
@@ -120,7 +121,7 @@ impl Hardware {
             encoder: Encoder::new(
                 GpioPeripheral::EncoderCCw,
                 GpioPeripheral::EncoderCW,
-                GpioPeripheral::Btn,
+                GpioPeripheral::EncoderBtn,
                 Arc::clone(&gpio_clone)
             ),
             button: Button::new(
