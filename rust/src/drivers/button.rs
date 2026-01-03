@@ -76,7 +76,7 @@ extern "C" fn button_isr() {
 
     let state = BUTTON_STATE.load(Ordering::Relaxed);
 
-    if state == 0 || state & BUTTON_RELEASED == BUTTON_RELEASED {
+    if state == BUTTON_NONE || state & BUTTON_RELEASED == BUTTON_RELEASED {
         BUTTON_STATE.store(BUTTON_PRESSED, Ordering::Relaxed);
         event_handler.set_from_isr(BUTTON_PRESSED).unwrap();
     } else if state & BUTTON_PRESSED == BUTTON_PRESSED {
