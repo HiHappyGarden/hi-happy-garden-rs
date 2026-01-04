@@ -16,11 +16,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
-
 #![allow(dead_code)]
-use alloc::boxed::Box;
 
-use crate::traits::button::{ButtonCallback, ButtonState};
+use osal_rs::utils::ArcMux;
+
+use crate::traits::button::ButtonState;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EncoderDirection {
@@ -28,14 +28,14 @@ pub enum EncoderDirection {
     CounterClockwise,
 }
 
-pub type EncoderCallback = dyn Fn(EncoderDirection, i32) + Send + Sync;
-
-pub trait OnRotatableAndClickable {
-    fn set_on_rotate(&mut self, callback: Box<EncoderCallback>);
-    fn get_position(&self) -> i32;
-    fn set_on_click(&mut self, callback: Box<ButtonCallback>);
-    fn get_state(&self) -> ButtonState;
+pub trait SetRotatableAndClickable {
+     fn set_on_rotate_and_click(&mut self, rotable_and_clickable: ArcMux<dyn OnRotatableAndClickable>);
+     fn get_state(&self) -> ButtonState;
+     fn get_position(&self) -> i32;
 }
 
 
- 
+pub trait OnRotatableAndClickable: Send + Sync {
+    fn on_rotable(&mut self, direction: EncoderDirection, position: i32);
+    fn on_click(&mut self, state: ButtonState);
+}

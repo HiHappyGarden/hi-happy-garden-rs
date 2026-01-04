@@ -16,19 +16,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
+#![allow(dead_code)]
 
- #![allow(dead_code)]
-use alloc::boxed::Box;
+use alloc::sync::Arc;
+use osal_rs::os::Mutex;
 
+
+#[derive(PartialEq, Eq)]
  pub enum ButtonState {
      Pressed,
      Released,
      None
  }
 
- pub type ButtonCallback = dyn Fn(ButtonState) + Send + Sync;
-
- pub trait OnClickable {
-     fn set_on_click(&mut self, callback: Box<ButtonCallback>);
+ 
+ pub trait SetClickable {
+     fn set_on_click(&mut self, clicclable: Arc<Mutex<dyn OnClickable>>);
      fn get_state(&self) -> ButtonState;
+ }
+
+ pub trait OnClickable: Send + Sync {
+    fn on_click(&mut self, state: ButtonState);
  }

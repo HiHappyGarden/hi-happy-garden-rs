@@ -25,18 +25,19 @@ use core::str;
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use core::time::Duration;
 
+use alloc::borrow::ToOwned;
 use alloc::sync::Arc;
 use alloc::boxed::Box;
 use once_cell::race::OnceBox;
 
 use osal_rs::os::types::{StackType, TickType};
-use osal_rs::{log_error, log_info, log_warning};
+use osal_rs::{arcmux, log_error, log_info, log_warning};
 use osal_rs::os::{EventGroup, EventGroupFn, Mutex, MutexFn, System, SystemFn, Thread, ThreadFn, ThreadParam, Timer, TimerFn};
-use osal_rs::utils::{Error, OsalRsBool, Result};
+use osal_rs::utils::{ArcMux, Error, OsalRsBool, Result};
 
 use crate::drivers::gpio::{InterruptCallback, InterruptType};
 use crate::drivers::platform::{self, GPIO_CONFIG_SIZE, Gpio, GpioPeripheral, OsalThreadPriority};
-use crate::traits::button::{ButtonCallback, ButtonState, OnClickable};
+use crate::traits::button::{ButtonState, OnClickable, SetClickable};
 use crate::traits::state::Initializable;
 
 use button_events::*;
@@ -60,9 +61,9 @@ pub mod button_events {
 
 pub struct Button {
     gpio_ref: GpioPeripheral,
-    gpio: Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>,
+    gpio: ArcMux<Gpio<GPIO_CONFIG_SIZE>>,
     thread: Thread,
-    callback: Arc<Mutex<Option<Box<ButtonCallback>>>>,
+    clickable: ArcMux<Option<ArcMux<dyn OnClickable>>>
 }
 
 
@@ -82,11 +83,12 @@ extern "C" fn button_isr() {
     }
 }
 
-impl OnClickable for Button {
-    fn set_on_click(&mut self, callback: Box<ButtonCallback>) {
-        if let Ok(mut cb) = self.callback.lock() {
-            *cb = Some(callback);
+impl SetClickable for Button {
+    fn set_on_click(&mut self, value: ArcMux<dyn OnClickable>) {
+        if let Ok(mut clickable) = self.clickable.lock() {
+             *clickable = Some(value);
         }
+
     }
 
     fn get_state(&self) -> ButtonState {
@@ -101,19 +103,19 @@ impl OnClickable for Button {
 
 
 impl Button {
-    pub fn new(gpio: Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>) -> Self {
-
+    pub fn new(gpio: ArcMux<Gpio<GPIO_CONFIG_SIZE>>) -> Self {
+        
         let _ = BUTTON_EVENTS.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
 
         Self {
             gpio_ref: GpioPeripheral::Btn,
             gpio,
             thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, OsalThreadPriority::Normal),
-            callback: Arc::new(Mutex::new(None)),
+            clickable: arcmux!(None),
         }
     }
     
-    pub fn init(&mut self, gpio: &mut Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>) -> Result<()> {
+    pub fn init(&mut self, gpio: &mut ArcMux<Gpio<GPIO_CONFIG_SIZE>>) -> Result<()> {
         log_info!(APP_TAG, "Init button");
 
         if gpio.lock()?.set_interrupt(&self.gpio_ref, InterruptType::BothEdge, true, button_isr) == OsalRsBool::False {
@@ -122,7 +124,7 @@ impl Button {
         }
 
     
-        let callback = Arc::clone(&self.callback);
+        let clickable = ArcMux::clone(&self.clickable);
         self.thread.spawn_simple( move || {
 
             let event_handler = BUTTON_EVENTS.get().unwrap();
@@ -133,29 +135,38 @@ impl Button {
                 let bits = event_handler.wait(BUTTON_PRESSED | BUTTON_RELEASED, TickType::MAX);
                 event_handler.clear(bits);
 
+
+
                 if debounce != 0 && System::get_tick_count() - debounce < APP_DEBOUNCE_TIME {
                     continue;
                 }
-                if bits & BUTTON_PRESSED == BUTTON_PRESSED {
-                    if let Ok(cb) = callback.lock() {
-                        if let Some(ref c) = *cb {
-                            c(ButtonState::Pressed);
-                        } else {
-                            log_warning!(APP_TAG, "No callback set for button pressed");
-                        }
-                    }
+                
+                let state = if bits & BUTTON_PRESSED == BUTTON_PRESSED {
+                    ButtonState::Pressed
                 } else if bits & BUTTON_RELEASED == BUTTON_RELEASED {
-                    if let Ok(cb) = callback.lock() {
-                        if let Some(ref c) = *cb {
-                            c(ButtonState::Released);
-                        } else {
-                            log_warning!(APP_TAG, "No callback set for button released");
-                        }
+                    ButtonState::Released
+                } else {
+                    continue;
+                };
+
+                if let Ok(mut clickable_obj) = clickable.lock() {
+                    match clickable_obj.as_mut() {
+                        Some(obj) => 
+                            if let Ok(mut clickable) = obj.lock() {
+                                clickable.on_click(state);
+                            } else {
+                                log_error!(APP_TAG, "No reference empty");
+                            }
+                        ,
+                        None => log_error!(APP_TAG, "No reference to cliccable obj"),
                     }
+                } else {
+                    log_warning!(APP_TAG, "No callback or clickable set for button");
                 }
 
                 debounce = System::get_tick_count();
             }
+                    
 
         })?;
 

@@ -18,10 +18,10 @@
  ***************************************************************************/
 
 use alloc::boxed::Box;
-use osal_rs::log_info;
+use osal_rs::{arcmux, log_info};
 use osal_rs::os::types::UBaseType;
 use osal_rs::os::{Mutex, MutexFn, ToPriority};
-use osal_rs::utils::Result;
+use osal_rs::utils::{ArcMux, Result};
 
 use alloc::rc::Rc;
 
@@ -29,8 +29,8 @@ use alloc::sync::Arc;
 use core::cell::RefCell;
 
 use crate::drivers::gpio;
-use crate::traits::button::{ButtonCallback, ButtonState, OnClickable as ButtonOnClickable};
-use crate::traits::encoder::{EncoderCallback, OnRotatableAndClickable as EncoderOnRotatableAndClickable};
+use crate::traits::button::{ButtonState, OnClickable, SetClickable as ButtonOnClickable};
+use crate::traits::encoder::{OnRotatableAndClickable as EncoderOnRotatableAndClickable, SetRotatableAndClickable};
 use crate::traits::hardware::HardwareFn;
 use super::gpio::{GPIO_FN, get_gpio_configs, GPIO_CONFIG_SIZE};
 use crate::traits::state::Initializable;
@@ -83,7 +83,7 @@ impl OsalThreadPriority {
 
 
 pub struct Hardware {
-    gpio: Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>,
+    gpio: ArcMux<Gpio<GPIO_CONFIG_SIZE>>,
     encoder: Encoder,
     button: Button,
 }
@@ -94,34 +94,34 @@ impl Initializable for Hardware {
 
         self.gpio.lock()?.init()?;
 
-        self.encoder.init(&mut Arc::clone(&self.gpio))?;
+        self.encoder.init(&mut ArcMux::clone(&self.gpio))?;
 
-        self.button.init(&mut Arc::clone(&self.gpio))?;
+        self.button.init(&mut ArcMux::clone(&self.gpio))?;
 
         Ok(())
     } 
 }
 
 impl HardwareFn for Hardware {
-    fn get_button(&mut self) -> &mut impl ButtonOnClickable {
-        &mut self.button
+    fn set_button_handler(&mut self, clickable: ArcMux<dyn OnClickable>) {
+        self.button.set_on_click(clickable);
     }
 
-    fn get_encoder(&mut self) -> &mut impl EncoderOnRotatableAndClickable {
-        &mut self.encoder
+    fn set_encoder_handler(&mut self, rotable_and_clickable: ArcMux<dyn EncoderOnRotatableAndClickable>) {
+        self.encoder.set_on_rotate_and_click(rotable_and_clickable);
     }
 }
 
 impl Hardware {
     pub fn new() -> Self {
 
-        let gpio = Arc::new(Mutex::new(Gpio::<GPIO_CONFIG_SIZE>::new(&GPIO_FN, get_gpio_configs())));
-        let gpio_clone = Arc::clone(&gpio);
+        let gpio = arcmux!(Gpio::<GPIO_CONFIG_SIZE>::new(&GPIO_FN, get_gpio_configs()));
+        let gpio_clone = ArcMux::clone(&gpio);
         
         Self { 
             gpio,
-            encoder: Encoder::new(Arc::clone(&gpio_clone)),
-            button: Button::new(Arc::clone(&gpio_clone)),
+            encoder: Encoder::new(ArcMux::clone(&gpio_clone)),
+            button: Button::new(ArcMux::clone(&gpio_clone)),
         }
         
     }

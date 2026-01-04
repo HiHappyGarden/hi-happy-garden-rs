@@ -24,15 +24,15 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 
 use once_cell::race::OnceBox;
-use osal_rs::{log_error, log_info, log_warning, minimal_stack_size};
+use osal_rs::{arcmux, log_error, log_info, log_warning, minimal_stack_size};
 use osal_rs::os::types::{StackType, TickType};
 use osal_rs::os::{EventGroup, EventGroupFn, Mutex, MutexFn, System, SystemFn, Thread, ThreadFn, ThreadParam};
-use osal_rs::utils::{Error, OsalRsBool, Result};
+use osal_rs::utils::{ArcMux, Error, OsalRsBool, Result};
 
 use crate::drivers::gpio::{InterruptType};
 use crate::drivers::platform::{self, GPIO_CONFIG_SIZE, Gpio, GpioPeripheral, OsalThreadPriority};
-use crate::traits::button::{ButtonCallback, ButtonState};
-use crate::traits::encoder::{EncoderCallback, EncoderDirection, OnRotatableAndClickable};
+use crate::traits::button::{ButtonState, OnClickable};
+use crate::traits::encoder::{EncoderDirection, OnRotatableAndClickable, SetRotatableAndClickable};
 use crate::traits::state::Initializable;
 use encoder_events::*;
 
@@ -64,10 +64,9 @@ pub struct Encoder {
     gpio_ccw_ref: GpioPeripheral,
     gpio_cw_ref: GpioPeripheral,
     gpio_btn_ref: GpioPeripheral,
-    gpio: Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>,
+    gpio: ArcMux<Gpio<GPIO_CONFIG_SIZE>>,
     thread: Thread,
-    button_callback: Arc<Mutex<Option<Box<ButtonCallback>>>>,
-    rotate_callback: Arc<Mutex<Option<Box<EncoderCallback>>>>,
+    rotable_and_clickable: ArcMux<Option<ArcMux<dyn OnRotatableAndClickable>>>
 }
 
 extern "C" fn encoder_button_isr() {
@@ -129,7 +128,7 @@ extern "C" fn encoder_cw_isr() {
 
 
 impl Encoder {
-    pub fn new(gpio: Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>) -> Self {
+    pub fn new(gpio: ArcMux<Gpio<GPIO_CONFIG_SIZE>>) -> Self {
         let _ = ENCODER_EVENTS.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
                 
         Self {
@@ -138,12 +137,11 @@ impl Encoder {
             gpio_btn_ref: GpioPeripheral::EncoderBtn,
             gpio,
             thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, OsalThreadPriority::Normal),
-            button_callback: Arc::new(Mutex::new(None)),
-            rotate_callback: Arc::new(Mutex::new(None)),
+            rotable_and_clickable: arcmux!(None)
         }
     }
 
-    pub fn init(&mut self, gpio: &mut Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>) -> Result<()> {
+    pub fn init(&mut self, gpio: &mut ArcMux<Gpio<GPIO_CONFIG_SIZE>>) -> Result<()> {
         log_info!(APP_TAG, "Init encoder");
 
 
@@ -163,9 +161,8 @@ impl Encoder {
         }
 
 
-        let button_callback = Arc::clone(&self.button_callback);
-        let rotate_callback = Arc::clone(&self.rotate_callback);
-        let gpio_clone = Arc::clone(gpio);
+        let rotable_and_clickable = ArcMux::clone(&self.rotable_and_clickable);
+        let gpio_clone = ArcMux::clone(gpio);
         let gpio_ccw_ref = self.gpio_ccw_ref;
         let gpio_cw_ref = self.gpio_cw_ref;
         
@@ -192,24 +189,28 @@ impl Encoder {
                 }
                 
                 // Handle button press/release
+                let mut encoder_pressed = ButtonState::None; 
                 if bits & ENCODER_PRESSED == ENCODER_PRESSED {
-                    if let Ok(cb) = button_callback.lock() {
-                        if let Some(ref c) = *cb {
-                            c(ButtonState::Pressed);
+                    encoder_pressed = ButtonState::Pressed;
+                } else if bits & ENCODER_RELEASED == ENCODER_RELEASED {
+                    encoder_pressed = ButtonState::Released;
+                }
+                
+                if encoder_pressed != ButtonState::None {
+                    if let Ok(rotable_and_clickable) = rotable_and_clickable.lock() {
+                        if let Some(ref rotable_and_clickable) = *rotable_and_clickable {
+                            if let Ok(mut rotable_and_clickable) = rotable_and_clickable.lock() {
+                                rotable_and_clickable.on_click(ButtonState::Pressed);
+                            } else {
+                                log_error!(APP_TAG, "No reference empty");
+                            }
                         } else {
                             log_warning!(APP_TAG, "No callback set for encoder button pressed");
                         }
                     }
-                } else if bits & ENCODER_RELEASED == ENCODER_RELEASED {
-                    if let Ok(cb) = button_callback.lock() {
-                        if let Some(ref c) = *cb {
-                            c(ButtonState::Released);
-                        } else {
-                            log_warning!(APP_TAG, "No callback set for encoder button released");
-                        }
-                    }
                 }
-                
+
+
                 // Handle encoder rotation - read actual GPIO state
                 // Only process rotation events
                 if bits & (ENCODER_CCW_RISE | ENCODER_CCW_FALL | ENCODER_CW_RISE | ENCODER_CW_FALL) != 0 {
@@ -251,9 +252,13 @@ impl Encoder {
                             }
                         };
                         
-                        if let Ok(cb) = rotate_callback.lock() {
-                            if let Some(ref c) = *cb {
-                                c(dir, position);
+                        if let Ok(rotable_and_clickable) = rotable_and_clickable.lock() {
+                            if let Some(ref rotable_and_clickable) = *rotable_and_clickable {
+                                if let Ok(mut rotable_and_clickable) = rotable_and_clickable.lock() {
+                                    rotable_and_clickable.on_rotable(dir, position);
+                                } else {
+                                    log_error!(APP_TAG, "No reference empty");
+                                }
                             } else {
                                 log_warning!(APP_TAG, "No callback set for encoder rotation encoder {:?} position: {}", dir, position);
                             }
@@ -273,22 +278,12 @@ impl Encoder {
 }
 
 
-impl OnRotatableAndClickable for Encoder {
-    fn set_on_rotate(&mut self, callback: Box<EncoderCallback>) {
-        if let Ok(mut cb) = self.rotate_callback.lock() {
-            *cb = Some(callback);
+impl SetRotatableAndClickable for Encoder {
+    fn set_on_rotate_and_click(&mut self, value: ArcMux<dyn OnRotatableAndClickable>) {
+        if let Ok(mut rotable_and_clickable) = self.rotable_and_clickable.lock() {
+            *rotable_and_clickable = Some(value);
         }
-    }
-
-    fn get_position(&self) -> i32 {
-        ENCODER_POSITION.load(Ordering::Relaxed)
-    }
-
-    fn set_on_click(&mut self, callback: Box<ButtonCallback>) {
-        if let Ok(mut cb) = self.button_callback.lock() {
-            *cb = Some(callback);
-        }
-    }
+    }   
 
     fn get_state(&self) -> ButtonState {
         let state = ENCODER_STATE.load(Ordering::Relaxed);
@@ -297,5 +292,9 @@ impl OnRotatableAndClickable for Encoder {
             x if x & ENCODER_RELEASED == ENCODER_RELEASED => ButtonState::Released,
             _ => ButtonState::None,
         }
+    }
+
+    fn get_position(&self) -> i32 {
+        ENCODER_POSITION.load(Ordering::Relaxed)
     }
 }

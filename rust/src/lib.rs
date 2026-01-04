@@ -37,10 +37,9 @@ mod ffi {
 
 
 use alloc::boxed::Box;
-use alloc::sync::Arc;
 
 use osal_rs::os::types::TickType;
-use osal_rs::os::{System, SystemFn, Thread, ThreadFn, ThreadParam, Mutex, MutexFn};
+use osal_rs::os::{System, SystemFn, Thread, ThreadFn, ThreadParam};
 use osal_rs::log::set_enable_color;
 use osal_rs::utils::Result;
 use osal_rs::{log_fatal, log_info};
@@ -75,7 +74,7 @@ fn main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Resul
         panic!("Hardware initialization failed");
     }
 
-    let mut app = AppMain::new(Arc::new(Mutex::new(hardware)));
+    let mut app = AppMain::new(&mut hardware);
 
     if let Err(err) = app.init() {
         log_fatal!(APP_TAG, "App error: {:?}", err);
