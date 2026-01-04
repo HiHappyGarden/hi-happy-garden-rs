@@ -46,6 +46,7 @@ static ENCODER_STATE: AtomicU32 = AtomicU32::new(0);
 pub mod encoder_events {
     use osal_rs::os::types::EventBits;
 
+    #[allow(dead_code)]
     pub const ENCODER_NONE: EventBits = 0x00_00;
     pub const ENCODER_PRESSED: EventBits = 0x00_01;
     pub const ENCODER_RELEASED: EventBits = 0x00_02;
@@ -71,12 +72,17 @@ extern "C" fn encoder_button_isr() {
     let encoder_events = ENCODER_EVENTS.get().unwrap();
 
     let state = ENCODER_STATE.load(Ordering::Relaxed);
+    
+    // Clear button bits and preserve encoder rotation bits
+    let rotation_bits = state & (ENCODER_CCW_RISE | ENCODER_CCW_FALL | ENCODER_CW_RISE | ENCODER_CW_FALL);
 
-    if state == ENCODER_NONE || state & ENCODER_RELEASED == ENCODER_RELEASED {
-        ENCODER_STATE.store(state | ENCODER_PRESSED, Ordering::Relaxed);
+    if state & ENCODER_PRESSED != ENCODER_PRESSED {
+        // Button not pressed, so this is a press event
+        ENCODER_STATE.store(rotation_bits | ENCODER_PRESSED, Ordering::Relaxed);
         encoder_events.set_from_isr(ENCODER_PRESSED).unwrap();
-    } else if state & ENCODER_PRESSED == ENCODER_PRESSED {
-        ENCODER_STATE.store(state | ENCODER_RELEASED, Ordering::Relaxed);
+    } else {
+        // Button was pressed, so this is a release event
+        ENCODER_STATE.store(rotation_bits | ENCODER_RELEASED, Ordering::Relaxed);
         encoder_events.set_from_isr(ENCODER_RELEASED).unwrap();
     }
 }
@@ -85,13 +91,18 @@ extern "C" fn encoder_ccw_isr() {
     let encoder_events = ENCODER_EVENTS.get().unwrap();
 
     let state = ENCODER_STATE.load(Ordering::Relaxed);
+    
+    // Clear CCW bits and preserve button and CW bits
+    let other_bits = state & (ENCODER_PRESSED | ENCODER_RELEASED | ENCODER_CW_RISE | ENCODER_CW_FALL);
 
-    if state == ENCODER_NONE || state & ENCODER_CCW_RISE == ENCODER_CCW_RISE {
-        ENCODER_STATE.store(state | ENCODER_CCW_RISE, Ordering::Relaxed);
-        encoder_events.set_from_isr(ENCODER_CCW_RISE).unwrap();
-    } else if state & ENCODER_CCW_FALL == ENCODER_CCW_FALL {
-        ENCODER_STATE.store(state | ENCODER_CCW_FALL, Ordering::Relaxed);
+    if state & ENCODER_CCW_FALL != ENCODER_CCW_FALL {
+        // Last state was not FALL (or NONE/RISE), so this is a FALL event
+        ENCODER_STATE.store(other_bits | ENCODER_CCW_FALL, Ordering::Relaxed);
         encoder_events.set_from_isr(ENCODER_CCW_FALL).unwrap();
+    } else {
+        // Last state was FALL, so this is a RISE event
+        ENCODER_STATE.store(other_bits | ENCODER_CCW_RISE, Ordering::Relaxed);
+        encoder_events.set_from_isr(ENCODER_CCW_RISE).unwrap();
     }
 }
 
@@ -99,13 +110,18 @@ extern "C" fn encoder_cw_isr() {
     let encoder_events = ENCODER_EVENTS.get().unwrap();
 
     let state = ENCODER_STATE.load(Ordering::Relaxed);
+    
+    // Clear CW bits and preserve button and CCW bits
+    let other_bits = state & (ENCODER_PRESSED | ENCODER_RELEASED | ENCODER_CCW_RISE | ENCODER_CCW_FALL);
 
-    if state == ENCODER_NONE || state & ENCODER_CW_RISE == ENCODER_CW_RISE {
-        ENCODER_STATE.store(state | ENCODER_CW_RISE, Ordering::Relaxed);
-        encoder_events.set_from_isr(ENCODER_CW_RISE).unwrap();
-    } else if state & ENCODER_CW_FALL == ENCODER_CW_FALL {
-        ENCODER_STATE.store(state | ENCODER_CW_FALL, Ordering::Relaxed);
+    if state & ENCODER_CW_FALL != ENCODER_CW_FALL {
+        // Last state was not FALL (or NONE/RISE), so this is a FALL event
+        ENCODER_STATE.store(other_bits | ENCODER_CW_FALL, Ordering::Relaxed);
         encoder_events.set_from_isr(ENCODER_CW_FALL).unwrap();
+    } else {
+        // Last state was FALL, so this is a RISE event
+        ENCODER_STATE.store(other_bits | ENCODER_CW_RISE, Ordering::Relaxed);
+        encoder_events.set_from_isr(ENCODER_CW_RISE).unwrap();
     }
 }
 
@@ -152,7 +168,12 @@ impl Encoder {
             let mut debounce: TickType = 0;
             loop {
                 
-                let bits = event_handler.wait(ENCODER_CCW_RISE | ENCODER_CCW_FALL | ENCODER_CW_RISE | ENCODER_CW_FALL, TickType::MAX);
+                let bits = event_handler.wait(
+                    ENCODER_PRESSED | ENCODER_RELEASED | 
+                    ENCODER_CCW_RISE | ENCODER_CCW_FALL | 
+                    ENCODER_CW_RISE | ENCODER_CW_FALL, 
+                    TickType::MAX
+                );
                 event_handler.clear(bits);
 
                 if debounce != 0 && System::get_tick_count() - debounce < APP_DEBOUNCE_TIME {

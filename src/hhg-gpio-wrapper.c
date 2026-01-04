@@ -26,6 +26,7 @@
 #include "pico/types.h"
 #include "hardware/gpio.h"
 #include "hardware/pwm.h"
+#include "hardware/irq.h"
 
 // Wrapper functions with explicit ARM/Thumb compatibility
 void hhg_gpio_init(uint gpio) {
@@ -83,8 +84,34 @@ void hhg_pwm_set_gpio_level(uint gpio, uint16_t level) {
     pwm_set_gpio_level(gpio, level);
 }
 
+// ISR dispatcher for multiple GPIO pins
+typedef void (*simple_gpio_callback_t)(void);
+
+#define MAX_GPIO_CALLBACKS 32
+static simple_gpio_callback_t gpio_callbacks[MAX_GPIO_CALLBACKS] = {0};
+
+static void gpio_dispatcher_isr(uint gpio, uint32_t event_mask) {
+    if (gpio < MAX_GPIO_CALLBACKS && gpio_callbacks[gpio] != NULL) {
+        gpio_callbacks[gpio]();
+    }
+}
+
 void hhg_gpio_set_irq_enabled_with_callback(uint gpio, uint32_t events, bool enabled, gpio_irq_callback_t callback) {
-    gpio_set_irq_enabled_with_callback(gpio, events, enabled, callback);
+    // Store the callback in our dispatcher table
+    if (gpio < MAX_GPIO_CALLBACKS) {
+        gpio_callbacks[gpio] = (simple_gpio_callback_t)callback;
+    }
+    
+    // Register our dispatcher as the actual interrupt handler (only once)
+    static bool dispatcher_registered = false;
+    if (!dispatcher_registered) {
+        gpio_set_irq_callback(gpio_dispatcher_isr);
+        irq_set_enabled(IO_IRQ_BANK0, true);
+        dispatcher_registered = true;
+    }
+    
+    // Enable/disable the interrupt for this specific GPIO
+    gpio_set_irq_enabled(gpio, events, enabled);
 }
 
 void hhd_irq_set_enabled(uint num, bool enabled) {
