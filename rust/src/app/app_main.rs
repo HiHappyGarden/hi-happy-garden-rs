@@ -1,5 +1,7 @@
 use alloc::boxed::Box;
+use alloc::sync::Arc;
 use osal_rs::log_info;
+use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::utils::Result;
 
 /***************************************************************************
@@ -23,55 +25,36 @@ use osal_rs::utils::Result;
 
 
 
+use crate::app::lcd::Lcd;
 use crate::drivers::platform::Hardware;
-use crate::traits::button::{ButtonState, OnClickable};
-use crate::traits::encoder::{EncoderDirection, OnRotatableAndClickable};
-use crate::traits::hardware::HardwareFn;
 use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "AppMain";
 
-pub struct AppMain<'a> {
-    hardware: &'a mut Hardware
+pub struct AppMain {
+    hardware: Arc<Mutex<Hardware>>,
+    lcd: Lcd
 }
 
-impl Initializable for AppMain<'_> {
+impl Initializable for AppMain {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init app main");
 
+        self.lcd.init()?;
 
-        self.hardware.get_button().set_on_click(Box::new(|state| {
-            match state {
-                ButtonState::Pressed => log_info!(APP_TAG, "Button Pressed"),
-                ButtonState::Released => log_info!(APP_TAG, "Button Released"),
-                ButtonState::None => {}
-            }
-        }));
-
-        self.hardware.get_encoder().set_on_click(Box::new(|state| {
-            match state {
-                ButtonState::Pressed => log_info!(APP_TAG, "Encoder Pressed"),
-                ButtonState::Released => log_info!(APP_TAG, "Encoder Released"),
-                ButtonState::None => {}
-            }
-        }));
-
-        self.hardware.get_encoder().set_on_rotate(Box::new(|direction, _position| {
-            match direction {
-                EncoderDirection::Clockwise => log_info!(APP_TAG, "Encoder Clockwise"),
-                EncoderDirection::CounterClockwise => log_info!(APP_TAG, "Encoder CounterClockwise"),
-            }
-
-        }));
 
         Ok(())
     }
 }
 
-impl<'a> AppMain<'a> {
-    pub fn new(hardware: &'a mut Hardware) -> Self {
+impl AppMain {
+    pub fn new(hardware: Arc<Mutex<Hardware>>) -> Self {
+
+        let hardware_clone = Arc::clone(&hardware);
+
         AppMain {
-            hardware
+            hardware,
+            lcd: Lcd::new( Arc::clone(&hardware_clone))
         }
     }
 }

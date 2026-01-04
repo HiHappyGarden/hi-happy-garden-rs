@@ -18,6 +18,7 @@
  ***************************************************************************/
  
  mod app_main;
+ pub(super) mod lcd;
 
  pub use app_main::AppMain;
 
