@@ -6,6 +6,7 @@ use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "Lcd";
 
+#[derive(Clone)]
 pub struct Lcd;
 
 impl Lcd {
@@ -16,32 +17,7 @@ impl Lcd {
 
 impl Initializable for Lcd {
     fn init(&mut self) -> osal_rs::utils::Result<()> {
-        
-        
-
-        // hardware.get_button().set_on_click(Box::new(|state| {
-        //     match state {
-        //         ButtonState::Pressed => log_info!(APP_TAG, "Button Pressed"),
-        //         ButtonState::Released => log_info!(APP_TAG, "Button Released"),
-        //         ButtonState::None => {}
-        //     }
-        // }));
-
-        // hardware.get_encoder().set_on_click(Box::new(|state| {
-        //     match state {
-        //         ButtonState::Pressed => log_info!(APP_TAG, "Encoder Pressed"),
-        //         ButtonState::Released => log_info!(APP_TAG, "Encoder Released"),
-        //         ButtonState::None => {}
-        //     }
-        // }));
-
-        // hardware.get_encoder().set_on_rotate(Box::new(|direction, _position| {
-        //     match direction {
-        //         EncoderDirection::Clockwise => log_info!(APP_TAG, "Encoder Clockwise"),
-        //         EncoderDirection::CounterClockwise => log_info!(APP_TAG, "Encoder CounterClockwise"),
-        //     }
-        // }));
-
+        log_info!(APP_TAG, "Init LCD");
 
         Ok(())
     }

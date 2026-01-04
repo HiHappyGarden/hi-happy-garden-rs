@@ -155,7 +155,7 @@ impl Button {
                             if let Ok(mut clickable) = obj.lock() {
                                 clickable.on_click(state);
                             } else {
-                                log_error!(APP_TAG, "No reference empty");
+                                log_error!(APP_TAG, "Reference empty");
                             }
                         ,
                         None => log_error!(APP_TAG, "No reference to cliccable obj"),

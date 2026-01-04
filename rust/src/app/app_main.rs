@@ -19,7 +19,7 @@
 
 
 use osal_rs::{arcmux, log_info};
-use osal_rs::os::MutexFn;
+use osal_rs::os::{MutexFn};
 use osal_rs::utils::{ArcMux, Result};
 use crate::app::lcd::Lcd;
 use crate::drivers::platform::Hardware;
@@ -36,6 +36,8 @@ pub struct AppMain<'a> {
 impl Initializable for AppMain<'_> {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init app main");
+
+        ArcMux::clone(&self.lcd).lock().unwrap().init()?;
 
         let lcd = ArcMux::clone(&self.lcd);
         self.hardware.set_button_handler(lcd);

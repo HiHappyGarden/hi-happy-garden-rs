@@ -29,7 +29,7 @@ use alloc::sync::Arc;
 
 use osal_rs::os::config;
 use osal_rs::{log_info, log_warning};
-use osal_rs::utils::{Error, OsalRsBool, Ptr, Result};
+use osal_rs::utils::{AsSyncStr, Error, OsalRsBool, Ptr, Result};
 
 use crate::traits::state::{Deinitializable, Initializable};
 
@@ -93,13 +93,10 @@ pub enum GpioType {
 }
 
 
-pub trait GpioName : Sync + Send { 
-    fn as_str(&self) -> &str;
-}
 
 enum GpioNameEmpty { Empty }
 
-impl GpioName for GpioNameEmpty {
+impl AsSyncStr for GpioNameEmpty {
     fn as_str(&self) -> &str {
         ""
     }
@@ -242,7 +239,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
     }
 
 
-    pub fn write(&self, name: &dyn GpioName, state: u32) -> OsalRsBool {
+    pub fn write(&self, name: &dyn AsSyncStr, state: u32) -> OsalRsBool {
 
         if let Some(config) = &self.configs[name] {
             match &config.get_io_type() {
@@ -262,7 +259,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
 
     }
 
-    pub fn read(&self, name: &dyn GpioName) -> Result<u32> {
+    pub fn read(&self, name: &dyn AsSyncStr) -> Result<u32> {
         
         if let Some(config) = &self.configs[name] {
             match &config.get_io_type() {
@@ -281,7 +278,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
         
     }
 
-    pub fn set_pwm(&self, name: &dyn GpioName, pwm_duty_cycle: u16) -> OsalRsBool {
+    pub fn set_pwm(&self, name: &dyn AsSyncStr, pwm_duty_cycle: u16) -> OsalRsBool {
 
         if let Some(config) = &self.configs[name] {
             match &config.get_io_type() {
@@ -302,7 +299,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
 
     pub fn set_interrupt(
         &mut self, 
-        name: &dyn GpioName,
+        name: &dyn AsSyncStr,
         irq_type: InterruptType,
         enable: bool,
         callback: InterruptCallback
@@ -340,7 +337,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
     
     }
 
-    pub fn enable_interrupt(&mut self, name: &dyn GpioName, enable: bool) -> OsalRsBool {
+    pub fn enable_interrupt(&mut self, name: &dyn AsSyncStr, enable: bool) -> OsalRsBool {
 
         if let Some(config) = &mut self.configs[name] {
             match &config.get_io_type() {
@@ -386,7 +383,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
 
 #[derive(Clone)]
 pub struct GpioConfig<'a> {
-    name : &'a dyn GpioName,
+    name : &'a dyn AsSyncStr,
     io_type: GpioType,
     pub irq: Option<InterruptConfig>,
 } 
@@ -414,7 +411,7 @@ impl Default for GpioConfig<'_> {
 impl<'a> GpioConfig<'a> {
     
     pub const fn new (
-        name : &'a dyn GpioName,
+        name : &'a dyn AsSyncStr,
         io_type: GpioType,
     ) -> Self {
 
@@ -442,10 +439,10 @@ pub struct GpioConfigs<'a, const GPIO_CONFIG_SIZE: usize> {
     index: isize,
 }
 
-impl<'a, const GPIO_CONFIG_SIZE: usize> Index<&dyn GpioName> for GpioConfigs<'a, GPIO_CONFIG_SIZE> {
+impl<'a, const GPIO_CONFIG_SIZE: usize> Index<&dyn AsSyncStr> for GpioConfigs<'a, GPIO_CONFIG_SIZE> {
     type Output = Option<GpioConfig<'a>>;
 
-    fn index(&self, name: &dyn GpioName) -> &Self::Output {
+    fn index(&self, name: &dyn AsSyncStr) -> &Self::Output {
         
         self.array.iter()
             .find(|it| {
@@ -471,9 +468,9 @@ impl<'a, const GPIO_CONFIG_SIZE: usize> Index<usize> for GpioConfigs<'a, GPIO_CO
     }
 }
 
-impl<'a, const GPIO_CONFIG_SIZE: usize> IndexMut<&dyn GpioName> for GpioConfigs<'a, GPIO_CONFIG_SIZE> {
+impl<'a, const GPIO_CONFIG_SIZE: usize> IndexMut<&dyn AsSyncStr> for GpioConfigs<'a, GPIO_CONFIG_SIZE> {
 
-    fn index_mut(&mut self, name: &dyn GpioName) -> &mut Self::Output {
+    fn index_mut(&mut self, name: &dyn AsSyncStr) -> &mut Self::Output {
         
         let mut index_find = -1isize;
 

@@ -200,9 +200,9 @@ impl Encoder {
                     if let Ok(rotable_and_clickable) = rotable_and_clickable.lock() {
                         if let Some(ref rotable_and_clickable) = *rotable_and_clickable {
                             if let Ok(mut rotable_and_clickable) = rotable_and_clickable.lock() {
-                                rotable_and_clickable.on_click(ButtonState::Pressed);
+                                rotable_and_clickable.on_click(encoder_pressed);
                             } else {
-                                log_error!(APP_TAG, "No reference empty");
+                                log_error!(APP_TAG, "Reference empty");
                             }
                         } else {
                             log_warning!(APP_TAG, "No callback set for encoder button pressed");
@@ -257,7 +257,7 @@ impl Encoder {
                                 if let Ok(mut rotable_and_clickable) = rotable_and_clickable.lock() {
                                     rotable_and_clickable.on_rotable(dir, position);
                                 } else {
-                                    log_error!(APP_TAG, "No reference empty");
+                                    log_error!(APP_TAG, "Reference empty");
                                 }
                             } else {
                                 log_warning!(APP_TAG, "No callback set for encoder rotation encoder {:?} position: {}", dir, position);
