@@ -51,8 +51,7 @@ pub struct Encoder {
 }
 
 extern "C" fn encoder_button_isr() {
-    let event_handler = EVENT_HANDLER.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
-
+    let event_handler = EVENT_HANDLER.get().unwrap();
     let state = BUTTON_STATE.load(Ordering::Relaxed);
 
     if state == BUTTON_NONE || state & BUTTON_RELEASED == BUTTON_RELEASED {
@@ -67,7 +66,6 @@ extern "C" fn encoder_button_isr() {
 
 impl Encoder {
     pub fn new(gpio_ccw_ref: GpioPeripheral, gpio_cw_ref: GpioPeripheral, gpio_btn_ref: GpioPeripheral, gpio: Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>) -> Self {
-
         let event_handler = EVENT_HANDLER.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
 
         Self {
