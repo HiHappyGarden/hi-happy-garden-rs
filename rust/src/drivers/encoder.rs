@@ -197,7 +197,7 @@ impl Encoder {
                         if let Some(ref c) = *cb {
                             c(ButtonState::Pressed);
                         } else {
-                            log_warning!(APP_TAG, "No callback set for button pressed");
+                            log_warning!(APP_TAG, "No callback set for encoder button pressed");
                         }
                     }
                 } else if bits & ENCODER_RELEASED == ENCODER_RELEASED {
@@ -205,7 +205,7 @@ impl Encoder {
                         if let Some(ref c) = *cb {
                             c(ButtonState::Released);
                         } else {
-                            log_warning!(APP_TAG, "No callback set for button released");
+                            log_warning!(APP_TAG, "No callback set for encoder button released");
                         }
                     }
                 }
