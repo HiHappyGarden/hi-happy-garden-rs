@@ -125,7 +125,6 @@ impl Hardware {
                 Arc::clone(&gpio_clone)
             ),
             button: Button::new(
-                GpioPeripheral::Btn,
                 Arc::clone(&gpio_clone)
             ),
         }

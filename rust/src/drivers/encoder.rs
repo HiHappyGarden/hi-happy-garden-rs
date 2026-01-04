@@ -34,6 +34,7 @@ use crate::drivers::button::button_events::*;
 use crate::drivers::gpio::{InterruptType};
 use crate::drivers::platform::{self, GPIO_CONFIG_SIZE, Gpio, GpioPeripheral, OsalThreadPriority};
 use crate::traits::state::Initializable;
+use encoder_events::*;
 
 const APP_TAG: &str = "Encoder";
 const APP_THREAD_NAME: &str = "encoder_trd";
@@ -41,26 +42,36 @@ const APP_THREAD_NAME: &str = "encoder_trd";
 static EVENT_HANDLER: OnceBox<Arc<EventGroup>> = OnceBox::new();
 static BUTTON_STATE: AtomicU32 = AtomicU32::new(0);
 
+pub mod encoder_events {
+    use osal_rs::os::types::EventBits;
+
+    pub const ENCODER_NONE: EventBits = 0x0000;
+    pub const ENCODER_CCW_RISE: EventBits = 0x0004;
+    pub const ENCODER_CCW_FALL: EventBits = 0x0008;
+    pub const ENCODER_CW_RISE: EventBits = 0x0010;
+    pub const ENCODER_CW_FALL: EventBits = 0x0020;
+}
+
+
 #[allow(dead_code)]
 pub struct Encoder {
     gpio_ccw_ref: GpioPeripheral,
     gpio_cw_ref: GpioPeripheral,
-    btn: Button,
+    gpio_btn_ref: GpioPeripheral,
     thread: Thread,
     
 }
 
 extern "C" fn encoder_button_isr() {
-    let event_handler = EVENT_HANDLER.get().unwrap();
-    let state = BUTTON_STATE.load(Ordering::Relaxed);
 
-    if state == BUTTON_NONE || state & BUTTON_RELEASED == BUTTON_RELEASED {
-        BUTTON_STATE.store(BUTTON_PRESSED, Ordering::Relaxed);
-        event_handler.set_from_isr(BUTTON_PRESSED).unwrap();
-    } else if state & BUTTON_PRESSED == BUTTON_PRESSED {
-        BUTTON_STATE.store(BUTTON_RELEASED, Ordering::Relaxed);
-        event_handler.set_from_isr(BUTTON_RELEASED).unwrap();
-    }
+}
+
+extern "C" fn encoder_ccw_isr() {
+
+}
+
+extern "C" fn encoder_cw_isr() {
+
 }
 
 
@@ -71,7 +82,7 @@ impl Encoder {
         Self {
             gpio_ccw_ref,
             gpio_cw_ref,
-            btn: Button::new_with_external_callback(gpio_btn_ref, gpio, encoder_button_isr, Some(Arc::clone(event_handler) as ThreadParam) ),
+            gpio_btn_ref,
             thread: Thread::new_with_to_priority(APP_THREAD_NAME, minimal_stack_size!(), OsalThreadPriority::Normal)
         }
     }
@@ -79,12 +90,11 @@ impl Encoder {
     pub fn init(&mut self, gpio: &mut Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>) -> Result<()> {
         log_info!(APP_TAG, "Init encoder");
 
-        self.btn.init(gpio)?;
 
 
-        let gpio_clone = Arc::clone(&gpio);
-        let gpio_cw_ref = self.gpio_cw_ref.clone();
-        let gpio_ccw_ref = self.gpio_ccw_ref.clone();
+
+
+        
         self.thread.spawn_simple(move || {
 
             log_info!(APP_TAG, "Encoder thread started");
@@ -92,10 +102,8 @@ impl Encoder {
 
             loop {
                 
-                let cw = gpio_clone.lock().unwrap().read(&gpio_cw_ref).unwrap_or(0u32);
-                let ccw = gpio_clone.lock().unwrap().read(&gpio_ccw_ref).unwrap_or(0u32);
 
-                // log_info!(APP_TAG, "Encoder state: CW={}, CCW={}", cw, ccw);
+
 
                 System::delay(100);
             }

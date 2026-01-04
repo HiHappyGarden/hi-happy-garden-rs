@@ -1,4 +1,5 @@
 use alloc::boxed::Box;
+use alloc::sync::Arc;
 use osal_rs::log_info;
 use osal_rs::utils::Result;
 
