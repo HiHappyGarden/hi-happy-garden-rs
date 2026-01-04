@@ -102,7 +102,7 @@ pub const GPIO_CONFIG_SIZE: usize = 7;
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum GpioPeripheral {
     NoUsed,
-    EncoderCCw,
+    EncoderCCW,
     EncoderCW,
     EncoderBtn,
     Btn,
@@ -115,7 +115,7 @@ impl GpioName for GpioPeripheral {
     fn as_str(&self) -> &str {
         match self {
             NoUsed => "NoUsed",
-            EncoderCCw => "EncoderCCw",
+            EncoderCCW => "EncoderCCw",
             EncoderCW => "EncoderCW",
             EncoderBtn => "EncoderBtn",
             Btn => "Btn",
@@ -132,7 +132,7 @@ impl FromStr for GpioPeripheral {
     fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
         match s {
             "NoUsed" => Ok(NoUsed),
-            "EncoderCCw" => Ok(EncoderCCw),
+            "EncoderCCw" => Ok(EncoderCCW),
             "EncoderCW" => Ok(EncoderCW),
             "EncoderBtn" => Ok(EncoderBtn),
             "Btn" => Ok(Btn),
@@ -161,8 +161,8 @@ pub static GPIO_FN : GpioFn = GpioFn {
 
 pub fn get_gpio_configs() -> GpioConfigs<'static, GPIO_CONFIG_SIZE> {
     GpioConfigs::new_with_array([
-        Some(GpioConfig::new(&EncoderCCw, GpioType::Input(None, 21, GpioInputType::PullDown, 0))),
-        Some(GpioConfig::new(&EncoderCW, GpioType::Input(None, 20, GpioInputType::PullDown, 0))),
+        Some(GpioConfig::new(&EncoderCCW, GpioType::Input(None, 20, GpioInputType::PullDown, 0))),
+        Some(GpioConfig::new(&EncoderCW, GpioType::Input(None, 21, GpioInputType::PullDown, 0))),
         Some(GpioConfig::new(&EncoderBtn, GpioType::Input(None, 19, GpioInputType::PullUp, 0))),
         Some(GpioConfig::new(&Btn, GpioType::Input(None, 18, GpioInputType::PullUp, 0))),
         Some(GpioConfig::new(&LedRed, GpioType::OutputPWM(None, 13, 0))),
