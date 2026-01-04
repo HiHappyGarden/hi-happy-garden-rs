@@ -24,32 +24,35 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 
 use once_cell::race::OnceBox;
-use osal_rs::{log_info, minimal_stack_size};
-use osal_rs::os::types::StackType;
+use osal_rs::{log_error, log_info, minimal_stack_size};
+use osal_rs::os::types::{StackType, TickType};
 use osal_rs::os::{EventGroup, EventGroupFn, Mutex, MutexFn, System, SystemFn, Thread, ThreadFn, ThreadParam};
-use osal_rs::utils::Result;
+use osal_rs::utils::{Error, OsalRsBool, Result};
 
-use crate::drivers::button::Button;
-use crate::drivers::button::button_events::*;
 use crate::drivers::gpio::{InterruptType};
 use crate::drivers::platform::{self, GPIO_CONFIG_SIZE, Gpio, GpioPeripheral, OsalThreadPriority};
+use crate::traits::button::{ButtonCallback, ButtonState};
 use crate::traits::state::Initializable;
 use encoder_events::*;
 
 const APP_TAG: &str = "Encoder";
 const APP_THREAD_NAME: &str = "encoder_trd";
+const APP_STACK_SIZE: StackType = 1_024;
+const APP_DEBOUNCE_TIME: TickType = 3;
 
-static EVENT_HANDLER: OnceBox<Arc<EventGroup>> = OnceBox::new();
-static BUTTON_STATE: AtomicU32 = AtomicU32::new(0);
+static ENCODER_EVENTS: OnceBox<Arc<EventGroup>> = OnceBox::new();
+static ENCODER_STATE: AtomicU32 = AtomicU32::new(0);
 
 pub mod encoder_events {
     use osal_rs::os::types::EventBits;
 
-    pub const ENCODER_NONE: EventBits = 0x0000;
-    pub const ENCODER_CCW_RISE: EventBits = 0x0004;
-    pub const ENCODER_CCW_FALL: EventBits = 0x0008;
-    pub const ENCODER_CW_RISE: EventBits = 0x0010;
-    pub const ENCODER_CW_FALL: EventBits = 0x0020;
+    pub const ENCODER_NONE: EventBits = 0x00_00;
+    pub const ENCODER_PRESSED: EventBits = 0x00_01;
+    pub const ENCODER_RELEASED: EventBits = 0x00_02;
+    pub const ENCODER_CCW_RISE: EventBits = 0x00_04;
+    pub const ENCODER_CCW_FALL: EventBits = 0x00_08;
+    pub const ENCODER_CW_RISE: EventBits = 0x00_10;
+    pub const ENCODER_CW_FALL: EventBits = 0x00_20;
 }
 
 
@@ -58,32 +61,66 @@ pub struct Encoder {
     gpio_ccw_ref: GpioPeripheral,
     gpio_cw_ref: GpioPeripheral,
     gpio_btn_ref: GpioPeripheral,
+    gpio: Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>,
     thread: Thread,
+    callback: Arc<Mutex<Option<Box<ButtonCallback>>>>,
     
 }
 
 extern "C" fn encoder_button_isr() {
+    let encoder_events = ENCODER_EVENTS.get().unwrap();
 
+    let state = ENCODER_STATE.load(Ordering::Relaxed);
+
+    if state == ENCODER_NONE || state & ENCODER_RELEASED == ENCODER_RELEASED {
+        ENCODER_STATE.store(state | ENCODER_PRESSED, Ordering::Relaxed);
+        encoder_events.set_from_isr(ENCODER_PRESSED).unwrap();
+    } else if state & ENCODER_PRESSED == ENCODER_PRESSED {
+        ENCODER_STATE.store(state | ENCODER_RELEASED, Ordering::Relaxed);
+        encoder_events.set_from_isr(ENCODER_RELEASED).unwrap();
+    }
 }
 
 extern "C" fn encoder_ccw_isr() {
+    let encoder_events = ENCODER_EVENTS.get().unwrap();
 
+    let state = ENCODER_STATE.load(Ordering::Relaxed);
+
+    if state == ENCODER_NONE || state & ENCODER_CCW_RISE == ENCODER_CCW_RISE {
+        ENCODER_STATE.store(state | ENCODER_CCW_RISE, Ordering::Relaxed);
+        encoder_events.set_from_isr(ENCODER_CCW_RISE).unwrap();
+    } else if state & ENCODER_CCW_FALL == ENCODER_CCW_FALL {
+        ENCODER_STATE.store(state | ENCODER_CCW_FALL, Ordering::Relaxed);
+        encoder_events.set_from_isr(ENCODER_CCW_FALL).unwrap();
+    }
 }
 
 extern "C" fn encoder_cw_isr() {
+    let encoder_events = ENCODER_EVENTS.get().unwrap();
 
+    let state = ENCODER_STATE.load(Ordering::Relaxed);
+
+    if state == ENCODER_NONE || state & ENCODER_CW_RISE == ENCODER_CW_RISE {
+        ENCODER_STATE.store(state | ENCODER_CW_RISE, Ordering::Relaxed);
+        encoder_events.set_from_isr(ENCODER_CW_RISE).unwrap();
+    } else if state & ENCODER_CW_FALL == ENCODER_CW_FALL {
+        ENCODER_STATE.store(state | ENCODER_CW_FALL, Ordering::Relaxed);
+        encoder_events.set_from_isr(ENCODER_CW_FALL).unwrap();
+    }
 }
 
 
 impl Encoder {
-    pub fn new(gpio_ccw_ref: GpioPeripheral, gpio_cw_ref: GpioPeripheral, gpio_btn_ref: GpioPeripheral, gpio: Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>) -> Self {
-        let event_handler = EVENT_HANDLER.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
-
+    pub fn new(gpio: Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>) -> Self {
+        let _ = ENCODER_EVENTS.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
+                
         Self {
-            gpio_ccw_ref,
-            gpio_cw_ref,
-            gpio_btn_ref,
-            thread: Thread::new_with_to_priority(APP_THREAD_NAME, minimal_stack_size!(), OsalThreadPriority::Normal)
+            gpio_ccw_ref: GpioPeripheral::EncoderCCw,
+            gpio_cw_ref: GpioPeripheral::EncoderCW,
+            gpio_btn_ref: GpioPeripheral::EncoderBtn,
+            gpio,
+            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, OsalThreadPriority::Normal),
+            callback: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -91,23 +128,64 @@ impl Encoder {
         log_info!(APP_TAG, "Init encoder");
 
 
+        if gpio.lock()?.set_interrupt(&self.gpio_ccw_ref, InterruptType::BothEdge, true, encoder_ccw_isr) == OsalRsBool::False {
+            log_error!(APP_TAG, "Error setting CCW interrupt");
+            return Err(Error::NotFound);
+        }
+
+        if gpio.lock()?.set_interrupt(&self.gpio_cw_ref, InterruptType::BothEdge, true, encoder_cw_isr) == OsalRsBool::False {
+            log_error!(APP_TAG, "Error setting CW interrupt");
+            return Err(Error::NotFound);
+        }
+
+        if gpio.lock()?.set_interrupt(&self.gpio_btn_ref, InterruptType::BothEdge, true, encoder_button_isr) == OsalRsBool::False {
+            log_error!(APP_TAG, "Error setting Button interrupt");
+            return Err(Error::NotFound);
+        }
 
 
+        let callback = Arc::clone(&self.callback);
+        self.thread.spawn_simple( move || {
 
-        
-        self.thread.spawn_simple(move || {
+            let event_handler = ENCODER_EVENTS.get().unwrap();
 
-            log_info!(APP_TAG, "Encoder thread started");
-
-
+            let mut debounce: TickType = 0;
             loop {
                 
+                let bits = event_handler.wait(ENCODER_CCW_RISE | ENCODER_CCW_FALL | ENCODER_CW_RISE | ENCODER_CW_FALL, TickType::MAX);
+                event_handler.clear(bits);
 
+                if debounce != 0 && System::get_tick_count() - debounce < APP_DEBOUNCE_TIME {
+                    continue;
+                }
+                if bits & ENCODER_PRESSED == ENCODER_PRESSED {
+                    if let Ok(cb) = callback.lock() {
+                        if let Some(ref c) = *cb {
+                            c(ButtonState::Pressed);
+                        } else {
+                            log_error!(APP_TAG, "No callback set for encoder button press");
+                        }
+                    }
+                } else if bits & ENCODER_RELEASED == ENCODER_RELEASED {
+                    if let Ok(cb) = callback.lock() {
+                        if let Some(ref c) = *cb {
+                            c(ButtonState::Released);
+                        } else {
+                            log_error!(APP_TAG, "No callback set for encoder button release");
+                        }
+                    }
+                } else if bits & ENCODER_CCW_RISE == ENCODER_CCW_RISE {
+                    log_info!(APP_TAG, "Encoder CCW Rise detected");
+                } else if bits & ENCODER_CCW_FALL == ENCODER_CCW_FALL {
+                    log_info!(APP_TAG, "Encoder CCW Fall detected");
+                } else if bits & ENCODER_CW_RISE == ENCODER_CW_RISE {
+                    log_info!(APP_TAG, "Encoder CW Rise detected");
+                } else if bits & ENCODER_CW_FALL == ENCODER_CW_FALL {
+                    log_info!(APP_TAG, "Encoder CW Fall detected");
+                }
 
-
-                System::delay(100);
+                debounce = System::get_tick_count();
             }
-
 
         })?;
 

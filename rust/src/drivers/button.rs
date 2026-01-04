@@ -30,7 +30,7 @@ use alloc::boxed::Box;
 use once_cell::race::OnceBox;
 
 use osal_rs::os::types::{StackType, TickType};
-use osal_rs::{log_error, log_info};
+use osal_rs::{log_error, log_info, log_warning};
 use osal_rs::os::{EventGroup, EventGroupFn, Mutex, MutexFn, System, SystemFn, Thread, ThreadFn, ThreadParam, Timer, TimerFn};
 use osal_rs::utils::{Error, OsalRsBool, Result};
 
@@ -47,22 +47,21 @@ const APP_STACK_SIZE: StackType = 512;
 const APP_DEBOUNCE_TIME: TickType = 50;
 
 
-static EVENT_HANDLER: OnceBox<Arc<EventGroup>> = OnceBox::new();
+static BUTTON_EVENTS: OnceBox<Arc<EventGroup>> = OnceBox::new();
 static BUTTON_STATE: AtomicU32 = AtomicU32::new(0);
 
 pub mod button_events {
     use osal_rs::os::types::EventBits;
 
-    pub const BUTTON_NONE: EventBits = 0x0000;
-    pub const BUTTON_PRESSED: EventBits = 0x0001;
-    pub const BUTTON_RELEASED: EventBits = 0x0002;
+    pub const BUTTON_NONE: EventBits = 0x00_00;
+    pub const BUTTON_PRESSED: EventBits = 0x00_01;
+    pub const BUTTON_RELEASED: EventBits = 0x00_02;
 }
 
 pub struct Button {
     gpio_ref: GpioPeripheral,
     gpio: Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>,
     thread: Thread,
-    param: Option<ThreadParam>,
     callback: Arc<Mutex<Option<Box<ButtonCallback>>>>,
 }
 
@@ -70,7 +69,7 @@ pub struct Button {
 
 
 extern "C" fn button_isr() {
-    let event_handler = EVENT_HANDLER.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
+    let event_handler = BUTTON_EVENTS.get().unwrap();
 
     let state = BUTTON_STATE.load(Ordering::Relaxed);
 
@@ -104,13 +103,12 @@ impl OnClickable for Button {
 impl Button {
     pub fn new(gpio: Arc<Mutex<Gpio<GPIO_CONFIG_SIZE>>>) -> Self {
 
-        let event_handler = EVENT_HANDLER.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
+        let _ = BUTTON_EVENTS.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
 
         Self {
             gpio_ref: GpioPeripheral::Btn,
             gpio,
             thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, OsalThreadPriority::Normal),
-            param: Some(Arc::clone(event_handler) as ThreadParam),
             callback: Arc::new(Mutex::new(None)),
         }
     }
@@ -123,28 +121,16 @@ impl Button {
             return Err(Error::NotFound);
         }
 
-        
-
-        let event_handler = if let Some(param) = &self.param {
-            param.clone().downcast::<EventGroup>().map_err(|_| {
-                log_error!(APP_TAG, "Error downcasting event handler");
-                Error::InvalidType
-            })?
-        } else {
-            log_error!(APP_TAG, "No event handler provided");
-            return Err(Error::NullPtr);
-        };
-
+    
         let callback = Arc::clone(&self.callback);
-        self.thread.spawn(Some(event_handler as ThreadParam), move |_thread, _param| {
-            let event_handler = EVENT_HANDLER.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
+        self.thread.spawn_simple( move || {
 
-            
+            let event_handler = BUTTON_EVENTS.get().unwrap();
 
             let mut debounce: TickType = 0;
             loop {
                 
-                let bits = event_handler.wait(BUTTON_PRESSED | BUTTON_RELEASED, TickType::MAX) & 0x0003;
+                let bits = event_handler.wait(BUTTON_PRESSED | BUTTON_RELEASED, TickType::MAX);
                 event_handler.clear(bits);
 
                 if debounce != 0 && System::get_tick_count() - debounce < APP_DEBOUNCE_TIME {
@@ -154,12 +140,16 @@ impl Button {
                     if let Ok(cb) = callback.lock() {
                         if let Some(ref c) = *cb {
                             c(ButtonState::Pressed);
+                        } else {
+                            log_warning!(APP_TAG, "No callback set for button pressed");
                         }
                     }
                 } else if bits & BUTTON_RELEASED == BUTTON_RELEASED {
                     if let Ok(cb) = callback.lock() {
                         if let Some(ref c) = *cb {
                             c(ButtonState::Released);
+                        } else {
+                            log_warning!(APP_TAG, "No callback set for button released");
                         }
                     }
                 }

@@ -118,15 +118,8 @@ impl Hardware {
         
         Self { 
             gpio,
-            encoder: Encoder::new(
-                GpioPeripheral::EncoderCCw,
-                GpioPeripheral::EncoderCW,
-                GpioPeripheral::EncoderBtn,
-                Arc::clone(&gpio_clone)
-            ),
-            button: Button::new(
-                Arc::clone(&gpio_clone)
-            ),
+            encoder: Encoder::new(Arc::clone(&gpio_clone)),
+            button: Button::new(Arc::clone(&gpio_clone)),
         }
         
     }
