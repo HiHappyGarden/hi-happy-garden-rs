@@ -17,25 +17,14 @@
  *
  ***************************************************************************/
 
-#![allow(dead_code)]
-use alloc::boxed::Box;
+use crate::traits::button::OnClickable;
+use crate::traits::encoder::OnRotatableAndClickable;
 
-use crate::traits::button::{ButtonCallback, ButtonState};
+pub trait HardwareFn {
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EncoderDirection {
-    Clockwise,
-    CounterClockwise,
+    fn get_button(&mut self) -> &mut impl OnClickable;
+
+    fn get_encoder(&mut self) -> &mut impl OnRotatableAndClickable;
+
 }
 
-pub type EncoderCallback = dyn Fn(EncoderDirection, i32) + Send + Sync;
-
-pub trait OnRotatableAndClickable {
-    fn set_on_rotate(&mut self, callback: Box<EncoderCallback>);
-    fn get_position(&self) -> i32;
-    fn set_on_click(&mut self, callback: Box<ButtonCallback>);
-    fn get_state(&self) -> ButtonState;
-}
-
-
- 

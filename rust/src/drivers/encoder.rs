@@ -32,7 +32,7 @@ use osal_rs::utils::{Error, OsalRsBool, Result};
 use crate::drivers::gpio::{InterruptType};
 use crate::drivers::platform::{self, GPIO_CONFIG_SIZE, Gpio, GpioPeripheral, OsalThreadPriority};
 use crate::traits::button::{ButtonCallback, ButtonState};
-use crate::traits::encoder::{EncoderCallback, EncoderDirection, OnRotatable};
+use crate::traits::encoder::{EncoderCallback, EncoderDirection, OnRotatableAndClickable};
 use crate::traits::state::Initializable;
 use encoder_events::*;
 
@@ -273,7 +273,7 @@ impl Encoder {
 }
 
 
-impl OnRotatable for Encoder {
+impl OnRotatableAndClickable for Encoder {
     fn set_on_rotate(&mut self, callback: Box<EncoderCallback>) {
         if let Ok(mut cb) = self.rotate_callback.lock() {
             *cb = Some(callback);

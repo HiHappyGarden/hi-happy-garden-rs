@@ -19,5 +19,6 @@
  
 pub mod button;
 pub mod encoder;
+pub mod hardware;
 pub mod state;
 

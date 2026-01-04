@@ -29,7 +29,9 @@ use alloc::sync::Arc;
 use core::cell::RefCell;
 
 use crate::drivers::gpio;
-use crate::traits::button::{ButtonCallback, ButtonState, OnClickable as ButtonClickable};
+use crate::traits::button::{ButtonCallback, ButtonState, OnClickable as ButtonOnClickable};
+use crate::traits::encoder::{EncoderCallback, OnRotatableAndClickable as EncoderOnRotatableAndClickable};
+use crate::traits::hardware::HardwareFn;
 use super::gpio::{GPIO_FN, get_gpio_configs, GPIO_CONFIG_SIZE};
 use crate::traits::state::Initializable;
 
@@ -100,13 +102,13 @@ impl Initializable for Hardware {
     } 
 }
 
-impl ButtonClickable for Hardware {
-    fn set_on_click(&mut self, callback: Box<ButtonCallback>) {
-        self.button.set_on_click(callback);
+impl HardwareFn for Hardware {
+    fn get_button(&mut self) -> &mut impl ButtonOnClickable {
+        &mut self.button
     }
 
-    fn get_state(&self) -> ButtonState {
-        self.button.get_state()
+    fn get_encoder(&mut self) -> &mut impl EncoderOnRotatableAndClickable {
+        &mut self.encoder
     }
 }
 

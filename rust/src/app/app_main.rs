@@ -22,8 +22,11 @@ use osal_rs::utils::Result;
  ***************************************************************************/
 
 
+
 use crate::drivers::platform::Hardware;
 use crate::traits::button::{ButtonState, OnClickable};
+use crate::traits::encoder::{EncoderDirection, OnRotatableAndClickable};
+use crate::traits::hardware::HardwareFn;
 use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "AppMain";
@@ -36,18 +39,31 @@ impl Initializable for AppMain<'_> {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init app main");
 
-        self.hardware.set_on_click(Box::new(|state| {
+
+        self.hardware.get_button().set_on_click(Box::new(|state| {
             match state {
-                ButtonState::Pressed => {
-                    log_info!(APP_TAG, "Button Pressed");
-                },
-                ButtonState::Released => {
-                    log_info!(APP_TAG, "Button Released");
-                },
+                ButtonState::Pressed => log_info!(APP_TAG, "Button Pressed"),
+                ButtonState::Released => log_info!(APP_TAG, "Button Released"),
                 ButtonState::None => {}
             }
         }));
-        
+
+        self.hardware.get_encoder().set_on_click(Box::new(|state| {
+            match state {
+                ButtonState::Pressed => log_info!(APP_TAG, "Encoder Pressed"),
+                ButtonState::Released => log_info!(APP_TAG, "Encoder Released"),
+                ButtonState::None => {}
+            }
+        }));
+
+        self.hardware.get_encoder().set_on_rotate(Box::new(|direction, _position| {
+            match direction {
+                EncoderDirection::Clockwise => log_info!(APP_TAG, "Encoder Clockwise"),
+                EncoderDirection::CounterClockwise => log_info!(APP_TAG, "Encoder CounterClockwise"),
+            }
+
+        }));
+
         Ok(())
     }
 }
