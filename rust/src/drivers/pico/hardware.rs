@@ -99,6 +99,8 @@ impl Initializable for Hardware {
 
         self.gpio.lock()?.init()?;
 
+        self.uart.lock()?.init()?;
+
         self.encoder.init(&mut ArcMux::clone(&self.gpio))?;
 
         self.button.init(&mut ArcMux::clone(&self.gpio))?;
