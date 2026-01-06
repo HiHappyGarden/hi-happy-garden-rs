@@ -34,9 +34,10 @@ use osal_rs::os::types::{StackType, TickType};
 use osal_rs::{arcmux, log_error, log_info, log_warning};
 use osal_rs::os::{EventGroup, EventGroupFn, Mutex, MutexFn, System, SystemFn, Thread, ThreadFn, ThreadParam, Timer, TimerFn};
 use osal_rs::utils::{ArcMux, Error, OsalRsBool, Result};
+use osal_rs_tests::freertos::event_group_tests;
 
 use crate::drivers::gpio::{InterruptCallback, InterruptType};
-use crate::drivers::platform::{self, GPIO_CONFIG_SIZE, Gpio, GpioPeripheral, OsalThreadPriority};
+use crate::drivers::platform::{self, GPIO_CONFIG_SIZE, Gpio, GpioPeripheral, ThreadPriority};
 use crate::traits::button::{ButtonState, OnClickable, SetClickable};
 use crate::traits::state::Initializable;
 
@@ -108,7 +109,7 @@ impl Button {
         Self {
             gpio_ref: GpioPeripheral::Btn,
             gpio,
-            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, OsalThreadPriority::Normal),
+            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal),
             clickable: arcmux!(None),
         }
     }
@@ -121,7 +122,20 @@ impl Button {
             return Err(Error::NotFound);
         }
 
-        let _ = BUTTON_EVENTS.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
+        let _ = BUTTON_EVENTS.get_or_init(|| 
+            if let Ok(event_group) = EventGroup::new() {
+                Box::new(Arc::new(event_group))
+            } else {
+                panic!("Failed to create button event group");
+            }
+        );
+
+        if let Ok(event_group) = EventGroup::new() {
+            let _ = BUTTON_EVENTS.set(Box::new(Arc::new(event_group)));
+        } else {
+            log_error!(APP_TAG, "Error creating button event group");
+            return Err(Error::OutOfMemory);
+        }
     
         let clickable = ArcMux::clone(&self.clickable);
         self.thread.spawn_simple( move || {

@@ -29,9 +29,12 @@ use alloc::sync::Arc;
 use core::cell::RefCell;
 
 use crate::drivers::gpio;
+use crate::drivers::pico::uart::{UART_FN, get_uart_config};
+use crate::drivers::uart::Uart;
 use crate::traits::button::{ButtonState, OnClickable, SetClickable as ButtonOnClickable};
 use crate::traits::encoder::{OnRotatableAndClickable as EncoderOnRotatableAndClickable, SetRotatableAndClickable};
 use crate::traits::hardware::HardwareFn;
+use crate::traits::rx_tx::OnReceive;
 use super::gpio::{GPIO_FN, get_gpio_configs, GPIO_CONFIG_SIZE};
 use crate::traits::state::Initializable;
 
@@ -43,7 +46,7 @@ const APP_TAG: &str = "Hardware";
 #[allow(dead_code)]
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum OsalThreadPriority {
+pub enum ThreadPriority {
     None = 0,
     Idle = 1,
     Low = 4,
@@ -56,7 +59,7 @@ pub enum OsalThreadPriority {
     Realtime = 31,
 }
 
-impl ToPriority for OsalThreadPriority {
+impl ToPriority for ThreadPriority {
     #[inline]
     fn to_priority(&self) -> UBaseType {
         *self as UBaseType
@@ -64,9 +67,9 @@ impl ToPriority for OsalThreadPriority {
 }
 
 #[allow(unused)]
-impl OsalThreadPriority {
+impl ThreadPriority {
     pub fn from_priority(priority: UBaseType) -> Self {
-        use OsalThreadPriority::*;
+        use ThreadPriority::*;
         match priority {
             1 => Idle,
             2..=4 => Low,
@@ -85,6 +88,7 @@ impl OsalThreadPriority {
 
 pub struct Hardware {
     gpio: ArcMux<Gpio<GPIO_CONFIG_SIZE>>,
+    uart: ArcMux<Uart<'static>>,
     encoder: Encoder,
     button: Button,
 }
@@ -121,8 +125,21 @@ impl Hardware {
         let gpio = arcmux!(Gpio::<GPIO_CONFIG_SIZE>::new(&GPIO_FN, get_gpio_configs()));
         let gpio_clone = ArcMux::clone(&gpio);
         
+        let uart = arcmux!(Uart::new(get_uart_config()));
+
+        unsafe {
+            UART_FN.receive = Some(ArcMux::clone(&uart) as ArcMux<dyn OnReceive>);
+        }
+        
+        match uart.lock() {
+            Ok(mut uart) => uart.set_functions(&raw const UART_FN),
+            Err(err) => panic!("Failed to lock UART during Hardware init: {:?}", err)
+        }
+
+
         Self { 
             gpio,
+            uart,
             encoder: Encoder::new(ArcMux::clone(&gpio_clone)),
             button: Button::new(ArcMux::clone(&gpio_clone)),
         }

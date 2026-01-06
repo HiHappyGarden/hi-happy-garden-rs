@@ -30,7 +30,7 @@ use osal_rs::os::{EventGroup, EventGroupFn, Mutex, MutexFn, System, SystemFn, Th
 use osal_rs::utils::{ArcMux, Error, OsalRsBool, Result};
 
 use crate::drivers::gpio::{InterruptType};
-use crate::drivers::platform::{self, GPIO_CONFIG_SIZE, Gpio, GpioPeripheral, OsalThreadPriority};
+use crate::drivers::platform::{self, GPIO_CONFIG_SIZE, Gpio, GpioPeripheral, ThreadPriority};
 use crate::traits::button::{ButtonState, OnClickable};
 use crate::traits::encoder::{EncoderDirection, OnRotatableAndClickable, SetRotatableAndClickable};
 use crate::traits::state::Initializable;
@@ -135,7 +135,7 @@ impl Encoder {
             gpio_cw_ref: GpioPeripheral::EncoderCW,
             gpio_btn_ref: GpioPeripheral::EncoderBtn,
             gpio,
-            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, OsalThreadPriority::Normal),
+            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal),
             rotable_and_clickable: arcmux!(None)
         }
     }
@@ -159,7 +159,13 @@ impl Encoder {
             return Err(Error::NotFound);
         }
 
-        let _ = ENCODER_EVENTS.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
+        let _ = ENCODER_EVENTS.get_or_init(|| 
+            if let Ok(event_group) = EventGroup::new() {
+                Box::new(Arc::new(event_group))
+            } else {
+                panic!("Failed to create encoder event group");
+            }
+        );
 
         let rotable_and_clickable = ArcMux::clone(&self.rotable_and_clickable);
         let gpio_clone = ArcMux::clone(gpio);

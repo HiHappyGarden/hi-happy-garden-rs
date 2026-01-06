@@ -16,8 +16,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
+#![allow(dead_code)]
 
-use osal_rs::{arcmux, utils::{ArcMux, AsSyncStr, Ptr, Result}};
+use alloc::{boxed::Box, sync::Arc};
+use once_cell::race::OnceBox;
+use osal_rs::{arcmux, minimal_stack_size, os::{MutexFn, Queue, QueueFn, Thread, ThreadFn, types::{TickType, UBaseType}}, utils::{ArcMux, AsSyncStr, Bytes, Error, Ptr, Result}};
+use osal_rs_tests::freertos::queue_tests;
+
+use crate::{drivers::platform::ThreadPriority, traits::{rx_tx::OnReceive, state::Initializable}};
+
+const APP_TAG: &str = "Uart";
+const APP_THREAD_NAME: &str = "uart_trd";
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum UartParity {
@@ -50,10 +59,12 @@ pub enum UartFlowControl {
     XonXoff,
 }
 
+static UART_QUEUE: OnceBox<Arc<Queue>> = OnceBox::new();
+const UART_QUEUE_SIZE: UBaseType = 64;
 
 #[derive(Clone, Copy)]
-pub struct UartConfig<'a> {
-    pub name : &'a str,
+pub struct UartConfig {
+    pub name: &'static str,
     pub base: Ptr,
     pub baudrate: u32,
     pub data_bits: UartDataBits,
@@ -62,52 +73,114 @@ pub struct UartConfig<'a> {
     pub flow_control: UartFlowControl,
 }
 
-unsafe impl Sync for UartConfig<'_> {}
-unsafe impl Send for UartConfig<'_> {}
+unsafe impl Sync for UartConfig {}
+unsafe impl Send for UartConfig {}
 
 
 #[derive(Clone)]
 pub struct UartFn {
     pub init: fn(&UartConfig) -> Result<()>,
     pub transmit: fn(data: &[u8]) -> usize,
-    pub receive: Option<ArcMux<Uart<'static>>>,
+    pub receive: Option<ArcMux<dyn OnReceive>>,
     pub deinit: fn(&UartConfig) -> Result<()>,
 }
 
-
-pub trait OnReceive {
-    fn on_receive(&self, data: &[u8]);
-    fn get_source(&self) -> &'static str;
+#[derive(Clone)]
+pub struct Uart<'a, const SIZE: usize = 4> {
+    functions: Option<&'a UartFn>,
+    config: UartConfig,
+    listener: [Option<ArcMux<dyn OnReceive>>; SIZE],
+    thread: Thread,
 }
 
-#[derive(Clone, Copy)]
-pub struct Uart<'a> {
-    functions: &'a UartFn,
-    config: UartConfig<'a>,
-}
+unsafe impl<'a> Sync for Uart<'a> {}
+unsafe impl<'a> Send for Uart<'a> {}
 
-unsafe impl Sync for Uart<'_> {}
-unsafe impl Send for Uart<'_> {}
-
-impl<'a> OnReceive for Uart<'a> {
+impl OnReceive for Uart<'_> {
     fn on_receive(&self, data: &[u8]) {
-        // Default implementation does nothing
-    }
-    
-    fn get_source(&self) -> &'static str {
-        "Uart"
+        let uart_queue = UART_QUEUE.get().unwrap();
+        uart_queue.post_from_isr(data).unwrap();
     }
 }
 
-impl<'a> Uart<'a> {
-    pub fn new(config: UartConfig<'a>, functions: &'a mut UartFn) -> Self {
-        let ret = Self { config, functions };
+impl Initializable for Uart<'_> {
+    fn init(&mut self) -> Result<()> {
+        if let Some(functions) = self.functions {
+            if (functions.init)(&self.config).is_err() {
+                return Err(Error::Unhandled("Failed to initialize Uart"))
+            }
 
-        functions.receive = Some(arcmux!(ret));
 
-        
+            UART_QUEUE.get_or_init(|| 
+                if let Ok(queue) = Queue::new(UART_QUEUE_SIZE, 1) {
+                    Box::new(Arc::new(queue))
+                } else {
+                    panic!("Failed to create UART queue");
+                }
+            );
 
-        ret
+
+
+            
+            let listener_clone = self.listener.clone();
+            self.thread.spawn_simple(move || {
+
+                let uart_queue = UART_QUEUE.get().unwrap();
+                
+                loop {
+                    let mut bytes = [0u8; UART_QUEUE_SIZE as usize];
+                    uart_queue.fetch(&mut bytes, TickType::MAX).unwrap();
+
+                    for listener in listener_clone.iter() {
+                        if let Some(listener) = listener {
+                            if let Ok(mut listener) = listener.lock() {
+                                listener.set_source(Bytes::new_by_str("UART"));
+                                listener.on_receive(&bytes);
+                            }
+                        }
+                    }
+                }
+
+            })?;
+
+            Ok(())
+        } else {
+            Err(Error::Unhandled("No functions assigned to Uart"))
+        }
+    }
+}
+
+impl<'a, const SIZE: usize> Uart<'a, SIZE> {
+    pub fn new(config: UartConfig) -> Self {
+        Self { 
+            config, 
+            functions: None,
+            listener: [const { None }; SIZE],
+            thread: Thread::new_with_to_priority(APP_THREAD_NAME, minimal_stack_size!(), ThreadPriority::Normal),
+        }
+    }
+
+    pub fn set_functions(&mut self, functions: *const UartFn) {
+        unsafe {
+            self.functions = Some(&(*functions));
+        }
     }
     
+    pub fn transmit(&self, data: &[u8]) -> usize {
+        if let Some(functions) = self.functions {
+            (functions.transmit)(data)
+        } else {
+            0
+        }
+    }
+
+    pub fn add_listener(&mut self, listener: ArcMux<dyn OnReceive>) -> Result<()> {
+        for slot in self.listener.iter_mut() {
+            if slot.is_none() {
+                *slot = Some(listener);
+                return Ok(());
+            }
+        }
+        Err(Error::Unhandled("No available slot for listener"))
+    }
 }

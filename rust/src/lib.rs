@@ -95,9 +95,9 @@ pub unsafe extern "C" fn start() {
 
     #[cfg(not(feature = "tests"))]
     {
-        use crate::drivers::platform::OsalThreadPriority;
+        use crate::drivers::platform::ThreadPriority;
 
-        let mut thread = Thread::new_with_to_priority("main_trd", 1_024, OsalThreadPriority::Normal);
+        let mut thread = Thread::new_with_to_priority("main_trd", 1_024, ThreadPriority::Normal);
         let _ = match thread.spawn(None, main_thread) {
             
             Ok(spawned) =>  {

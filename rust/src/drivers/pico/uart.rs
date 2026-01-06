@@ -59,7 +59,8 @@ pub(crate) mod ffi {
 
 use core::ptr::null_mut;
 
-use osal_rs::utils::{Error, Result};
+use osal_rs::os::MutexFn;
+use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::drivers::uart::{UartConfig, UartDataBits, UartFlowControl, UartFn, UartParity, UartStopBits};
 use crate::drivers::pico::uart::ffi::{hhg_uart_deinit, hhg_uart_getc, hhg_uart_init, hhg_uart_irq_set_enabled, hhg_uart_irq_set_exclusive_handler, hhg_uart_is_readable, hhg_uart_putc, hhg_uart_set_irq_enables};
@@ -72,9 +73,9 @@ pub static mut UART_FN: UartFn = UartFn {
     deinit,
 };
 
-pub(super) fn get_uart_config() -> UartConfig<'static> {
+pub(super) fn get_uart_config() -> UartConfig {
     UartConfig {
-        name : &"PicoUart0",
+        name : &"Uart",
         base: null_mut(),
         baudrate: 115200,
         data_bits: UartDataBits::Eight,
@@ -90,7 +91,12 @@ unsafe extern "C" fn uart_isr() {
     while hhg_uart_is_readable() {
         let byte = hhg_uart_getc();       
 
-        (UART_FN.transmit)(&[byte]);
+        if let Some(receiver) = &(*&raw const UART_FN.receive) {
+            if let Ok(mut receiver) = receiver.lock() {
+                receiver.set_source(Bytes::new_by_str("UART"));
+                receiver.on_receive(&[byte]); 
+            }
+        }
     }
 }
 
