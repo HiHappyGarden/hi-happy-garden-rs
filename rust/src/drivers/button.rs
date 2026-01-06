@@ -105,8 +105,6 @@ impl SetClickable for Button {
 impl Button {
     pub fn new(gpio: ArcMux<Gpio<GPIO_CONFIG_SIZE>>) -> Self {
         
-        let _ = BUTTON_EVENTS.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
-
         Self {
             gpio_ref: GpioPeripheral::Btn,
             gpio,
@@ -123,6 +121,7 @@ impl Button {
             return Err(Error::NotFound);
         }
 
+        let _ = BUTTON_EVENTS.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
     
         let clickable = ArcMux::clone(&self.clickable);
         self.thread.spawn_simple( move || {

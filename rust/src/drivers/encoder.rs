@@ -129,7 +129,6 @@ extern "C" fn encoder_cw_isr() {
 
 impl Encoder {
     pub fn new(gpio: ArcMux<Gpio<GPIO_CONFIG_SIZE>>) -> Self {
-        let _ = ENCODER_EVENTS.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
                 
         Self {
             gpio_ccw_ref: GpioPeripheral::EncoderCCW,
@@ -160,6 +159,7 @@ impl Encoder {
             return Err(Error::NotFound);
         }
 
+        let _ = ENCODER_EVENTS.get_or_init(|| Box::new(Arc::new(EventGroup::new().unwrap())));
 
         let rotable_and_clickable = ArcMux::clone(&self.rotable_and_clickable);
         let gpio_clone = ArcMux::clone(gpio);
