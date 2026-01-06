@@ -16,10 +16,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
- 
-pub mod button;
-pub mod encoder;
-pub mod hardware;
-pub mod rx_tx;
-pub mod state;
 
+use osal_rs::utils::Bytes;
+
+
+
+pub trait OnReceive : Send + Sync {
+    fn on_receive(&self, data: &[u8]);
+    fn set_source(&mut self, _: Bytes<8>) {}
+}
