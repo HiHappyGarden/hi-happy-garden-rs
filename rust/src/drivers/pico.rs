@@ -21,6 +21,7 @@
 
 pub(crate) mod hardware;
 pub(crate) mod gpio;
+pub(crate) mod uart;
 
 use core::ffi::c_char;
 use osal_rs::os::types::ThreadHandle;
