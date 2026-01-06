@@ -422,10 +422,12 @@ impl<'a> GpioConfig<'a> {
         }
     }
 
+    #[inline]
     pub fn get_io_type(&self) -> GpioType {
         self.io_type.clone()
     }
 
+    #[inline]
     pub fn get_name(&self) -> &str {
         self.name.as_str()
     }

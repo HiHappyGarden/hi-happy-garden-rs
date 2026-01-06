@@ -144,7 +144,19 @@ impl FromStr for GpioPeripheral {
     }
 }
 
-pub static GPIO_FN : GpioFn = GpioFn {
+pub(super) fn get_gpio_configs() -> GpioConfigs<'static, GPIO_CONFIG_SIZE> {
+    GpioConfigs::new_with_array([
+        Some(GpioConfig::new(&EncoderCCW, GpioType::Input(None, 20, GpioInputType::PullDown, 0))),
+        Some(GpioConfig::new(&EncoderCW, GpioType::Input(None, 21, GpioInputType::PullDown, 0))),
+        Some(GpioConfig::new(&EncoderBtn, GpioType::Input(None, 19, GpioInputType::PullUp, 0))),
+        Some(GpioConfig::new(&Btn, GpioType::Input(None, 18, GpioInputType::PullUp, 0))),
+        Some(GpioConfig::new(&LedRed, GpioType::OutputPWM(None, 13, 0))),
+        Some(GpioConfig::new(&LedGreen, GpioType::OutputPWM(None, 14, 0))),
+        Some(GpioConfig::new(&LedBlue, GpioType::OutputPWM(None, 15, 0))),
+    ])
+}
+
+pub(super) const GPIO_FN : GpioFn = GpioFn {
     init: None,
     input: Some(input),
     input_analog: None,
@@ -158,19 +170,6 @@ pub static GPIO_FN : GpioFn = GpioFn {
     set_interrupt: Some(set_interrupt),
     enable_interrupt: Some(enable_interrupt)
 };
-
-pub fn get_gpio_configs() -> GpioConfigs<'static, GPIO_CONFIG_SIZE> {
-    GpioConfigs::new_with_array([
-        Some(GpioConfig::new(&EncoderCCW, GpioType::Input(None, 20, GpioInputType::PullDown, 0))),
-        Some(GpioConfig::new(&EncoderCW, GpioType::Input(None, 21, GpioInputType::PullDown, 0))),
-        Some(GpioConfig::new(&EncoderBtn, GpioType::Input(None, 19, GpioInputType::PullUp, 0))),
-        Some(GpioConfig::new(&Btn, GpioType::Input(None, 18, GpioInputType::PullUp, 0))),
-        Some(GpioConfig::new(&LedRed, GpioType::OutputPWM(None, 13, 0))),
-        Some(GpioConfig::new(&LedGreen, GpioType::OutputPWM(None, 14, 0))),
-        Some(GpioConfig::new(&LedBlue, GpioType::OutputPWM(None, 15, 0))),
-    ])
-}
-
 
 fn input(_: &GpioConfig, _: Option<Ptr>, pin: u32, input_type: GpioInputType, default_value: u32) -> Result<()> {
 

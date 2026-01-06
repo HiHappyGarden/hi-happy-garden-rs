@@ -57,6 +57,7 @@ pub enum OsalThreadPriority {
 }
 
 impl ToPriority for OsalThreadPriority {
+    #[inline]
     fn to_priority(&self) -> UBaseType {
         *self as UBaseType
     }
@@ -103,10 +104,12 @@ impl Initializable for Hardware {
 }
 
 impl HardwareFn for Hardware {
+    #[inline]
     fn set_button_handler(&mut self, clickable: ArcMux<dyn OnClickable>) {
         self.button.set_on_click(clickable);
     }
 
+    #[inline]
     fn set_encoder_handler(&mut self, rotable_and_clickable: ArcMux<dyn EncoderOnRotatableAndClickable>) {
         self.encoder.set_on_rotate_and_click(rotable_and_clickable);
     }
