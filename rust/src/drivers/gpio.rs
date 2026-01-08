@@ -126,7 +126,6 @@ unsafe impl Sync for GpioFn {}
 pub struct Gpio<const GPIO_CONFIG_SIZE: usize> {
     functions: &'static GpioFn,
     configs: GpioConfigs<'static, GPIO_CONFIG_SIZE>,
-    //idx: isize,
 }
 
 unsafe impl<const GPIO_CONFIG_SIZE: usize> Send for Gpio<GPIO_CONFIG_SIZE> {}
