@@ -17,54 +17,16 @@
  *
  ***************************************************************************/
 
-pub(crate) mod ffi {
-    #![allow(non_camel_case_types)]
-    #![allow(dead_code)]
-
-    use core::ffi::{c_uint, c_void};
-
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub enum uart_parity_t {
-        UART_PARITY_NONE = 0,
-        UART_PARITY_EVEN = 1,
-        UART_PARITY_ODD = 2,
-    }
-
-    pub type irq_handler_t = unsafe extern "C" fn();
-
-    unsafe extern "C" {
-        pub fn hhg_uart_init(baudrate: c_uint) -> c_uint;
-
-        pub fn hhg_uart_deinit();
-
-        pub fn hhg_uart_set_hw_flow(cts: bool, rts: bool);
-
-        pub fn hhg_uart_set_format(data_bits: c_uint, stop_bits: c_uint, parity: uart_parity_t);
-
-        pub fn hhg_uart_irq_set_exclusive_handler(handler: irq_handler_t);
-
-        pub fn hhg_uart_irq_set_enabled(enabled: bool);
-
-        pub fn hhg_uart_set_irq_enables(rx_en: bool, tx_en: bool);
-
-        pub fn hhg_uart_is_readable() -> bool;
-
-        pub fn hhg_uart_getc() -> u8;
-
-        pub fn hhg_uart_putc(c: u8);
-    }
-}
-
-
 use core::ptr::null_mut;
 
 use osal_rs::os::MutexFn;
 use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::drivers::uart::{UartConfig, UartDataBits, UartFlowControl, UartFn, UartParity, UartStopBits};
-use crate::drivers::pico::uart::ffi::{hhg_uart_deinit, hhg_uart_getc, hhg_uart_init, hhg_uart_irq_set_enabled, hhg_uart_irq_set_exclusive_handler, hhg_uart_is_readable, hhg_uart_putc, hhg_uart_set_irq_enables};
+use crate::drivers::pico::ffi::{gpio_function_t, hhg_gpio_set_function, hhg_uart_deinit, hhg_uart_getc, hhg_uart_init, hhg_uart_irq_set_enabled, hhg_uart_irq_set_exclusive_handler, hhg_uart_is_readable, hhg_uart_putc, hhg_uart_set_irq_enables};
 
+const TX_PIN: u32 = 0;
+const RX_PIN: u32 = 1;
 
 pub static mut UART_FN: UartFn = UartFn {
     init,
@@ -102,9 +64,11 @@ unsafe extern "C" fn uart_isr() {
 
 fn init(config: &UartConfig) -> Result<()> {
     unsafe {
-        if hhg_uart_init(config.baudrate) != 0 {
-            return Err(Error::Unhandled("Bad baud rate generator value."))
-        }
+
+        hhg_gpio_set_function(TX_PIN, gpio_function_t::GPIO_FUNC_UART.as_u32());
+        hhg_gpio_set_function(RX_PIN, gpio_function_t::GPIO_FUNC_UART.as_u32());
+
+        hhg_uart_init(config.baudrate);
 
         hhg_uart_irq_set_exclusive_handler(uart_isr);
 
