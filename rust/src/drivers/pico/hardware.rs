@@ -29,13 +29,12 @@ use alloc::sync::Arc;
 use core::cell::RefCell;
 
 use crate::drivers::gpio;
-use crate::drivers::pico::uart::{UART_FN, get_uart_config};
 use crate::drivers::uart::Uart;
 use crate::traits::button::{ButtonState, OnClickable, SetClickable as ButtonOnClickable};
 use crate::traits::encoder::{OnRotatableAndClickable as EncoderOnRotatableAndClickable, SetRotatableAndClickable};
 use crate::traits::hardware::HardwareFn;
 use crate::traits::rx_tx::OnReceive;
-use super::gpio::{GPIO_FN, get_gpio_configs, GPIO_CONFIG_SIZE};
+use super::gpio::{GPIO_FN, GPIO_CONFIG_SIZE};
 use crate::traits::state::Initializable;
 
 use crate::drivers::platform::{Button, Encoder, Gpio, GpioConfigs, GpioPeripheral};
@@ -87,26 +86,26 @@ impl ThreadPriority {
 
 
 pub struct Hardware {
-    gpio: ArcMux<Gpio<GPIO_CONFIG_SIZE>>,
+    //gpio: ArcMux<Gpio<GPIO_CONFIG_SIZE>>,
     // uart: ArcMux<Uart<'static>>,
-    encoder: Encoder,
-    button: Button,
+    // encoder: Encoder,
+    // button: Button,
 }
 
 impl Initializable for Hardware {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init hardware");
 
-        self.gpio.lock()?.init()?;
+        Gpio::new().init()?;
 
         // Set UART functions now that scheduler is running and we can safely lock
         // self.uart.lock()?.set_functions(&raw const UART_FN);
         
         // self.uart.lock()?.init()?;
 
-        self.encoder.init(&mut ArcMux::clone(&self.gpio))?;
+        // self.encoder.init(&mut ArcMux::clone(&self.gpio))?;
 
-        self.button.init(&mut ArcMux::clone(&self.gpio))?;
+        // self.button.init(&mut ArcMux::clone(&self.gpio))?;
 
         log_info!(APP_TAG, "Hardware initialized successfully heap_free:{}", System::get_free_heap_size());
         Ok(())
@@ -116,20 +115,17 @@ impl Initializable for Hardware {
 impl HardwareFn for Hardware {
     #[inline]
     fn set_button_handler(&mut self, clickable: ArcMux<dyn OnClickable>) {
-        self.button.set_on_click(clickable);
+        // self.button.set_on_click(clickable);
     }
 
     #[inline]
     fn set_encoder_handler(&mut self, rotable_and_clickable: ArcMux<dyn EncoderOnRotatableAndClickable>) {
-        self.encoder.set_on_rotate_and_click(rotable_and_clickable);
+        // self.encoder.set_on_rotate_and_click(rotable_and_clickable);
     }
 }
 
 impl Hardware {
-    pub fn new() -> Self {
-
-        let gpio = arcmux!(Gpio::<GPIO_CONFIG_SIZE>::new(&GPIO_FN, get_gpio_configs()));
-        let gpio_clone = ArcMux::clone(&gpio);
+    pub fn new() -> Self {        
         
         // let uart = arcmux!(Uart::new(get_uart_config()));
 
@@ -137,16 +133,12 @@ impl Hardware {
         //     UART_FN.receive = Some(ArcMux::clone(&uart) as ArcMux<dyn OnReceive>);
         // }
         
-        // Note: Cannot use lock() here as the FreeRTOS scheduler hasn't started yet.
-        // The Arc::try_unwrap or Arc::get_mut would work, but since we just created
-        // the Arc and have the only reference, we can safely access the inner Mutex.
-        // We'll set the functions during init() instead when the scheduler is running.
 
         Self { 
-            gpio,
+            // gpio,
             // uart,
-            encoder: Encoder::new(ArcMux::clone(&gpio_clone)),
-            button: Button::new(ArcMux::clone(&gpio_clone)),
+            // encoder: Encoder::new(ArcMux::clone(&gpio)),
+            // button: Button::new(ArcMux::clone(&gpio)),
         }
         
     }

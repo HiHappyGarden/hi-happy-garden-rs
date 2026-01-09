@@ -81,8 +81,8 @@ impl FromStr for GpioPeripheral {
     }
 }
 
-pub(super) fn get_gpio_configs() -> GpioConfigs<'static, GPIO_CONFIG_SIZE> {
-    GpioConfigs::new_with_array([
+ 
+pub static mut GPIO_CONFIGS: GpioConfigs<'static, GPIO_CONFIG_SIZE> = GpioConfigs::new_with_array([
         Some(GpioConfig::new(&EncoderCCW, GpioType::Input(None, 20, GpioInputType::PullDown, 0))),
         Some(GpioConfig::new(&EncoderCW, GpioType::Input(None, 21, GpioInputType::PullDown, 0))),
         Some(GpioConfig::new(&EncoderBtn, GpioType::Input(None, 19, GpioInputType::PullUp, 0))),
@@ -90,10 +90,10 @@ pub(super) fn get_gpio_configs() -> GpioConfigs<'static, GPIO_CONFIG_SIZE> {
         Some(GpioConfig::new(&LedRed, GpioType::OutputPWM(None, 13, 0))),
         Some(GpioConfig::new(&LedGreen, GpioType::OutputPWM(None, 14, 0))),
         Some(GpioConfig::new(&LedBlue, GpioType::OutputPWM(None, 15, 0))),
-    ])
-}
+    ]);
 
-pub(super) const GPIO_FN : GpioFn = GpioFn {
+
+pub const GPIO_FN : GpioFn = GpioFn {
     init: None,
     input: Some(input),
     input_analog: None,

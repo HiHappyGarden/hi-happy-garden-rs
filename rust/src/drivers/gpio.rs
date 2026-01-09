@@ -32,6 +32,7 @@ use osal_rs::{log_info, log_warning};
 use osal_rs::utils::{AsSyncStr, Error, OsalRsBool, Ptr, Result};
 
 use crate::traits::state::{Deinitializable, Initializable};
+use crate::drivers::platform::{GPIO_CONFIG_SIZE, GPIO_CONFIGS, GPIO_FN};
 
 const APP_TAG: &str = "GPIO";
 
@@ -125,7 +126,7 @@ unsafe impl Sync for GpioFn {}
 
 pub struct Gpio<const GPIO_CONFIG_SIZE: usize> {
     functions: &'static GpioFn,
-    configs: GpioConfigs<'static, GPIO_CONFIG_SIZE>,
+    configs: &'static mut GpioConfigs<'static, GPIO_CONFIG_SIZE>,
 }
 
 unsafe impl<const GPIO_CONFIG_SIZE: usize> Send for Gpio<GPIO_CONFIG_SIZE> {}
@@ -229,13 +230,17 @@ impl<const GPIO_CONFIG_SIZE: usize> Deinitializable for Gpio<GPIO_CONFIG_SIZE> {
 
 
 
-impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
-    pub const fn new(functions: &'static GpioFn, configs: GpioConfigs<'static, GPIO_CONFIG_SIZE>) -> Self {
+impl Gpio<{GPIO_CONFIG_SIZE}> {
+    pub const fn new() -> Self {
+
         Self {
-            functions,
-            configs
+            functions: &GPIO_FN,
+            configs:  unsafe { &mut *(&raw mut GPIO_CONFIGS ) }
         }
     }
+}
+
+impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
 
 
     pub fn write(&self, name: &dyn AsSyncStr, state: u32) -> OsalRsBool {
