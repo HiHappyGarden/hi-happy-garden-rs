@@ -19,7 +19,7 @@
 
 
 use osal_rs::{arcmux, log_info};
-use osal_rs::os::{MutexFn};
+use osal_rs::os::{MutexFn, System, SystemFn};
 use osal_rs::utils::{ArcMux, Result};
 use crate::app::lcd::Lcd;
 use crate::drivers::platform::Hardware;
@@ -45,6 +45,7 @@ impl Initializable for AppMain<'_> {
         let lcd = ArcMux::clone(&self.lcd);
         self.hardware.set_encoder_handler(lcd);
         
+        log_info!(APP_TAG, "App main initialized successfully heap_free:{}", System::get_free_heap_size());
         Ok(())
     }
 }

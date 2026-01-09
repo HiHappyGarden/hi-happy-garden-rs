@@ -17,13 +17,14 @@
  *
  ***************************************************************************/
 
+use core::ffi::c_uint;
 use core::ptr::null_mut;
 
 use osal_rs::os::MutexFn;
 use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::drivers::uart::{UartConfig, UartDataBits, UartFlowControl, UartFn, UartParity, UartStopBits};
-use crate::drivers::pico::ffi::{gpio_function_t, hhg_gpio_set_function, hhg_uart_deinit, hhg_uart_getc, hhg_uart_init, hhg_uart_irq_set_enabled, hhg_uart_irq_set_exclusive_handler, hhg_uart_is_readable, hhg_uart_putc, hhg_uart_set_irq_enables};
+use crate::drivers::pico::ffi::{gpio_function_t, hhg_gpio_set_function, hhg_uart_deinit, hhg_uart_getc, hhg_uart_init, hhg_uart_irq_set_enabled, hhg_uart_irq_set_exclusive_handler, hhg_uart_is_readable, hhg_uart_putc, hhg_uart_set_format, hhg_uart_set_irq_enables, uart_parity_t};
 
 const TX_PIN: u32 = 0;
 const RX_PIN: u32 = 1;
@@ -66,7 +67,37 @@ fn init(config: &UartConfig) -> Result<()> {
     unsafe {
 
         hhg_gpio_set_function(TX_PIN, gpio_function_t::GPIO_FUNC_UART.as_u32());
+
         hhg_gpio_set_function(RX_PIN, gpio_function_t::GPIO_FUNC_UART.as_u32());
+
+        let UartConfig {
+            data_bits,
+            stop_bits,
+            parity,
+            ..
+        } = config;
+
+        let data_bits = match data_bits {
+            UartDataBits::Five => 5,
+            UartDataBits::Six => 6,
+            UartDataBits::Seven => 7,
+            UartDataBits::Eight => 8,
+            UartDataBits::Nine => 9,
+        } as c_uint;
+        
+        let stop_bits = match stop_bits {
+            UartStopBits::One => 1,
+            UartStopBits::Two => 2,
+            _ => return Err(Error::InvalidType),
+        } as c_uint;
+
+        let parity = match parity {
+            UartParity::None => uart_parity_t::UART_PARITY_NONE,
+            UartParity::Even => uart_parity_t::UART_PARITY_EVEN,
+            UartParity::Odd => uart_parity_t::UART_PARITY_ODD,
+        };
+        
+        // hhg_uart_set_format(data_bits, stop_bits, parity);
 
         hhg_uart_init(config.baudrate);
 

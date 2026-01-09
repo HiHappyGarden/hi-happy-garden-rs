@@ -49,7 +49,7 @@ const APP_STACK_SIZE: StackType = 512;
 const APP_DEBOUNCE_TIME: TickType = 50;
 
 
-static BUTTON_EVENTS: OnceBox<Arc<EventGroup>> = OnceBox::new();
+static BUTTON_EVENTS: OnceBox<EventGroup> = OnceBox::new();
 static BUTTON_STATE: AtomicU32 = AtomicU32::new(0);
 
 pub mod button_events {
@@ -124,14 +124,14 @@ impl Button {
 
         let _ = BUTTON_EVENTS.get_or_init(|| 
             if let Ok(event_group) = EventGroup::new() {
-                Box::new(Arc::new(event_group))
+                Box::new(event_group)
             } else {
                 panic!("Failed to create button event group");
             }
         );
 
         if let Ok(event_group) = EventGroup::new() {
-            let _ = BUTTON_EVENTS.set(Box::new(Arc::new(event_group)));
+            let _ = BUTTON_EVENTS.set(Box::new(event_group));
         } else {
             log_error!(APP_TAG, "Error creating button event group");
             return Err(Error::OutOfMemory);

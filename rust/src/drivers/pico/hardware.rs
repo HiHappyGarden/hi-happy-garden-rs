@@ -20,7 +20,7 @@
 use alloc::boxed::Box;
 use osal_rs::{arcmux, log_info};
 use osal_rs::os::types::UBaseType;
-use osal_rs::os::{Mutex, MutexFn, ToPriority};
+use osal_rs::os::{Mutex, MutexFn, System, SystemFn, ToPriority};
 use osal_rs::utils::{ArcMux, Result};
 
 use alloc::rc::Rc;
@@ -88,7 +88,7 @@ impl ThreadPriority {
 
 pub struct Hardware {
     gpio: ArcMux<Gpio<GPIO_CONFIG_SIZE>>,
-    uart: ArcMux<Uart<'static>>,
+    // uart: ArcMux<Uart<'static>>,
     encoder: Encoder,
     button: Button,
 }
@@ -99,12 +99,16 @@ impl Initializable for Hardware {
 
         self.gpio.lock()?.init()?;
 
-        self.uart.lock()?.init()?;
+        // Set UART functions now that scheduler is running and we can safely lock
+        // self.uart.lock()?.set_functions(&raw const UART_FN);
+        
+        // self.uart.lock()?.init()?;
 
         self.encoder.init(&mut ArcMux::clone(&self.gpio))?;
 
         self.button.init(&mut ArcMux::clone(&self.gpio))?;
 
+        log_info!(APP_TAG, "Hardware initialized successfully heap_free:{}", System::get_free_heap_size());
         Ok(())
     } 
 }
@@ -127,21 +131,20 @@ impl Hardware {
         let gpio = arcmux!(Gpio::<GPIO_CONFIG_SIZE>::new(&GPIO_FN, get_gpio_configs()));
         let gpio_clone = ArcMux::clone(&gpio);
         
-        let uart = arcmux!(Uart::new(get_uart_config()));
+        // let uart = arcmux!(Uart::new(get_uart_config()));
 
-        unsafe {
-            UART_FN.receive = Some(ArcMux::clone(&uart) as ArcMux<dyn OnReceive>);
-        }
+        // unsafe {
+        //     UART_FN.receive = Some(ArcMux::clone(&uart) as ArcMux<dyn OnReceive>);
+        // }
         
-        match uart.lock() {
-            Ok(mut uart) => uart.set_functions(&raw const UART_FN),
-            Err(err) => panic!("Failed to lock UART during Hardware init: {:?}", err)
-        }
-
+        // Note: Cannot use lock() here as the FreeRTOS scheduler hasn't started yet.
+        // The Arc::try_unwrap or Arc::get_mut would work, but since we just created
+        // the Arc and have the only reference, we can safely access the inner Mutex.
+        // We'll set the functions during init() instead when the scheduler is running.
 
         Self { 
             gpio,
-            uart,
+            // uart,
             encoder: Encoder::new(ArcMux::clone(&gpio_clone)),
             button: Button::new(ArcMux::clone(&gpio_clone)),
         }

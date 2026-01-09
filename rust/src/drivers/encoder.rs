@@ -17,8 +17,8 @@
  *
  ***************************************************************************/
  
- use core::cell::RefCell;
-use core::sync::atomic::{AtomicU32, Ordering};
+use core::cell::RefCell;
+use core::sync::atomic::{AtomicI32, AtomicU32, Ordering};
 
 use alloc::boxed::Box;
 use alloc::sync::Arc;
@@ -41,10 +41,6 @@ const APP_THREAD_NAME: &str = "encoder_trd";
 const APP_STACK_SIZE: StackType = 1_024;
 const APP_DEBOUNCE_TIME: TickType = 3;
 
-static ENCODER_EVENTS: OnceBox<Arc<EventGroup>> = OnceBox::new();
-static ENCODER_STATE: AtomicU32 = AtomicU32::new(0);
-static ENCODER_POSITION: core::sync::atomic::AtomicI32 = core::sync::atomic::AtomicI32::new(0);
-
 pub mod encoder_events {
     use osal_rs::os::types::EventBits;
 
@@ -58,6 +54,9 @@ pub mod encoder_events {
     pub const ENCODER_CW_FALL: EventBits = 0x00_20;
 }
 
+static ENCODER_EVENTS: OnceBox<EventGroup> = OnceBox::new();
+static ENCODER_STATE: AtomicU32 = AtomicU32::new(0);
+static ENCODER_POSITION: AtomicI32 = AtomicI32::new(0);
 
 #[allow(dead_code)]
 pub struct Encoder {
@@ -161,7 +160,7 @@ impl Encoder {
 
         let _ = ENCODER_EVENTS.get_or_init(|| 
             if let Ok(event_group) = EventGroup::new() {
-                Box::new(Arc::new(event_group))
+                Box::new(event_group)
             } else {
                 panic!("Failed to create encoder event group");
             }

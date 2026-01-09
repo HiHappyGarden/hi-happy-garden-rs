@@ -18,7 +18,8 @@
  ***************************************************************************/
 #![allow(dead_code)]
 
-use alloc::{boxed::Box, sync::Arc};
+use alloc::boxed::Box;
+use alloc::sync::Arc;
 use once_cell::race::OnceBox;
 use osal_rs::{arcmux, minimal_stack_size, os::{MutexFn, Queue, QueueFn, Thread, ThreadFn, types::{TickType, UBaseType}}, utils::{ArcMux, AsSyncStr, Bytes, Error, Ptr, Result}};
 use osal_rs_tests::freertos::queue_tests;
@@ -59,7 +60,7 @@ pub enum UartFlowControl {
     XonXoff,
 }
 
-static UART_QUEUE: OnceBox<Arc<Queue>> = OnceBox::new();
+static UART_QUEUE: OnceBox<Queue> = OnceBox::new();
 const UART_QUEUE_SIZE: UBaseType = 64;
 
 #[derive(Clone, Copy)]
@@ -113,7 +114,7 @@ impl Initializable for Uart<'_> {
 
             UART_QUEUE.get_or_init(|| 
                 if let Ok(queue) = Queue::new(UART_QUEUE_SIZE, 1) {
-                    Box::new(Arc::new(queue))
+                    Box::new(queue)
                 } else {
                     panic!("Failed to create UART queue");
                 }
@@ -156,7 +157,7 @@ impl<'a, const SIZE: usize> Uart<'a, SIZE> {
             config, 
             functions: None,
             listener: [const { None }; SIZE],
-            thread: Thread::new_with_to_priority(APP_THREAD_NAME, minimal_stack_size!(), ThreadPriority::Normal),
+            thread: Thread::new_with_to_priority(APP_THREAD_NAME, 1_024, ThreadPriority::Normal),
         }
     }
 
