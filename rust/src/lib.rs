@@ -69,7 +69,7 @@ fn main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Resul
     }
     log_info!(APP_TAG, "Initial tick count: {}", System::get_tick_count());
     
-    
+    log_info!(APP_TAG, "Before start heap_free:{}", System::get_free_heap_size());
 
     unsafe {
         use core::ptr::addr_of_mut;

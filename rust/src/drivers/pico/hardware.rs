@@ -86,9 +86,7 @@ impl ThreadPriority {
 
 
 pub struct Hardware {
-    //gpio: ArcMux<Gpio<GPIO_CONFIG_SIZE>>,
-    // uart: ArcMux<Uart<'static>>,
-    // encoder: Encoder,
+    encoder: Encoder,
     button: Button,
 }
 
@@ -103,7 +101,7 @@ impl Initializable for Hardware {
         
         // self.uart.lock()?.init()?;
 
-        // self.encoder.init(&mut ArcMux::clone(&self.gpio))?;
+        self.encoder.init()?;
 
         self.button.init()?;
 
@@ -115,14 +113,12 @@ impl Initializable for Hardware {
 impl HardwareFn<'static> for Hardware {
     #[inline]
     fn set_button_handler(&mut self, clickable: &'static dyn OnClickable) {
-        if let Err(e) = self.button.set_on_click(clickable) {
-            log_info!(APP_TAG, "Error setting button handler: {:?}", e);
-        }
+        self.button.set_on_click(clickable);
     }
 
     #[inline]
     fn set_encoder_handler(&mut self, rotable_and_clickable: &'static dyn EncoderOnRotatableAndClickable) {
-        // self.encoder.set_on_rotate_and_click(rotable_and_clickable);
+        self.encoder.set_on_rotate_and_click(rotable_and_clickable);
     }
 }
 
@@ -139,7 +135,7 @@ impl Hardware {
         Self { 
             // gpio,
             // uart,
-            // encoder: Encoder::new(ArcMux::clone(&gpio)),
+            encoder: Encoder::new(),
             button: Button::new(),
         }
         

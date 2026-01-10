@@ -18,8 +18,6 @@
  ***************************************************************************/
 #![allow(dead_code)]
 
-use osal_rs::utils::ArcMux;
-
 use crate::traits::button::ButtonState;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,14 +26,14 @@ pub enum EncoderDirection {
     CounterClockwise,
 }
 
-pub trait SetRotatableAndClickable {
-     fn set_on_rotate_and_click(&mut self, rotable_and_clickable: ArcMux<dyn OnRotatableAndClickable>);
+pub trait SetRotatableAndClickable<'a> {
+     fn set_on_rotate_and_click(&mut self, rotable_and_clickable: &'a dyn OnRotatableAndClickable);
      fn get_state(&self) -> ButtonState;
      fn get_position(&self) -> i32;
 }
 
 
 pub trait OnRotatableAndClickable: Send + Sync {
-    fn on_rotable(&mut self, direction: EncoderDirection, position: i32);
-    fn on_click(&mut self, state: ButtonState);
+    fn on_rotable(&self, direction: EncoderDirection, position: i32);
+    fn on_click(&self, state: ButtonState);
 }
