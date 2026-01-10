@@ -18,7 +18,8 @@
  ***************************************************************************/
 
 
-use alloc::boxed::Box;
+use core::ptr::addr_of_mut;
+
 use osal_rs::log_info;
 use osal_rs::os::{System, SystemFn};
 use osal_rs::utils::Result;
@@ -29,22 +30,25 @@ use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "AppMain";
 
-pub struct AppMain {
-    hardware: &'static mut Hardware,
-    lcd: &'static mut Lcd
+static mut LCD : Lcd = Lcd::new();
+
+
+pub struct AppMain{
+    hardware: &'static mut Hardware
 }
 
 impl Initializable for AppMain {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init app main");
 
-        self.lcd.init()?;
-
-
-        self.hardware.set_button_handler(self.lcd);
-
-
-        self.hardware.set_encoder_handler(self.lcd);
+        unsafe { 
+            let lcd = &mut *addr_of_mut!(LCD);
+            lcd.init()?;
+            
+            self.hardware.set_button_handler(lcd);
+            self.hardware.set_encoder_handler(lcd);
+              
+        }
         
         log_info!(APP_TAG, "App main initialized successfully heap_free:{}", System::get_free_heap_size());
         Ok(())
@@ -53,11 +57,8 @@ impl Initializable for AppMain {
 
 impl AppMain {
     pub fn new(hardware: &'static mut Hardware) -> Self {
-        let lcd = Box::leak(Box::new(Lcd::new()));
-        
-        AppMain {
-            hardware,
-            lcd
+        Self {
+            hardware
         }
     }
 }

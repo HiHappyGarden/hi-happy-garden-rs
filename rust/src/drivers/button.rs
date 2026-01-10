@@ -31,9 +31,9 @@ use alloc::boxed::Box;
 use once_cell::race::OnceBox;
 
 use osal_rs::os::types::{StackType, TickType};
-use osal_rs::{arcmux, log_error, log_info, log_warning};
+use osal_rs::{log_error, log_info, log_warning};
 use osal_rs::os::{EventGroup, EventGroupFn, Mutex, MutexFn, System, SystemFn, Thread, ThreadFn, ThreadParam, Timer, TimerFn, RawMutexFn};
-use osal_rs::utils::{ArcMux, Error, OsalRsBool, Result};
+use osal_rs::utils::{Error, OsalRsBool, Result};
 use osal_rs_tests::freertos::event_group_tests;
 
 use crate::drivers::gpio::{InterruptCallback, InterruptType};
@@ -63,7 +63,6 @@ pub mod button_events {
 pub struct Button {
     gpio_ref: GpioPeripheral,
     thread: Thread,
-    clickable: Option<ArcMux<&'static dyn OnClickable>>
 }
 
 
@@ -84,8 +83,42 @@ extern "C" fn button_isr() {
 }
 
 impl SetClickable<'static> for Button {
-    fn set_on_click(&mut self, value: &'static dyn OnClickable) {
-        self.clickable = Some(arcmux!(value));
+    fn set_on_click(&mut self, clickable: &'static dyn OnClickable) {
+
+        let ret = self.thread.spawn_simple( move || {
+            let event_handler = BUTTON_EVENTS.get().unwrap();
+
+            let mut debounce: TickType = 0;
+            loop {
+                
+                let bits = event_handler.wait(BUTTON_PRESSED | BUTTON_RELEASED, TickType::MAX);
+                event_handler.clear(bits);
+
+
+                if debounce != 0 && System::get_tick_count() - debounce < APP_DEBOUNCE_TIME {
+                    continue;
+                }
+                
+                let state = if bits & BUTTON_PRESSED == BUTTON_PRESSED {
+                    ButtonState::Pressed
+                } else if bits & BUTTON_RELEASED == BUTTON_RELEASED {
+                    ButtonState::Released
+                } else {
+                    continue;
+                };
+
+                clickable.on_click(state);
+
+                debounce = System::get_tick_count();
+            }
+                    
+
+        });
+
+        if let Err(e) = ret {
+            log_error!(APP_TAG, "Error spawning button thread: {:?}", e);
+        }
+
     }
 
     fn get_state(&self) -> ButtonState {
@@ -105,7 +138,7 @@ impl Button {
         Self {
             gpio_ref: GpioPeripheral::Btn,
             thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal),
-            clickable: None,
+            // clickable: arcmux!(None),
         }
     }
     
@@ -128,50 +161,6 @@ impl Button {
             log_error!(APP_TAG, "Error creating button event group");
             return Err(Error::OutOfMemory);
         }
-
-                
-        let clickable = self.clickable.clone();
-        self.thread.spawn_simple( move || {
-            let event_handler = BUTTON_EVENTS.get().unwrap();
-
-
-
-            let mut debounce: TickType = 0;
-            loop {
-                
-                let bits = event_handler.wait(BUTTON_PRESSED | BUTTON_RELEASED, TickType::MAX);
-                event_handler.clear(bits);
-
-                let clickable = if let Some(clickable) = clickable.as_ref() {
-                    match  clickable.lock() {
-                        Ok(c) => c,
-                        Err(_) => continue,
-                    }
-                } else {
-                    continue;
-                };
-
-                if debounce != 0 && System::get_tick_count() - debounce < APP_DEBOUNCE_TIME {
-                    continue;
-                }
-                
-                let state = if bits & BUTTON_PRESSED == BUTTON_PRESSED {
-                    ButtonState::Pressed
-                } else if bits & BUTTON_RELEASED == BUTTON_RELEASED {
-                    ButtonState::Released
-                } else {
-                    continue;
-                };
-
-                
-                clickable.on_click(state);
-      
-
-                debounce = System::get_tick_count();
-            }
-                    
-
-        })?;
 
         Ok(())
     }

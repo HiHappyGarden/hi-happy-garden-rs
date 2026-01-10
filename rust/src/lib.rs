@@ -51,6 +51,8 @@ use crate::app::AppMain;
 
 const APP_TAG: &str = "rust";
 
+static mut HARDWARE: Option<Hardware> = None;
+static mut APP_MAIN: Option<AppMain> = None;
 
 
 #[cfg(not(feature = "tests"))]
@@ -67,18 +69,39 @@ fn main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Resul
     }
     log_info!(APP_TAG, "Initial tick count: {}", System::get_tick_count());
     
-    let mut hardware = Hardware::new();
+    
 
-    if let Err(err) = hardware.init() {
-        log_fatal!(APP_TAG, "Hardware error: {:?}", err);
-        panic!("Hardware initialization failed");
-    }
+    unsafe {
+        use core::ptr::addr_of_mut;
 
-    let mut app = AppMain::new(&mut hardware);
+        HARDWARE = Some(Hardware::new()); 
 
-    if let Err(err) = app.init() {
-        log_fatal!(APP_TAG, "App error: {:?}", err);
-        panic!("App initialization failed");
+        let hardware = &mut *addr_of_mut!(HARDWARE);
+
+        let hardware = match hardware {
+            Some(hardware) => hardware,
+            None => panic!("No memory for hardware"),
+        };
+
+        if let Err(err) = hardware.init() {
+            log_fatal!(APP_TAG, "Hardware error: {:?}", err);
+            panic!("Hardware initialization failed");
+        }
+
+        APP_MAIN = Some(AppMain::new(hardware));
+
+        let app = &mut *addr_of_mut!(APP_MAIN);
+
+        let app = match app {
+            Some(app) => app,
+            None => panic!("No memory for app main"),
+        };
+
+        if let Err(err) = app.init() {
+            log_fatal!(APP_TAG, "App error: {:?}", err);
+            panic!("App initialization failed");
+        }
+
     }
 
     loop {

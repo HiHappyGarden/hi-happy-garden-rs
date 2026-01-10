@@ -105,7 +105,7 @@ impl Initializable for Hardware {
 
         // self.encoder.init(&mut ArcMux::clone(&self.gpio))?;
 
-        // self.button.init(&mut ArcMux::clone(&self.gpio))?;
+        self.button.init()?;
 
         log_info!(APP_TAG, "Hardware initialized successfully heap_free:{}", System::get_free_heap_size());
         Ok(())
@@ -115,7 +115,9 @@ impl Initializable for Hardware {
 impl HardwareFn<'static> for Hardware {
     #[inline]
     fn set_button_handler(&mut self, clickable: &'static dyn OnClickable) {
-        self.button.set_on_click(clickable);
+        if let Err(e) = self.button.set_on_click(clickable) {
+            log_info!(APP_TAG, "Error setting button handler: {:?}", e);
+        }
     }
 
     #[inline]
