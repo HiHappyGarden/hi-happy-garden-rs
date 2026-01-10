@@ -89,7 +89,7 @@ pub struct Hardware {
     //gpio: ArcMux<Gpio<GPIO_CONFIG_SIZE>>,
     // uart: ArcMux<Uart<'static>>,
     // encoder: Encoder,
-    // button: Button,
+    button: Button,
 }
 
 impl Initializable for Hardware {
@@ -112,14 +112,14 @@ impl Initializable for Hardware {
     } 
 }
 
-impl HardwareFn for Hardware {
+impl HardwareFn<'static> for Hardware {
     #[inline]
-    fn set_button_handler(&mut self, clickable: ArcMux<dyn OnClickable>) {
-        // self.button.set_on_click(clickable);
+    fn set_button_handler(&mut self, clickable: &'static dyn OnClickable) {
+        self.button.set_on_click(clickable);
     }
 
     #[inline]
-    fn set_encoder_handler(&mut self, rotable_and_clickable: ArcMux<dyn EncoderOnRotatableAndClickable>) {
+    fn set_encoder_handler(&mut self, rotable_and_clickable: &'static dyn EncoderOnRotatableAndClickable) {
         // self.encoder.set_on_rotate_and_click(rotable_and_clickable);
     }
 }
@@ -138,7 +138,7 @@ impl Hardware {
             // gpio,
             // uart,
             // encoder: Encoder::new(ArcMux::clone(&gpio)),
-            // button: Button::new(ArcMux::clone(&gpio)),
+            button: Button::new(),
         }
         
     }

@@ -24,7 +24,7 @@ impl Initializable for Lcd {
 }
 
 impl OnClickable for Lcd {
-    fn on_click(&mut self, state: ButtonState) {
+    fn on_click(&self, state: ButtonState) {
         match state {
             ButtonState::Pressed => log_info!(APP_TAG, "Button Pressed"),
             ButtonState::Released => log_info!(APP_TAG, "Button Released"),

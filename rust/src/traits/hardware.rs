@@ -17,16 +17,14 @@
  *
  ***************************************************************************/
 
-use osal_rs::utils::ArcMux;
-
 use crate::traits::button::OnClickable;
 use crate::traits::encoder::OnRotatableAndClickable;
 
-pub trait HardwareFn {
+pub trait HardwareFn<'a> {
 
-    fn set_button_handler(&mut self, clicclable: ArcMux<dyn OnClickable>);
+    fn set_button_handler(&mut self, clicclable: &'a dyn OnClickable);
 
-    fn set_encoder_handler(&mut self, rotate_and_click: ArcMux<dyn OnRotatableAndClickable>);
+    fn set_encoder_handler(&mut self, rotate_and_click: &'a dyn OnRotatableAndClickable);
 
 }
 

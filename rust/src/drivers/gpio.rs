@@ -27,7 +27,7 @@ use core::{default, usize};
 use alloc::str;
 use alloc::sync::Arc;
 
-use osal_rs::os::config;
+use osal_rs::os::{RawMutex, config};
 use osal_rs::{log_info, log_warning};
 use osal_rs::utils::{AsSyncStr, Error, OsalRsBool, Ptr, Result};
 
@@ -127,6 +127,7 @@ unsafe impl Sync for GpioFn {}
 pub struct Gpio<const GPIO_CONFIG_SIZE: usize> {
     functions: &'static GpioFn,
     configs: &'static mut GpioConfigs<'static, GPIO_CONFIG_SIZE>,
+    mutex: RawMutex,
 }
 
 unsafe impl<const GPIO_CONFIG_SIZE: usize> Send for Gpio<GPIO_CONFIG_SIZE> {}
@@ -231,12 +232,22 @@ impl<const GPIO_CONFIG_SIZE: usize> Deinitializable for Gpio<GPIO_CONFIG_SIZE> {
 
 
 impl Gpio<{GPIO_CONFIG_SIZE}> {
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
+
+        let mutex = match RawMutex::new() {
+            Ok(mutex) => mutex,
+            Err(_) => panic!("Failed to create GPIO mutex"),
+        };
 
         Self {
             functions: &GPIO_FN,
-            configs:  unsafe { &mut *(&raw mut GPIO_CONFIGS ) }
+            configs:  unsafe { &mut *(&raw mut GPIO_CONFIGS ) },
+            mutex
         }
+    }
+
+    pub fn get_mutex(&self) -> &RawMutex {
+        &self.mutex
     }
 }
 
