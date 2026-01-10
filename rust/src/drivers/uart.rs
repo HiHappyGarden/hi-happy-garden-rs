@@ -21,7 +21,7 @@
 use core::ptr::addr_of_mut;
 use core::time::Duration;
 
-use osal_rs::{log_error, minimal_stack_size};
+use osal_rs::{log_error, log_info, minimal_stack_size};
 use osal_rs::os::{Queue, QueueFn, Thread, ThreadFn};
 use osal_rs::os::types::{TickType, UBaseType};
 use osal_rs::utils::{Bytes, Error, Ptr, Result};
@@ -112,6 +112,8 @@ unsafe impl Send for Uart {}
 
 impl Initializable for Uart {
     fn init(&mut self) -> Result<()> {
+        log_info!(APP_TAG, "Init uart");
+        
         if (self.functions.init)(&self.config).is_err() {
             return Err(Error::Unhandled("Failed to initialize Uart"))
         }

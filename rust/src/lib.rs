@@ -38,11 +38,15 @@ mod ffi {
 
 use alloc::boxed::Box;
 
+use core::ptr::addr_of_mut;
+
 use osal_rs::os::types::TickType;
 use osal_rs::os::{System, SystemFn, Thread, ThreadFn, ThreadParam};
 use osal_rs::log::set_enable_color;
 use osal_rs::utils::Result;
 use osal_rs::{log_fatal, log_info};
+
+use crate::drivers::platform::{Gpio, GpioPeripheral};
 
 use crate::drivers::platform::Hardware;
 use crate::traits::state::Initializable;
@@ -74,7 +78,6 @@ fn main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Resul
     log_debug!(APP_TAG, "Before start heap_free:{}", System::get_free_heap_size());
 
     unsafe {
-        use core::ptr::addr_of_mut;
 
         HARDWARE = Some(Hardware::new()); 
 
@@ -103,8 +106,9 @@ fn main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Resul
             log_fatal!(APP_TAG, "App error: {:?}", err);
             panic!("App initialization failed");
         }
-
     }
+
+    let _ = Gpio::new().write(&GpioPeripheral::DefaultLed, 1);
 
     loop {
         System::delay(TickType::MAX);
@@ -122,7 +126,7 @@ pub unsafe extern "C" fn start() {
     {
         use crate::drivers::platform::ThreadPriority;
 
-        let mut thread = Thread::new_with_to_priority("main_trd", 1_024, ThreadPriority::Normal);
+        let mut thread = Thread::new_with_to_priority("main_trd", 10_240, ThreadPriority::Normal);
         let _ = match thread.spawn(None, main_thread) {
             
             Ok(spawned) =>  {

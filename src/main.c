@@ -28,13 +28,11 @@
 #include <portmacro.h>
 
 
-
 extern void start(void);
 
 int main()
 {
     stdio_init_all();
-
 
     printf("===================================\r\n");
     printf("=== Hi Happy Garden RS %s ======\r\n", HHG_VER);
@@ -42,11 +40,7 @@ int main()
 
     start();
 
-    // // Initialise the Wi-Fi chip
-    // if (cyw43_arch_init()) {
-    //     printf("Wi-Fi init failed\n");
-    //     return -1;
-    // }
+
 
     // // Enable wifi station
     // cyw43_arch_enable_sta_mode();

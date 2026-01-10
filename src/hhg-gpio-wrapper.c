@@ -23,10 +23,10 @@
  * @brief C wrapper functions for Pico SDK GPIO/PWM to ensure proper ARM/Thumb linkage
  */
 
-#include "pico/types.h"
-#include "hardware/gpio.h"
-#include "hardware/pwm.h"
-#include "hardware/irq.h"
+#include <pico/types.h>
+#include <hardware/gpio.h>
+#include <hardware/pwm.h>
+#include <hardware/irq.h>
 
 // Wrapper functions with explicit ARM/Thumb compatibility
 void hhg_gpio_init(uint gpio) {

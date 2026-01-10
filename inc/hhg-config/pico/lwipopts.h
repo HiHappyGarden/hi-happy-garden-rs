@@ -65,9 +65,9 @@
 
 #define LWIP_DBG_MIN_LEVEL LWIP_DBG_LEVEL_ALL
 
-#define ETHARP_DEBUG                LWIP_DBG_ON
+#define ETHARP_DEBUG                LWIP_DBG_OFF
 #define NETIF_DEBUG                 LWIP_DBG_OFF
-#define PBUF_DEBUG                  LWIP_DBG_ON
+#define PBUF_DEBUG                  LWIP_DBG_OFF
 #define API_LIB_DEBUG               LWIP_DBG_OFF
 #define API_MSG_DEBUG               LWIP_DBG_OFF
 #define SOCKETS_DEBUG               LWIP_DBG_OFF

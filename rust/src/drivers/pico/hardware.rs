@@ -21,7 +21,7 @@ use alloc::boxed::Box;
 use osal_rs::{arcmux, log_info};
 use osal_rs::os::types::UBaseType;
 use osal_rs::os::{Mutex, MutexFn, System, SystemFn, ToPriority};
-use osal_rs::utils::{ArcMux, Result};
+use osal_rs::utils::{ArcMux, Error, Result};
 
 use alloc::rc::Rc;
 
@@ -29,6 +29,7 @@ use alloc::sync::Arc;
 use core::cell::RefCell;
 
 use crate::drivers::gpio;
+use crate::drivers::pico::ffi::hhg_cyw43_arch_init;
 use crate::drivers::uart::Uart;
 use crate::traits::button::{ButtonState, OnClickable, SetClickable as ButtonOnClickable};
 use crate::traits::encoder::{OnRotatableAndClickable as EncoderOnRotatableAndClickable, SetRotatableAndClickable};
@@ -96,6 +97,13 @@ pub struct Hardware {
 impl Initializable for Hardware {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init hardware");
+
+        log_info!(APP_TAG, "Init wifi cyw43");
+        let ret = unsafe { hhg_cyw43_arch_init() };
+        if ret != 0 {
+            log_info!(APP_TAG, "Wi-Fi init failed");
+            return Err(Error::ReturnWithCode(ret));
+        }
 
         Gpio::new().init()?;
 
