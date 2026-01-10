@@ -40,7 +40,7 @@ use alloc::boxed::Box;
 
 use core::ptr::addr_of_mut;
 
-use osal_rs::os::types::TickType;
+use osal_rs::os::types::{StackType, TickType};
 use osal_rs::os::{System, SystemFn, Thread, ThreadFn, ThreadParam};
 use osal_rs::log::set_enable_color;
 use osal_rs::utils::Result;
@@ -54,6 +54,8 @@ use crate::ffi::{get_g_setup_called, print_systick_status};
 use crate::app::AppMain;
 
 const APP_TAG: &str = "rust";
+const APP_THREAD_NAME: &str = "main_trd";
+const APP_STACK_SIZE: StackType = 1536;
 
 static mut HARDWARE: Option<Hardware> = None;
 static mut APP_MAIN: Option<AppMain> = None;
@@ -126,7 +128,7 @@ pub unsafe extern "C" fn start() {
     {
         use crate::drivers::platform::ThreadPriority;
 
-        let mut thread = Thread::new_with_to_priority("main_trd", 10_240, ThreadPriority::Normal);
+        let mut thread = Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal);
         let _ = match thread.spawn(None, main_thread) {
             
             Ok(spawned) =>  {
