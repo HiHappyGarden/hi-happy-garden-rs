@@ -20,14 +20,12 @@
  #![allow(dead_code)]
 
 use core::any::Any; 
-use core::fmt::write;
 use core::ops::{Index, IndexMut};
-use core::default;
 
 use alloc::str;
 use alloc::sync::Arc;
 
-use osal_rs::os::{RawMutex, config};
+use osal_rs::os::{RawMutex};
 use osal_rs::{log_info, log_warning};
 use osal_rs::utils::{AsSyncStr, Error, OsalRsBool, Ptr, Result};
 

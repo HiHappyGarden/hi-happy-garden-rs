@@ -54,9 +54,18 @@ pub mod encoder_events {
     pub const ENCODER_CW_FALL: EventBits = 0x00_20;
 }
 
-static ENCODER_EVENTS: OnceBox<EventGroup> = OnceBox::new();
 static ENCODER_STATE: AtomicU32 = AtomicU32::new(0);
 static ENCODER_POSITION: AtomicI32 = AtomicI32::new(0);
+static mut EVENT_HANDLER: Option<EventGroup> = None;
+
+const fn event_handler() -> &'static EventGroup {
+    unsafe {
+        match &*&raw const EVENT_HANDLER {
+            Some(event_handler) => event_handler,
+            None => panic!("EVENT_HANDLER is not initialized"),    
+        }
+    }
+}
 
 #[allow(dead_code)]
 pub struct Encoder {
@@ -67,7 +76,7 @@ pub struct Encoder {
 }
 
 extern "C" fn encoder_button_isr() {
-    let encoder_events = ENCODER_EVENTS.get().unwrap();
+    let encoder_events = event_handler();
 
     let state = ENCODER_STATE.load(Ordering::Relaxed);
     
@@ -86,7 +95,7 @@ extern "C" fn encoder_button_isr() {
 }
 
 extern "C" fn encoder_ccw_isr() {
-    let encoder_events = ENCODER_EVENTS.get().unwrap();
+    let encoder_events = event_handler();
 
     let state = ENCODER_STATE.load(Ordering::Relaxed);
     
@@ -105,7 +114,7 @@ extern "C" fn encoder_ccw_isr() {
 }
 
 extern "C" fn encoder_cw_isr() {
-    let encoder_events = ENCODER_EVENTS.get().unwrap();
+    let encoder_events = event_handler();
 
     let state = ENCODER_STATE.load(Ordering::Relaxed);
     
@@ -154,13 +163,16 @@ impl Encoder {
             log_error!(APP_TAG, "Error setting Button interrupt");
             return Err(Error::NotFound);
         }
-        let _ = ENCODER_EVENTS.get_or_init(|| 
-            if let Ok(event_group) = EventGroup::new() {
-                Box::new(event_group)
-            } else {
-                panic!("Failed to create encoder event group");
+
+        if let Ok(event_group) = EventGroup::new() {
+            unsafe {
+                EVENT_HANDLER = Some(event_group);
             }
-        );
+        } else {
+            log_error!(APP_TAG, "Error creating encoder event group");
+            return Err(Error::OutOfMemory)
+        }
+
         gpio.get_mutex().unlock();
 
 
@@ -178,7 +190,7 @@ impl SetRotatableAndClickable<'static> for Encoder {
 
         let ret = self.thread.spawn_simple( move || {
 
-            let event_handler = ENCODER_EVENTS.get().unwrap();
+            let event_handler = event_handler();
 
             let gpio = Gpio::new();
 

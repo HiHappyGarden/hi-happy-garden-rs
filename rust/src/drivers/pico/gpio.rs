@@ -17,14 +17,11 @@
  *
  ***************************************************************************/
 
-use core::default;
 use core::str::FromStr;
 
 use alloc::str;
 use alloc::string::{String, ToString};
 
-use osal_rs::os::config;
-use osal_rs::{log_info, println};
 use osal_rs::utils::{AsSyncStr, Error, OsalRsBool, Ptr, Result};
 
 use crate::drivers::gpio::GpioConfigs;

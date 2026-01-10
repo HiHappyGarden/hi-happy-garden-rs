@@ -19,25 +19,16 @@
 
 #![allow(dead_code)]
 
-use core::cell::RefCell;
-use core::ptr::fn_addr_eq;
 use core::str;
-use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use core::time::Duration;
-
-use alloc::borrow::ToOwned;
-use alloc::sync::Arc;
-use alloc::boxed::Box;
-use once_cell::race::OnceBox;
+use core::sync::atomic::{AtomicU32, Ordering};
 
 use osal_rs::os::types::{StackType, TickType};
-use osal_rs::{log_error, log_info, log_warning};
+use osal_rs::{log_error, log_info};
 use osal_rs::os::{EventGroup, EventGroupFn, Mutex, MutexFn, System, SystemFn, Thread, ThreadFn, ThreadParam, Timer, TimerFn, RawMutexFn};
 use osal_rs::utils::{Error, OsalRsBool, Result};
-use osal_rs_tests::freertos::event_group_tests;
 
-use crate::drivers::gpio::{InterruptCallback, InterruptType};
-use crate::drivers::platform::{self, GPIO_CONFIG_SIZE, Gpio, GpioPeripheral, ThreadPriority};
+use crate::drivers::gpio::InterruptType;
+use crate::drivers::platform::{self, Gpio, GpioPeripheral, ThreadPriority};
 use crate::traits::button::{ButtonState, OnClickable, SetClickable};
 use crate::traits::state::Initializable;
 
@@ -49,15 +40,24 @@ const APP_STACK_SIZE: StackType = 512;
 const APP_DEBOUNCE_TIME: TickType = 50;
 
 
-static BUTTON_EVENTS: OnceBox<EventGroup> = OnceBox::new();
-static BUTTON_STATE: AtomicU32 = AtomicU32::new(0);
-
 pub mod button_events {
     use osal_rs::os::types::EventBits;
 
     pub const BUTTON_NONE: EventBits = 0x00_00;
     pub const BUTTON_PRESSED: EventBits = 0x00_01;
     pub const BUTTON_RELEASED: EventBits = 0x00_02;
+}
+
+static BUTTON_STATE: AtomicU32 = AtomicU32::new(0);
+static mut EVENT_HANDLER: Option<EventGroup> = None;
+
+const fn event_handler() -> &'static EventGroup {
+    unsafe {
+        match &*&raw const EVENT_HANDLER {
+            Some(event_handler) => event_handler,
+            None => panic!("EVENT_HANDLER is not initialized"),    
+        }
+    }
 }
 
 pub struct Button {
@@ -69,7 +69,7 @@ pub struct Button {
 
 
 extern "C" fn button_isr() {
-    let event_handler = BUTTON_EVENTS.get().unwrap();
+    let event_handler = event_handler();
 
     let state = BUTTON_STATE.load(Ordering::Relaxed);
 
@@ -86,7 +86,7 @@ impl SetClickable<'static> for Button {
     fn set_on_click(&mut self, clickable: &'static dyn OnClickable) {
 
         let ret = self.thread.spawn_simple( move || {
-            let event_handler = BUTTON_EVENTS.get().unwrap();
+            let event_handler = event_handler();
 
             let mut debounce: TickType = 0;
             loop {
@@ -156,10 +156,12 @@ impl Button {
 
 
         if let Ok(event_group) = EventGroup::new() {
-            let _ = BUTTON_EVENTS.set(Box::new(event_group));
+            unsafe {
+                EVENT_HANDLER = Some(event_group);
+            }
         } else {
             log_error!(APP_TAG, "Error creating button event group");
-            return Err(Error::OutOfMemory);
+            return Err(Error::OutOfMemory)
         }
 
         Ok(())

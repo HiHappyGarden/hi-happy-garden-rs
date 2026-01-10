@@ -18,16 +18,21 @@
  ***************************************************************************/
 #![allow(dead_code)]
 
-use alloc::boxed::Box;
-use alloc::sync::Arc;
-use once_cell::race::OnceBox;
-use osal_rs::{arcmux, minimal_stack_size, os::{MutexFn, Queue, QueueFn, Thread, ThreadFn, types::{TickType, UBaseType}}, utils::{ArcMux, AsSyncStr, Bytes, Error, Ptr, Result}};
-use osal_rs_tests::freertos::queue_tests;
+use core::ptr::addr_of_mut;
+use core::time::Duration;
 
-use crate::{drivers::platform::ThreadPriority, traits::{rx_tx::OnReceive, state::Initializable}};
+use osal_rs::{log_error, minimal_stack_size};
+use osal_rs::os::{Queue, QueueFn, Thread, ThreadFn};
+use osal_rs::os::types::{TickType, UBaseType};
+use osal_rs::utils::{Bytes, Error, Ptr, Result};
+
+use crate::traits::rx_tx::OnReceive; 
+use crate::traits::state::Initializable;
+use crate::drivers::platform::{UART_FN, UART_CONFIG, ThreadPriority}; 
 
 const APP_TAG: &str = "Uart";
 const APP_THREAD_NAME: &str = "uart_trd";
+const SOURCE: &str = "UART";
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum UartParity {
@@ -60,8 +65,17 @@ pub enum UartFlowControl {
     XonXoff,
 }
 
-static UART_QUEUE: OnceBox<Queue> = OnceBox::new();
 const UART_QUEUE_SIZE: UBaseType = 64;
+static mut UART_QUEUE: Option<Queue> = None;
+
+const fn uart_queue() -> &'static Queue {
+    unsafe {
+        match &*&raw const UART_QUEUE {
+            Some(queue) => queue,
+            None => panic!("UART_QUEUE is not initialized"),    
+        }
+    }
+}
 
 #[derive(Clone, Copy)]
 pub struct UartConfig {
@@ -82,106 +96,79 @@ unsafe impl Send for UartConfig {}
 pub struct UartFn {
     pub init: fn(&UartConfig) -> Result<()>,
     pub transmit: fn(data: &[u8]) -> usize,
-    pub receive: Option<ArcMux<dyn OnReceive>>,
+    pub receive: Option<&'static Queue>,
     pub deinit: fn(&UartConfig) -> Result<()>,
 }
 
 #[derive(Clone)]
-pub struct Uart<'a, const SIZE: usize = 4> {
-    functions: Option<&'a UartFn>,
-    config: UartConfig,
-    listener: [Option<ArcMux<dyn OnReceive>>; SIZE],
+pub struct Uart {
+    functions: &'static UartFn,
+    config: &'static UartConfig,
     thread: Thread,
 }
 
-unsafe impl<'a> Sync for Uart<'a> {}
-unsafe impl<'a> Send for Uart<'a> {}
+unsafe impl Sync for Uart {}
+unsafe impl Send for Uart {}
 
-impl OnReceive for Uart<'_> {
-    fn on_receive(&self, data: &[u8]) {
-        let uart_queue = UART_QUEUE.get().unwrap();
-        uart_queue.post_from_isr(data).unwrap();
-    }
-}
-
-impl Initializable for Uart<'_> {
+impl Initializable for Uart {
     fn init(&mut self) -> Result<()> {
-        if let Some(functions) = self.functions {
-            if (functions.init)(&self.config).is_err() {
-                return Err(Error::Unhandled("Failed to initialize Uart"))
-            }
-
-
-            UART_QUEUE.get_or_init(|| 
-                if let Ok(queue) = Queue::new(UART_QUEUE_SIZE, 1) {
-                    Box::new(queue)
-                } else {
-                    panic!("Failed to create UART queue");
-                }
-            );
-
-
-
-            
-            let listener_clone = self.listener.clone();
-            self.thread.spawn_simple(move || {
-
-                let uart_queue = UART_QUEUE.get().unwrap();
-                
-                loop {
-                    let mut bytes = [0u8; UART_QUEUE_SIZE as usize];
-                    uart_queue.fetch(&mut bytes, TickType::MAX).unwrap();
-
-                    for listener in listener_clone.iter() {
-                        if let Some(listener) = listener {
-                            if let Ok(mut listener) = listener.lock() {
-                                listener.set_source(Bytes::new_by_str("UART"));
-                                listener.on_receive(&bytes);
-                            }
-                        }
-                    }
-                }
-
-            })?;
-
-            Ok(())
-        } else {
-            Err(Error::Unhandled("No functions assigned to Uart"))
+        if (self.functions.init)(&self.config).is_err() {
+            return Err(Error::Unhandled("Failed to initialize Uart"))
         }
+
+        if let Ok(queue) =  Queue::new(UART_QUEUE_SIZE, 1) {
+            unsafe {
+                UART_QUEUE = Some(queue);
+            }
+        } else {
+            log_error!(APP_TAG, "Error creating UART queue");
+            return Err(Error::OutOfMemory)
+        }
+
+        unsafe {
+            UART_FN.receive = Some(uart_queue());
+        };
+
+        Ok(())
     }
 }
 
-impl<'a, const SIZE: usize> Uart<'a, SIZE> {
-    pub fn new(config: UartConfig) -> Self {
+impl Uart {
+    pub fn new() -> Self {
         Self { 
-            config, 
-            functions: None,
-            listener: [const { None }; SIZE],
-            thread: Thread::new_with_to_priority(APP_THREAD_NAME, 1_024, ThreadPriority::Normal),
+            functions: unsafe {
+                &mut *addr_of_mut!(UART_FN)   
+            },
+            config: unsafe {
+                &mut *addr_of_mut!(UART_CONFIG)   
+            }, 
+            thread: Thread::new_with_to_priority(APP_THREAD_NAME, minimal_stack_size!(), ThreadPriority::Normal),
         }
     }
 
-    pub fn set_functions(&mut self, functions: *const UartFn) {
-        unsafe {
-            self.functions = Some(&(*functions));
-        }
-    }
     
     pub fn transmit(&self, data: &[u8]) -> usize {
-        if let Some(functions) = self.functions {
-            (functions.transmit)(data)
-        } else {
-            0
-        }
+        (self.functions.transmit)(data)
     }
 
-    pub fn add_listener(&mut self, listener: ArcMux<dyn OnReceive>) -> Result<()> {
-        for slot in self.listener.iter_mut() {
-            if slot.is_none() {
-                *slot = Some(listener);
-                return Ok(());
+    pub fn add_listener(&mut self, listener: &'static dyn OnReceive) {
+
+
+        let ret = self.thread.spawn_simple(move || {
+
+            
+            
+            loop {
+                let mut bytes = [0u8; UART_QUEUE_SIZE as usize];
+                uart_queue().fetch(&mut bytes, TickType::MAX).unwrap();
+
+                listener.on_receive(SOURCE, &bytes);
             }
+
+        });
+
+        if let Err(e) = ret {
+            log_error!(APP_TAG, "Error spawning encoder thread: {:?}", e);
         }
-        Err(Error::Unhandled("No available slot for listener"))
     }
 }

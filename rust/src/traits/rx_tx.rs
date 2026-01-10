@@ -17,11 +17,7 @@
  *
  ***************************************************************************/
 
-use osal_rs::utils::Bytes;
-
-
 
 pub trait OnReceive : Send + Sync {
-    fn on_receive(&self, data: &[u8]);
-    fn set_source(&mut self, _: Bytes<8>) {}
+    fn on_receive(&self, source: &'static str, data: &[u8]);
 }

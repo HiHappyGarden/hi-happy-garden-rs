@@ -37,7 +37,7 @@ use crate::traits::rx_tx::OnReceive;
 use super::gpio::{GPIO_FN, GPIO_CONFIG_SIZE};
 use crate::traits::state::Initializable;
 
-use crate::drivers::platform::{Button, Encoder, Gpio, GpioConfigs, GpioPeripheral};
+use crate::drivers::platform::{Button, Encoder, Gpio, GpioConfigs, GpioPeripheral, UART_FN};
 
 const APP_TAG: &str = "Hardware";
 
@@ -85,7 +85,10 @@ impl ThreadPriority {
 }
 
 
+
+
 pub struct Hardware {
+    uart: Uart,
     encoder: Encoder,
     button: Button,
 }
@@ -96,10 +99,9 @@ impl Initializable for Hardware {
 
         Gpio::new().init()?;
 
-        // Set UART functions now that scheduler is running and we can safely lock
-        // self.uart.lock()?.set_functions(&raw const UART_FN);
-        
-        // self.uart.lock()?.init()?;
+        self.uart.init()?;
+
+        // UART_FN.receive = Some(&self.uart);
 
         self.encoder.init()?;
 
@@ -125,19 +127,10 @@ impl HardwareFn<'static> for Hardware {
 impl Hardware {
     pub fn new() -> Self {        
         
-        // let uart = arcmux!(Uart::new(get_uart_config()));
-
-        // unsafe {
-        //     UART_FN.receive = Some(ArcMux::clone(&uart) as ArcMux<dyn OnReceive>);
-        // }
-        
-
         Self { 
-            // gpio,
-            // uart,
+            uart: Uart::new(),
             encoder: Encoder::new(),
             button: Button::new(),
         }
-        
     }
 }
