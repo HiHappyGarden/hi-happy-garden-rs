@@ -184,6 +184,7 @@ target_link_libraries(${PROJECT_NAME}
         pico_unique_id
         hardware_gpio
         hardware_pwm
+        hardware_adc
         FreeRTOS-Kernel
         FreeRTOS-Kernel-Heap4
         cjson

@@ -25,13 +25,13 @@ use alloc::string::{String, ToString};
 use osal_rs::utils::{AsSyncStr, Error, OsalRsBool, Ptr, Result};
 
 use crate::drivers::gpio::GpioConfigs;
-use crate::drivers::pico::ffi::{GPIO_IN, GPIO_OUT, gpio_function_t, hhg_cyw43_arch_gpio_put, hhg_gpio_get, hhg_gpio_init, hhg_gpio_pull_down, hhg_gpio_pull_up, hhg_gpio_put, hhg_gpio_set_dir, hhg_gpio_set_function, hhg_gpio_set_irq_enabled, hhg_gpio_set_irq_enabled_with_callback, hhg_pwm_config_set_clkdiv, hhg_pwm_get_default_config, hhg_pwm_gpio_to_slice_num, hhg_pwm_init, hhg_pwm_set_gpio_level};
+use crate::drivers::pico::ffi::{GPIO_IN, GPIO_OUT, gpio_function_t, hhg_adc_init, hhg_adc_set_temp_sensor_enabled, hhg_cyw43_arch_gpio_put, hhg_gpio_get, hhg_gpio_init, hhg_gpio_pull_down, hhg_gpio_pull_up, hhg_gpio_put, hhg_gpio_set_dir, hhg_gpio_set_function, hhg_gpio_set_irq_enabled, hhg_gpio_set_irq_enabled_with_callback, hhg_pwm_config_set_clkdiv, hhg_pwm_get_default_config, hhg_pwm_gpio_to_slice_num, hhg_pwm_init, hhg_pwm_set_gpio_level, hhg_adc_read};
 use crate::drivers::gpio::{GpioFn, GpioConfig, GpioInputType, InterruptCallback, InterruptConfig, InterruptType::{self, *}, GpioType};
 use crate::traits::state::{Deinitializable, Initializable};
 use GpioPeripheral::*;
+use crate::drivers::plt::ffi::hhg_adc_select_input;
 
-
-pub const GPIO_CONFIG_SIZE: usize = 8;
+pub const GPIO_CONFIG_SIZE: usize = 9;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum GpioPeripheral {
@@ -43,7 +43,9 @@ pub enum GpioPeripheral {
     LedRed,
     LedGreen,
     LedBlue,
-    DefaultLed
+    DefaultLed,
+    InternalTemp,
+    InternalV3,
 }
  
 impl AsSyncStr for GpioPeripheral {
@@ -58,6 +60,8 @@ impl AsSyncStr for GpioPeripheral {
             LedGreen => "LedGreen",
             LedBlue => "LedBlue",
             DefaultLed => "DefaultLed",
+            InternalTemp => "InternalTemp",
+            InternalV3 => "InternalV3",
         }
     }
 }
@@ -76,6 +80,8 @@ impl FromStr for GpioPeripheral {
             "LedGreen" => Ok(LedGreen),
             "LedBlue" => Ok(LedBlue),
             "DefaultLed" => Ok(DefaultLed),
+            "InternalTemp" => Ok(InternalTemp),
+            "InternalV3" => Ok(InternalV3),
             _ => Err(Error::NotFound)
         }
     }
@@ -91,13 +97,14 @@ pub static mut GPIO_CONFIGS: GpioConfigs<'static, GPIO_CONFIG_SIZE> = GpioConfig
         Some(GpioConfig::new(&LedGreen, GpioType::OutputPWM(None, 14, 0))),
         Some(GpioConfig::new(&LedBlue, GpioType::OutputPWM(None, 15, 0))),
         Some(GpioConfig::new(&DefaultLed, GpioType::Output(None, 0, 0))),
+        Some(GpioConfig::new(&InternalTemp, GpioType::InputAnalog(None, 0, 4, 0))),
 ]);
 
 
 pub const GPIO_FN : GpioFn = GpioFn {
-    init: None,
+    init: Some(init),
     input: Some(input),
-    input_analog: None,
+    input_analog: Some(input_analog),
     output: Some(output),
     output_pwm: Some(output_pwm),
     peripheral: None,
@@ -108,6 +115,16 @@ pub const GPIO_FN : GpioFn = GpioFn {
     set_interrupt: Some(set_interrupt),
     enable_interrupt: Some(enable_interrupt)
 };
+
+fn init() -> Result<()> {
+
+    unsafe {
+        hhg_adc_init();
+        hhg_adc_set_temp_sensor_enabled(true);
+    }
+
+    Ok(())
+}
 
 fn input(_: &GpioConfig, _: Option<Ptr>, pin: u32, input_type: GpioInputType, default_value: u32) -> Result<()> {
 
@@ -125,6 +142,15 @@ fn input(_: &GpioConfig, _: Option<Ptr>, pin: u32, input_type: GpioInputType, de
         hhg_gpio_put(pin, default_value != 0);
     }
 
+    Ok(())
+}
+
+fn input_analog(config: &GpioConfig, _base: Option<Ptr>, _pin: u32, channel: u32, _rank: u32) -> Result<()> {
+    if config.get_name() == InternalTemp.as_str() {
+        unsafe {
+            hhg_adc_select_input(channel);
+        }
+    }
     Ok(())
 }
 
@@ -164,9 +190,16 @@ fn output_pwm(_: &GpioConfig, _: Option<Ptr>, pin: u32, default_value: u32) -> R
     Ok(())
 }
 
-fn read(_: &GpioConfig, _: Option<Ptr>, pin: u32) -> Result<u32> {
-    let value = unsafe {hhg_gpio_get(pin)};
-    Ok(value as u32)    
+fn read(config: &GpioConfig, _: Option<Ptr>, pin: u32) -> Result<u32> {
+    if config.get_name() == InternalTemp.as_str() {
+
+
+        Ok(unsafe {hhg_adc_read() as u32})
+
+    } else {
+        let value = unsafe {hhg_gpio_get(pin)};
+        Ok(value as u32)
+    }
 }
 
 fn write(config: &GpioConfig, _: Option<Ptr>, pin: u32, state: u32) -> OsalRsBool {

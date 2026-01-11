@@ -27,6 +27,7 @@
 #include <hardware/gpio.h>
 #include <hardware/pwm.h>
 #include <hardware/irq.h>
+#include "hardware/adc.h"
 
 // Wrapper functions with explicit ARM/Thumb compatibility
 void hhg_gpio_init(uint gpio) {
@@ -119,5 +120,25 @@ void hhd_irq_set_enabled(uint num, bool enabled) {
 }
 
 void hhg_gpio_set_irq_enabled(uint gpio, uint32_t events, bool enabled) {
+    adc_init();
+    adc_set_temp_sensor_enabled(true);
+    adc_select_input(4);
+
     gpio_set_irq_enabled(gpio, events, enabled);
+}
+
+void hhg_adc_init() {
+    adc_init();
+}
+
+void hhg_adc_set_temp_sensor_enabled(bool enable) {
+    adc_set_temp_sensor_enabled(enable);
+}
+
+void hhg_adc_select_input(uint input) {
+    adc_select_input(input);
+}
+
+uint16_t hhg_adc_read() {
+    return adc_read();
 }

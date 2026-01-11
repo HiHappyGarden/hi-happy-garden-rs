@@ -85,10 +85,10 @@ pub type GpioPeripheralData = Arc<dyn Any + Send + Sync>;
 pub enum GpioType {
     NotInitialized,
     Input(Option<Ptr>, u32, GpioInputType, u32), //base, pin, gpioInputType, default value
-    InputAnalog(Option<Ptr>, u32, u32, u32), //base, pin, channel, ranck
+    InputAnalog(Option<Ptr>, u32, u32, u32), //base, pin, channel, rank
     Output(Option<Ptr>, u32, u32), //base, pin, default value
     OutputPWM(Option<Ptr>, u32, u32), //base, pin, default value
-    Pheriferal(Option<Ptr>, u32, GpioPeripheralData) //base, pin, peripheral data
+    Peripheral(Option<Ptr>, u32, GpioPeripheralData) //base, pin, peripheral data
 }
 
 
@@ -106,7 +106,7 @@ impl AsSyncStr for GpioNameEmpty {
 pub struct GpioFn {
     pub init: Option<fn() -> Result<()>>,
     pub input: Option<fn(&GpioConfig, Option<Ptr>, u32, GpioInputType, u32) -> Result<()>>,
-    pub input_analog: Option<fn(&GpioConfig, Option<Ptr>, u32, u32, u32) -> Result<u32>>,
+    pub input_analog: Option<fn(&GpioConfig, Option<Ptr>, u32, u32, u32) -> Result<()>>,
     pub output: Option<fn(&GpioConfig, Option<Ptr>, u32, u32) -> Result<()>>,
     pub output_pwm: Option<fn(&GpioConfig, Option<Ptr>, u32, u32) -> Result<()>>,
     pub peripheral: Option<fn(&GpioConfig, Option<Ptr>, u32, GpioPeripheralData) -> Result<()>>,
@@ -192,7 +192,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<GPIO_CONFIG_SIZE> {
                             }
                         ,
 
-                        GpioType::Pheriferal(base, pin, peripheral_data) => 
+                        GpioType::Peripheral(base, pin, peripheral_data) =>
 
                             if let Some(peripheral) = self.functions.peripheral {
                                 log_info!(APP_TAG, "Peripheral:{}", config.get_name());
