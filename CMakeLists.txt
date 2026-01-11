@@ -185,6 +185,7 @@ target_link_libraries(${PROJECT_NAME}
         hardware_gpio
         hardware_pwm
         hardware_adc
+        hardware_i2c
         FreeRTOS-Kernel
         FreeRTOS-Kernel-Heap4
         cjson

@@ -2,6 +2,7 @@
 mod button;
 mod encoder;
 mod gpio; 
+mod i2c;
 mod relays;
 mod rgb_led;
 mod uart;
@@ -20,6 +21,7 @@ pub mod platform {
     pub use crate::drivers::button::*;
     pub use crate::drivers::encoder::*;
     pub use crate::drivers::gpio::*;
+    pub use crate::drivers::i2c::*;
     pub use crate::drivers::relays::*;
     pub use crate::drivers::rgb_led::*;
     pub use crate::drivers::uart::*;
