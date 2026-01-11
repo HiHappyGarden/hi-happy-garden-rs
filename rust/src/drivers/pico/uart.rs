@@ -20,12 +20,13 @@
 use core::ffi::c_uint;
 use core::ptr::null_mut;
 
-use osal_rs::os::MutexFn;
-use osal_rs::utils::{Bytes, Error, Result};
+use osal_rs::os::{MutexFn, QueueFn};
+use osal_rs::utils::{Error, Result};
 
 use crate::drivers::uart::{UartConfig, UartDataBits, UartFlowControl, UartFn, UartParity, UartStopBits};
-use crate::drivers::pico::ffi::{gpio_function_t, hhg_gpio_set_function, hhg_uart_deinit, hhg_uart_getc, hhg_uart_init, hhg_uart_irq_set_enabled, hhg_uart_irq_set_exclusive_handler, hhg_uart_is_readable, hhg_uart_putc, hhg_uart_set_format, hhg_uart_set_irq_enables, uart_parity_t};
+use crate::drivers::pico::ffi::{gpio_function_t, hhg_gpio_set_function, hhg_uart_deinit, hhg_uart_getc, hhg_uart_init, hhg_uart_irq_set_enabled, hhg_uart_irq_set_exclusive_handler, hhg_uart_is_readable, hhg_uart_putc, hhg_uart_set_format, hhg_uart_set_hw_flow, hhg_uart_set_irq_enables, uart_parity_t};
 
+// const APP_TAG: &str = "PicoUart";
 const TX_PIN: u32 = 0;
 const RX_PIN: u32 = 1;
 
@@ -36,17 +37,15 @@ pub static mut UART_FN: UartFn = UartFn {
     deinit,
 };
 
-pub(super) fn get_uart_config() -> UartConfig {
-    UartConfig {
-        name : &"Uart",
-        base: null_mut(),
-        baudrate: 115200,
-        data_bits: UartDataBits::Eight,
-        stop_bits: UartStopBits::One,
-        parity: UartParity::None,
-        flow_control: UartFlowControl::None,
-    }
-}
+pub static mut UART_CONFIG: UartConfig = UartConfig {
+    name : &"Uart",
+    base: null_mut(),
+    baudrate: 115200,
+    data_bits: UartDataBits::Eight,
+    stop_bits: UartStopBits::One,
+    parity: UartParity::None,
+    flow_control: UartFlowControl::None,
+};
 
 #[allow(unsafe_op_in_unsafe_fn)]
 unsafe extern "C" fn uart_isr() {
@@ -54,10 +53,9 @@ unsafe extern "C" fn uart_isr() {
     while hhg_uart_is_readable() {
         let byte = hhg_uart_getc();       
 
-        if let Some(receiver) = &(*&raw const UART_FN.receive) {
-            if let Ok(mut receiver) = receiver.lock() {
-                receiver.set_source(Bytes::new_by_str("UART"));
-                receiver.on_receive(&[byte]); 
+        if let Some(receiver) = *&raw const UART_FN.receive {
+            if let Err(_) = receiver.post_from_isr(&[byte]) {
+                
             }
         }
     }
@@ -74,6 +72,7 @@ fn init(config: &UartConfig) -> Result<()> {
             data_bits,
             stop_bits,
             parity,
+            flow_control,
             ..
         } = config;
 
@@ -97,7 +96,11 @@ fn init(config: &UartConfig) -> Result<()> {
             UartParity::Odd => uart_parity_t::UART_PARITY_ODD,
         };
         
-        // hhg_uart_set_format(data_bits, stop_bits, parity);
+        hhg_uart_set_format(data_bits, stop_bits, parity);
+
+        if *flow_control == UartFlowControl::RtsCts {
+            hhg_uart_set_hw_flow(true, true);
+        }
 
         hhg_uart_init(config.baudrate);
 

@@ -38,11 +38,15 @@ mod ffi {
 
 use alloc::boxed::Box;
 
-use osal_rs::os::types::TickType;
+use core::ptr::addr_of_mut;
+
+use osal_rs::os::types::{StackType, TickType};
 use osal_rs::os::{System, SystemFn, Thread, ThreadFn, ThreadParam};
 use osal_rs::log::set_enable_color;
 use osal_rs::utils::Result;
 use osal_rs::{log_fatal, log_info};
+
+use crate::drivers::platform::{Gpio, GpioPeripheral};
 
 use crate::drivers::platform::Hardware;
 use crate::traits::state::Initializable;
@@ -50,11 +54,17 @@ use crate::ffi::{get_g_setup_called, print_systick_status};
 use crate::app::AppMain;
 
 const APP_TAG: &str = "rust";
+const APP_THREAD_NAME: &str = "main_trd";
+const APP_STACK_SIZE: StackType = 1536;
 
+static mut HARDWARE: Option<Hardware> = None;
+static mut APP_MAIN: Option<AppMain> = None;
 
 
 #[cfg(not(feature = "tests"))]
 fn main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Result<ThreadParam>{
+    use osal_rs::log_debug;
+
 
     unsafe {
         loop {
@@ -65,21 +75,42 @@ fn main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Resul
 
         print_systick_status();
     }
-    log_info!(APP_TAG, "Initial tick count: {}", System::get_tick_count());
+    log_debug!(APP_TAG, "Initial tick count: {}", System::get_tick_count());
     
-    let mut hardware = Hardware::new();
+    log_debug!(APP_TAG, "Before start heap_free:{}", System::get_free_heap_size());
 
-    if let Err(err) = hardware.init() {
-        log_fatal!(APP_TAG, "Hardware error: {:?}", err);
-        panic!("Hardware initialization failed");
+    unsafe {
+
+        HARDWARE = Some(Hardware::new()); 
+
+        let hardware = &mut *addr_of_mut!(HARDWARE);
+
+        let hardware = match hardware {
+            Some(hardware) => hardware,
+            None => panic!("No memory for hardware"),
+        };
+
+        if let Err(err) = hardware.init() {
+            log_fatal!(APP_TAG, "Hardware error: {:?}", err);
+            panic!("Hardware initialization failed");
+        }
+
+        APP_MAIN = Some(AppMain::new(hardware));
+
+        let app = &mut *addr_of_mut!(APP_MAIN);
+
+        let app = match app {
+            Some(app) => app,
+            None => panic!("No memory for app main"),
+        };
+
+        if let Err(err) = app.init() {
+            log_fatal!(APP_TAG, "App error: {:?}", err);
+            panic!("App initialization failed");
+        }
     }
 
-    let mut app = AppMain::new(&mut hardware);
-
-    if let Err(err) = app.init() {
-        log_fatal!(APP_TAG, "App error: {:?}", err);
-        panic!("App initialization failed");
-    }
+    let _ = Gpio::new().write(&GpioPeripheral::InternalLed, 1);
 
     loop {
         System::delay(TickType::MAX);
@@ -97,7 +128,7 @@ pub unsafe extern "C" fn start() {
     {
         use crate::drivers::platform::ThreadPriority;
 
-        let mut thread = Thread::new_with_to_priority("main_trd", 1_024, ThreadPriority::Normal);
+        let mut thread = Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal);
         let _ = match thread.spawn(None, main_thread) {
             
             Ok(spawned) =>  {

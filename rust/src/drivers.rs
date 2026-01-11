@@ -2,6 +2,8 @@
 mod button;
 mod encoder;
 mod gpio; 
+mod relays;
+mod rgb_led;
 mod uart;
 
 #[cfg(feature = "pico")]
@@ -14,8 +16,11 @@ use crate::drivers::pico as plt;
 pub mod platform {
     pub use crate::drivers::plt::gpio::*;
     pub use crate::drivers::plt::hardware::*;
+    pub use crate::drivers::plt::uart::*;
     pub use crate::drivers::button::*;
     pub use crate::drivers::encoder::*;
     pub use crate::drivers::gpio::*;
+    pub use crate::drivers::relays::*;
+    pub use crate::drivers::rgb_led::*;
     pub use crate::drivers::uart::*;
 }

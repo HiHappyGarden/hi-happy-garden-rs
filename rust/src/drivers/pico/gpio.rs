@@ -17,24 +17,21 @@
  *
  ***************************************************************************/
 
-use core::default;
 use core::str::FromStr;
 
 use alloc::str;
 use alloc::string::{String, ToString};
 
-use osal_rs::os::config;
-use osal_rs::{log_info, println};
 use osal_rs::utils::{AsSyncStr, Error, OsalRsBool, Ptr, Result};
 
 use crate::drivers::gpio::GpioConfigs;
-use crate::drivers::pico::ffi::{GPIO_IN, gpio_function_t, hhg_gpio_get, hhg_gpio_init, hhg_gpio_pull_down, hhg_gpio_pull_up, hhg_gpio_put, hhg_gpio_set_dir, hhg_gpio_set_function, hhg_gpio_set_irq_enabled, hhg_gpio_set_irq_enabled_with_callback, hhg_pwm_config_set_clkdiv, hhg_pwm_get_default_config, hhg_pwm_gpio_to_slice_num, hhg_pwm_init, hhg_pwm_set_gpio_level};
+use crate::drivers::pico::ffi::{GPIO_IN, GPIO_OUT, gpio_function_t, hhg_adc_init, hhg_adc_set_temp_sensor_enabled, hhg_cyw43_arch_gpio_put, hhg_gpio_get, hhg_gpio_init, hhg_gpio_pull_down, hhg_gpio_pull_up, hhg_gpio_put, hhg_gpio_set_dir, hhg_gpio_set_function, hhg_gpio_set_irq_enabled, hhg_gpio_set_irq_enabled_with_callback, hhg_pwm_config_set_clkdiv, hhg_pwm_get_default_config, hhg_pwm_gpio_to_slice_num, hhg_pwm_init, hhg_pwm_set_gpio_level, hhg_adc_read};
 use crate::drivers::gpio::{GpioFn, GpioConfig, GpioInputType, InterruptCallback, InterruptConfig, InterruptType::{self, *}, GpioType};
 use crate::traits::state::{Deinitializable, Initializable};
 use GpioPeripheral::*;
+use crate::drivers::plt::ffi::hhg_adc_select_input;
 
-
-pub const GPIO_CONFIG_SIZE: usize = 7;
+pub const GPIO_CONFIG_SIZE: usize = 13;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum GpioPeripheral {
@@ -46,6 +43,12 @@ pub enum GpioPeripheral {
     LedRed,
     LedGreen,
     LedBlue,
+    InternalLed,
+    InternalTemp,
+    Relay1,
+    Relay2,
+    Relay3,
+    Relay4,
 }
  
 impl AsSyncStr for GpioPeripheral {
@@ -59,6 +62,12 @@ impl AsSyncStr for GpioPeripheral {
             LedRed => "LedRed",
             LedGreen => "LedGreen",
             LedBlue => "LedBlue",
+            InternalLed => "InternalLed",
+            InternalTemp => "InternalTemp",
+            Relay1 => "Relay1",
+            Relay2 => "Relay2",
+            Relay3 => "Relay3",
+            Relay4 => "Relay4",
         }
     }
 }
@@ -76,13 +85,19 @@ impl FromStr for GpioPeripheral {
             "LedRed" => Ok(LedRed),
             "LedGreen" => Ok(LedGreen),
             "LedBlue" => Ok(LedBlue),
+            "InternalLed" => Ok(InternalLed),
+            "InternalTemp" => Ok(InternalTemp),
+            "Relay1" => Ok(Relay1),
+            "Relay2" => Ok(Relay2),
+            "Relay3" => Ok(Relay3),
+            "Relay4" => Ok(Relay4),
             _ => Err(Error::NotFound)
         }
     }
 }
 
-pub(super) fn get_gpio_configs() -> GpioConfigs<'static, GPIO_CONFIG_SIZE> {
-    GpioConfigs::new_with_array([
+ 
+pub static mut GPIO_CONFIGS: GpioConfigs<'static, GPIO_CONFIG_SIZE> = GpioConfigs::new_with_array([
         Some(GpioConfig::new(&EncoderCCW, GpioType::Input(None, 20, GpioInputType::PullDown, 0))),
         Some(GpioConfig::new(&EncoderCW, GpioType::Input(None, 21, GpioInputType::PullDown, 0))),
         Some(GpioConfig::new(&EncoderBtn, GpioType::Input(None, 19, GpioInputType::PullUp, 0))),
@@ -90,14 +105,20 @@ pub(super) fn get_gpio_configs() -> GpioConfigs<'static, GPIO_CONFIG_SIZE> {
         Some(GpioConfig::new(&LedRed, GpioType::OutputPWM(None, 13, 0))),
         Some(GpioConfig::new(&LedGreen, GpioType::OutputPWM(None, 14, 0))),
         Some(GpioConfig::new(&LedBlue, GpioType::OutputPWM(None, 15, 0))),
-    ])
-}
+        Some(GpioConfig::new(&InternalLed, GpioType::Output(None, 0, 0))),
+        Some(GpioConfig::new(&InternalTemp, GpioType::InputAnalog(None, 0, 4, 0))),
+        Some(GpioConfig::new(&Relay1, GpioType::Output(None, 6, 0))),
+        Some(GpioConfig::new(&Relay2, GpioType::Output(None, 7, 0))),
+        Some(GpioConfig::new(&Relay3, GpioType::Output(None, 8, 0))),
+        Some(GpioConfig::new(&Relay4, GpioType::Output(None, 9, 0))),
+]);
 
-pub(super) const GPIO_FN : GpioFn = GpioFn {
-    init: None,
+
+pub const GPIO_FN : GpioFn = GpioFn {
+    init: Some(init),
     input: Some(input),
-    input_analog: None,
-    output: None,
+    input_analog: Some(input_analog),
+    output: Some(output),
     output_pwm: Some(output_pwm),
     peripheral: None,
     deinit: None,
@@ -107,6 +128,16 @@ pub(super) const GPIO_FN : GpioFn = GpioFn {
     set_interrupt: Some(set_interrupt),
     enable_interrupt: Some(enable_interrupt)
 };
+
+fn init() -> Result<()> {
+
+    unsafe {
+        hhg_adc_init();
+        hhg_adc_set_temp_sensor_enabled(true);
+    }
+
+    Ok(())
+}
 
 fn input(_: &GpioConfig, _: Option<Ptr>, pin: u32, input_type: GpioInputType, default_value: u32) -> Result<()> {
 
@@ -127,6 +158,37 @@ fn input(_: &GpioConfig, _: Option<Ptr>, pin: u32, input_type: GpioInputType, de
     Ok(())
 }
 
+fn input_analog(config: &GpioConfig, _base: Option<Ptr>, _pin: u32, channel: u32, _rank: u32) -> Result<()> {
+    if config.get_name() == InternalTemp.as_str() {
+        unsafe {
+            hhg_adc_select_input(channel);
+        }
+    }
+    Ok(())
+}
+
+fn output(config: &GpioConfig, _: Option<Ptr>, pin: u32, default_value: u32) -> Result<()> {
+
+    if config.get_name() == InternalLed.as_str() {
+        
+        unsafe {
+            hhg_cyw43_arch_gpio_put(pin, default_value != 0);
+        }
+        
+    } else {
+        unsafe {
+            hhg_gpio_init(pin);   
+            hhg_gpio_set_dir(pin, GPIO_OUT);
+            hhg_gpio_put(pin, default_value != 0);
+        }
+    }
+
+
+
+    Ok(())
+}
+
+
 fn output_pwm(_: &GpioConfig, _: Option<Ptr>, pin: u32, default_value: u32) -> Result<()> {
 
     unsafe {
@@ -134,21 +196,33 @@ fn output_pwm(_: &GpioConfig, _: Option<Ptr>, pin: u32, default_value: u32) -> R
         let slice_num = hhg_pwm_gpio_to_slice_num(pin);
         let mut pwm_config = hhg_pwm_get_default_config();
         hhg_pwm_config_set_clkdiv(&mut pwm_config, 4.0);
-        hhg_pwm_init(slice_num, &mut pwm_config, false);
+        hhg_pwm_init(slice_num, &mut pwm_config, true);
         hhg_pwm_set_gpio_level(pin, default_value as u16);
     }
 
     Ok(())
 }
 
-fn read(_: &GpioConfig, _: Option<Ptr>, pin: u32) -> Result<u32> {
-    let value = unsafe {hhg_gpio_get(pin)};
-    Ok(value as u32)    
+fn read(config: &GpioConfig, _: Option<Ptr>, input: u32) -> Result<u32> {
+    if config.get_name() == InternalTemp.as_str() {
+
+        unsafe { hhg_adc_select_input(input) };
+        Ok(unsafe {hhg_adc_read() as u32})
+
+    } else {
+        Ok(unsafe {hhg_gpio_get(input)} as u32)
+    }
 }
 
-fn write(_: &GpioConfig, _: Option<Ptr>, pin: u32, state: u32) -> OsalRsBool {
-    unsafe {
-        hhg_gpio_put(pin, state != 0);
+fn write(config: &GpioConfig, _: Option<Ptr>, pin: u32, state: u32) -> OsalRsBool {
+    if config.get_name() == InternalLed.as_str() {
+        unsafe {
+            hhg_cyw43_arch_gpio_put(pin, state != 0);
+        }
+    } else {
+        unsafe {
+            hhg_gpio_put(pin, state != 0);
+        }
     }
     OsalRsBool::True
 }

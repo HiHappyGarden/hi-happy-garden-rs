@@ -21,24 +21,29 @@ use alloc::boxed::Box;
 use osal_rs::{arcmux, log_info};
 use osal_rs::os::types::UBaseType;
 use osal_rs::os::{Mutex, MutexFn, System, SystemFn, ToPriority};
-use osal_rs::utils::{ArcMux, Result};
+use osal_rs::utils::{ArcMux, Error, OsalRsBool, Result};
 
 use alloc::rc::Rc;
 
 use alloc::sync::Arc;
 use core::cell::RefCell;
+use core::ptr::read;
 
 use crate::drivers::gpio;
-use crate::drivers::pico::uart::{UART_FN, get_uart_config};
+use crate::drivers::pico::ffi::hhg_cyw43_arch_init;
+use crate::drivers::relays::Relays;
+use crate::drivers::rgb_led::RgbLed;
 use crate::drivers::uart::Uart;
+use crate::traits::rgb_led::RgbLed as RgbLedFn;
+use crate::traits::relays::Relays as RelaysFn;
 use crate::traits::button::{ButtonState, OnClickable, SetClickable as ButtonOnClickable};
 use crate::traits::encoder::{OnRotatableAndClickable as EncoderOnRotatableAndClickable, SetRotatableAndClickable};
 use crate::traits::hardware::HardwareFn;
 use crate::traits::rx_tx::OnReceive;
-use super::gpio::{GPIO_FN, get_gpio_configs, GPIO_CONFIG_SIZE};
+use super::gpio::{GPIO_FN, GPIO_CONFIG_SIZE};
 use crate::traits::state::Initializable;
 
-use crate::drivers::platform::{Button, Encoder, Gpio, GpioConfigs, GpioPeripheral};
+use crate::drivers::platform::{Button, Encoder, Gpio, GpioConfigs, GpioPeripheral, UART_FN};
 
 const APP_TAG: &str = "Hardware";
 
@@ -86,68 +91,108 @@ impl ThreadPriority {
 }
 
 
+
+
 pub struct Hardware {
-    gpio: ArcMux<Gpio<GPIO_CONFIG_SIZE>>,
-    // uart: ArcMux<Uart<'static>>,
+    uart: Uart,
     encoder: Encoder,
     button: Button,
+    rgb_led: RgbLed,
+    relays: Relays,
 }
 
 impl Initializable for Hardware {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init hardware");
 
-        self.gpio.lock()?.init()?;
+        log_info!(APP_TAG, "Init wifi cyw43");
+        let ret = unsafe { hhg_cyw43_arch_init() };
+        if ret != 0 {
+            log_info!(APP_TAG, "Wi-Fi init failed");
+            return Err(Error::ReturnWithCode(ret));
+        }
 
-        // Set UART functions now that scheduler is running and we can safely lock
-        // self.uart.lock()?.set_functions(&raw const UART_FN);
-        
-        // self.uart.lock()?.init()?;
+        Gpio::new().init()?;
 
-        self.encoder.init(&mut ArcMux::clone(&self.gpio))?;
+        self.uart.init()?;
 
-        self.button.init(&mut ArcMux::clone(&self.gpio))?;
+        self.relays.init()?;
+
+        self.encoder.init()?;
+
+        self.button.init()?;
+
+        self.rgb_led.init()?;
 
         log_info!(APP_TAG, "Hardware initialized successfully heap_free:{}", System::get_free_heap_size());
         Ok(())
     } 
 }
 
-impl HardwareFn for Hardware {
+impl RgbLedFn for Hardware {
     #[inline]
-    fn set_button_handler(&mut self, clickable: ArcMux<dyn OnClickable>) {
+    fn set_color(&self, red: u8, green: u8, blue: u8) {
+        self.rgb_led.set_color(red, green, blue);
+    }
+
+    #[inline]
+    fn set_red(&self, red: u8) {
+        self.rgb_led.set_red(red);
+    }
+    
+    #[inline]
+    fn set_green(&self, green: u8) {
+        self.rgb_led.set_green(green);
+    }
+
+    #[inline]
+    fn set_blue(&self, blue: u8) {
+        self.rgb_led.set_blue(blue);
+    }
+}
+
+impl RelaysFn for Hardware {
+
+    #[inline]
+    fn set_relay_state(&self, relay_index: GpioPeripheral, state: bool) -> OsalRsBool {
+        self.relays.set_relay_state(relay_index, state)
+    }
+}
+
+impl HardwareFn<'static> for Hardware {
+    #[inline]
+    fn set_button_handler(&mut self, clickable: &'static dyn OnClickable) {
         self.button.set_on_click(clickable);
     }
 
     #[inline]
-    fn set_encoder_handler(&mut self, rotable_and_clickable: ArcMux<dyn EncoderOnRotatableAndClickable>) {
+    fn set_encoder_handler(&mut self, rotable_and_clickable: &'static dyn EncoderOnRotatableAndClickable) {
         self.encoder.set_on_rotate_and_click(rotable_and_clickable);
+    }
+    
+    fn get_temperature(&self) -> f32 {
+        let gpio = Gpio::new();
+
+        let mut sum = 0f32;
+        for _ in 0..Self::SAMPLES {
+            let raw_value = gpio.read(&GpioPeripheral::InternalTemp).unwrap_or(0);
+            let temp = Self::temperature_conversion(raw_value);
+            sum += temp / Self::SAMPLES as f32;
+            System::delay(10);
+        }
+        sum 
     }
 }
 
 impl Hardware {
-    pub fn new() -> Self {
-
-        let gpio = arcmux!(Gpio::<GPIO_CONFIG_SIZE>::new(&GPIO_FN, get_gpio_configs()));
-        let gpio_clone = ArcMux::clone(&gpio);
+    pub fn new() -> Self {        
         
-        // let uart = arcmux!(Uart::new(get_uart_config()));
-
-        // unsafe {
-        //     UART_FN.receive = Some(ArcMux::clone(&uart) as ArcMux<dyn OnReceive>);
-        // }
-        
-        // Note: Cannot use lock() here as the FreeRTOS scheduler hasn't started yet.
-        // The Arc::try_unwrap or Arc::get_mut would work, but since we just created
-        // the Arc and have the only reference, we can safely access the inner Mutex.
-        // We'll set the functions during init() instead when the scheduler is running.
-
         Self { 
-            gpio,
-            // uart,
-            encoder: Encoder::new(ArcMux::clone(&gpio_clone)),
-            button: Button::new(ArcMux::clone(&gpio_clone)),
+            uart: Uart::new(),
+            encoder: Encoder::new(),
+            button: Button::new(),
+            rgb_led: RgbLed::new(),
+            relays: Relays::new(),
         }
-        
     }
 }

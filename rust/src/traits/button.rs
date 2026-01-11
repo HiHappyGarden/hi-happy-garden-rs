@@ -18,9 +18,6 @@
  ***************************************************************************/
 #![allow(dead_code)]
 
-use alloc::sync::Arc;
-use osal_rs::os::Mutex;
-
 
 #[derive(PartialEq, Eq)]
  pub enum ButtonState {
@@ -30,11 +27,11 @@ use osal_rs::os::Mutex;
  }
 
  
- pub trait SetClickable {
-     fn set_on_click(&mut self, clicclable: Arc<Mutex<dyn OnClickable>>);
+ pub trait SetClickable<'a> {
+     fn set_on_click(&mut self, clicclable: &'a dyn OnClickable);
      fn get_state(&self) -> ButtonState;
  }
 
  pub trait OnClickable: Send + Sync {
-    fn on_click(&mut self, state: ButtonState);
+    fn on_click(&self, state: ButtonState);
  }

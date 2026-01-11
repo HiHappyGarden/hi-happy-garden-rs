@@ -20,18 +20,18 @@
  #![allow(dead_code)]
 
 use core::any::Any; 
-use core::fmt::write;
 use core::ops::{Index, IndexMut};
-use core::{default, usize};
 
 use alloc::str;
+use alloc::string::ToString;
 use alloc::sync::Arc;
 
-use osal_rs::os::config;
+use osal_rs::os::{RawMutex};
 use osal_rs::{log_info, log_warning};
 use osal_rs::utils::{AsSyncStr, Error, OsalRsBool, Ptr, Result};
 
 use crate::traits::state::{Deinitializable, Initializable};
+use crate::drivers::platform::{GPIO_CONFIG_SIZE, GPIO_CONFIGS, GPIO_FN};
 
 const APP_TAG: &str = "GPIO";
 
@@ -86,10 +86,10 @@ pub type GpioPeripheralData = Arc<dyn Any + Send + Sync>;
 pub enum GpioType {
     NotInitialized,
     Input(Option<Ptr>, u32, GpioInputType, u32), //base, pin, gpioInputType, default value
-    InputAnalog(Option<Ptr>, u32, u32, u32), //base, pin, channel, ranck
+    InputAnalog(Option<Ptr>, u32, u32, u32), //base, pin, channel, rank
     Output(Option<Ptr>, u32, u32), //base, pin, default value
     OutputPWM(Option<Ptr>, u32, u32), //base, pin, default value
-    Pheriferal(Option<Ptr>, u32, GpioPeripheralData) //base, pin, peripheral data
+    Peripheral(Option<Ptr>, u32, GpioPeripheralData) //base, pin, peripheral data
 }
 
 
@@ -107,7 +107,7 @@ impl AsSyncStr for GpioNameEmpty {
 pub struct GpioFn {
     pub init: Option<fn() -> Result<()>>,
     pub input: Option<fn(&GpioConfig, Option<Ptr>, u32, GpioInputType, u32) -> Result<()>>,
-    pub input_analog: Option<fn(&GpioConfig, Option<Ptr>, u32, u32, u32) -> Result<u32>>,
+    pub input_analog: Option<fn(&GpioConfig, Option<Ptr>, u32, u32, u32) -> Result<()>>,
     pub output: Option<fn(&GpioConfig, Option<Ptr>, u32, u32) -> Result<()>>,
     pub output_pwm: Option<fn(&GpioConfig, Option<Ptr>, u32, u32) -> Result<()>>,
     pub peripheral: Option<fn(&GpioConfig, Option<Ptr>, u32, GpioPeripheralData) -> Result<()>>,
@@ -125,7 +125,8 @@ unsafe impl Sync for GpioFn {}
 
 pub struct Gpio<const GPIO_CONFIG_SIZE: usize> {
     functions: &'static GpioFn,
-    configs: GpioConfigs<'static, GPIO_CONFIG_SIZE>,
+    configs: &'static mut GpioConfigs<'static, GPIO_CONFIG_SIZE>,
+    mutex: RawMutex,
 }
 
 unsafe impl<const GPIO_CONFIG_SIZE: usize> Send for Gpio<GPIO_CONFIG_SIZE> {}
@@ -192,7 +193,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<GPIO_CONFIG_SIZE> {
                             }
                         ,
 
-                        GpioType::Pheriferal(base, pin, peripheral_data) => 
+                        GpioType::Peripheral(base, pin, peripheral_data) =>
 
                             if let Some(peripheral) = self.functions.peripheral {
                                 log_info!(APP_TAG, "Peripheral:{}", config.get_name());
@@ -229,13 +230,27 @@ impl<const GPIO_CONFIG_SIZE: usize> Deinitializable for Gpio<GPIO_CONFIG_SIZE> {
 
 
 
-impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
-    pub const fn new(functions: &'static GpioFn, configs: GpioConfigs<'static, GPIO_CONFIG_SIZE>) -> Self {
+impl Gpio<{GPIO_CONFIG_SIZE}> {
+    pub fn new() -> Self {
+
+        let mutex = match RawMutex::new() {
+            Ok(mutex) => mutex,
+            Err(_) => panic!("Failed to create GPIO mutex"),
+        };
+
         Self {
-            functions,
-            configs
+            functions: &GPIO_FN,
+            configs:  unsafe { &mut *(&raw mut GPIO_CONFIGS ) },
+            mutex
         }
     }
+
+    pub fn get_mutex(&self) -> &RawMutex {
+        &self.mutex
+    }
+}
+
+impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
 
 
     pub fn write(&self, name: &dyn AsSyncStr, state: u32) -> OsalRsBool {
@@ -265,6 +280,13 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
                 GpioType::Input(base, pin, _, _) => {
                     if let Some(read) = self.functions.read {
                         read(&config, *base, *pin).map_err(|_| Error::Unhandled("GPIO Read Error"))
+                    } else {
+                        Err(Error::NotFound)
+                    }
+                }
+                GpioType::InputAnalog(base, _, channel, _) => {
+                    if let Some(read) = self.functions.read {
+                        read(&config, *base, *channel).map_err(|_| Error::Unhandled("GPIO Read Error"))
                     } else {
                         Err(Error::NotFound)
                     }

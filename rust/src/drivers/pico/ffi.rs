@@ -4,7 +4,7 @@
 #![allow(non_camel_case_types)]
 #![allow(dead_code)]
 
-use core::ffi::c_uint;
+use core::ffi::{c_int, c_uint};
 
 #[repr(C)]
 pub struct pwm_config {
@@ -89,4 +89,12 @@ unsafe extern "C" {
     pub(super) fn hhg_uart_is_readable() -> bool;
     pub(super) fn hhg_uart_getc() -> u8;
     pub(super) fn hhg_uart_putc(c: u8);
+
+    pub(super) fn hhg_adc_init();
+    pub(super) fn hhg_adc_set_temp_sensor_enabled(enable: bool);
+    pub(super) fn hhg_adc_select_input(input: c_uint);
+    pub(super) fn hhg_adc_read() -> u16;
+
+    pub(super) fn hhg_cyw43_arch_init() -> c_int;
+    pub(super) fn hhg_cyw43_arch_gpio_put(wl_gpio: u32, value: bool);
 }   

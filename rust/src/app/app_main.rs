@@ -18,44 +18,54 @@
  ***************************************************************************/
 
 
-use osal_rs::{arcmux, log_info};
-use osal_rs::os::{MutexFn, System, SystemFn};
-use osal_rs::utils::{ArcMux, Result};
+use core::ptr::addr_of_mut;
+
+use osal_rs::log_info;
+use osal_rs::os::{System, SystemFn};
+use osal_rs::utils::Result;
 use crate::app::lcd::Lcd;
-use crate::drivers::platform::Hardware;
+use crate::drivers::platform::{GpioPeripheral, Hardware};
 use crate::traits::hardware::HardwareFn;
+use crate::traits::relays::Relays;
+use crate::traits::rgb_led::RgbLed;
 use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "AppMain";
 
-pub struct AppMain<'a> {
-    hardware: &'a mut Hardware,
-    lcd: ArcMux<Lcd>
+static mut LCD : Lcd = Lcd::new();
+
+
+pub struct AppMain{
+    hardware: &'static mut Hardware
 }
 
-impl Initializable for AppMain<'_> {
+impl Initializable for AppMain {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init app main");
 
-        ArcMux::clone(&self.lcd).lock().unwrap().init()?;
-
-        let lcd = ArcMux::clone(&self.lcd);
-        self.hardware.set_button_handler(lcd);
-
-        let lcd = ArcMux::clone(&self.lcd);
-        self.hardware.set_encoder_handler(lcd);
+        unsafe { 
+            let lcd = &mut *addr_of_mut!(LCD);
+            lcd.init()?;
+            
+            self.hardware.set_button_handler(lcd);
+            self.hardware.set_encoder_handler(lcd);
+              
+            
+        }
         
+        self.hardware.set_color(255, 0, 0);
+
+        self.hardware.set_relay_state(GpioPeripheral::Relay1, true);
+
         log_info!(APP_TAG, "App main initialized successfully heap_free:{}", System::get_free_heap_size());
         Ok(())
     }
 }
 
-impl<'a> AppMain<'a> {
-    pub fn new(hardware: &'a mut Hardware) -> Self {
-
-        AppMain {
-            hardware,
-            lcd: arcmux!(Lcd::new())
+impl AppMain {
+    pub fn new(hardware: &'static mut Hardware) -> Self {
+        Self {
+            hardware
         }
     }
 }
