@@ -17,27 +17,18 @@
  *
  ***************************************************************************/
 
-#![allow(dead_code)]
-use crate::traits::rgb_led::RgbLed as RgbLedFn;
-use crate::traits::relays::Relays as RelaysFn;
-use crate::traits::button::OnClickable;
-use crate::traits::encoder::OnRotatableAndClickable;
+use osal_rs::utils::OsalRsBool;
 
-pub trait HardwareFn<'a> : RgbLedFn + RgbLedFn + RelaysFn {
+use crate::drivers::platform::GpioPeripheral;
 
-    const SAMPLES: u8 = 20;
 
-    #[inline(always)]
-    fn temperature_conversion(value: u32) -> f32 {
-        let voltage = 3.3f32 / (1 << 12) as f32 * value as f32;
-        27.0f32 - (voltage - 0.706f32) / 0.001721f32
-    }
+pub trait Relays {
+  fn set_relay_state(&self, relay_index: GpioPeripheral, state: bool) -> OsalRsBool;
 
-    fn set_button_handler(&mut self, clicclable: &'a dyn OnClickable);
-
-    fn set_encoder_handler(&mut self, rotate_and_click: &'a dyn OnRotatableAndClickable);
-
-    fn get_temperature(&self) -> f32;
-
+  fn turn_off_all_relays(&self) {
+      self.set_relay_state(GpioPeripheral::Relay1, false);
+      self.set_relay_state(GpioPeripheral::Relay2, false);
+      self.set_relay_state(GpioPeripheral::Relay3, false);
+      self.set_relay_state(GpioPeripheral::Relay4, false);
+  }
 }
-

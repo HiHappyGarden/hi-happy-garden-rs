@@ -22,7 +22,7 @@ use osal_rs::utils::Result;
 
 use crate::drivers::gpio::Gpio;
 use crate::drivers::platform::{GpioPeripheral, GPIO_CONFIG_SIZE};
-use crate::traits::RgbLedFn;
+use crate::traits::rgb_led::RgbLed as RgbLedFn;
 use crate::traits::state::Initializable;
 
 

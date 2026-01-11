@@ -20,8 +20,8 @@
 pub mod button;
 pub mod encoder;
 pub mod hardware;
-mod rgb_led;
+pub mod relays;
+pub mod rgb_led;
 pub mod rx_tx;
 pub mod state;
 
-pub use crate::traits::rgb_led::RgbLed as RgbLedFn;

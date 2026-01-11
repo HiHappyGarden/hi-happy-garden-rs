@@ -21,7 +21,7 @@ use alloc::boxed::Box;
 use osal_rs::{arcmux, log_info};
 use osal_rs::os::types::UBaseType;
 use osal_rs::os::{Mutex, MutexFn, System, SystemFn, ToPriority};
-use osal_rs::utils::{ArcMux, Error, Result};
+use osal_rs::utils::{ArcMux, Error, OsalRsBool, Result};
 
 use alloc::rc::Rc;
 
@@ -31,9 +31,11 @@ use core::ptr::read;
 
 use crate::drivers::gpio;
 use crate::drivers::pico::ffi::hhg_cyw43_arch_init;
+use crate::drivers::relays::Relays;
 use crate::drivers::rgb_led::RgbLed;
 use crate::drivers::uart::Uart;
-use crate::traits::RgbLedFn;
+use crate::traits::rgb_led::RgbLed as RgbLedFn;
+use crate::traits::relays::Relays as RelaysFn;
 use crate::traits::button::{ButtonState, OnClickable, SetClickable as ButtonOnClickable};
 use crate::traits::encoder::{OnRotatableAndClickable as EncoderOnRotatableAndClickable, SetRotatableAndClickable};
 use crate::traits::hardware::HardwareFn;
@@ -96,6 +98,7 @@ pub struct Hardware {
     encoder: Encoder,
     button: Button,
     rgb_led: RgbLed,
+    relays: Relays,
 }
 
 impl Initializable for Hardware {
@@ -113,6 +116,8 @@ impl Initializable for Hardware {
 
         self.uart.init()?;
 
+        self.relays.init()?;
+
         self.encoder.init()?;
 
         self.button.init()?;
@@ -125,22 +130,32 @@ impl Initializable for Hardware {
 }
 
 impl RgbLedFn for Hardware {
- 
+    #[inline]
     fn set_color(&self, red: u8, green: u8, blue: u8) {
         self.rgb_led.set_color(red, green, blue);
     }
 
+    #[inline]
     fn set_red(&self, red: u8) {
         self.rgb_led.set_red(red);
     }
     
+    #[inline]
     fn set_green(&self, green: u8) {
         self.rgb_led.set_green(green);
     }
 
-
+    #[inline]
     fn set_blue(&self, blue: u8) {
         self.rgb_led.set_blue(blue);
+    }
+}
+
+impl RelaysFn for Hardware {
+
+    #[inline]
+    fn set_relay_state(&self, relay_index: GpioPeripheral, state: bool) -> OsalRsBool {
+        self.relays.set_relay_state(relay_index, state)
     }
 }
 
@@ -177,6 +192,7 @@ impl Hardware {
             encoder: Encoder::new(),
             button: Button::new(),
             rgb_led: RgbLed::new(),
+            relays: Relays::new(),
         }
     }
 }

@@ -24,9 +24,10 @@ use osal_rs::log_info;
 use osal_rs::os::{System, SystemFn};
 use osal_rs::utils::Result;
 use crate::app::lcd::Lcd;
-use crate::drivers::platform::Hardware;
-use crate::traits::RgbLedFn;
+use crate::drivers::platform::{GpioPeripheral, Hardware};
 use crate::traits::hardware::HardwareFn;
+use crate::traits::relays::Relays;
+use crate::traits::rgb_led::RgbLed;
 use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "AppMain";
@@ -49,9 +50,13 @@ impl Initializable for AppMain {
             self.hardware.set_button_handler(lcd);
             self.hardware.set_encoder_handler(lcd);
               
-            self.hardware.set_color(255, 0, 0);
+            
         }
         
+        self.hardware.set_color(255, 0, 0);
+
+        self.hardware.set_relay_state(GpioPeripheral::Relay1, true);
+
         log_info!(APP_TAG, "App main initialized successfully heap_free:{}", System::get_free_heap_size());
         Ok(())
     }
