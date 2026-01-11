@@ -49,10 +49,12 @@ pico_sdk_init()
 
 # --- cJSON Integration from GitHub ---
 include(FetchContent)
+
 FetchContent_Declare(
     cJSON
     GIT_REPOSITORY https://github.com/DaveGamble/cJSON.git
     GIT_TAG        v1.7.19
+    PATCH_COMMAND sed -i.bak "s/cmake_minimum_required(VERSION 3.0)/cmake_minimum_required(VERSION 3.5)/" CMakeLists.txt || sed -i "" "s/cmake_minimum_required(VERSION 3.0)/cmake_minimum_required(VERSION 3.5)/" CMakeLists.txt || true
 )
 
 # Configure cJSON options
@@ -61,7 +63,7 @@ set(ENABLE_CJSON_UTILS ON CACHE BOOL "Enable cJSON utils")
 set(BUILD_SHARED_AND_STATIC_LIBS OFF CACHE BOOL "Build only static library")
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static library")
 
-# Suppress deprecation warning from cJSON's old CMake version requirement
+# Suppress deprecation warnings
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(cJSON)
