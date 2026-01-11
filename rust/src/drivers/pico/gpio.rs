@@ -190,16 +190,14 @@ fn output_pwm(_: &GpioConfig, _: Option<Ptr>, pin: u32, default_value: u32) -> R
     Ok(())
 }
 
-fn read(config: &GpioConfig, _: Option<Ptr>, pin: u32) -> Result<u32> {
+fn read(config: &GpioConfig, _: Option<Ptr>, input: u32) -> Result<u32> {
     if config.get_name() == InternalTemp.as_str() {
 
-        unsafe { hhg_adc_select_input(4) };
+        unsafe { hhg_adc_select_input(input) };
         Ok(unsafe {hhg_adc_read() as u32})
 
     } else {
-        
-        let value = unsafe {hhg_gpio_get(pin)};
-        Ok(value as u32)
+        Ok(unsafe {hhg_gpio_get(input)} as u32)
     }
 }
 
