@@ -74,6 +74,7 @@ unsafe extern "C" {
     pub(super) fn hhg_pwm_gpio_to_slice_num(gpio: u32) -> u32;
     pub(super) fn hhg_pwm_get_default_config() -> pwm_config;
     pub(super) fn hhg_pwm_config_set_clkdiv(c: *mut pwm_config, div: f32);
+    pub(super) fn hhg_pwm_config_set_wrap(c: *mut pwm_config, wrap: u16);
     pub(super) fn hhg_pwm_init(slice_num: u32, c: *mut pwm_config, start: bool);
     pub(super) fn hhg_pwm_set_gpio_level(gpio: u32, level: u16);
     pub(super) fn hhg_gpio_set_irq_enabled_with_callback(gpio: u32, events: u32, enabled: bool, callback: extern "C" fn());

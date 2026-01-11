@@ -25,7 +25,7 @@ use alloc::string::{String, ToString};
 use osal_rs::utils::{AsSyncStr, Error, OsalRsBool, Ptr, Result};
 
 use crate::drivers::gpio::GpioConfigs;
-use crate::drivers::pico::ffi::{GPIO_IN, GPIO_OUT, gpio_function_t, hhg_adc_init, hhg_adc_set_temp_sensor_enabled, hhg_cyw43_arch_gpio_put, hhg_gpio_get, hhg_gpio_init, hhg_gpio_pull_down, hhg_gpio_pull_up, hhg_gpio_put, hhg_gpio_set_dir, hhg_gpio_set_function, hhg_gpio_set_irq_enabled, hhg_gpio_set_irq_enabled_with_callback, hhg_pwm_config_set_clkdiv, hhg_pwm_get_default_config, hhg_pwm_gpio_to_slice_num, hhg_pwm_init, hhg_pwm_set_gpio_level, hhg_adc_read};
+use crate::drivers::pico::ffi::{GPIO_IN, GPIO_OUT, gpio_function_t, hhg_adc_init, hhg_adc_set_temp_sensor_enabled, hhg_cyw43_arch_gpio_put, hhg_gpio_get, hhg_gpio_init, hhg_gpio_pull_down, hhg_gpio_pull_up, hhg_gpio_put, hhg_gpio_set_dir, hhg_gpio_set_function, hhg_gpio_set_irq_enabled, hhg_gpio_set_irq_enabled_with_callback, hhg_pwm_config_set_clkdiv, hhg_pwm_config_set_wrap, hhg_pwm_get_default_config, hhg_pwm_gpio_to_slice_num, hhg_pwm_init, hhg_pwm_set_gpio_level, hhg_adc_read};
 use crate::drivers::gpio::{GpioFn, GpioConfig, GpioInputType, InterruptCallback, InterruptConfig, InterruptType::{self, *}, GpioType};
 use crate::traits::state::{Deinitializable, Initializable};
 use GpioPeripheral::*;
@@ -195,7 +195,8 @@ fn output_pwm(_: &GpioConfig, _: Option<Ptr>, pin: u32, default_value: u32) -> R
         hhg_gpio_set_function(pin, gpio_function_t::GPIO_FUNC_PWM as u32);
         let slice_num = hhg_pwm_gpio_to_slice_num(pin);
         let mut pwm_config = hhg_pwm_get_default_config();
-        hhg_pwm_config_set_clkdiv(&mut pwm_config, 4.0);
+        hhg_pwm_config_set_clkdiv(&mut pwm_config, 1.0);
+        hhg_pwm_config_set_wrap(&mut pwm_config, 65535);
         hhg_pwm_init(slice_num, &mut pwm_config, true);
         hhg_pwm_set_gpio_level(pin, default_value as u16);
     }

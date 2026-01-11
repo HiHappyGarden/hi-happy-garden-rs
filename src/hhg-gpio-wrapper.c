@@ -76,6 +76,10 @@ void hhg_pwm_config_set_clkdiv(pwm_config *c, float div) {
     pwm_config_set_clkdiv(c, div);
 }
 
+void hhg_pwm_config_set_wrap(pwm_config *c, uint16_t wrap) {
+    pwm_config_set_wrap(c, wrap);
+}
+
 void hhg_pwm_init(uint slice_num, pwm_config *c, bool start) {
     pwm_init(slice_num, c, start);
 }

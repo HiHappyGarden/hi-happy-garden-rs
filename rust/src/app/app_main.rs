@@ -53,7 +53,7 @@ impl Initializable for AppMain {
             
         }
         
-        self.hardware.set_color(255, 0, 0);
+        self.hardware.set_color(0, 0, 255); // Blue
 
         self.hardware.set_relay_state(GpioPeripheral::Relay1, true);
 
