@@ -19,7 +19,6 @@ tests = []
 osal-rs = { path = "../osal-rs/osal-rs", features = ["freertos"] }
 osal-rs-tests = { path = "../osal-rs/osal-rs-tests", features = ["freertos"] }
 at-parser-rs = { path = "../at-parser-rs", features = ["osal_rs"] }
-once_cell = { version = "1.19", default-features = false, features = ["alloc"] }
 
 [profile.dev]
 panic = "abort"

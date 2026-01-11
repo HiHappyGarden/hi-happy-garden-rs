@@ -23,7 +23,6 @@ use core::sync::atomic::{AtomicI32, AtomicU32, Ordering};
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 
-use once_cell::race::OnceBox;
 use osal_rs::{arcmux, log_error, log_info, log_warning, minimal_stack_size};
 use osal_rs::os::types::{StackType, TickType};
 use osal_rs::os::{EventGroup, EventGroupFn, RawMutex, RawMutexFn, System, SystemFn, Thread, ThreadFn, ThreadParam};
