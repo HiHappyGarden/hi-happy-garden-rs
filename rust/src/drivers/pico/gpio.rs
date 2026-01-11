@@ -31,7 +31,7 @@ use crate::traits::state::{Deinitializable, Initializable};
 use GpioPeripheral::*;
 use crate::drivers::plt::ffi::hhg_adc_select_input;
 
-pub const GPIO_CONFIG_SIZE: usize = 9;
+pub const GPIO_CONFIG_SIZE: usize = 13;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum GpioPeripheral {
@@ -45,7 +45,10 @@ pub enum GpioPeripheral {
     LedBlue,
     InternalLed,
     InternalTemp,
-    Internal3V3,
+    Relay1,
+    Relay2,
+    Relay3,
+    Relay4,
 }
  
 impl AsSyncStr for GpioPeripheral {
@@ -61,7 +64,10 @@ impl AsSyncStr for GpioPeripheral {
             LedBlue => "LedBlue",
             InternalLed => "InternalLed",
             InternalTemp => "InternalTemp",
-            Internal3V3 => "Internal3V3",
+            Relay1 => "Relay1",
+            Relay2 => "Relay2",
+            Relay3 => "Relay3",
+            Relay4 => "Relay4",
         }
     }
 }
@@ -81,7 +87,10 @@ impl FromStr for GpioPeripheral {
             "LedBlue" => Ok(LedBlue),
             "InternalLed" => Ok(InternalLed),
             "InternalTemp" => Ok(InternalTemp),
-            "Internal3V3" => Ok(Internal3V3),
+            "Relay1" => Ok(Relay1),
+            "Relay2" => Ok(Relay2),
+            "Relay3" => Ok(Relay3),
+            "Relay4" => Ok(Relay4),
             _ => Err(Error::NotFound)
         }
     }
@@ -98,6 +107,10 @@ pub static mut GPIO_CONFIGS: GpioConfigs<'static, GPIO_CONFIG_SIZE> = GpioConfig
         Some(GpioConfig::new(&LedBlue, GpioType::OutputPWM(None, 15, 0))),
         Some(GpioConfig::new(&InternalLed, GpioType::Output(None, 0, 0))),
         Some(GpioConfig::new(&InternalTemp, GpioType::InputAnalog(None, 0, 4, 0))),
+        Some(GpioConfig::new(&Relay1, GpioType::Output(None, 6, 0))),
+        Some(GpioConfig::new(&Relay2, GpioType::Output(None, 7, 0))),
+        Some(GpioConfig::new(&Relay3, GpioType::Output(None, 8, 0))),
+        Some(GpioConfig::new(&Relay4, GpioType::Output(None, 9, 0))),
 ]);
 
 
@@ -183,7 +196,7 @@ fn output_pwm(_: &GpioConfig, _: Option<Ptr>, pin: u32, default_value: u32) -> R
         let slice_num = hhg_pwm_gpio_to_slice_num(pin);
         let mut pwm_config = hhg_pwm_get_default_config();
         hhg_pwm_config_set_clkdiv(&mut pwm_config, 4.0);
-        hhg_pwm_init(slice_num, &mut pwm_config, false);
+        hhg_pwm_init(slice_num, &mut pwm_config, true);
         hhg_pwm_set_gpio_level(pin, default_value as u16);
     }
 
