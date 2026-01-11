@@ -25,6 +25,7 @@ use osal_rs::os::{System, SystemFn};
 use osal_rs::utils::Result;
 use crate::app::lcd::Lcd;
 use crate::drivers::platform::Hardware;
+use crate::traits::RgbLedFn;
 use crate::traits::hardware::HardwareFn;
 use crate::traits::state::Initializable;
 
@@ -48,6 +49,7 @@ impl Initializable for AppMain {
             self.hardware.set_button_handler(lcd);
             self.hardware.set_encoder_handler(lcd);
               
+            self.hardware.set_color(255, 0, 0);
         }
         
         log_info!(APP_TAG, "App main initialized successfully heap_free:{}", System::get_free_heap_size());

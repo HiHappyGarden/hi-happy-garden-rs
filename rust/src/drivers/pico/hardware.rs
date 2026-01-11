@@ -31,7 +31,9 @@ use core::ptr::read;
 
 use crate::drivers::gpio;
 use crate::drivers::pico::ffi::hhg_cyw43_arch_init;
+use crate::drivers::rgb_led::RgbLed;
 use crate::drivers::uart::Uart;
+use crate::traits::RgbLedFn;
 use crate::traits::button::{ButtonState, OnClickable, SetClickable as ButtonOnClickable};
 use crate::traits::encoder::{OnRotatableAndClickable as EncoderOnRotatableAndClickable, SetRotatableAndClickable};
 use crate::traits::hardware::HardwareFn;
@@ -93,6 +95,7 @@ pub struct Hardware {
     uart: Uart,
     encoder: Encoder,
     button: Button,
+    rgb_led: RgbLed,
 }
 
 impl Initializable for Hardware {
@@ -114,11 +117,31 @@ impl Initializable for Hardware {
 
         self.button.init()?;
 
-        log_info!(APP_TAG, "Hardware temperature: {}", self.get_temperature());
+        self.rgb_led.init()?;
 
         log_info!(APP_TAG, "Hardware initialized successfully heap_free:{}", System::get_free_heap_size());
         Ok(())
     } 
+}
+
+impl RgbLedFn for Hardware {
+ 
+    fn set_color(&self, red: u8, green: u8, blue: u8) {
+        self.rgb_led.set_color(red, green, blue);
+    }
+
+    fn set_red(&self, red: u8) {
+        self.rgb_led.set_red(red);
+    }
+    
+    fn set_green(&self, green: u8) {
+        self.rgb_led.set_green(green);
+    }
+
+
+    fn set_blue(&self, blue: u8) {
+        self.rgb_led.set_blue(blue);
+    }
 }
 
 impl HardwareFn<'static> for Hardware {
@@ -153,6 +176,7 @@ impl Hardware {
             uart: Uart::new(),
             encoder: Encoder::new(),
             button: Button::new(),
+            rgb_led: RgbLed::new(),
         }
     }
 }

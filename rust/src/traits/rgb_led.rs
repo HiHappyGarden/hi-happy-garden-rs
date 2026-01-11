@@ -17,26 +17,26 @@
  *
  ***************************************************************************/
 
-#![allow(dead_code)]
-use crate::traits::RgbLedFn;
-use crate::traits::button::OnClickable;
-use crate::traits::encoder::OnRotatableAndClickable;
+ pub trait RgbLed {
+    fn set_color(&self, red: u8, green: u8, blue: u8);
 
-pub trait HardwareFn<'a> : RgbLedFn{
-
-    const SAMPLES: u8 = 20;
-
-    #[inline(always)]
-    fn temperature_conversion(value: u32) -> f32 {
-        let voltage = 3.3f32 / (1 << 12) as f32 * value as f32;
-        27.0f32 - (voltage - 0.706f32) / 0.001721f32
+    #[inline]
+    fn set_red(&self, red: u8) {
+        self.set_color(red, 0, 0);
     }
 
-    fn set_button_handler(&mut self, clicclable: &'a dyn OnClickable);
+    #[inline]
+    fn set_green(&self, green: u8) {
+        self.set_color(0, green, 0);
+    }
 
-    fn set_encoder_handler(&mut self, rotate_and_click: &'a dyn OnRotatableAndClickable);
+    #[inline]
+    fn set_blue(&self, blue: u8) {
+        self.set_color(0, 0, blue);
+    }
 
-    fn get_temperature(&self) -> f32;
-
-}
-
+    #[inline]
+    fn turn_off(&self) {
+        self.set_color(0, 0, 0);
+    }
+ }

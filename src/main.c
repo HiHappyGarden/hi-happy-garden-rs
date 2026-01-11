@@ -46,7 +46,7 @@ int main()
     // cyw43_arch_enable_sta_mode();
 
     // printf("Connecting to Wi-Fi...\n");
-    // if (cyw43_arch_wifi_connect_timeout_ms("Vodafone-salsi.local", "s4ls3tt4", CYW43_AUTH_WPA2_AES_PSK, 30000)) {
+    // if (cyw43_arch_wifi_connect_timeout_ms("Vodafone-salsi.local", "pwd", CYW43_AUTH_WPA2_AES_PSK, 30000)) {
     //     printf("failed to connect.\n");
     // } else {
     //     printf("Connected.\n");
