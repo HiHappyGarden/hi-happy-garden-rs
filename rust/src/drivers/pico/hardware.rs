@@ -27,6 +27,7 @@ use alloc::rc::Rc;
 
 use alloc::sync::Arc;
 use core::cell::RefCell;
+use core::ptr::read;
 
 use crate::drivers::gpio;
 use crate::drivers::pico::ffi::hhg_cyw43_arch_init;
@@ -109,11 +110,11 @@ impl Initializable for Hardware {
 
         self.uart.init()?;
 
-        // UART_FN.receive = Some(&self.uart);
-
         self.encoder.init()?;
 
         self.button.init()?;
+
+        log_info!(APP_TAG, "Hardware temperature: {}", self.get_temperature());
 
         log_info!(APP_TAG, "Hardware initialized successfully heap_free:{}", System::get_free_heap_size());
         Ok(())
@@ -129,6 +130,19 @@ impl HardwareFn<'static> for Hardware {
     #[inline]
     fn set_encoder_handler(&mut self, rotable_and_clickable: &'static dyn EncoderOnRotatableAndClickable) {
         self.encoder.set_on_rotate_and_click(rotable_and_clickable);
+    }
+    
+    fn get_temperature(&self) -> f32 {
+        let gpio = Gpio::new();
+
+        let mut sum = 0f32;
+        for _ in 0..Self::SAMPLES {
+            let raw_value = gpio.read(&GpioPeripheral::InternalTemp).unwrap_or(0);
+            let temp = Self::temperature_conversion(raw_value);
+            sum += temp / Self::SAMPLES as f32;
+            System::delay(10);
+        }
+        sum 
     }
 }
 

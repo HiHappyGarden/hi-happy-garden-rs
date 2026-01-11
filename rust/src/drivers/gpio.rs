@@ -23,6 +23,7 @@ use core::any::Any;
 use core::ops::{Index, IndexMut};
 
 use alloc::str;
+use alloc::string::ToString;
 use alloc::sync::Arc;
 
 use osal_rs::os::{RawMutex};
@@ -279,6 +280,13 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
                 GpioType::Input(base, pin, _, _) => {
                     if let Some(read) = self.functions.read {
                         read(&config, *base, *pin).map_err(|_| Error::Unhandled("GPIO Read Error"))
+                    } else {
+                        Err(Error::NotFound)
+                    }
+                }
+                GpioType::InputAnalog(base, _, channel, _) => {
+                    if let Some(read) = self.functions.read {
+                        read(&config, *base, *channel).map_err(|_| Error::Unhandled("GPIO Read Error"))
                     } else {
                         Err(Error::NotFound)
                     }

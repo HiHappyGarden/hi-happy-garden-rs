@@ -27,9 +27,13 @@ pub(crate) mod uart;
 use core::ffi::c_char;
 use osal_rs::os::types::ThreadHandle;
 
+
+use crate::drivers::gpio::Gpio;
+use crate::drivers::platform::GpioPeripheral;
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vApplicationMallocFailedHook() -> ! {
-    // Hook for malloc failures - hang here for debugging
+    Gpio::new().write(&GpioPeripheral::InternalLed, 0);
     #[allow(clippy::empty_loop)]
     loop {}
 }
@@ -41,7 +45,7 @@ pub unsafe extern "C" fn vApplicationIdleHook() {
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vApplicationStackOverflowHook(_x_task: ThreadHandle, _pc_task_name: *mut c_char) -> ! {
-    // Stack overflow detected - hang here for debugging
+    Gpio::new().write(&GpioPeripheral::InternalLed, 0);
     #[allow(clippy::empty_loop)]
     loop {}
 }

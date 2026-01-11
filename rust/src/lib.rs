@@ -110,7 +110,7 @@ fn main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Resul
         }
     }
 
-    let _ = Gpio::new().write(&GpioPeripheral::DefaultLed, 1);
+    let _ = Gpio::new().write(&GpioPeripheral::InternalLed, 1);
 
     loop {
         System::delay(TickType::MAX);
