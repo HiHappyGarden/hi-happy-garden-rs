@@ -4,7 +4,7 @@
 #![allow(non_camel_case_types)]
 #![allow(dead_code)]
 
-use core::ffi::{c_int, c_uint};
+use core::ffi::{c_int, c_uint, c_void};
 
 #[repr(C)]
 pub struct pwm_config {
@@ -99,11 +99,9 @@ unsafe extern "C" {
     pub(super) fn hhg_cyw43_arch_init() -> c_int;
     pub(super) fn hhg_cyw43_arch_gpio_put(wl_gpio: u32, value: bool);
 
-
-
-    pub(super) fn hhg_i2c_init(baudrate: c_uint) -> c_uint;
+    pub(super) fn hhg_i2c_instance(i2c_num: u8) -> *mut c_void;
+    pub(super) fn hhg_i2c_init(i2c: *mut c_void, baudrate: c_uint) -> c_uint;
     pub(super) fn hhg_i2c_init_pins_with_func();
-    pub(super) fn hhg_i2c_write_blocking(addr: u8, src: *const u8, len: usize, nostop: bool);
-    pub(super) fn hhg_i2c_read_blocking(addr: u8, dst: *mut u8, len: usize, nostop: bool);
-
+    pub(super) fn hhg_i2c_write_blocking(i2c: *mut c_void, addr: u8, src: *const u8, len: usize, nostop: bool);
+    pub(super) fn hhg_i2c_read_blocking(i2c: *mut c_void, addr: u8, dst: *mut u8, len: usize, nostop: bool);
 }   

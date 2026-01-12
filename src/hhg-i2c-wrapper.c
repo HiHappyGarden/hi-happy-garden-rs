@@ -23,20 +23,26 @@
 #include <hardware/gpio.h>
 
 
+void* hhg_i2c_instance(uint8_t i2c_num) {
+    return I2C_INSTANCE(i2c_num);
+}
 
-uint hhg_i2c_init(uint baudrate) {
-    return i2c_init(i2c_default, baudrate);
+uint hhg_i2c_init(void *i2c, uint baudrate) {
+    if (i2c == NULL) {
+        return 0;
+    }
+    return i2c_init((i2c_inst_t *)i2c, baudrate);
 }
 
 void hhg_i2c_init_pins_with_func(void) {
     bi_decl(bi_2pins_with_func(PICO_DEFAULT_I2C_SDA_PIN, PICO_DEFAULT_I2C_SCL_PIN, GPIO_FUNC_I2C));
 }
 
-void hhg_i2c_write_blocking(uint8_t addr, const uint8_t *src, size_t len, bool nostop) {
-    i2c_write_blocking(i2c_default, addr, src, len, nostop);
+void hhg_i2c_write_blocking(void *i2c, uint8_t addr, const uint8_t *src, size_t len, bool nostop) {
+    i2c_write_blocking((i2c_inst_t *)i2c, addr, src, len, nostop);
 }
 
-void hhg_i2c_read_blocking(uint8_t addr, uint8_t *dst, size_t len, bool nostop) {
-    i2c_read_blocking(i2c_default, addr, dst, len, nostop);
+void hhg_i2c_read_blocking(void *i2c, uint8_t addr, uint8_t *dst, size_t len, bool nostop) {
+    i2c_read_blocking((i2c_inst_t *)i2c, addr, dst, len, nostop);
 }
 

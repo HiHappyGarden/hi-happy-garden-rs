@@ -23,6 +23,7 @@ pub(crate) mod ffi;
 pub(crate) mod hardware;
 pub(crate) mod gpio;
 pub(crate) mod uart;
+pub(crate) mod i2c;
 
 use core::ffi::c_char;
 use osal_rs::os::types::ThreadHandle;

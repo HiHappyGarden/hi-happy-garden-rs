@@ -30,6 +30,7 @@ use core::cell::RefCell;
 use core::ptr::read;
 
 use crate::drivers::gpio;
+use crate::drivers::i2c::I2C;
 use crate::drivers::pico::ffi::hhg_cyw43_arch_init;
 use crate::drivers::relays::Relays;
 use crate::drivers::rgb_led::RgbLed;
@@ -46,6 +47,9 @@ use crate::traits::state::Initializable;
 use crate::drivers::platform::{Button, Encoder, Gpio, GpioConfigs, GpioPeripheral, UART_FN};
 
 const APP_TAG: &str = "Hardware";
+const I2C_SH1106_INSTANCE: u8 = 0;
+const I2C_SH1106_ADDRESS: u8 = 0x3C;
+const I2C_SH1106_BAUDRATE: u32 = 100_000;
 
 
 #[allow(dead_code)]
@@ -95,6 +99,7 @@ impl ThreadPriority {
 
 pub struct Hardware {
     uart: Uart,
+    i2c: I2C<{I2C_SH1106_ADDRESS}>,
     encoder: Encoder,
     button: Button,
     rgb_led: RgbLed,
@@ -115,6 +120,8 @@ impl Initializable for Hardware {
         Gpio::new().init()?;
 
         self.uart.init()?;
+
+        self.i2c.init()?;
 
         self.relays.init()?;
 
@@ -189,6 +196,7 @@ impl Hardware {
         
         Self { 
             uart: Uart::new(),
+            i2c: I2C::new(I2C_SH1106_INSTANCE, I2C_SH1106_BAUDRATE),
             encoder: Encoder::new(),
             button: Button::new(),
             rgb_led: RgbLed::new(),
@@ -196,3 +204,4 @@ impl Hardware {
         }
     }
 }
+
