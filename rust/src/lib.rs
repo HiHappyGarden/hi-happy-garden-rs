@@ -53,7 +53,7 @@ use crate::app::AppMain;
 
 const APP_TAG: &str = "rust";
 const APP_THREAD_NAME: &str = "main_trd";
-const APP_STACK_SIZE: StackType = 1536;
+const APP_STACK_SIZE: StackType = 2048;
 
 static mut HARDWARE: Option<Hardware> = None;
 static mut APP_MAIN: Option<AppMain> = None;
