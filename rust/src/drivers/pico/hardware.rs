@@ -29,12 +29,14 @@ use alloc::sync::Arc;
 use core::cell::RefCell;
 use core::ptr::read;
 
-use crate::drivers::gpio;
+use crate::drivers::button::Button;
+use crate::drivers::encoder::Encoder;
 use crate::drivers::i2c::I2C;
 use crate::drivers::pico::ffi::hhg_cyw43_arch_init;
 use crate::drivers::relays::Relays;
 use crate::drivers::rgb_led::RgbLed;
 use crate::drivers::uart::Uart;
+use crate::drivers::gpio::Gpio;
 use crate::traits::rgb_led::RgbLed as RgbLedFn;
 use crate::traits::relays::Relays as RelaysFn;
 use crate::traits::button::{ButtonState, OnClickable, SetClickable as ButtonOnClickable};
@@ -44,12 +46,9 @@ use crate::traits::rx_tx::OnReceive;
 use super::gpio::{GPIO_FN, GPIO_CONFIG_SIZE};
 use crate::traits::state::Initializable;
 
-use crate::drivers::platform::{Button, Encoder, Gpio, GpioConfigs, GpioPeripheral, UART_FN};
+use crate::drivers::platform::{GpioPeripheral, I2C_SH1106_BAUDRATE, I2C_SH1106_INSTANCE, LCDSH1106, UART_FN};
 
 const APP_TAG: &str = "Hardware";
-const I2C_SH1106_INSTANCE: u8 = 0;
-const I2C_SH1106_ADDRESS: u8 = 0x3C;
-const I2C_SH1106_BAUDRATE: u32 = 100_000;
 
 
 #[allow(dead_code)]
@@ -99,11 +98,11 @@ impl ThreadPriority {
 
 pub struct Hardware {
     uart: Uart,
-    i2c: I2C<{I2C_SH1106_ADDRESS}>,
     encoder: Encoder,
     button: Button,
     rgb_led: RgbLed,
     relays: Relays,
+    lcd: LCDSH1106,
 }
 
 impl Initializable for Hardware {
@@ -121,8 +120,6 @@ impl Initializable for Hardware {
 
         self.uart.init()?;
 
-        self.i2c.init()?;
-
         self.relays.init()?;
 
         self.encoder.init()?;
@@ -130,6 +127,8 @@ impl Initializable for Hardware {
         self.button.init()?;
 
         self.rgb_led.init()?;
+
+        self.lcd.init()?;
 
         log_info!(APP_TAG, "Hardware initialized successfully heap_free:{}", System::get_free_heap_size());
         Ok(())
@@ -196,12 +195,16 @@ impl Hardware {
         
         Self { 
             uart: Uart::new(),
-            i2c: I2C::new(I2C_SH1106_INSTANCE, I2C_SH1106_BAUDRATE),
             encoder: Encoder::new(),
             button: Button::new(),
             rgb_led: RgbLed::new(),
             relays: Relays::new(),
+            lcd: LCDSH1106::new(I2C::new(I2C_SH1106_INSTANCE, I2C_SH1106_BAUDRATE)),
         }
+    }
+
+    pub fn set_internal_led(&self, state: bool) {
+        Gpio::new().write(&GpioPeripheral::InternalLed, if state {1} else {0});
     }
 }
 

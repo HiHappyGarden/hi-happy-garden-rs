@@ -25,6 +25,9 @@ use osal_rs::utils::{Error, OsalRsBool, Result};
 
 use crate::drivers::{i2c::I2CFn, pico::ffi::{hhg_i2c_init, hhg_i2c_init_pins_with_func, hhg_i2c_instance, hhg_i2c_read_blocking, hhg_i2c_write_blocking}};
 
+pub const I2C_SH1106_INSTANCE: u8 = 0;
+pub const I2C_SH1106_BAUDRATE: u32 = 100_000;
+
 pub static I2C_FN: I2CFn = I2CFn {
     init: init,
     write: write,

@@ -46,8 +46,6 @@ use osal_rs::log::set_enable_color;
 use osal_rs::utils::Result;
 use osal_rs::{log_fatal, log_info};
 
-use crate::drivers::platform::{Gpio, GpioPeripheral};
-
 use crate::drivers::platform::Hardware;
 use crate::traits::state::Initializable;
 use crate::ffi::{get_g_setup_called, print_systick_status};
@@ -80,7 +78,6 @@ fn main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Resul
     log_debug!(APP_TAG, "Before start heap_free:{}", System::get_free_heap_size());
 
     unsafe {
-
         HARDWARE = Some(Hardware::new()); 
 
         let hardware = &mut *addr_of_mut!(HARDWARE);
@@ -108,9 +105,10 @@ fn main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Resul
             log_fatal!(APP_TAG, "App error: {:?}", err);
             panic!("App initialization failed");
         }
+
     }
 
-    let _ = Gpio::new().write(&GpioPeripheral::InternalLed, 1);
+    
 
     loop {
         System::delay(TickType::MAX);

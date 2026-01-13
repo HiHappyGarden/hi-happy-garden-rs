@@ -27,8 +27,9 @@ use osal_rs::{log_error, log_info};
 use osal_rs::os::{EventGroup, EventGroupFn, Mutex, MutexFn, System, SystemFn, Thread, ThreadFn, ThreadParam, Timer, TimerFn, RawMutexFn};
 use osal_rs::utils::{Error, OsalRsBool, Result};
 
-use crate::drivers::gpio::InterruptType;
-use crate::drivers::platform::{self, Gpio, GpioPeripheral, ThreadPriority};
+use crate::drivers::gpio::{Gpio, InterruptType};
+use crate::drivers::platform::{self, GpioPeripheral, ThreadPriority};
+
 use crate::traits::button::{ButtonState, OnClickable, SetClickable};
 use crate::traits::state::Initializable;
 

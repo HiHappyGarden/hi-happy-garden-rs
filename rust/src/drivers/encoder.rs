@@ -29,7 +29,8 @@ use osal_rs::os::{EventGroup, EventGroupFn, RawMutex, RawMutexFn, System, System
 use osal_rs::utils::{ArcMux, Error, OsalRsBool, Result};
 
 use crate::drivers::gpio::{InterruptType};
-use crate::drivers::platform::{self, GPIO_CONFIG_SIZE, Gpio, GpioPeripheral, ThreadPriority};
+use crate::drivers::platform::{self, GPIO_CONFIG_SIZE, GpioPeripheral, ThreadPriority};
+use crate::drivers::gpio::Gpio;
 use crate::traits::button::{ButtonState, OnClickable};
 use crate::traits::encoder::{EncoderDirection, OnRotatableAndClickable, SetRotatableAndClickable};
 use crate::traits::state::Initializable;

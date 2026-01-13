@@ -39,6 +39,7 @@ pub struct AppMain{
     hardware: &'static mut Hardware
 }
 
+
 impl Initializable for AppMain {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init app main");
@@ -58,6 +59,8 @@ impl Initializable for AppMain {
         self.hardware.set_relay_state(GpioPeripheral::Relay1, true);
 
         log_info!(APP_TAG, "App main initialized successfully heap_free:{}", System::get_free_heap_size());
+
+        self.hardware.set_internal_led(true);
         Ok(())
     }
 }
