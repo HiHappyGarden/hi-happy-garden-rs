@@ -26,13 +26,14 @@ use osal_rs::utils::Result;
 use crate::app::lcd::{Lcd};
 use crate::drivers::platform::{GpioPeripheral, Hardware};
 use crate::traits::hardware::HardwareFn;
+use crate::traits::lcd_display::LCDDisplay;
 use crate::traits::relays::Relays;
 use crate::traits::rgb_led::RgbLed;
 use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "AppMain";
 
-static mut LCD : Lcd = Lcd::new();
+static mut LCD : Lcd<'static> = Lcd::new();
 
 
 pub struct AppMain{
@@ -59,12 +60,13 @@ impl Initializable for AppMain {
 
         self.hardware.set_relay_state(GpioPeripheral::Relay1, true);
 
+        self.hardware.set_internal_led(true);
 
         unsafe {
-            let lcd = &mut *addr_of_mut!(LCD);
             let lcd_display = self.hardware.get_lcd_display();
-
-            lcd.set_display(lcd_display);
+            let lcd = &mut *addr_of_mut!(LCD);
+            // Cast the lifetime to 'static since both LCD and hardware are 'static
+            lcd.set_display(core::mem::transmute::<&mut dyn LCDDisplay, &'static mut dyn LCDDisplay>(lcd_display));
         }
         
 
@@ -74,7 +76,6 @@ impl Initializable for AppMain {
 
         log_info!(APP_TAG, "App main initialized successfully heap_free:{}", System::get_free_heap_size());
 
-        self.hardware.set_internal_led(true);
         Ok(())
     }
 }

@@ -2,7 +2,7 @@ use osal_rs::log_info;
 
 use crate::traits::button::{ButtonState, OnClickable};
 use crate::traits::encoder::{EncoderDirection, OnRotatableAndClickable};
-use crate::traits::lcd_display::LCDDisplay;
+use crate::traits::lcd_display::{LCDDisplay, LCDWriteMode};
 use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "Lcd";
@@ -19,6 +19,13 @@ impl<'a> Lcd<'a> {
     }
 
     pub fn set_display(&mut self, display: &'a mut dyn LCDDisplay) {
+
+
+        //let _ = display.draw_rect(10, 0, 3, 3, LCDWriteMode::ADD);
+        let _ = display.draw_pixel(10, 0, LCDWriteMode::ADD);
+
+        let _ = display.draw();
+
         self.display = Some(display);
     }
 }
