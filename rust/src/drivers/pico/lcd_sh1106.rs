@@ -20,7 +20,7 @@
 #![allow(unused)]
 
 use crate::drivers::i2c::I2C;
-use crate::traits::lcd_display::LCDDisplay;
+use crate::traits::lcd_display::{LCDDisplay, LCDWriteMode};
 use crate::traits::state::Initializable;
 use osal_rs::log_info;
 use osal_rs::utils::{Error, Result};
@@ -63,17 +63,6 @@ pub(super) mod sh1106_commands {
     pub(super) const MULTIPLEX: u8 = 0x3F;
 }
 
-#[repr(u8)]
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub enum LCDSH1106WriteMode
-    {
-        /// sets pixel on regardless of its state
-        ADD = 0,
-        /// sets pixel off regardless of its state
-        REMOVE = 1,
-        /// inverts pixel, so 1->0 or 0->1
-        INVERT = 2,
-    }
 
 pub struct LCDSH1106 {
     i2c: I2C<{LCDSH1106::I2C_ADDRESS}>,
@@ -81,6 +70,9 @@ pub struct LCDSH1106 {
     orientation: bool,
     turned_on: bool,
 }
+
+unsafe impl Send for LCDSH1106 {}
+unsafe impl Sync for LCDSH1106 {}
 
 impl Initializable  for LCDSH1106 {
     fn init(&mut self) -> Result<()> {
@@ -145,7 +137,8 @@ impl LCDDisplay for LCDSH1106 {
         }
     }
 
-    fn draw_pixel(&mut self, x: u8, y: u8, write_mode: LCDSH1106WriteMode)  -> Result<()>  {
+    fn draw_pixel(&mut self, x: u8, y: u8, write_mode: LCDWriteMode)  -> Result<()>  {
+        use LCDWriteMode::*;
         if (x >= LCDSH1106::WIDTH) || (y >= (LCDSH1106::HEIGHT * 8) ) {
             return Err(Error::OutOfIndex);
         }
@@ -155,14 +148,14 @@ impl LCDDisplay for LCDSH1106 {
         let idx = (page * LCDSH1106::WIDTH) + x;
 
         match write_mode {
-            LCDSH1106WriteMode::ADD => self.buffer[idx as usize] |= (1 << bit),
-            LCDSH1106WriteMode::REMOVE =>  self.buffer[idx as usize] &= !(1 << bit),
-            LCDSH1106WriteMode::INVERT => self.buffer[idx as usize] ^= (1 << bit),
+            ADD => self.buffer[idx as usize] |= (1 << bit),
+            REMOVE =>  self.buffer[idx as usize] &= !(1 << bit),
+            INVERT => self.buffer[idx as usize] ^= (1 << bit),
         }
         Ok(())
     }
 
-    fn draw_bitmap_image(&mut self, x: u8, y: u8, width: u8, height: u8, image: &[u8], write_mode: LCDSH1106WriteMode) -> Result<()> {
+    fn draw_bitmap_image(&mut self, x: u8, y: u8, width: u8, height: u8, image: &[u8], write_mode: LCDWriteMode) -> Result<()> {
         if(image.len() ==0 || width * height != image.len() as u8)
         {
             return Err(Error::InvalidType);
@@ -177,11 +170,11 @@ impl LCDDisplay for LCDSH1106 {
             {
                 if(image[idx as usize] != 0)
                 {
-                    self.draw_pixel(x + w, y + h, LCDSH1106WriteMode::ADD);
+                    self.draw_pixel(x + w, y + h, LCDWriteMode::ADD);
                 }
                 else
                 {
-                    self.draw_pixel(x + w, y + h, LCDSH1106WriteMode::REMOVE);
+                    self.draw_pixel(x + w, y + h, LCDWriteMode::REMOVE);
                 }
                 idx += 1;
             }
@@ -189,7 +182,7 @@ impl LCDDisplay for LCDSH1106 {
         Ok(())
     }
 
-    fn draw_rect(&mut self, x: u8, y: u8, width: u8, height: u8, write_mode: LCDSH1106WriteMode) -> Result<()> {
+    fn draw_rect(&mut self, x: u8, y: u8, width: u8, height: u8, write_mode: LCDWriteMode) -> Result<()> {
         for w in 0..width
         {
             for h in 0..height
@@ -236,11 +229,11 @@ impl LCDDisplay for LCDSH1106 {
                 {
                     if (font[c_offset as usize + idx] & (1 << bit) > 0)
                     {
-                        self.draw_pixel(x + w, y + (h * 8) + bit, LCDSH1106WriteMode::ADD)?;
+                        self.draw_pixel(x + w, y + (h * 8) + bit, LCDWriteMode::ADD)?;
                     }
                     else
                     {
-                        self.draw_pixel(x + w, y + (h * 8) + bit, LCDSH1106WriteMode::REMOVE)?;
+                        self.draw_pixel(x + w, y + (h * 8) + bit, LCDWriteMode::REMOVE)?;
                     }
                 }
                 w += 1;

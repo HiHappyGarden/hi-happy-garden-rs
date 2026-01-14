@@ -2,20 +2,28 @@ use osal_rs::log_info;
 
 use crate::traits::button::{ButtonState, OnClickable};
 use crate::traits::encoder::{EncoderDirection, OnRotatableAndClickable};
+use crate::traits::lcd_display::LCDDisplay;
 use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "Lcd";
 
-#[derive(Clone)]
-pub struct Lcd;
+pub struct Lcd<'a> {
+    display: Option<&'a mut dyn LCDDisplay>,
+}
 
-impl Lcd {
+impl<'a> Lcd<'a> {
     pub const fn new() -> Self{
-        Self
+        Self {
+            display: None,
+        }
+    }
+
+    pub fn set_display(&mut self, display: &'a mut dyn LCDDisplay) {
+        self.display = Some(display);
     }
 }
 
-impl Initializable for Lcd {
+impl Initializable for Lcd<'_> {
     fn init(&mut self) -> osal_rs::utils::Result<()> {
         log_info!(APP_TAG, "Init LCD");
 
@@ -23,7 +31,7 @@ impl Initializable for Lcd {
     }
 }
 
-impl OnClickable for Lcd {
+impl OnClickable for Lcd<'_> {
     fn on_click(&self, state: ButtonState) {
         match state {
             ButtonState::Pressed => log_info!(APP_TAG, "Button Pressed"),
@@ -33,7 +41,7 @@ impl OnClickable for Lcd {
     }
 }
 
-impl OnRotatableAndClickable for Lcd {
+impl OnRotatableAndClickable for Lcd<'_> {
     fn on_rotable(&self, direction: EncoderDirection, position: i32) {
         match direction {
             EncoderDirection::Clockwise => log_info!(APP_TAG, "Encoder Clockwise pos:{position}"),
