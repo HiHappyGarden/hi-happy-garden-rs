@@ -32,8 +32,8 @@ const APP_TAG: &str = "I2C";
 
 pub struct I2CFn {
     pub init: fn(u8, u32) -> Result<*mut c_void>, //i2c_instance, baudrate
-    pub write: fn(*mut c_void, u8, data: &[u8]) -> OsalRsBool, //instance, address, data
-    pub read: fn(*mut c_void, u8, buffer: &mut [u8]) -> OsalRsBool, //instance, address, buffer
+    pub write: fn(*mut c_void, u8, data: &[u8]) -> i32, //instance, address, data
+    pub read: fn(*mut c_void, u8, buffer: &mut [u8]) -> i32, //instance, address, buffer
     pub write_and_read: fn(*mut c_void, u8, data: &[u8], buffer: &mut [u8]) -> OsalRsBool, //instance, address, data, buffer
 }
 
@@ -49,7 +49,7 @@ pub struct I2CFn {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init i2c address: 0x{:02X}", ADDRESS);
 
-        self.instance = (self.functions.init)(0, self.baudrate)?;
+        self.instance = (self.functions.init)(1, self.baudrate)?;
 
         Ok(())
     }
@@ -67,11 +67,11 @@ pub struct I2CFn {
         }
     }
 
-    pub fn write(&self, data: &[u8]) -> OsalRsBool {
+    pub fn write(&self, data: &[u8]) -> i32 {
         (self.functions.write)(self.instance, ADDRESS, data)
     }
 
-    pub fn read(&self, buffer: &mut [u8]) -> OsalRsBool {
+    pub fn read(&self, buffer: &mut [u8]) -> i32 {
         (self.functions.read)(self.instance, ADDRESS, buffer)
     }
 

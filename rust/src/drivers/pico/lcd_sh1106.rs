@@ -20,10 +20,12 @@
 #![allow(unused)]
 
 use crate::drivers::i2c::I2C;
+use crate::traits::lcd_display::LCDDisplay;
 use crate::traits::state::Initializable;
 use osal_rs::log_info;
 use osal_rs::utils::{Error, Result};
 use sh1106_commands::*;
+use crate::drivers::plt::ffi::pico_error_codes::PICO_ERROR_GENERIC;
 
 const APP_TAG: &str = "LCDSH1106";
 const ASCII_TABLE_START_AT_IDX: u8 = 32;
@@ -81,7 +83,7 @@ pub struct LCDSH1106 {
 }
 
 impl Initializable  for LCDSH1106 {
-    fn init(&mut self) -> crate::osal_rs::utils::Result<()> {
+    fn init(&mut self) -> Result<()> {
 
         self.i2c.init()?;
 
@@ -116,69 +118,36 @@ impl Initializable  for LCDSH1106 {
         ];
 
         self.send_cmds(&init_sequence);
+
+        self.clear();
+
+        self.draw()?;
         
         Ok(())
     }
 }
 
-impl LCDSH1106 {
-
-    pub const I2C_ADDRESS: u8 = 0x3C;
-    pub const WIDTH: u8 = 132;
-    pub const HEIGHT: u8 = 8; // in pages (8 pixels each)
-
-    pub fn new(i2c: I2C<{LCDSH1106::I2C_ADDRESS}>) -> Self {
-        Self { 
-            i2c,
-            buffer: [0u8; (LCDSH1106::WIDTH as usize) * (LCDSH1106::HEIGHT as usize)],
-            orientation: true,
-            turned_on: true,
-        }
-    }
-
-    fn send_cmd(&self, cmd: u8) {
-        let data = [0x00, cmd]; // Control byte 0x00 for commands
-        self.i2c.write(&data);
-    }
-
-    fn send_cmd_with_data(&self, cmd: u8, data: u8) {
-        self.send_cmd(cmd | data);
-    }
-
-    fn send_cmds(&self, cmds: &[u8]) {
-        for cmd in cmds {
-            self.send_cmd(*cmd);
-        }
-    }
-
-    fn send_data(&self, data: &[u8]) {
-        let mut buffer = [0u8; LCDSH1106::WIDTH as usize + 1];
-        buffer[0] = START_LINE; 
-        let len = data.len().min(LCDSH1106::WIDTH as usize);
-        buffer[1..=len].copy_from_slice(&data[..len]);
-        
-        self.i2c.write(&buffer);
-    }
-
-    pub fn draw(&mut self) {
+impl LCDDisplay for LCDSH1106 {
+    fn draw(&mut self) -> Result<()> {
         self.send_cmd(LOW_COLUMN);
         self.send_cmd(HIGH_COLUMN);
 
         for page in 0..LCDSH1106::HEIGHT {
-            self.send_cmd_with_data(PAGE_ADDR, page);
-            self.send_data(&self.buffer);
+            self.send_cmd_with_data(PAGE_ADDR, page)?;
+            self.send_data(&self.buffer)?;
         }
+        Ok(())
     }
 
-    pub fn clear(&mut self) {
+    fn clear(&mut self) {
         for byte in self.buffer.iter_mut() {
             *byte = 0x00;
         }
     }
 
-    pub fn draw_pixel(&mut self, x: u8, y: u8, write_mode: LCDSH1106WriteMode) {
+    fn draw_pixel(&mut self, x: u8, y: u8, write_mode: LCDSH1106WriteMode)  -> Result<()>  {
         if (x >= LCDSH1106::WIDTH) || (y >= (LCDSH1106::HEIGHT * 8) ) {
-            return;
+            return Err(Error::OutOfIndex);
         }
         
         let page = y / 8;
@@ -190,15 +159,16 @@ impl LCDSH1106 {
             LCDSH1106WriteMode::REMOVE =>  self.buffer[idx as usize] &= !(1 << bit),
             LCDSH1106WriteMode::INVERT => self.buffer[idx as usize] ^= (1 << bit),
         }
+        Ok(())
     }
 
-    pub fn draw_bitmap_image(&mut self, x: u8, y: u8, width: u8, height: u8, image: &[u8], write_mode: LCDSH1106WriteMode) {
+    fn draw_bitmap_image(&mut self, x: u8, y: u8, width: u8, height: u8, image: &[u8], write_mode: LCDSH1106WriteMode) -> Result<()> {
         if(image.len() ==0 || width * height != image.len() as u8)
         {
-            return;
+            return Err(Error::InvalidType);
         }
 
-                let mut idx = 0;
+        let mut idx = 0;
 
 
         for h in 0..height
@@ -216,20 +186,21 @@ impl LCDSH1106 {
                 idx += 1;
             }
         }
-
+        Ok(())
     }
 
-    pub fn draw_rect(&mut self, x: u8, y: u8, width: u8, height: u8, write_mode: LCDSH1106WriteMode) {
+    fn draw_rect(&mut self, x: u8, y: u8, width: u8, height: u8, write_mode: LCDSH1106WriteMode) -> Result<()> {
         for w in 0..width
         {
             for h in 0..height
             {
-                self.draw_pixel(x + w, y + h, write_mode);
+                self.draw_pixel(x + w, y + h, write_mode)?;
             }
         }
+        Ok(())
     }
 
-    pub fn draw_char(&mut self, c: char ,  x: u8, y: u8, font: &[u8]) -> Result<()> {
+    fn draw_char(&mut self, c: char ,  x: u8, y: u8, font: &[u8]) -> Result<()> {
         if font.len() == 0 {
             return Err(Error::Empty)
         }
@@ -265,22 +236,21 @@ impl LCDSH1106 {
                 {
                     if (font[c_offset as usize + idx] & (1 << bit) > 0)
                     {
-                        self.draw_pixel(x + w, y + (h * 8) + bit, LCDSH1106WriteMode::ADD);
+                        self.draw_pixel(x + w, y + (h * 8) + bit, LCDSH1106WriteMode::ADD)?;
                     }
                     else
                     {
-                        self.draw_pixel(x + w, y + (h * 8) + bit, LCDSH1106WriteMode::REMOVE);
+                        self.draw_pixel(x + w, y + (h * 8) + bit, LCDSH1106WriteMode::REMOVE)?;
                     }
                 }
                 w += 1;
             }
-
         }
 
         Ok(())
     }
 
-    pub fn draw_str(&mut self, str: &str, x: u8, y: u8, font: &[u8], font_size: u32) -> Result<()> {
+    fn draw_str(&mut self, str: &str, x: u8, y: u8, font: &[u8], font_size: u32) -> Result<()> {
         if str.is_empty() || font.is_empty() {
             return Err(Error::Empty);
         }
@@ -293,36 +263,88 @@ impl LCDSH1106 {
         Ok(())
     }
 
-    pub fn invert_orientation(&mut self) {
+    fn invert_orientation(&mut self) -> Result<()> {
         self.orientation = !self.orientation;
         if self.orientation {
-            self.send_cmd(VERTICAL_FLIP_ON);
-            self.send_cmd(COLUMN_REMAP_OFF);
+            self.send_cmd(VERTICAL_FLIP_ON)?;
+            self.send_cmd(COLUMN_REMAP_OFF)?;
         } else {
-            self.send_cmd(VERTICAL_FLIP_OFF);
-            self.send_cmd(COLUMN_REMAP_ON);
+            self.send_cmd(VERTICAL_FLIP_OFF)?;
+            self.send_cmd(COLUMN_REMAP_ON)?;
         }
+        Ok(())
     }
 
-    pub fn set_contrast(&self, contrast: u8) {
-        self.send_cmd(SET_CONTRAST);
-        self.send_cmd(contrast);
+    fn set_contrast(&self, contrast: u8) -> Result<()> {
+        self.send_cmd(SET_CONTRAST)?;
+        self.send_cmd(contrast)?;
+        Ok(())
     }
 
-    pub fn turn_off(&mut self) {
+    fn turn_off(&mut self) -> Result<()> {
         if !self.turned_on {
-            return;
+            return Ok(());
         }
         self.turned_on = false;
-        self.send_cmd(DISPLAY_OFF);
+        self.send_cmd(DISPLAY_OFF)?;
+        Ok(())
     }
 
-    pub fn turn_on(&mut self) {
+    fn turn_on(&mut self) -> Result<()> {
         if self.turned_on {
-            return;
+            return Ok(());
         }
         self.turned_on = true;
-        self.send_cmd(DISPLAY_ON);
+        self.send_cmd(DISPLAY_ON)?;
+        Ok(())
+    }
+}
+
+impl LCDSH1106 {
+
+    pub const I2C_ADDRESS: u8 = 0x3C;
+    pub const WIDTH: u8 = 132;
+    pub const HEIGHT: u8 = 8; // in pages (8 pixels each)
+
+    pub fn new(i2c: I2C<{LCDSH1106::I2C_ADDRESS}>) -> Self {
+        Self { 
+            i2c,
+            buffer: [0u8; (LCDSH1106::WIDTH as usize) * (LCDSH1106::HEIGHT as usize)],
+            orientation: true,
+            turned_on: true,
+        }
     }
 
+    fn send_cmd(&self, cmd: u8) -> Result<()>{
+        let data = [0x00, cmd]; // Control byte 0x00 for commands
+        if self.i2c.write(&data) == PICO_ERROR_GENERIC as i32 {
+            Err(Error::WriteError)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn send_cmd_with_data(&self, cmd: u8, data: u8) -> Result<()> {
+        self.send_cmd(cmd | data)
+    }
+
+    fn send_cmds(&self, cmds: &[u8]) -> Result<()> {
+        for cmd in cmds {
+            self.send_cmd(*cmd)?;
+        }
+        Ok(())
+    }
+
+    fn send_data(&self, data: &[u8]) -> Result<()> {
+        let mut buffer = [0u8; LCDSH1106::WIDTH as usize + 1];
+        buffer[0] = START_LINE; 
+        let len = data.len().min(LCDSH1106::WIDTH as usize);
+        buffer[1..=len].copy_from_slice(&data[..len]);
+        
+        if self.i2c.write(&buffer) == PICO_ERROR_GENERIC as i32 {
+            Err(Error::WriteError)
+        } else {
+            Ok(())
+        }
+    }
 }

@@ -35,14 +35,26 @@ uint hhg_i2c_init(void *i2c, uint baudrate) {
 }
 
 void hhg_i2c_init_pins_with_func(void) {
-    bi_decl(bi_2pins_with_func(PICO_DEFAULT_I2C_SDA_PIN, PICO_DEFAULT_I2C_SCL_PIN, GPIO_FUNC_I2C));
+    bi_decl(bi_2pins_with_func(2, 3, GPIO_FUNC_I2C));
 }
 
 void hhg_i2c_write_blocking(void *i2c, uint8_t addr, const uint8_t *src, size_t len, bool nostop) {
-    i2c_write_blocking((i2c_inst_t *)i2c, addr, src, len, nostop);
+    // Use timeout to prevent infinite loops if I2C device doesn't respond
+    // 1000us (1ms) timeout per character should be more than enough
+    int result = i2c_write_timeout_per_char_us((i2c_inst_t *)i2c, addr, src, len, nostop, 1000);
+    if (result < 0) {
+        // Handle error - device not responding or timeout
+        // You might want to log this or handle it appropriately
+    }
 }
 
 void hhg_i2c_read_blocking(void *i2c, uint8_t addr, uint8_t *dst, size_t len, bool nostop) {
-    i2c_read_blocking((i2c_inst_t *)i2c, addr, dst, len, nostop);
+    // Use timeout to prevent infinite loops if I2C device doesn't respond
+    // 1000us (1ms) timeout per character should be more than enough
+    int result = i2c_read_timeout_per_char_us((i2c_inst_t *)i2c, addr, dst, len, nostop, 1000);
+    if (result < 0) {
+        // Handle error - device not responding or timeout
+        // You might want to log this or handle it appropriately
+    }
 }
 

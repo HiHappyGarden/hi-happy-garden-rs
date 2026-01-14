@@ -21,6 +21,7 @@ pub mod button;
 pub mod draw;
 pub mod encoder;
 pub mod hardware;
+pub mod lcd_display;
 pub mod relays;
 pub mod rgb_led;
 pub mod rx_tx;

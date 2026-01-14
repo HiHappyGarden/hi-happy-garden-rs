@@ -37,6 +37,7 @@ use crate::drivers::relays::Relays;
 use crate::drivers::rgb_led::RgbLed;
 use crate::drivers::uart::Uart;
 use crate::drivers::gpio::Gpio;
+use crate::traits::lcd_display::LCDDisplay;
 use crate::traits::rgb_led::RgbLed as RgbLedFn;
 use crate::traits::relays::Relays as RelaysFn;
 use crate::traits::button::{ButtonState, OnClickable, SetClickable as ButtonOnClickable};
@@ -92,9 +93,6 @@ impl ThreadPriority {
         }
     }
 }
-
-
-
 
 pub struct Hardware {
     uart: Uart,
@@ -205,6 +203,10 @@ impl Hardware {
 
     pub fn set_internal_led(&self, state: bool) {
         Gpio::new().write(&GpioPeripheral::InternalLed, if state {1} else {0});
+    }
+
+    pub fn get_lcd_display(&mut self) -> &mut dyn LCDDisplay {
+        &mut self.lcd
     }
 }
 

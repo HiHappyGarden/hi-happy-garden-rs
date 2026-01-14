@@ -2,6 +2,7 @@
 
 dirs=(
     "build"
+    "cmake-build*"
     "rust/target"
     "at-parser-rs/target"
     "osal-rs/target"
