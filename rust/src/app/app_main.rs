@@ -23,7 +23,7 @@ use core::ptr::addr_of_mut;
 use osal_rs::log_info;
 use osal_rs::os::{System, SystemFn};
 use osal_rs::utils::Result;
-use crate::app::lcd::Lcd;
+use crate::app::lcd::{Lcd};
 use crate::drivers::platform::{GpioPeripheral, Hardware};
 use crate::traits::hardware::HardwareFn;
 use crate::traits::relays::Relays;
@@ -44,19 +44,33 @@ impl Initializable for AppMain {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init app main");
 
+        
         unsafe { 
             let lcd = &mut *addr_of_mut!(LCD);
             lcd.init()?;
             
             self.hardware.set_button_handler(lcd);
             self.hardware.set_encoder_handler(lcd);
-              
-            
         }
+
+        
         
         self.hardware.set_color(0, 0, 255); // Blue
 
         self.hardware.set_relay_state(GpioPeripheral::Relay1, true);
+
+
+        unsafe {
+            let lcd = &mut *addr_of_mut!(LCD);
+            let lcd_display = self.hardware.get_lcd_display();
+
+            lcd.set_display(lcd_display);
+        }
+        
+
+        // lcd_display.draw_rect(10, 0, 3, 3, LCDWriteMode::ADD)?;
+
+        // lcd_display.draw()?;
 
         log_info!(APP_TAG, "App main initialized successfully heap_free:{}", System::get_free_heap_size());
 
