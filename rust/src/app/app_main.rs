@@ -33,7 +33,7 @@ use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "AppMain";
 
-static mut LCD : Lcd<'static> = Lcd::new();
+static mut LCD : Lcd = Lcd::new();
 
 
 pub struct AppMain{
