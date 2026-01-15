@@ -1,4 +1,5 @@
 use osal_rs::log_info;
+use osal_rs::utils::Result;
 
 use crate::traits::button::{ButtonState, OnClickable};
 use crate::traits::encoder::{EncoderDirection, OnRotatableAndClickable};
@@ -7,30 +8,33 @@ use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "Lcd";
 
-pub struct Lcd<'a> {
-    display: Option<&'a mut dyn LCDDisplay>,
+pub struct Lcd {
+
 }
 
-impl<'a> Lcd<'a> {
+impl Lcd {
     pub const fn new() -> Self{
         Self {
-            display: None,
+
         }
     }
 
-    pub fn set_display(&mut self, display: &'a mut dyn LCDDisplay) {
+    pub fn draw(&mut self, display: &mut impl LCDDisplay) -> Result<()> {
 
 
-        //let _ = display.draw_rect(10, 0, 3, 3, LCDWriteMode::ADD);
-        let _ = display.draw_pixel(10, 0, LCDWriteMode::ADD);
+        display.draw_pixel(1, 1, LCDWriteMode::ADD)?;
+        display.draw_pixel(1, 2, LCDWriteMode::ADD)?;
+        display.draw_pixel(1, 3, LCDWriteMode::ADD)?;
+        display.draw_pixel(2, 4, LCDWriteMode::ADD)?;
+        display.draw_pixel(2, 5, LCDWriteMode::ADD)?;
 
-        let _ = display.draw();
+        display.draw()?;
 
-        self.display = Some(display);
+        Ok(())
     }
 }
 
-impl Initializable for Lcd<'_> {
+impl Initializable for Lcd {
     fn init(&mut self) -> osal_rs::utils::Result<()> {
         log_info!(APP_TAG, "Init LCD");
 
@@ -38,7 +42,7 @@ impl Initializable for Lcd<'_> {
     }
 }
 
-impl OnClickable for Lcd<'_> {
+impl OnClickable for Lcd {
     fn on_click(&self, state: ButtonState) {
         match state {
             ButtonState::Pressed => log_info!(APP_TAG, "Button Pressed"),
@@ -48,7 +52,7 @@ impl OnClickable for Lcd<'_> {
     }
 }
 
-impl OnRotatableAndClickable for Lcd<'_> {
+impl OnRotatableAndClickable for Lcd {
     fn on_rotable(&self, direction: EncoderDirection, position: i32) {
         match direction {
             EncoderDirection::Clockwise => log_info!(APP_TAG, "Encoder Clockwise pos:{position}"),

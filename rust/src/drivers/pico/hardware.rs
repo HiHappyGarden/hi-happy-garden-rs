@@ -205,7 +205,7 @@ impl Hardware {
         Gpio::new().write(&GpioPeripheral::InternalLed, if state {1} else {0});
     }
 
-    pub fn get_lcd_display(&mut self) -> &mut dyn LCDDisplay {
+    pub fn get_lcd_display(&mut self) -> &mut impl LCDDisplay {
         &mut self.lcd
     }
 }

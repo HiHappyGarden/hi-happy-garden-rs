@@ -63,7 +63,7 @@ pub(super) mod sh1106_commands {
     pub(super) const MULTIPLEX: u8 = 0x3F;
 }
 
-
+#[derive(Clone)]
 pub struct LCDSH1106 {
     i2c: I2C<{LCDSH1106::I2C_ADDRESS}>,
     buffer: [u8; (LCDSH1106::WIDTH as usize) * (LCDSH1106::HEIGHT as usize)],
@@ -124,9 +124,14 @@ impl LCDDisplay for LCDSH1106 {
         self.send_cmd(LOW_COLUMN);
         self.send_cmd(HIGH_COLUMN);
 
-        for page in 0..LCDSH1106::HEIGHT {
+        for page in 0..LCDSH1106::HEIGHT{
             self.send_cmd_with_data(PAGE_ADDR, page)?;
-            self.send_data(&self.buffer)?;
+
+            let page = page as usize;
+            let start = page * LCDSH1106::WIDTH as usize;
+            let end = start + LCDSH1106::WIDTH as usize;
+ 
+            self.send_data(&self.buffer[start .. end])?;
         }
         Ok(())
     }
@@ -145,12 +150,12 @@ impl LCDDisplay for LCDSH1106 {
         
         let page = y / 8;
         let bit = y % 8;
-        let idx = (page * LCDSH1106::WIDTH) + x;
+        let idx : usize = (page * LCDSH1106::WIDTH) as usize + x as usize;
 
         match write_mode {
-            ADD => self.buffer[idx as usize] |= (1 << bit),
-            REMOVE =>  self.buffer[idx as usize] &= !(1 << bit),
-            INVERT => self.buffer[idx as usize] ^= (1 << bit),
+            ADD => self.buffer[idx] |= (1 << bit),
+            REMOVE =>  self.buffer[idx] &= !(1 << bit),
+            INVERT => self.buffer[idx] ^= (1 << bit),
         }
         Ok(())
     }
@@ -161,14 +166,14 @@ impl LCDDisplay for LCDSH1106 {
             return Err(Error::InvalidType);
         }
 
-        let mut idx = 0;
+        let mut idx = 0usize;
 
 
         for h in 0..height
         {
             for w in 0..width
             {
-                if(image[idx as usize] != 0)
+                if(image[idx] != 0)
                 {
                     self.draw_pixel(x + w, y + h, LCDWriteMode::ADD);
                 }
@@ -200,7 +205,7 @@ impl LCDDisplay for LCDSH1106 {
 
         let width = font[0];
         let height = (font[1] / 8) + (font[1] % 8 != 0) as u8;
-        let single_font_size = width * height;
+        let single_font_size = (width * height) as usize;
 
         if((font.len() - 2) % width as usize != 0) {
             return Err(Error::InvalidType);
@@ -210,7 +215,7 @@ impl LCDDisplay for LCDSH1106 {
 
         let mut w = 0;
         let mut h = 0;
-        for idx in 0..single_font_size as usize
+        for idx in 0..single_font_size
         {
             if(w >= width)
             {
@@ -330,7 +335,8 @@ impl LCDSH1106 {
 
     fn send_data(&self, data: &[u8]) -> Result<()> {
         let mut buffer = [0u8; LCDSH1106::WIDTH as usize + 1];
-        buffer[0] = START_LINE; 
+        buffer[0] = START_LINE;
+
         let len = data.len().min(LCDSH1106::WIDTH as usize);
         buffer[1..=len].copy_from_slice(&data[..len]);
         

@@ -37,7 +37,7 @@ pub struct I2CFn {
     pub write_and_read: fn(*mut c_void, u8, data: &[u8], buffer: &mut [u8]) -> OsalRsBool, //instance, address, data, buffer
 }
 
-
+#[derive(Clone)]
  pub struct I2C<const ADDRESS: u8>  {
     functions: &'static I2CFn,
     i2c_instance: u8,
