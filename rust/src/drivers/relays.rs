@@ -18,6 +18,7 @@
  ***************************************************************************/
 
 use osal_rs::log_info;
+use osal_rs::os::RawMutexFn;
 use osal_rs::utils::OsalRsBool;
 
 use crate::drivers::gpio::Gpio;
@@ -52,7 +53,7 @@ impl RaleayFn for Relays {
             Relay1 | Relay2 | Relay3 | Relay4 => {
                 self.0.get_mutex().lock();
                 self.0.write(&relay_index, if state { 1 } else { 0 });
-                self.0.unlock();
+                self.0.get_mutex().unlock();
                 OsalRsBool::True
             }
             _ => OsalRsBool::False,

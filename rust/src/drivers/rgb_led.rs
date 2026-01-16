@@ -18,6 +18,7 @@
  ***************************************************************************/
 
 use osal_rs::log_info;
+use osal_rs::os::RawMutexFn;
 use osal_rs::utils::Result;
 
 use crate::drivers::gpio::Gpio;
