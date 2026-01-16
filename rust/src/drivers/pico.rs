@@ -21,7 +21,6 @@
 
 pub(crate) mod ffi;
 pub(crate) mod hardware;
-pub(crate) mod lcd_sh1106;
 pub(crate) mod gpio;
 pub(crate) mod uart;
 pub(crate) mod i2c;

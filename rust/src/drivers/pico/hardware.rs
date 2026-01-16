@@ -29,6 +29,7 @@ use alloc::sync::Arc;
 use core::cell::RefCell;
 use core::ptr::read;
 
+use crate::drivers::LCDSH1106;
 use crate::drivers::button::Button;
 use crate::drivers::encoder::Encoder;
 use crate::drivers::i2c::I2C;
@@ -47,7 +48,7 @@ use crate::traits::rx_tx::OnReceive;
 use super::gpio::{GPIO_FN, GPIO_CONFIG_SIZE};
 use crate::traits::state::Initializable;
 
-use crate::drivers::platform::{GpioPeripheral, I2C_BAUDRATE, I2C_INSTANCE, LCDDisplay, LCDSH1106, UART_FN};
+use crate::drivers::platform::{GpioPeripheral, I2C_BAUDRATE, I2C_INSTANCE, LCDDisplay, UART_FN};
 
 const APP_TAG: &str = "Hardware";
 
