@@ -248,7 +248,7 @@ impl LCDDisplayFn for LCDSH1106 {
         Ok(())
     }
 
-    fn draw_str(&mut self, str: &str, x: u8, y: u8, font: &[u8], font_size: u32) -> Result<()> {
+    fn draw_str(&mut self, str: &str, x: u8, y: u8, font: &[u8]) -> Result<()> {
         if str.is_empty() || font.is_empty() {
             return Err(Error::Empty);
         }

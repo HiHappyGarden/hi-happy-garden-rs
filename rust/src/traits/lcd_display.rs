@@ -56,7 +56,7 @@ pub trait LCDDisplayFn : Sync + Send {
     fn draw_char(&mut self, c: char, x: u8, y: u8, font: &[u8]) -> Result<()>;
     
     /// Draw a string
-    fn draw_str(&mut self, str: &str, x: u8, y: u8, font: &[u8], font_size: u32) -> Result<()>;
+    fn draw_str(&mut self, str: &str, x: u8, y: u8, font: &[u8]) -> Result<()>;
     
     /// Invert the display orientation
     fn invert_orientation(&mut self) -> Result<()>;
