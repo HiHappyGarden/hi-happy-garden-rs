@@ -37,7 +37,7 @@ set(FREERTOS_KERNEL_PATH ${CMAKE_SOURCE_DIR}/FreeRTOS-Kernel)
 set(FREERTOS_CONFIG_FILE_DIRECTORY ${CMAKE_SOURCE_DIR}/inc/hhg-config)
 
 # Include the RP2350_ARM_NTZ port BEFORE pico_sdk_init()
-add_subdirectory(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/Community-Supported-Ports/GCC/RP2350_ARM_NTZ FreeRTOS-Kernel)
+add_subdirectory(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2350_ARM_NTZ/)
 
 project(hi-happy-garden-rs VERSION "0.1.0" LANGUAGES CXX C ASM)
 
