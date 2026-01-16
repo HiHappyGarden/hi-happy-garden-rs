@@ -20,6 +20,9 @@ pub mod platform {
     pub use crate::drivers::plt::i2c::*;
     pub use crate::drivers::plt::uart::*;
     pub use crate::drivers::plt::lcd_sh1106::*;
+    
+    #[cfg(feature = "pico")]
+    pub type LCDDisplay = LCDSH1106;
 }
 
 pub use crate::drivers::button::*;

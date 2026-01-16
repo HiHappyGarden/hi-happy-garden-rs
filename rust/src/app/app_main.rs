@@ -17,14 +17,11 @@
  *
  ***************************************************************************/
 
-
-use core::ptr::addr_of_mut;
-
 use osal_rs::log_info;
 use osal_rs::os::{System, SystemFn};
 use osal_rs::utils::Result;
-use crate::app::lcd::{Lcd};
-use crate::drivers::platform::{GpioPeripheral, Hardware};
+use crate::app::display::{Display};
+use crate::drivers::platform::{GpioPeripheral, Hardware, LCDDisplay};
 use crate::traits::hardware::HardwareFn;
 use crate::traits::relays::Relays;
 use crate::traits::rgb_led::RgbLed;
@@ -32,11 +29,12 @@ use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "AppMain";
 
-static mut LCD : Lcd = Lcd::new();
+
 
 
 pub struct AppMain{
-    hardware: &'static mut Hardware
+    hardware: &'static mut Hardware,
+    display: Display<LCDDisplay>,
 }
 
 
@@ -45,34 +43,27 @@ impl Initializable for AppMain {
         log_info!(APP_TAG, "Init app main");
 
         
-        unsafe { 
-            let lcd = &mut *addr_of_mut!(LCD);
-            lcd.init()?;
-            
-            self.hardware.set_button_handler(lcd);
-            self.hardware.set_encoder_handler(lcd);
-        }
+        
+        self.display.init()?;
+        
+        // SAFETY: AppMain has 'static lifetime since it's created with 'static hardware
+        let display_ref: &'static Display<LCDDisplay>  = unsafe { &*(&self.display as *const _) };
+        
+        self.hardware.set_button_handler(display_ref);
+        
+        self.hardware.set_encoder_handler(display_ref);
+    
 
-        
-        
+//test funzionalità
+
         self.hardware.set_color(0, 0, 255); // Blue
 
         self.hardware.set_relay_state(GpioPeripheral::Relay1, true);
 
         self.hardware.set_internal_led(true);
 
-        unsafe {
-            let display = self.hardware.get_lcd_display();
-            let lcd = &mut *addr_of_mut!(LCD);
+        self.display.draw()?;
 
-            lcd.draw(display)?;
-        }
-
-        // let lcd_display = self.hardware.get_lcd_display();
-
-        // lcd_display.draw_rect(10, 0, 3, 3, LCDWriteMode::ADD)?;
-        //
-        // lcd_display.draw()?;
 
         log_info!(APP_TAG, "App main initialized successfully heap_free:{}", System::get_free_heap_size());
 
@@ -82,8 +73,10 @@ impl Initializable for AppMain {
 
 impl AppMain {
     pub fn new(hardware: &'static mut Hardware) -> Self {
+        let display = Display::new(hardware.get_lcd_display());
         Self {
-            hardware
+            hardware,
+            display,
         }
     }
 }

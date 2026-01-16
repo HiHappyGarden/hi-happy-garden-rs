@@ -37,7 +37,7 @@ use crate::drivers::relays::Relays;
 use crate::drivers::rgb_led::RgbLed;
 use crate::drivers::uart::Uart;
 use crate::drivers::gpio::Gpio;
-use crate::traits::lcd_display::LCDDisplay;
+use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rgb_led::RgbLed as RgbLedFn;
 use crate::traits::relays::Relays as RelaysFn;
 use crate::traits::button::{ButtonState, OnClickable, SetClickable as ButtonOnClickable};
@@ -47,7 +47,7 @@ use crate::traits::rx_tx::OnReceive;
 use super::gpio::{GPIO_FN, GPIO_CONFIG_SIZE};
 use crate::traits::state::Initializable;
 
-use crate::drivers::platform::{GpioPeripheral, I2C_SH1106_BAUDRATE, I2C_SH1106_INSTANCE, LCDSH1106, UART_FN};
+use crate::drivers::platform::{GpioPeripheral, I2C_BAUDRATE, I2C_INSTANCE, LCDDisplay, LCDSH1106, UART_FN};
 
 const APP_TAG: &str = "Hardware";
 
@@ -96,11 +96,11 @@ impl ThreadPriority {
 
 pub struct Hardware {
     uart: Uart,
+    i2c: I2C<{LCDSH1106::I2C_ADDRESS}>,
     encoder: Encoder,
     button: Button,
     rgb_led: RgbLed,
     relays: Relays,
-    lcd: LCDSH1106,
 }
 
 impl Initializable for Hardware {
@@ -126,7 +126,7 @@ impl Initializable for Hardware {
 
         self.rgb_led.init()?;
 
-        self.lcd.init()?;
+        self.i2c.init()?;
 
         log_info!(APP_TAG, "Hardware initialized successfully heap_free:{}", System::get_free_heap_size());
         Ok(())
@@ -193,11 +193,11 @@ impl Hardware {
         
         Self { 
             uart: Uart::new(),
+            i2c: I2C::new(I2C_INSTANCE, I2C_BAUDRATE),
             encoder: Encoder::new(),
             button: Button::new(),
             rgb_led: RgbLed::new(),
             relays: Relays::new(),
-            lcd: LCDSH1106::new(I2C::new(I2C_SH1106_INSTANCE, I2C_SH1106_BAUDRATE)),
         }
     }
 
@@ -205,8 +205,8 @@ impl Hardware {
         Gpio::new().write(&GpioPeripheral::InternalLed, if state {1} else {0});
     }
 
-    pub fn get_lcd_display(&mut self) -> &mut impl LCDDisplay {
-        &mut self.lcd
+    pub fn get_lcd_display(&mut self) -> LCDDisplay {
+        LCDSH1106::new(self.i2c.clone())
     }
 }
 

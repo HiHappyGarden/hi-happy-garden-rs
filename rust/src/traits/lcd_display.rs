@@ -36,7 +36,7 @@ pub enum LCDWriteMode
 
 
 /// Trait for LCD display operations
-pub trait LCDDisplay : Sync + Send {
+pub trait LCDDisplayFn : Sync + Send {
     /// Draw the buffer to the display
     fn draw(&mut self) -> Result<()>;
     

@@ -28,8 +28,8 @@ use osal_rs::utils::{Error, OsalRsBool, Result};
 use crate::drivers::{i2c::I2CFn, pico::ffi::{gpio_function_t, hhg_gpio_pull_up, hhg_gpio_set_function, hhg_i2c_init, hhg_i2c_init_pins_with_func, hhg_i2c_instance, hhg_i2c_read_blocking, hhg_i2c_write_blocking}};
 use crate::drivers::plt::ffi::pico_error_codes::PICO_ERROR_GENERIC;
 
-pub const I2C_SH1106_INSTANCE: u8 = 0;
-pub const I2C_SH1106_BAUDRATE: u32 = 100_000;
+pub const I2C_INSTANCE: u8 = 0;
+pub const I2C_BAUDRATE: u32 = 100_000;
 
 pub static I2C_FN: I2CFn = I2CFn {
     init,

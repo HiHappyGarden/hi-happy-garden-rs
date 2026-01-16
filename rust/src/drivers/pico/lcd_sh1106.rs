@@ -20,7 +20,7 @@
 #![allow(unused)]
 
 use crate::drivers::i2c::I2C;
-use crate::traits::lcd_display::{LCDDisplay, LCDWriteMode};
+use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use crate::traits::state::Initializable;
 use osal_rs::log_info;
 use osal_rs::utils::{Error, Result};
@@ -119,7 +119,7 @@ impl Initializable  for LCDSH1106 {
     }
 }
 
-impl LCDDisplay for LCDSH1106 {
+impl LCDDisplayFn for LCDSH1106 {
     fn draw(&mut self) -> Result<()> {
         self.send_cmd(LOW_COLUMN);
         self.send_cmd(HIGH_COLUMN);
@@ -303,6 +303,7 @@ impl LCDSH1106 {
     pub const I2C_ADDRESS: u8 = 0x3C;
     pub const WIDTH: u8 = 132;
     pub const HEIGHT: u8 = 8; // in pages (8 pixels each)
+
 
     pub fn new(i2c: I2C<{LCDSH1106::I2C_ADDRESS}>) -> Self {
         Self { 
