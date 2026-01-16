@@ -1,6 +1,7 @@
 use osal_rs::log_info;
 use osal_rs::utils::Result;
 
+use crate::assets::font_8x8::FONT_8X8;
 use crate::traits::button::{ButtonState, OnClickable};
 use crate::traits::encoder::{EncoderDirection, OnRotatableAndClickable};
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
@@ -33,6 +34,8 @@ where LC: LCDDisplayFn
         self.lcd.draw_pixel(2, 4, LCDWriteMode::ADD)?;
         self.lcd.draw_pixel(2, 5, LCDWriteMode::ADD)?;
         self.lcd.draw()?;
+
+        self.lcd.draw_str("ciao", 80, 50, &FONT_8X8)?;
 
         Ok(())
     }

@@ -22,7 +22,8 @@
 extern crate alloc;
 extern crate osal_rs;
 
-mod app;
+mod apps;
+mod assets;
 mod drivers;
 mod traits;
 
@@ -49,7 +50,7 @@ use osal_rs::{log_fatal, log_info};
 use crate::drivers::platform::Hardware;
 use crate::traits::state::Initializable;
 use crate::ffi::{get_g_setup_called, print_systick_status};
-use crate::app::AppMain;
+use crate::apps::AppMain;
 
 const APP_TAG: &str = "rust";
 const APP_THREAD_NAME: &str = "main_trd";
