@@ -60,15 +60,21 @@ impl RgbLedFn for RgbLed {
     }
 
     fn  set_red(&self, red: u8) {
+        self.gpio.get_mutex().lock();
         self.gpio.set_pwm(&self.gpio_red_ref, red as u16);
+        self.gpio.get_mutex().unlock();
     }
 
     fn set_green(&self, green: u8) {
+        self.gpio.get_mutex().lock();
         self.gpio.set_pwm(&self.gpio_green_ref, green as u16);
+        self.gpio.get_mutex().unlock();
     }
 
     fn set_blue(&self, blue: u8) {
+        self.gpio.get_mutex().lock();
         self.gpio.set_pwm(&self.gpio_blue_ref, blue as u16);
+        self.gpio.get_mutex().unlock();
     }
 }
 
