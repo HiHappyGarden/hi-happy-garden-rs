@@ -50,7 +50,9 @@ impl RaleayFn for Relays {
 
         match relay_index {
             Relay1 | Relay2 | Relay3 | Relay4 => {
+                self.0.get_mutex().lock();
                 self.0.write(&relay_index, if state { 1 } else { 0 });
+                self.0.unlock();
                 OsalRsBool::True
             }
             _ => OsalRsBool::False,
