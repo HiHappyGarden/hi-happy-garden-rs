@@ -80,31 +80,31 @@ impl Initializable  for LCDSH1106 {
         log_info!(APP_TAG, "Init LCDSH1106");
 
         let init_sequence: [u8; 25] = [
-            DISPLAY_OFF,
-            DISPLAY_PRESCALER,
-            CONTRAST,
-            MULTIPLEX,
-            MULTIPLEX,
-            DISPLAY_OFFSET,
-            0x00,
-            START_LINE | 0x00,
-            CHARGE_PUMP,
-            0x14,
-            MEMORY_MODE,
-            MEMORY_MODE_HORIZONTAL,
-            COLUMN_REMAP_ON,
-            VERTICAL_FLIP_ON,
-            COM_PADS,
-            0x12,
-            CONTRAST,
-            0xFF,
-            PRE_CHARGE,
-            0xF1,
-            VCOM_SET,
-            0x40,
-            ENTRTY_DISPLAY_OFF,
-            INVERTED_OFF,
-            DISPLAY_ON,
+            DISPLAY_OFF,                // Turn off display during initialization
+            DISPLAY_PRESCALER,          // Set display clock divide ratio/oscillator frequency
+            CONTRAST,                   // Set contrast control register (command)
+            MULTIPLEX,                  // Set multiplex ratio (command)
+            0x3F,                       // Set multiplex ratio value (1-64)
+            DISPLAY_OFFSET,             // Set display offset (command)
+            0x00,                       // Display offset value: no offset
+            START_LINE | 0x00,          // Set display start line to 0
+            CHARGE_PUMP,                // Charge pump setting (command)
+            0x14,                       // Enable charge pump
+            MEMORY_MODE,                // Set memory addressing mode (command)
+            MEMORY_MODE_HORIZONTAL,     // Use horizontal addressing mode
+            COLUMN_REMAP_OFF,           // No column remap - origin at top-left
+            VERTICAL_FLIP_OFF,          // No vertical flip - origin at top-left
+            COM_PADS,                   // Set COM pins hardware configuration (command)
+            0x12,                       // Alternative COM pin configuration
+            CONTRAST,                   // Set contrast control (command)
+            0xFF,                       // Maximum contrast value
+            PRE_CHARGE,                 // Set pre-charge period (command)
+            0xF1,                       // Pre-charge period value
+            VCOM_SET,                   // Set VCOMH deselect level (command)
+            0x40,                       // VCOMH deselect level value
+            ENTRTY_DISPLAY_OFF,         // Resume to RAM content display
+            INVERTED_OFF,               // Set normal display (not inverted)
+            DISPLAY_ON,                 // Turn on display
         ];
 
         self.send_cmds(&init_sequence);
@@ -218,10 +218,12 @@ impl LCDDisplayFn for LCDSH1106 {
 
             if w < width {
                 for bit in 0..8 {
+                    let x = x + w;
+                    let y = y + (h * 8) + (7 - bit);
                     if font[c_offset as usize + idx] & (1 << bit) > 0 {
-                        self.draw_pixel(x + w, y + (h * 8) + bit, LCDWriteMode::ADD)?;
+                        self.draw_pixel(x, y, LCDWriteMode::ADD)?;
                     } else {
-                        self.draw_pixel(x + w, y + (h * 8) + bit, LCDWriteMode::REMOVE)?;
+                        self.draw_pixel(x, y, LCDWriteMode::REMOVE)?;
                     }
                 }
                 w += 1;
@@ -302,7 +304,7 @@ impl LCDSH1106 {
         if self.i2c.write(&data) == PICO_ERROR_GENERIC as i32 {
             Err(Error::WriteError)
         } else {
-            Ok(())
+            Ok(()) 
         }
     }
 
