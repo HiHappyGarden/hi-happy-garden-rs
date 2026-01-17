@@ -29,6 +29,7 @@ use alloc::sync::Arc;
 use core::cell::RefCell;
 use core::ptr::read;
 
+use crate::apps::display;
 use crate::drivers::LCDSH1106;
 use crate::drivers::button::Button;
 use crate::drivers::encoder::Encoder;
@@ -207,7 +208,9 @@ impl Hardware {
     }
 
     pub fn get_lcd_display(&mut self) -> LCDDisplay {
-        LCDSH1106::new(self.i2c.clone())
+        let mut ret = LCDSH1106::new(self.i2c.clone());
+        ret.init().unwrap();
+        ret
     }
 }
 

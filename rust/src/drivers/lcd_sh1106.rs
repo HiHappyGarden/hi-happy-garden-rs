@@ -32,16 +32,16 @@ const ASCII_TABLE_START_AT_IDX: u8 = 32;
 
 pub(super) mod sh1106_commands {
     pub(super) const CONTRAST: u8 = 0x80;
-    pub(super) const DISPLAY_ALL_ON_RESUME: u8 = 0xA4;
-    pub(super) const DISPLAY_ALL_ON: u8 = 0xA5;
+    pub(super) const ENTRTY_DISPLAY_OFF: u8 = 0xA4;
+    pub(super) const ENTRTY_DISPLAY_ON: u8 = 0xA5;
     pub(super) const INVERTED_OFF: u8 = 0xA6;
     pub(super) const INVERTED_ON: u8 = 0xA7;
     pub(super) const DISPLAY_OFF: u8 = 0xAE;
     pub(super) const DISPLAY_ON: u8 = 0xAF;
     pub(super) const DISPLAY_OFFSET: u8 = 0xD3;
     pub(super) const COM_PADS: u8 = 0xDA;
-    pub(super) const VCOM_DETECT: u8 = 0xDB;
-    pub(super) const DISPLAY_CLOCK_DIV: u8 = 0xD5;
+    pub(super) const VCOM_SET: u8 = 0xDB;
+    pub(super) const DISPLAY_PRESCALER: u8 = 0xD5;
     pub(super) const PRE_CHARGE: u8 = 0xD9;
     pub(super) const LOW_COLUMN: u8 = 0x00;
     pub(super) const HIGH_COLUMN: u8 = 0x10;
@@ -77,13 +77,11 @@ unsafe impl Sync for LCDSH1106 {}
 impl Initializable  for LCDSH1106 {
     fn init(&mut self) -> Result<()> {
 
-        self.i2c.init()?;
-
         log_info!(APP_TAG, "Init LCDSH1106");
 
         let init_sequence: [u8; 25] = [
             DISPLAY_OFF,
-            DISPLAY_CLOCK_DIV,
+            DISPLAY_PRESCALER,
             CONTRAST,
             MULTIPLEX,
             MULTIPLEX,
@@ -95,16 +93,16 @@ impl Initializable  for LCDSH1106 {
             MEMORY_MODE,
             MEMORY_MODE_HORIZONTAL,
             COLUMN_REMAP_ON,
-            VERTICAL_FLIP_OFF,
+            VERTICAL_FLIP_ON,
             COM_PADS,
             0x12,
             CONTRAST,
             0xFF,
             PRE_CHARGE,
             0xF1,
-            VCOM_DETECT,
+            VCOM_SET,
             0x40,
-            DISPLAY_ALL_ON_RESUME,
+            ENTRTY_DISPLAY_OFF,
             INVERTED_OFF,
             DISPLAY_ON,
         ];
@@ -124,7 +122,7 @@ impl LCDDisplayFn for LCDSH1106 {
         self.send_cmd(LOW_COLUMN);
         self.send_cmd(HIGH_COLUMN);
 
-        for page in 0..LCDSH1106::HEIGHT{
+        for page in 0..LCDSH1106::HEIGHT {
             self.send_cmd_with_data(PAGE_ADDR, page)?;
 
             let page = page as usize;
@@ -150,7 +148,7 @@ impl LCDDisplayFn for LCDSH1106 {
         
         let page = y / 8;
         let bit = y % 8;
-        let idx : usize = (page * LCDSH1106::WIDTH) as usize + x as usize;
+        let idx = (page as usize * LCDSH1106::WIDTH as usize) + x as usize;
 
         match write_mode {
             ADD => self.buffer[idx] |= (1 << bit),
@@ -161,24 +159,18 @@ impl LCDDisplayFn for LCDSH1106 {
     }
 
     fn draw_bitmap_image(&mut self, x: u8, y: u8, width: u8, height: u8, image: &[u8], write_mode: LCDWriteMode) -> Result<()> {
-        if(image.len() ==0 || width * height != image.len() as u8)
-        {
+        if image.len() ==0 || width * height != image.len() as u8 {
             return Err(Error::InvalidType);
         }
 
         let mut idx = 0usize;
 
 
-        for h in 0..height
-        {
-            for w in 0..width
-            {
-                if(image[idx] != 0)
-                {
+        for h in 0..height {
+            for w in 0..width {
+                if image[idx] != 0 {
                     self.draw_pixel(x + w, y + h, LCDWriteMode::ADD);
-                }
-                else
-                {
+                } else {
                     self.draw_pixel(x + w, y + h, LCDWriteMode::REMOVE);
                 }
                 idx += 1;
@@ -188,10 +180,8 @@ impl LCDDisplayFn for LCDSH1106 {
     }
 
     fn draw_rect(&mut self, x: u8, y: u8, width: u8, height: u8, write_mode: LCDWriteMode) -> Result<()> {
-        for w in 0..width
-        {
-            for h in 0..height
-            {
+        for w in 0..width {
+            for h in 0..height {
                 self.draw_pixel(x + w, y + h, write_mode)?;
             }
         }
@@ -211,33 +201,26 @@ impl LCDDisplayFn for LCDSH1106 {
             return Err(Error::InvalidType);
         }
 
-        let c_offset = ( (c as u8 - ASCII_TABLE_START_AT_IDX) * (width * height) ) + 2;
+        let c_offset = ( (c as usize - ASCII_TABLE_START_AT_IDX as usize) * (width * height) as usize ) + 2;
 
         let mut w = 0;
         let mut h = 0;
         for idx in 0..single_font_size
         {
-            if(w >= width)
-            {
+            if w >= width {
                 h += 1;
                 w = 0;
             }
 
-            if(h == height)
-            {
+            if h == height {
                 break;
             }
 
-            if(w < width)
-            {
-                for bit in 0..8
-                {
-                    if (font[c_offset as usize + idx] & (1 << bit) > 0)
-                    {
+            if w < width {
+                for bit in 0..8 {
+                    if font[c_offset as usize + idx] & (1 << bit) > 0 {
                         self.draw_pixel(x + w, y + (h * 8) + bit, LCDWriteMode::ADD)?;
-                    }
-                    else
-                    {
+                    } else {
                         self.draw_pixel(x + w, y + (h * 8) + bit, LCDWriteMode::REMOVE)?;
                     }
                 }
