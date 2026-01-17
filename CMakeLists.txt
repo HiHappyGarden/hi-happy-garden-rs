@@ -71,6 +71,28 @@ FetchContent_MakeAvailable(cJSON)
 # Re-enable deprecation warnings for the rest of the project
 set(CMAKE_WARN_DEPRECATED ON CACHE BOOL "" FORCE)
 
+# --- littlefs Integration from GitHub ---
+FetchContent_Declare(
+    littlefs
+    GIT_REPOSITORY https://github.com/littlefs-project/littlefs.git
+    GIT_TAG        v2.11.2
+)
+
+FetchContent_GetProperties(littlefs)
+if(NOT littlefs_POPULATED)
+    FetchContent_Populate(littlefs)
+    
+    # Create a CMake target for littlefs since it doesn't have CMakeLists.txt
+    add_library(littlefs STATIC
+        ${littlefs_SOURCE_DIR}/lfs.c
+        ${littlefs_SOURCE_DIR}/lfs_util.c
+    )
+    
+    target_include_directories(littlefs PUBLIC
+        ${littlefs_SOURCE_DIR}
+    )
+endif()
+
 # Configure Rust build
 set(CARGO_TARGET "thumbv8m.main-none-eabi")
 set(CARGO_BUILD_DIR "${CMAKE_BINARY_DIR}/rust")
@@ -189,6 +211,7 @@ target_link_libraries(${PROJECT_NAME}
         FreeRTOS-Kernel
         FreeRTOS-Kernel-Heap4
         cjson
+        littlefs
 )
 
 # Suppress stack warning
