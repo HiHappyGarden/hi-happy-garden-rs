@@ -168,10 +168,12 @@ impl LCDDisplayFn for LCDSH1106 {
 
         for h in 0..height {
             for w in 0..width {
+                let x = x + w;
+                let y = y + (height - 1 - h);
                 if image[idx] != 0 {
-                    self.draw_pixel(x + w, y + (height - 1 - h), LCDWriteMode::ADD);
+                    self.draw_pixel(x, y, LCDWriteMode::ADD);
                 } else {
-                    self.draw_pixel(x + w, y + (height - 1 - h), LCDWriteMode::REMOVE);
+                    self.draw_pixel(x, y, LCDWriteMode::REMOVE);
                 }
                 idx += 1;
             }
