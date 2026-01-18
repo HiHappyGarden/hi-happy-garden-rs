@@ -21,14 +21,11 @@
 //  https://github.com/tjko/pico-lfs/blob/main/src/pico_lfs.c
 //  https://github.com/Mbed-TLS/mbedtls-docs/blob/main/kb/how-to/encrypt-with-aes-cbc.md
 
-#include "FreeRTOSConfig.h"
 
 #include <hardware/flash.h>
 #include <hardware/sync.h>
 #include <pico/types.h>
 #include <lfs.h>
-#include <FreeRTOS.h>
-#include <semphr.h>
 
 
 
@@ -43,10 +40,6 @@ static int flash_erase(const struct lfs_config *c, lfs_block_t block);
 
 static inline int flash_sync(const struct lfs_config *c);
 
-static inline int flash_lock(const struct lfs_config *c);
-
-static inline int flash_unlock(const struct lfs_config *c);
-
 static const struct lfs_config hhg_lfs_cfg = {
     // context
     .context = NULL,
@@ -56,8 +49,6 @@ static const struct lfs_config hhg_lfs_cfg = {
     .prog  = flash_prog,
     .erase = flash_erase,
     .sync  = flash_sync,
-    .lock   = flash_lock,
-    .unlock = flash_unlock,
 
     // block device configuration
     .read_size = 1,
@@ -69,7 +60,6 @@ static const struct lfs_config hhg_lfs_cfg = {
     .block_cycles = 500,
 };
 
-static SemaphoreHandle_t mutex;
 static lfs_t lfs;
 
 const char* HHG_FS_BASE = (char*)(PICO_FLASH_SIZE_BYTES - HHG_FS_SIZE);
@@ -86,35 +76,31 @@ static int flash_read(const struct lfs_config *c, lfs_block_t block, lfs_off_t o
 
 int flash_prog(const struct lfs_config *c, lfs_block_t block, lfs_off_t off, const void *buffer, lfs_size_t size) {
     assert(block < hhg_lfs_cfg.block_count);
-    // program with SDK
     uint32_t p = (uint32_t)HHG_FS_BASE + (block * hhg_lfs_cfg.block_size) + off;
+    
+    // Disable interrupts for flash operation
     uint32_t ints = save_and_disable_interrupts();
     flash_range_program(p, buffer, size);
     restore_interrupts(ints);
+    
     return LFS_ERR_OK;
 }
 
 
 int flash_erase(const struct lfs_config *c, lfs_block_t block) {
     assert(block < hhg_lfs_cfg.block_count);
-    // erase with SDK
     uint32_t p = (uint32_t)HHG_FS_BASE + block * hhg_lfs_cfg.block_size;
+    
+    // Disable interrupts for flash operation
     uint32_t ints = save_and_disable_interrupts();
     flash_range_erase(p, hhg_lfs_cfg.block_size);
     restore_interrupts(ints);
+    
     return LFS_ERR_OK;
 }
 
 int flash_sync(const struct lfs_config *c) {
     return LFS_ERR_OK;
-}
-
-int flash_lock(const struct lfs_config *c) {    
-    return xSemaphoreTakeRecursive(mutex,  portMAX_DELAY) == pdTRUE ? LFS_ERR_OK : LFS_ERR_IO;
-}
-
-int flash_unlock(const struct lfs_config *c) {
-    return xSemaphoreGiveRecursive(mutex) == pdTRUE ? LFS_ERR_OK : LFS_ERR_IO;
 }
 
 /// public functions
@@ -123,13 +109,6 @@ int hhg_flash_mount(bool format) {
 
     const char* hhg_flash_errmsg(int err);
 
-    mutex = xSemaphoreCreateRecursiveMutex();
-    if( mutex == NULL )
-    {
-        return LFS_ERR_IO;
-    }
-
-
     int err = LFS_ERR_OK;
 
     if (format) {
@@ -137,7 +116,6 @@ int hhg_flash_mount(bool format) {
     }
 
     if (err != LFS_ERR_OK) {
-        vSemaphoreDelete(mutex);
         printf("LFS format error: %s\r\n", hhg_flash_errmsg(err));
         return err;
     }
@@ -145,7 +123,6 @@ int hhg_flash_mount(bool format) {
     err = lfs_mount(&lfs, &hhg_lfs_cfg);
      
     if (err != LFS_ERR_OK) {
-        vSemaphoreDelete(mutex);
         printf("LFS mount error: %s\r\n", hhg_flash_errmsg(err));
         return err;
     }
@@ -186,9 +163,7 @@ int hhg_flash_rewind(long file) {
 }
 
 int hhg_flash_umount() {
-    int res = lfs_unmount(&lfs);
-    vSemaphoreDelete(mutex);
-    return res;
+    return lfs_unmount(&lfs);
 }
 
 int hhg_flash_remove(const char* path) {
