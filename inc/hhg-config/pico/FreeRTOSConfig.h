@@ -29,6 +29,8 @@
 #ifndef FREERTOS_CONFIG_EXAMPLES_COMMON_H
 #define FREERTOS_CONFIG_EXAMPLES_COMMON_H
 
+#include <stdint.h>
+
 /*-----------------------------------------------------------
  * Application specific definitions.
  *

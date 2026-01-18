@@ -2,6 +2,7 @@ use osal_rs::log_info;
 use osal_rs::utils::Result;
 
 use crate::assets::font_8x8::FONT_8X8;
+use crate::assets::ic_wifi_off::IC_WIFI_OFF;
 use crate::traits::button::{ButtonState, OnClickable};
 use crate::traits::encoder::{EncoderDirection, OnRotatableAndClickable};
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
@@ -26,17 +27,19 @@ where LC: LCDDisplayFn
 
     pub fn draw(&mut self) -> Result<()> {
 
-        
+        self.lcd.invert_orientation()?;
 
         self.lcd.draw_pixel(1, 1, LCDWriteMode::ADD)?;
         self.lcd.draw_pixel(1, 2, LCDWriteMode::ADD)?;
         self.lcd.draw_pixel(1, 3, LCDWriteMode::ADD)?;
         self.lcd.draw_pixel(2, 4, LCDWriteMode::ADD)?;
         self.lcd.draw_pixel(2, 5, LCDWriteMode::ADD)?;
-        self.lcd.draw()?;
+        
+
+        self.lcd.draw_bitmap_image(30, 20, IC_WIFI_OFF.0, IC_WIFI_OFF.1, &IC_WIFI_OFF.2, LCDWriteMode::ADD)?;
 
         self.lcd.draw_str("ciao", 80, 50, &FONT_8X8)?;
-
+        self.lcd.draw()?;
         Ok(())
     }
 }

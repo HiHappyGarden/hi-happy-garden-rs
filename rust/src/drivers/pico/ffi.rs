@@ -4,7 +4,7 @@
 #![allow(non_camel_case_types)]
 #![allow(dead_code)]
 
-use core::ffi::{c_int, c_uint, c_void};
+use core::ffi::{c_char, c_int, c_long, c_uint, c_void};
 
 #[repr(C)]
 pub struct pwm_config {
@@ -88,6 +88,12 @@ pub enum uart_parity_t {
 
 pub type irq_handler_t = unsafe extern "C" fn();
 
+// Type aliases for littlefs types
+pub type LfsSize = u32;
+pub type LfsSsize = i32;
+pub type LfsSoff = i32;
+pub type LfsOff = u32;
+
 unsafe extern "C" {
     pub(super) fn hhg_gpio_init(gpio: u32);
     pub(super) fn hhg_gpio_set_dir(gpio: u32, out: bool);
@@ -130,4 +136,56 @@ unsafe extern "C" {
     pub(super) fn hhg_i2c_init_pins_with_func();
     pub(super) fn hhg_i2c_write_blocking(i2c: *mut c_void, addr: u8, src: *const u8, len: usize, nostop: bool) -> i32;
     pub(super) fn hhg_i2c_read_blocking(i2c: *mut c_void, addr: u8, dst: *mut u8, len: usize, nostop: bool) -> i32;
+
+    pub(super) fn hhg_flash_mount(format: bool) -> c_int;
+    pub(super) fn hhg_flash_open(path: *const c_char, flags: c_int) -> c_long;
+    pub(super) fn hhg_flash_close(file: c_long) -> c_int;
+    pub(super) fn hhg_flash_write(file: c_long, buffer: *const c_void, size: LfsSize) -> LfsSize;
+    pub(super) fn hhg_flash_read(file: c_long, buffer: *mut c_void, size: LfsSize) -> LfsSize;
+    pub(super) fn hhg_flash_rewind(file: c_long) -> c_int;
+    pub(super) fn hhg_flash_umount() -> c_int;
+    pub(super) fn hhg_flash_remove(path: *const c_char) -> c_int;
+    pub(super) fn hhg_flash_rename(oldpath: *const c_char, newpath: *const c_char) -> c_int;
+    pub(super) fn hhg_flash_fsstat(
+        block_size: *mut LfsSize,
+        block_count: *mut LfsSize,
+        blocks_used: *mut LfsSize,
+    ) -> c_int;
+    pub(super) fn hhg_flash_lseek(file: c_int, off: LfsSoff, whence: c_int) -> LfsSoff;
+    pub(super) fn hhg_flash_truncate(file: c_int, size: LfsOff) -> c_int;
+    pub(super) fn hhg_flash_tell(file: c_int) -> LfsSoff;
+    pub(super) fn hhg_flash_stat(
+        path: *const c_char,
+        type_: *mut u8,
+        size: *mut LfsSize,
+        name: *mut c_char,
+    ) -> c_int;
+    pub(super) fn hhg_flash_getattr(
+        path: *const c_char,
+        type_: u8,
+        buffer: *mut c_void,
+        size: LfsSize,
+    ) -> LfsSsize;
+    pub(super) fn hhg_flash_setattr(
+        path: *const c_char,
+        type_: u8,
+        buffer: *const c_void,
+        size: LfsSize,
+    ) -> c_int;
+    pub(super) fn hhg_flash_removeattr(path: *const c_char, type_: u8) -> c_int;
+    pub(super) fn hhg_flash_fflush(file: c_int) -> c_int;
+    pub(super) fn hhg_flash_size(file: c_int) -> LfsSoff;
+    pub(super) fn hhg_flash_mkdir(path: *const c_char) -> c_int;
+    pub(super) fn hhg_flash_dir_open(path: *const c_char) -> c_long;
+    pub(super) fn hhg_flash_dir_close(dir: c_long) -> c_int;
+    pub(super) fn hhg_flash_dir_read(
+        dir: c_long,
+        type_: *mut u8,
+        size: *mut LfsSize,
+        name: *mut c_char,
+    ) -> c_int;
+    pub(super) fn hhg_flash_dir_seek(dir: c_long, off: LfsOff) -> c_int;
+    pub(super) fn hhg_flash_dir_tell(dir: c_long) -> LfsSoff;
+    pub(super) fn hhg_flash_dir_rewind(dir: c_long) -> c_int;
+    pub(super) fn hhg_flash_errmsg(err: c_int) -> *const c_char;
 }   

@@ -20,6 +20,7 @@
  #![allow(unused_imports)]
 
 pub(crate) mod ffi;
+pub(crate) mod flash;
 pub(crate) mod hardware;
 pub(crate) mod gpio;
 pub(crate) mod uart;

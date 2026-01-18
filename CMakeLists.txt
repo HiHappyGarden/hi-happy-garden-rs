@@ -78,16 +78,20 @@ FetchContent_Declare(
     GIT_TAG        v2.11.2
 )
 
-FetchContent_GetProperties(littlefs)
-if(NOT littlefs_POPULATED)
-    FetchContent_Populate(littlefs)
-    
-    # Create a CMake target for littlefs since it doesn't have CMakeLists.txt
+FetchContent_MakeAvailable(littlefs)
+
+# Create a CMake target for littlefs since it doesn't have CMakeLists.txt
+if(NOT TARGET littlefs)
     add_library(littlefs STATIC
         ${littlefs_SOURCE_DIR}/lfs.c
         ${littlefs_SOURCE_DIR}/lfs_util.c
     )
     
+    target_compile_definitions(littlefs INTERFACE
+     LFS_THREADSAFE=1
+     LFS_NO_DEBUG=1
+    )
+
     target_include_directories(littlefs PUBLIC
         ${littlefs_SOURCE_DIR}
     )
@@ -168,7 +172,7 @@ add_custom_target(rust ALL DEPENDS ${RUST_PATH})
 
 
 file(GLOB_RECURSE INCLUDES CONFIGURE_DEPENDS "inc/*.hpp" "inc/*.h" "osal-rs/osal-rs-build/osal-rs-ffi-freertos/inc/*.h" "osal-rs/osal-rs-porting/freeretos/inc/*.h")
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.c" "osal-rs/osal-rs-build/osal-rs-ffi-freertos/src/*.c" "osal-rs/osal-rs-porting/freeretos/src/*.c")
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.c" "src/pico/*.cpp" "src/pico/*.c"  "osal-rs/osal-rs-build/osal-rs-ffi-freertos/src/*.c" "osal-rs/osal-rs-porting/freeretos/src/*.c")
 
 add_executable(hi-happy-garden-rs 
         ${SOURCES}
@@ -208,6 +212,7 @@ target_link_libraries(${PROJECT_NAME}
         hardware_pwm
         hardware_adc
         hardware_i2c
+        hardware_flash
         FreeRTOS-Kernel
         FreeRTOS-Kernel-Heap4
         cjson
