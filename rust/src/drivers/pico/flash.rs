@@ -101,8 +101,8 @@ fn file_rewind(handler: Handler) -> Result<()> {
     Ok(())
 }
 
-fn file_seek(handler: Handler, offset: i32, whence: SeekFrom) -> Result<isize> {
-    let pos = unsafe { hhg_flash_lseek(handler, offset, whence.to_int()) };
+fn file_seek(handler: Handler, offset: i32, whence: i32) -> Result<isize> {
+    let pos = unsafe { hhg_flash_lseek(handler, offset, whence) };
     if pos < 0 {
         return Err(Error::ReturnWithCode(pos));
     }
@@ -235,6 +235,10 @@ fn filesystem_mount(format: bool) -> Result<()> {
     if ret < 0 {
         return Err(Error::ReturnWithCode(ret));
     }
+
+    
+
+
     Ok(())
 }
 

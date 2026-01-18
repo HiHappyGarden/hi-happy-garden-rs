@@ -120,7 +120,7 @@ pub struct FileFn {
     pub rewind: fn (handler: Handler) -> Result<()>,
 
     /// Seek to a position in the file
-    pub seek: fn (handler: Handler, offset: i32, whence: SeekFrom) -> Result<isize>,
+    pub seek: fn (handler: Handler, offset: i32, whence: i32) -> Result<isize>,
 
     /// Get current position in the file
     pub tell: fn (handler: Handler) -> Result<isize>,
@@ -231,7 +231,7 @@ impl File {
 
     /// Seek to a position in the file
     fn seek(&mut self, offset: i32, whence: SeekFrom) -> Result<isize> {
-        (self.functions.seek)(self.handler, offset, whence)
+        (self.functions.seek)(self.handler, offset, whence.to_int())
     }
 
     /// Get current position in the file
@@ -323,7 +323,13 @@ pub struct Filesystem;
 impl Filesystem {
     
     pub fn mount(format: bool) -> Result<()> {
-        (FILESYSTEM_FN.mount)(format)
+        if (FILESYSTEM_FN.mount)(format).is_ok() {
+            log_info!(APP_TAG, "Filesystem mounted");
+            Ok(())
+        } else {
+            log_info!(APP_TAG, "Filesystem mount failed");
+            Err(Error::Unhandled("Filesystem mount failed"))
+        }
     }
 
     pub fn umount() -> Result<()> {
