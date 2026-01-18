@@ -89,7 +89,9 @@ if(NOT TARGET littlefs)
     
     target_compile_definitions(littlefs INTERFACE
      LFS_THREADSAFE=1
-     LFS_NO_DEBUG=1
+     #LFS_NO_DEBUG=1
+     LFS_YES_TRACE=1
+     LFS_TRACE=1
     )
 
     target_include_directories(littlefs PUBLIC
