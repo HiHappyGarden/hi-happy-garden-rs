@@ -112,7 +112,7 @@ impl File {
 
     /// Seek to a position in the file
     pub fn seek(&mut self, offset: i32, whence: SeekFrom) -> Result<i32> {
-        let whence_val = whence.to_c_int();
+        let whence_val = whence.to_int();
         let pos = unsafe { hhg_flash_lseek(self.handle as c_int, offset, whence_val) };
         if pos < 0 {
             return Err(Error::ReturnWithCode(pos));
@@ -346,7 +346,7 @@ pub enum SeekFrom {
 }
 
 impl SeekFrom {
-    fn to_c_int(&self) -> c_int {
+    fn to_int(&self) -> i32 {
         match self {
             SeekFrom::Start(_) => 0,  // SEEK_SET
             SeekFrom::Current(_) => 1, // SEEK_CUR
