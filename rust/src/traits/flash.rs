@@ -112,12 +112,6 @@ pub trait FilesystemFn {
     /// Directory handle type
     type Dir: DirFn;
 
-    /// Mount the filesystem
-    fn mount(format: bool) -> Result<()>;
-
-    /// Unmount the filesystem
-    fn umount() -> Result<()>;
-
     /// Open a file
     fn open(path: &str, flags: i32) -> Result<Self::File>;
 

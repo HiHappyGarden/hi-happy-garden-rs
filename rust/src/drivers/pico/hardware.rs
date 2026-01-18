@@ -30,7 +30,6 @@ use core::cell::RefCell;
 use core::ptr::read;
 
 use crate::apps::display;
-use crate::drivers::LCDSH1106;
 use crate::drivers::button::Button;
 use crate::drivers::encoder::Encoder;
 use crate::drivers::i2c::I2C;
@@ -49,7 +48,7 @@ use crate::traits::rx_tx::OnReceive;
 use super::gpio::{GPIO_FN, GPIO_CONFIG_SIZE};
 use crate::traits::state::Initializable;
 
-use crate::drivers::platform::{GpioPeripheral, I2C_BAUDRATE, I2C_INSTANCE, LCDDisplay, UART_FN};
+use crate::drivers::platform::{Flash, GpioPeripheral, I2C_BAUDRATE, I2C_INSTANCE, LCDDisplay, UART_FN};
 
 const APP_TAG: &str = "Hardware";
 
@@ -98,7 +97,7 @@ impl ThreadPriority {
 
 pub struct Hardware {
     uart: Uart,
-    i2c: I2C<{LCDSH1106::I2C_ADDRESS}>,
+    i2c: I2C<{LCDDisplay::I2C_ADDRESS}>,
     encoder: Encoder,
     button: Button,
     rgb_led: RgbLed,
@@ -129,6 +128,8 @@ impl Initializable for Hardware {
         self.rgb_led.init()?;
 
         self.i2c.init()?;
+
+        Flash::new().init()?;
 
         log_info!(APP_TAG, "Hardware initialized successfully heap_free:{}", System::get_free_heap_size());
         Ok(())
@@ -208,7 +209,7 @@ impl Hardware {
     }
 
     pub fn get_lcd_display(&mut self) -> LCDDisplay {
-        let mut ret = LCDSH1106::new(self.i2c.clone());
+        let mut ret = LCDDisplay::new(self.i2c.clone());
         ret.init().unwrap();
         ret
     }

@@ -25,6 +25,7 @@ use core::str::from_utf8;
 use alloc::ffi::CString;
 use alloc::string::String;
 
+use osal_rs::{log_info, log_warning};
 use osal_rs::utils::{Result, Error};
 
 use crate::traits::flash::{
@@ -69,6 +70,13 @@ use crate::drivers::pico::ffi::{
     LfsOff,
     LfsSsize,
 };
+use crate::traits::state::Initializable;
+
+const APP_TAG: &str = "Flash";
+pub const FS_CONFIG_DIR: &str = "/etc";
+pub const FS_DATA_DIR: &str = "/var";
+pub const FS_LOG_DIR: &str = "/var/log";
+
 
 /// File handle wrapper
 #[derive(Debug)]
@@ -389,14 +397,6 @@ impl FilesystemFn for Flash {
     type File = File;
     type Dir = Dir;
 
-    fn mount(format: bool) -> Result<()> {
-        Flash::mount(format)
-    }
-
-    fn umount() -> Result<()> {
-        Flash::umount()
-    }
-
     fn open(path: &str, flags: i32) -> Result<Self::File> {
         Flash::open(path, flags)
     }
@@ -456,7 +456,37 @@ impl FilesystemFn for Flash {
     }
 }
 
+impl Initializable for Flash {
+    fn init(&mut self) -> Result<()> {
+        log_info!(APP_TAG, "Init Flash and filesystem");
+
+        Flash::mount(true)?;
+        
+        match Flash::mkdir(FS_CONFIG_DIR) {
+            Ok(_) => log_info!(APP_TAG, "Config dir {} exist ", FS_CONFIG_DIR),
+            Err(_) => (),
+        }
+
+
+        match Flash::mkdir(FS_DATA_DIR) {
+            Ok(_) => log_info!(APP_TAG, "Data dir {} exist ", FS_DATA_DIR),
+            Err(_) => (),
+        }
+
+        match Flash::mkdir(FS_LOG_DIR) {
+            Ok(_) => log_info!(APP_TAG, "Log dir {} exist ", FS_LOG_DIR),
+            Err(_) => (),
+        }
+
+        Ok(())
+    }
+}
+
 impl Flash {
+    pub const fn new() -> Self {
+        Flash
+    } 
+
     /// Mount the filesystem
     pub fn mount(format: bool) -> Result<()> {
         let ret = unsafe { hhg_flash_mount(format) };

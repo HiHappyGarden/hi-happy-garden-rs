@@ -20,6 +20,7 @@
 use osal_rs::log_info;
 use osal_rs::os::{System, SystemFn};
 use osal_rs::utils::Result;
+
 use crate::apps::display::{Display};
 use crate::drivers::platform::{GpioPeripheral, Hardware, LCDDisplay};
 use crate::traits::hardware::HardwareFn;
