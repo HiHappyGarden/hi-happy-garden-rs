@@ -151,9 +151,9 @@ unsafe extern "C" {
         block_count: *mut LfsSize,
         blocks_used: *mut LfsSize,
     ) -> c_int;
-    pub(super) fn hhg_flash_lseek(file: c_int, off: LfsSoff, whence: c_int) -> LfsSoff;
-    pub(super) fn hhg_flash_truncate(file: c_int, size: LfsOff) -> c_int;
-    pub(super) fn hhg_flash_tell(file: c_int) -> LfsSoff;
+    pub(super) fn hhg_flash_lseek(file: c_long, off: LfsSoff, whence: c_int) -> LfsSoff;
+    pub(super) fn hhg_flash_truncate(file: c_long, size: LfsOff) -> c_int;
+    pub(super) fn hhg_flash_tell(file: c_long) -> LfsSoff;
     pub(super) fn hhg_flash_stat(
         path: *const c_char,
         type_: *mut u8,
@@ -173,8 +173,8 @@ unsafe extern "C" {
         size: LfsSize,
     ) -> c_int;
     pub(super) fn hhg_flash_removeattr(path: *const c_char, type_: u8) -> c_int;
-    pub(super) fn hhg_flash_fflush(file: c_int) -> c_int;
-    pub(super) fn hhg_flash_size(file: c_int) -> LfsSoff;
+    pub(super) fn hhg_flash_fflush(file: c_long) -> c_int;
+    pub(super) fn hhg_flash_size(file: c_long) -> LfsSoff;
     pub(super) fn hhg_flash_mkdir(path: *const c_char) -> c_int;
     pub(super) fn hhg_flash_dir_open(path: *const c_char) -> c_long;
     pub(super) fn hhg_flash_dir_close(dir: c_long) -> c_int;

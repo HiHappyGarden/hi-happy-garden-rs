@@ -109,7 +109,10 @@ int hhg_flash_mount(bool format) {
 
     const char* hhg_flash_errmsg(int err);
 
-    int err = LFS_ERR_OK;
+    int err = lfs_mount(&lfs, &hhg_lfs_cfg);
+    if (err == LFS_ERR_OK) {
+        return err;
+    }
 
     if (format) {
         err = lfs_format(&lfs, &hhg_lfs_cfg);
@@ -181,16 +184,16 @@ int hhg_flash_fsstat(lfs_size_t* block_size, lfs_size_t* block_count, lfs_size_t
     return LFS_ERR_OK;
 }
 
-lfs_soff_t hhg_flash_lseek(int file, lfs_soff_t off, int whence) {
+lfs_soff_t hhg_flash_lseek(long file, lfs_soff_t off, int whence) {
     return lfs_file_seek(&lfs, (lfs_file_t*)file, off, whence);
 }
 
 
-int hhg_flash_truncate(int file, lfs_off_t size) { 
+int hhg_flash_truncate(long file, lfs_off_t size) { 
     return lfs_file_truncate(&lfs, (lfs_file_t*)file, size); 
 }
 
-lfs_soff_t hhg_flash_tell(int file) { 
+lfs_soff_t hhg_flash_tell(long file) { 
     return lfs_file_tell(&lfs, (lfs_file_t*)file); 
 }
 
@@ -222,11 +225,11 @@ int hhg_flash_removeattr(const char* path, uint8_t type) {
 }
 
 
-int hhg_flash_fflush(int file) { 
+int hhg_flash_fflush(long file) { 
     return lfs_file_sync(&lfs, (lfs_file_t*)file); 
 }
 
-lfs_soff_t hhg_flash_size(int file) { 
+lfs_soff_t hhg_flash_size(long file) { 
     return lfs_file_size(&lfs, (lfs_file_t*)file); 
 }
 

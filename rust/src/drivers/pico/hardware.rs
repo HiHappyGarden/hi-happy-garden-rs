@@ -32,6 +32,7 @@ use core::ptr::read;
 use crate::apps::display;
 use crate::drivers::button::Button;
 use crate::drivers::encoder::Encoder;
+use crate::drivers::filesystem::Filesystem;
 use crate::drivers::i2c::I2C;
 use crate::drivers::pico::ffi::hhg_cyw43_arch_init;
 use crate::drivers::relays::Relays;
@@ -48,7 +49,7 @@ use crate::traits::rx_tx::OnReceive;
 use super::gpio::{GPIO_FN, GPIO_CONFIG_SIZE};
 use crate::traits::state::Initializable;
 
-use crate::drivers::platform::{Flash, GpioPeripheral, I2C_BAUDRATE, I2C_INSTANCE, LCDDisplay, UART_FN};
+use crate::drivers::platform::{GpioPeripheral, I2C_BAUDRATE, I2C_INSTANCE, LCDDisplay, UART_FN};
 
 const APP_TAG: &str = "Hardware";
 
@@ -128,8 +129,10 @@ impl Initializable for Hardware {
         self.rgb_led.init()?;
 
         self.i2c.init()?;
+        
 
-        Flash::new().init()?;
+        Filesystem::mount(true)?;
+
 
         log_info!(APP_TAG, "Hardware initialized successfully heap_free:{}", System::get_free_heap_size());
         Ok(())
