@@ -1,6 +1,9 @@
 #![allow(dead_code)]
 
-use core::ffi::{c_char, c_int, c_long, c_void};
+use core::{ffi::{c_char, c_int, c_long, c_void}, str::from_utf8};
+use alloc::{ffi::CString, string::String};
+use osal_rs::utils::{Result, Error};
+
 use crate::drivers::pico::ffi::{
     hhg_flash_mount,
     hhg_flash_open,
@@ -34,17 +37,6 @@ use crate::drivers::pico::ffi::{
     LfsOff,
     LfsSsize,
 };
-
-/// Error type for flash operations
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FlashError {
-    IoError(i32),
-    InvalidHandle,
-    InvalidPath,
-    Utf8Error,
-}
-
-pub type Result<T> = core::result::Result<T, FlashError>;
 
 /// File handle wrapper
 #[derive(Debug)]
@@ -81,7 +73,7 @@ impl File {
     pub fn rewind(&mut self) -> Result<()> {
         let ret = unsafe { hhg_flash_rewind(self.handle) };
         if ret < 0 {
-            return Err(FlashError::IoError(ret));
+            return Err(Error::ReturnWithCode(ret));
         }
         Ok(())
     }
@@ -91,7 +83,7 @@ impl File {
         let whence_val = whence.to_c_int();
         let pos = unsafe { hhg_flash_lseek(self.handle as c_int, offset, whence_val) };
         if pos < 0 {
-            return Err(FlashError::IoError(pos));
+            return Err(Error::ReturnWithCode(pos));
         }
         Ok(pos)
     }
@@ -100,7 +92,7 @@ impl File {
     pub fn tell(&self) -> Result<i32> {
         let pos = unsafe { hhg_flash_tell(self.handle as c_int) };
         if pos < 0 {
-            return Err(FlashError::IoError(pos));
+            return Err(Error::ReturnWithCode(pos));
         }
         Ok(pos)
     }
@@ -109,7 +101,7 @@ impl File {
     pub fn truncate(&mut self, size: u32) -> Result<()> {
         let ret = unsafe { hhg_flash_truncate(self.handle as c_int, size) };
         if ret < 0 {
-            return Err(FlashError::IoError(ret));
+            return Err(Error::ReturnWithCode(ret));
         }
         Ok(())
     }
@@ -118,7 +110,7 @@ impl File {
     pub fn flush(&mut self) -> Result<()> {
         let ret = unsafe { hhg_flash_fflush(self.handle as c_int) };
         if ret < 0 {
-            return Err(FlashError::IoError(ret));
+            return Err(Error::ReturnWithCode(ret));
         }
         Ok(())
     }
@@ -127,7 +119,7 @@ impl File {
     pub fn size(&self) -> Result<i32> {
         let size = unsafe { hhg_flash_size(self.handle as c_int) };
         if size < 0 {
-            return Err(FlashError::IoError(size));
+            return Err(Error::ReturnWithCode(size));
         }
         Ok(size)
     }
@@ -164,7 +156,7 @@ impl Dir {
         };
 
         if ret < 0 {
-            return Err(FlashError::IoError(ret));
+            return Err(Error::ReturnWithCode(ret));
         }
 
         if ret == 0 {
@@ -173,9 +165,9 @@ impl Dir {
 
         // Find null terminator
         let name_len = name_buf.iter().position(|&c| c == 0).unwrap_or(256);
-        let name = alloc::string::String::from(
-            core::str::from_utf8(&name_buf[..name_len])
-                .map_err(|_| FlashError::Utf8Error)?
+        let name = String::from(
+            from_utf8(&name_buf[..name_len])
+                .map_err(|_| Error::Unhandled("Error UTF8 conversion"))?
         );
 
         Ok(Some(DirEntry {
@@ -189,7 +181,7 @@ impl Dir {
     pub fn seek(&mut self, offset: u32) -> Result<()> {
         let ret = unsafe { hhg_flash_dir_seek(self.handle, offset) };
         if ret < 0 {
-            return Err(FlashError::IoError(ret));
+            return Err(Error::ReturnWithCode(ret));
         }
         Ok(())
     }
@@ -198,7 +190,7 @@ impl Dir {
     pub fn tell(&self) -> Result<i32> {
         let pos = unsafe { hhg_flash_dir_tell(self.handle) };
         if pos < 0 {
-            return Err(FlashError::IoError(pos));
+            return Err(Error::ReturnWithCode(pos));
         }
         Ok(pos)
     }
@@ -207,7 +199,7 @@ impl Dir {
     pub fn rewind(&mut self) -> Result<()> {
         let ret = unsafe { hhg_flash_dir_rewind(self.handle) };
         if ret < 0 {
-            return Err(FlashError::IoError(ret));
+            return Err(Error::ReturnWithCode(ret));
         }
         Ok(())
     }
@@ -224,7 +216,7 @@ impl Drop for Dir {
 /// Directory entry information
 #[derive(Debug, Clone)]
 pub struct DirEntry {
-    pub name: alloc::string::String,
+    pub name: String,
     pub type_: EntryType,
     pub size: u32,
 }
@@ -289,7 +281,7 @@ pub struct FsStat {
 pub struct FileStat {
     pub type_: EntryType,
     pub size: u32,
-    pub name: alloc::string::String,
+    pub name: String,
 }
 
 /// Flash filesystem API
@@ -300,7 +292,7 @@ impl Flash {
     pub fn mount(format: bool) -> Result<()> {
         let ret = unsafe { hhg_flash_mount(format) };
         if ret < 0 {
-            return Err(FlashError::IoError(ret));
+            return Err(Error::ReturnWithCode(ret));
         }
         Ok(())
     }
@@ -309,18 +301,18 @@ impl Flash {
     pub fn umount() -> Result<()> {
         let ret = unsafe { hhg_flash_umount() };
         if ret < 0 {
-            return Err(FlashError::IoError(ret));
+            return Err(Error::ReturnWithCode(ret));
         }
         Ok(())
     }
 
     /// Open a file
     pub fn open(path: &str, flags: i32) -> Result<File> {
-        let path_cstr = alloc::ffi::CString::new(path).map_err(|_| FlashError::InvalidPath)?;
+        let path_cstr = CString::new(path).map_err(|_| Error::InvalidType)?;
         let handle = unsafe { hhg_flash_open(path_cstr.as_ptr(), flags) };
         
         if handle < 0 {
-            return Err(FlashError::IoError(handle as i32));
+            return Err(Error::ReturnWithCode(handle as i32));
         }
 
         Ok(File { handle })
@@ -328,24 +320,24 @@ impl Flash {
 
     /// Remove a file or directory
     pub fn remove(path: &str) -> Result<()> {
-        let path_cstr = alloc::ffi::CString::new(path).map_err(|_| FlashError::InvalidPath)?;
+        let path_cstr = CString::new(path).map_err(|_| Error::InvalidType)?;
         let ret = unsafe { hhg_flash_remove(path_cstr.as_ptr()) };
         
         if ret < 0 {
-            return Err(FlashError::IoError(ret));
+            return Err(Error::ReturnWithCode(ret));
         }
         Ok(())
     }
 
     /// Rename a file or directory
     pub fn rename(oldpath: &str, newpath: &str) -> Result<()> {
-        let oldpath_cstr = alloc::ffi::CString::new(oldpath).map_err(|_| FlashError::InvalidPath)?;
-        let newpath_cstr = alloc::ffi::CString::new(newpath).map_err(|_| FlashError::InvalidPath)?;
+        let oldpath_cstr = CString::new(oldpath).map_err(|_| Error::InvalidType)?;
+        let newpath_cstr = CString::new(newpath).map_err(|_| Error::InvalidType)?;
         
         let ret = unsafe { hhg_flash_rename(oldpath_cstr.as_ptr(), newpath_cstr.as_ptr()) };
         
         if ret < 0 {
-            return Err(FlashError::IoError(ret));
+            return Err(Error::ReturnWithCode(ret));
         }
         Ok(())
     }
@@ -361,7 +353,7 @@ impl Flash {
         };
 
         if ret < 0 {
-            return Err(FlashError::IoError(ret));
+            return Err(Error::ReturnWithCode(ret));
         }
 
         Ok(FsStat {
@@ -373,7 +365,7 @@ impl Flash {
 
     /// Get file statistics
     pub fn stat(path: &str) -> Result<FileStat> {
-        let path_cstr = alloc::ffi::CString::new(path).map_err(|_| FlashError::InvalidPath)?;
+        let path_cstr = CString::new(path).map_err(|_| Error::InvalidType)?;
         let mut type_ = 0u8;
         let mut size = 0u32;
         let mut name_buf = [0u8; 256];
@@ -388,13 +380,13 @@ impl Flash {
         };
 
         if ret < 0 {
-            return Err(FlashError::IoError(ret));
+            return Err(Error::ReturnWithCode(ret));
         }
 
         let name_len = name_buf.iter().position(|&c| c == 0).unwrap_or(256);
-        let name = alloc::string::String::from(
-            core::str::from_utf8(&name_buf[..name_len])
-                .map_err(|_| FlashError::Utf8Error)?
+        let name = String::from(
+            from_utf8(&name_buf[..name_len])
+                .map_err(|_| Error::Unhandled("Error UTF8 conversion"))?
         );
 
         Ok(FileStat {
@@ -406,7 +398,7 @@ impl Flash {
 
     /// Get extended attribute
     pub fn getattr(path: &str, type_: u8, buffer: &mut [u8]) -> Result<i32> {
-        let path_cstr = alloc::ffi::CString::new(path).map_err(|_| FlashError::InvalidPath)?;
+        let path_cstr = CString::new(path).map_err(|_| Error::InvalidType)?;
         
         let ret = unsafe {
             hhg_flash_getattr(
@@ -418,7 +410,7 @@ impl Flash {
         };
 
         if ret < 0 {
-            return Err(FlashError::IoError(ret));
+            return Err(Error::ReturnWithCode(ret));
         }
 
         Ok(ret)
@@ -426,7 +418,7 @@ impl Flash {
 
     /// Set extended attribute
     pub fn setattr(path: &str, type_: u8, buffer: &[u8]) -> Result<()> {
-        let path_cstr = alloc::ffi::CString::new(path).map_err(|_| FlashError::InvalidPath)?;
+        let path_cstr = CString::new(path).map_err(|_| Error::InvalidType)?;
         
         let ret = unsafe {
             hhg_flash_setattr(
@@ -438,7 +430,7 @@ impl Flash {
         };
 
         if ret < 0 {
-            return Err(FlashError::IoError(ret));
+            return Err(Error::ReturnWithCode(ret));
         }
 
         Ok(())
@@ -446,12 +438,12 @@ impl Flash {
 
     /// Remove extended attribute
     pub fn removeattr(path: &str, type_: u8) -> Result<()> {
-        let path_cstr = alloc::ffi::CString::new(path).map_err(|_| FlashError::InvalidPath)?;
+        let path_cstr = CString::new(path).map_err(|_| Error::InvalidType)?;
         
         let ret = unsafe { hhg_flash_removeattr(path_cstr.as_ptr(), type_) };
 
         if ret < 0 {
-            return Err(FlashError::IoError(ret));
+            return Err(Error::ReturnWithCode(ret));
         }
 
         Ok(())
@@ -459,12 +451,12 @@ impl Flash {
 
     /// Create a directory
     pub fn mkdir(path: &str) -> Result<()> {
-        let path_cstr = alloc::ffi::CString::new(path).map_err(|_| FlashError::InvalidPath)?;
+        let path_cstr = CString::new(path).map_err(|_| Error::InvalidType)?;
         
         let ret = unsafe { hhg_flash_mkdir(path_cstr.as_ptr()) };
 
         if ret < 0 {
-            return Err(FlashError::IoError(ret));
+            return Err(Error::ReturnWithCode(ret));
         }
 
         Ok(())
@@ -472,11 +464,11 @@ impl Flash {
 
     /// Open a directory
     pub fn open_dir(path: &str) -> Result<Dir> {
-        let path_cstr = alloc::ffi::CString::new(path).map_err(|_| FlashError::InvalidPath)?;
+        let path_cstr = CString::new(path).map_err(|_| Error::InvalidType)?;
         let handle = unsafe { hhg_flash_dir_open(path_cstr.as_ptr()) };
         
         if handle < 0 {
-            return Err(FlashError::IoError(handle as i32));
+            return Err(Error::ReturnWithCode(handle as i32));
         }
 
         Ok(Dir { handle })
@@ -496,5 +488,3 @@ impl Flash {
     }
 }
 
-// Required for String and CString
-extern crate alloc;
