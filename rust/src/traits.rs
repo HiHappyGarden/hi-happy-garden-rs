@@ -20,6 +20,7 @@
 pub mod button;
 pub mod draw;
 pub mod encoder;
+pub mod flash;
 pub mod hardware;
 pub mod lcd_display;
 pub mod relays;
