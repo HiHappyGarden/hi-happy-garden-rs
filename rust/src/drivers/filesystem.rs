@@ -20,9 +20,8 @@
 #![allow(dead_code)]
 
 use alloc::ffi::CString;
-use alloc::string::String;
 use osal_rs::log_info;
-use osal_rs::utils::{Error, Result};
+use osal_rs::utils::{Bytes, Error, Result};
 
 use core::ffi::c_int;
 use core::str::from_utf8;
@@ -32,6 +31,7 @@ use crate::drivers::pico::flash::{FILESYSTEM_FN, FILE_FN, DIR_FN};
 use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "Filesystem";
+const MAX_NAME_LEN: usize = 256;
 
 /// Seek position enum
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,7 +72,7 @@ impl EntryType {
 /// Directory entry information
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DirEntry {
-    pub name: String,
+    pub name: Bytes<MAX_NAME_LEN>,
     pub type_: EntryType,
     pub size: u32,
 }
@@ -88,9 +88,10 @@ pub struct FsStat {
 /// File statistics
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileStat {
+    pub name: Bytes<MAX_NAME_LEN>,
     pub type_: EntryType,
     pub size: u32,
-    pub name: String,
+
 }
 
 
@@ -215,42 +216,42 @@ impl Drop for File {
 
 impl File {
     /// Write data to the file
-    fn write(&self, buffer: &[u8]) -> Result<isize> {
+    pub fn write(&self, buffer: &[u8]) -> Result<isize> {
         (self.functions.write)(self.handler, buffer)
     }
 
     /// Read data from the file
-    fn read(&mut self, buffer: &mut [u8]) -> Result<isize> {
+    pub fn read(&self, buffer: &mut [u8]) -> Result<isize> {
         (self.functions.read)(self.handler, buffer)
     }
 
     /// Rewind file position to the beginning
-    fn rewind(&mut self) -> Result<()> {
+    pub fn rewind(&self) -> Result<()> {
         (self.functions.rewind)(self.handler)
     }
 
     /// Seek to a position in the file
-    fn seek(&mut self, offset: i32, whence: SeekFrom) -> Result<isize> {
+    pub fn seek(&self, offset: i32, whence: SeekFrom) -> Result<isize> {
         (self.functions.seek)(self.handler, offset, whence.to_int())
     }
 
     /// Get current position in the file
-    fn tell(&self) -> Result<isize> {
+    pub fn tell(&self) -> Result<isize> {
         (self.functions.tell)(self.handler)
     }
 
     /// Truncate file to specified size
-    fn truncate(&mut self, size: u32) -> Result<()> {
+    pub fn truncate(&self, size: u32) -> Result<()> {
         (self.functions.truncate)(self.handler, size)
     }
 
     /// Flush file buffers
-    fn flush(&mut self) -> Result<()> {
+    pub fn flush(&self) -> Result<()> {
         (self.functions.flush)(self.handler)
     }
 
     /// Get file size
-    fn size(&self) -> Result<isize> {
+    pub fn size(&self) -> Result<isize> {
         (self.functions.size)(self.handler)
     }
 }
@@ -263,28 +264,17 @@ pub struct Dir {
 }
 
 impl Dir {
-    fn read(&mut self) -> Result<Option<DirEntry>> {
+    pub fn read(&self) -> Result<Option<DirEntry>> {
         let mut type_ = 0u8;
         let mut size = 0u32;
-        let mut name_buf = [0u8; 256];
+        let mut name = Bytes::<MAX_NAME_LEN>::new();
 
 
-        let ret = (self.functions.read)(self.handler, &mut type_, &mut size, &mut name_buf);
+        let ret = (self.functions.read)(self.handler, &mut type_, &mut size, name.as_mut_slice());
 
         if ret < 0 {
             return Err(Error::ReturnWithCode(ret));
         }
-
-        if ret == 0 {
-            return Ok(None);
-        }
-
-        // Find null terminator
-        let name_len = name_buf.iter().position(|&c| c == 0).unwrap_or(256);
-        let name = String::from(
-            from_utf8(&name_buf[..name_len])
-                .map_err(|_| Error::Unhandled("Error UTF8 conversion"))?
-        );
 
         Ok(Some(DirEntry {
             name,
@@ -297,15 +287,15 @@ impl Dir {
         }))
     }
 
-    fn seek(&mut self, offset: u32) -> Result<()> {
+    pub fn seek(&self, offset: u32) -> Result<()> {
         (self.functions.seek)(self.handler, offset)
     }
 
-    fn tell(&self) -> Result<i32> {
+    pub fn tell(&self) -> Result<i32> {
         (self.functions.tell)(self.handler)
     }
 
-    fn rewind(&mut self) -> Result<()> {
+    pub fn rewind(&self) -> Result<()> {
         (self.functions.rewind)(self.handler)
     }
 }
@@ -369,24 +359,18 @@ impl Filesystem {
     pub fn stat(path: &str) -> Result<FileStat> {
         let mut type_ = 0u8;
         let mut size = 0u32;
-        let mut name_buf = [0u8; 256];
+        let mut name = Bytes::<MAX_NAME_LEN>::new();
 
-        let ret = (FILESYSTEM_FN.stat)(path, &mut type_, &mut size, &mut name_buf)?;
+        let ret = (FILESYSTEM_FN.stat)(path, &mut type_, &mut size, name.as_mut_slice())?;
 
         if ret < 0 {
             return Err(Error::ReturnWithCode(ret));
         }
 
-        let name_len = name_buf.iter().position(|&c| c == 0).unwrap_or(256);
-        let name = String::from(
-            from_utf8(&name_buf[..name_len])
-                .map_err(|_| Error::Unhandled("Error UTF8 conversion"))?
-        );
-
         Ok(FileStat {
-            type_: EntryType::from_u8(type_),
-            size,
             name,
+            size,
+            type_: EntryType::from_u8(type_),
         })
     }
 

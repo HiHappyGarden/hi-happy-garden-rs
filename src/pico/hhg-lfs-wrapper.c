@@ -201,13 +201,14 @@ int hhg_flash_stat(const char* path, uint8_t* type, lfs_size_t* size, char* name
 
     struct lfs_info info;
     int res = lfs_stat(&lfs, path, &info);
-    if (res != LFS_ERR_OK) {
+    if (res < LFS_ERR_OK) {
         return res;
     }
 
     *type = info.type;
     *size = info.size;
-    strcpy(name, info.name);
+    strncpy(name, info.name, 255);
+    name[255] = '\0';
 
     return LFS_ERR_OK; 
 }
@@ -260,12 +261,13 @@ int hhg_flash_dir_read(long dir, uint8_t* type, lfs_size_t* size, char* name) {
 
     struct lfs_info info;
     int res = lfs_dir_read(&lfs, (lfs_dir_t*)dir, &info);
-    if (res != LFS_ERR_OK) {
+    if (res < LFS_ERR_OK) {
         return res;
     }
     *type = info.type;
     *size = info.size;
-    strcpy(name, info.name);
+    strncpy(name, info.name, 255);
+    name[255] = '\0';
     return LFS_ERR_OK;
 }
 

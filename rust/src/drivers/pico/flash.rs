@@ -32,9 +32,29 @@ use crate::drivers::pico::ffi::{
 use crate::drivers::filesystem::{DirEntry, DirFn, EntryType, FileFn, FileStat, FilesystemFn, FsStat, Handler, SeekFrom}; 
 
 const APP_TAG: &str = "Flash";
+
 pub const FS_CONFIG_DIR: &str = "/etc";
 pub const FS_DATA_DIR: &str = "/var";
 pub const FS_LOG_DIR: &str = "/var/log";
+
+pub mod lfs_errors {
+    pub const LFS_ERR_OK: i32 =0;    // No error
+    pub const LFS_ERR_IO: i32 =-5;   // Error during device operation
+    pub const LFS_ERR_CORRUPT: i32 =-84;  // Corrupted
+    pub const LFS_ERR_NOENT: i32 =-2;   // No directory entry
+    pub const LFS_ERR_EXIST: i32 =-17;  // Entry already exists
+    pub const LFS_ERR_NOTDIR: i32 =-20;  // Entry is not a dir
+    pub const LFS_ERR_ISDIR: i32 =-21;  // Entry is a dir
+    pub const LFS_ERR_NOTEMPTY: i32 =-39;  // Dir is not empty
+    pub const LFS_ERR_BADF: i32 =-9;   // Bad file number
+    pub const LFS_ERR_FBIG: i32 =-27;  // File too large
+    pub const LFS_ERR_INVAL: i32 =-22;  // Invalid parameter
+    pub const LFS_ERR_NOSPC: i32 =-28;  // No space left on device
+    pub const LFS_ERR_NOMEM: i32 =-12;  // No more memory available
+    pub const LFS_ERR_NOATTR: i32 =-61;  // No data/attr available
+    pub const LFS_ERR_NAMETOOLONG: i32 =-36;  // File name too long
+}
+
 
 pub const FILE_FN: FileFn = FileFn {
     

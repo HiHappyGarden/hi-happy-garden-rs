@@ -32,7 +32,7 @@ use core::ptr::read;
 use crate::apps::display;
 use crate::drivers::button::Button;
 use crate::drivers::encoder::Encoder;
-use crate::drivers::filesystem::Filesystem;
+use crate::drivers::filesystem::{EntryType, Filesystem, FsStat};
 use crate::drivers::i2c::I2C;
 use crate::drivers::pico::ffi::hhg_cyw43_arch_init;
 use crate::drivers::relays::Relays;
@@ -50,9 +50,10 @@ use super::gpio::{GPIO_FN, GPIO_CONFIG_SIZE};
 use crate::traits::state::Initializable;
 
 use crate::drivers::platform::{GpioPeripheral, I2C_BAUDRATE, I2C_INSTANCE, LCDDisplay, UART_FN};
+use crate::drivers::plt::flash::{FS_CONFIG_DIR, FS_DATA_DIR, FS_LOG_DIR};
+use crate::drivers::plt::flash::lfs_errors::LFS_ERR_EXIST;
 
 const APP_TAG: &str = "Hardware";
-
 
 #[allow(dead_code)]
 #[repr(u32)]
@@ -130,9 +131,7 @@ impl Initializable for Hardware {
 
         self.i2c.init()?;
         
-
-        Filesystem::mount(true)?;
-
+        self.init_fs()?;
 
         log_info!(APP_TAG, "Hardware initialized successfully heap_free:{}", System::get_free_heap_size());
         Ok(())
@@ -216,5 +215,55 @@ impl Hardware {
         ret.init().unwrap();
         ret
     }
+
+    pub fn init_fs(&self) -> Result<()> {
+        Filesystem::mount(true)?;
+
+
+        if let Err(Error::ReturnWithCode(code)) = Filesystem::mkdir(FS_CONFIG_DIR) {
+            if code != LFS_ERR_EXIST {
+                return Err(Error::ReturnWithCode(code))
+            }
+        } else {
+            log_info!(APP_TAG, "Created {FS_CONFIG_DIR} directory");
+        }
+
+        if let Err(Error::ReturnWithCode(code)) = Filesystem::mkdir(FS_DATA_DIR) {
+            if code != LFS_ERR_EXIST {
+                return Err(Error::ReturnWithCode(code))
+            }
+        } else {
+            log_info!(APP_TAG, "Created {FS_DATA_DIR} directory");
+        }
+
+        if let Err(Error::ReturnWithCode(code)) = Filesystem::mkdir(FS_LOG_DIR) {
+            if code != LFS_ERR_EXIST {
+                return Err(Error::ReturnWithCode(code))
+            }
+        } else {
+            log_info!(APP_TAG, "Created {FS_LOG_DIR} directory");
+        }
+
+        let dir = Filesystem::open_dir("/")?;
+        while let Ok(i) = dir.read() {
+            if let Some(entry) = i {
+                if entry.type_ == EntryType::Unknown {
+                    continue;
+                }
+                log_info!(APP_TAG, "Found entry in /: name={} type={:?}", entry.name, entry.type_);
+                
+            } else {
+                break;
+            }
+        }
+
+
+        let FsStat{block_size, block_count, blocks_used} = Filesystem::stat_fs()?;
+
+        log_info!(APP_TAG, "Filesystem size={}, used={}", block_size * block_count, block_size * blocks_used);
+
+        Ok(())
+    }
+    
 }
 
