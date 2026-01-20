@@ -64,9 +64,9 @@ unsafe extern "C" fn uart_isr() {
 fn init(config: &UartConfig) -> Result<()> {
     unsafe {
 
-        hhg_gpio_set_function(TX_PIN, gpio_function_t::GPIO_FUNC_UART.as_u32());
+        hhg_gpio_set_function(TX_PIN, gpio_function_t::GPIO_FUNC_UART as u32);
 
-        hhg_gpio_set_function(RX_PIN, gpio_function_t::GPIO_FUNC_UART.as_u32());
+        hhg_gpio_set_function(RX_PIN, gpio_function_t::GPIO_FUNC_UART as u32);
 
         let UartConfig {
             data_bits,

@@ -46,8 +46,8 @@ fn init(i2c_instance: u8, baudrate: u32) -> Result<*mut c_void> {
 
     unsafe {
 
-        hhg_gpio_set_function(2, gpio_function_t::GPIO_FUNC_I2C.as_u32());
-        hhg_gpio_set_function(3, gpio_function_t::GPIO_FUNC_I2C.as_u32());
+        hhg_gpio_set_function(2, gpio_function_t::GPIO_FUNC_I2C as u32);
+        hhg_gpio_set_function(3, gpio_function_t::GPIO_FUNC_I2C as u32);
         hhg_gpio_pull_up(2);
         hhg_gpio_pull_up(3);
 

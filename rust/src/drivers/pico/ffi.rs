@@ -62,12 +62,6 @@ pub enum pico_error_codes {
     PICO_ERROR_RESOURCE_IN_USE = -21,           
 }
 
-impl gpio_function_t {
-    pub fn as_u32(self) -> u32 {
-        self as u32
-    }
-}
-
 #[repr(u32)]
 #[derive(Clone, Copy)]
 pub(super) enum gpio_irq_level {
