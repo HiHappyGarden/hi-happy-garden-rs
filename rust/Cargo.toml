@@ -13,12 +13,13 @@ crate-type = ["staticlib"]
 [features]
 default = ["pico"]
 pico = []
-tests = []
+tests = ["osal-rs-tests"]
 
 [dependencies]
-osal-rs = { path = "../osal-rs/osal-rs", features = ["freertos"] }
-osal-rs-tests = { path = "../osal-rs/osal-rs-tests", features = ["freertos"] }
+osal-rs = { path = "../osal-rs/osal-rs", features = ["freertos", "serde"] }
+osal-rs-tests = { path = "../osal-rs/osal-rs-tests", features = ["freertos"], optional = true }
 at-parser-rs = { path = "../at-parser-rs", features = ["osal_rs"] }
+cjson-binding = { path = "../cjson-rs", features = ["osal_rs"] }
 
 [profile.dev]
 panic = "abort"
