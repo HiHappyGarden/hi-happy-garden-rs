@@ -158,6 +158,9 @@ file(GLOB_RECURSE RUST_SOURCES CONFIGURE_DEPENDS
 )
 
 # --- Automatic compilation of rust ---
+set(FREERTOS_CONFIG_PATH "inc/hhg-config/pico/FreeRTOSConfig.h")
+set(CARGO_BUILD_FLAGS --config "env.FREERTOS_CONFIG_PATH='${CMAKE_SOURCE_DIR}/${FREERTOS_CONFIG_PATH}'")
+
 add_custom_command(
     OUTPUT ${RUST_PATH}
     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/rust cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --features pico,${HHG_TESTS_FEATURE} 
