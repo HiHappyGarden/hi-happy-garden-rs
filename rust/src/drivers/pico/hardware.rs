@@ -244,23 +244,23 @@ impl Hardware {
             log_info!(APP_TAG, "Created {FS_LOG_DIR} directory");
         }
 
-        let dir = Filesystem::open_dir("/")?;
-        while let Ok(i) = dir.read() {
-            if let Some(entry) = i {
-                if entry.type_ == EntryType::Unknown {
-                    continue;
-                }
-                log_info!(APP_TAG, "Found entry in /: name={} type={:?}", entry.name, entry.type_);
+        // let dir = Filesystem::open_dir("/")?;
+        // while let Ok(i) = dir.read() {
+        //     if let Some(entry) = i {
+        //         if entry.type_ == EntryType::Unknown {
+        //             continue;
+        //         }
+        //         log_info!(APP_TAG, "Found entry in /: name={} type={:?}", entry.name, entry.type_);
                 
-            } else {
-                break;
-            }
-        }
+        //     } else {
+        //         break;
+        //     }
+        // }
 
 
         let FsStat{block_size, block_count, blocks_used} = Filesystem::stat_fs()?;
 
-        log_info!(APP_TAG, "Filesystem size={}, used={}", block_size * block_count, block_size * blocks_used);
+        log_info!(APP_TAG, "Filesystem size:{}, used:{}", block_size * block_count, block_size * blocks_used);
 
         Ok(())
     }
