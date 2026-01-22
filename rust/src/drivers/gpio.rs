@@ -26,9 +26,10 @@ use alloc::str;
 use alloc::string::ToString;
 use alloc::sync::Arc;
 
-use osal_rs::os::{RawMutex};
+use osal_rs::os::{RawMutex, AsSyncStr};
 use osal_rs::{log_info, log_warning};
-use osal_rs::utils::{AsSyncStr, Error, OsalRsBool, Ptr, Result};
+use osal_rs::utils::{Error, OsalRsBool, Ptr, Result};
+
 
 use crate::traits::state::{Deinitializable, Initializable};
 use crate::drivers::platform::{GPIO_CONFIG_SIZE, GPIO_CONFIGS, GPIO_FN};
