@@ -127,28 +127,30 @@ endif()
 set(RUST_PATH ${CMAKE_SOURCE_DIR}/rust/target/${CARGO_TARGET}/${RUST_PROFILE_DIR}/librust.a)
 
 
-# Track dependencies for parser-rs
-file(GLOB_RECURSE PARSER_RS_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_SOURCE_DIR}/parser-rs/src/*.rs"
-    "${CMAKE_SOURCE_DIR}/parser-rs/Cargo.toml"
+# Track dependencies for at-parser-rs
+file(GLOB_RECURSE HHG_PARSER_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/at-parser-rs/src/*.rs"
+    "${CMAKE_SOURCE_DIR}/at-parser-rs/Cargo.toml"
 )
 
-# Track dependencies for hhg-traits
-file(GLOB_RECURSE HHG_TRAITS_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_SOURCE_DIR}/hhg-traits/src/*.rs"
-    "${CMAKE_SOURCE_DIR}/hhg-traits/Cargo.toml"
+# Track dependencies for cjson-rs
+file(GLOB_RECURSE PARSER_RS_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/cjson-rs/src/*.rs"
+    "${CMAKE_SOURCE_DIR}/cjson-rs/Cargo.toml"
 )
 
 # Track dependencies for osal-rs
 file(GLOB_RECURSE OSAL_RS_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/osal-rs/osal-rs/src/*.rs"
-    "${CMAKE_SOURCE_DIR}/osal-rs/osal-rs-build/src/*.rs"
     "${CMAKE_SOURCE_DIR}/osal-rs/osal-rs/Cargo.toml"
+    "${CMAKE_SOURCE_DIR}/osal-rs/osal-rs-build/src/*.rs"
     "${CMAKE_SOURCE_DIR}/osal-rs/osal-rs-build/Cargo.toml"
+    "${CMAKE_SOURCE_DIR}/osal-rs/osal-rs-serde/src/*.rs"
+    "${CMAKE_SOURCE_DIR}/osal-rs/osal-rs-serde/Cargo.toml"
+    "${CMAKE_SOURCE_DIR}/osal-rs/osal-rs-serde/derive/src/*.rs"
+    "${CMAKE_SOURCE_DIR}/osal-rs/osal-rs-serde/derive/Cargo.toml"
     "${CMAKE_SOURCE_DIR}/osal-rs/Cargo.toml"
     "${CMAKE_SOURCE_DIR}/osal-rs/osal-rs/build.rs"
-    "${CMAKE_SOURCE_DIR}/parser-rs/src/*.rs"
-    "${CMAKE_SOURCE_DIR}/parser-rs/Cargo.toml"
 )
 
 # Track dependencies for rust
@@ -164,7 +166,7 @@ set(CARGO_BUILD_FLAGS --config "env.FREERTOS_CONFIG_PATH='${CMAKE_SOURCE_DIR}/${
 add_custom_command(
     OUTPUT ${RUST_PATH}
     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/rust cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --features pico,${HHG_TESTS_FEATURE} 
-    DEPENDS ${RUST_SOURCES} ${OSAL_RS_SOURCES} ${HHG_TRAITS_SOURCES} ${PARSER_RS_SOURCES}
+    DEPENDS ${RUST_SOURCES} ${OSAL_RS_SOURCES} ${HHG_PARSER_SOURCES} ${PARSER_RS_SOURCES}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/rust
     COMMENT "Building Rust library: rust"
     VERBATIM
