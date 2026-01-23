@@ -21,6 +21,8 @@
 
 extern crate alloc;
 extern crate osal_rs;
+extern crate osal_rs_serde;
+extern crate cjson_binding;
 
 mod apps;
 mod assets;

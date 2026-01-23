@@ -17,6 +17,7 @@ tests = ["osal-rs-tests"]
 
 [dependencies]
 osal-rs = { path = "../osal-rs/osal-rs", features = ["freertos", "serde"] }
+osal-rs-serde = { path = "../osal-rs/osal-rs-serde", features = ["derive"] }
 osal-rs-tests = { path = "../osal-rs/osal-rs-tests", features = ["freertos"], optional = true }
 at-parser-rs = { path = "../at-parser-rs", features = ["osal_rs"] }
 cjson-binding = { path = "../cjson-rs", features = ["osal_rs"] }
