@@ -38,7 +38,7 @@ use encoder_events::*;
 
 const APP_TAG: &str = "Encoder";
 const APP_THREAD_NAME: &str = "encoder_trd";
-const APP_STACK_SIZE: StackType = 1_024;
+const APP_STACK_SIZE: StackType = 256;
 const APP_DEBOUNCE_TIME: TickType = 3;
 
 pub mod encoder_events {
