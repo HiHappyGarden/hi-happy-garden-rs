@@ -30,9 +30,6 @@ use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "AppMain";
 
-
-
-
 pub struct AppMain{
     hardware: &'static mut Hardware,
     display: Display<LCDDisplay>,

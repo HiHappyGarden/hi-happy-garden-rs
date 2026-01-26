@@ -10,6 +10,3 @@
 [submodule "at-parser-rs"]
 	path = at-parser-rs
 	url = https://github.com/HiHappyGarden/at-parser-rs.git
-[submodule "cjson-rs"]
-	path = cjson-rs
-	url = https://github.com/HiHappyGarden/cjson-binding.git
