@@ -19,7 +19,7 @@
 
 use osal_rs::log_info;
 use osal_rs::os::{System, SystemFn};
-use osal_rs::utils::Result;
+use osal_rs::utils::{Error, Result};
 
 use crate::apps::display::{Display};
 use crate::drivers::platform::{GpioPeripheral, Hardware, LCDDisplay};
@@ -30,7 +30,20 @@ use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "AppMain";
 
+#[derive(osal_rs_serde::Serialize, osal_rs_serde::Deserialize, Debug, Default)]
+struct Test {
+    a: u8,
+    b: bool,
+    c: u16,
+    // Changed from &'static str to String for serialization support
+    s: alloc::string::String,
+}
 
+#[derive(osal_rs_serde::Serialize, osal_rs_serde::Deserialize, Debug, Default)]
+struct Test2 {
+    test: Test,
+    pippo: f32,
+}
 
 
 pub struct AppMain{
@@ -65,6 +78,27 @@ impl Initializable for AppMain {
 
         self.display.draw()?;
 
+
+        let test = Test {
+            a: 42,
+            b: true,
+            c: 65535,
+            s: alloc::string::String::from("Hello, World!"),
+        };
+
+        let test2 = Test2 {
+            test,
+            pippo: 3.14,
+        };
+
+        let json_str = cjson_binding::to_json(&test2).map_err(|_| Error::Unhandled("Serialization error"))?;
+
+        log_info!(APP_TAG, "Serialized JSON: {}", json_str);
+
+
+        let deserializer = cjson_binding::from_json::<Test2>(&json_str).map_err(|_| Error::Unhandled("Deserialization error"))?;
+
+        log_info!(APP_TAG, "Deserialized JSON: {:?}", deserializer);
 
         log_info!(APP_TAG, "App main initialized successfully heap_free:{}", System::get_free_heap_size());
 
