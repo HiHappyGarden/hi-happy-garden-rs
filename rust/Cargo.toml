@@ -20,7 +20,7 @@ osal-rs = { path = "../osal-rs/osal-rs", features = ["freertos", "serde"] }
 osal-rs-serde = { path = "../osal-rs/osal-rs-serde", features = ["derive"] }
 osal-rs-tests = { path = "../osal-rs/osal-rs-tests", features = ["freertos"], optional = true }
 at-parser-rs = { path = "../at-parser-rs", features = ["osal_rs"] }
-cjson-bindings = { path = "../cjson-rs", features = ["osal_rs"] }
+cjson-bindings = { path = "../cjson-bindings", features = ["osal_rs"] }
 
 [profile.dev]
 panic = "abort"
