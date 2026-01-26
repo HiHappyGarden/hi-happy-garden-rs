@@ -99,7 +99,7 @@ endif()
 
 # Configure Rust build
 set(CARGO_TARGET "thumbv8m.main-none-eabi")
-set(CARGO_BUILD_DIR "${CMAKE_BINARY_DIR}/rust")
+set(CARGO_BUILD_DIR "${CMAKE_BINARY_DIR}/main")
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/hhg-config.h.in ${CMAKE_CURRENT_SOURCE_DIR}/inc/hhg-config/pico/hhg-config.h)
 
@@ -124,7 +124,7 @@ endif()
 
 
 # Rust library paths
-set(RUST_PATH ${CMAKE_SOURCE_DIR}/rust/target/${CARGO_TARGET}/${RUST_PROFILE_DIR}/librust.a)
+set(RUST_PATH ${CMAKE_SOURCE_DIR}/main/target/${CARGO_TARGET}/${RUST_PROFILE_DIR}/librust.a)
 
 
 # Track dependencies for at-parser-rs
@@ -153,27 +153,27 @@ file(GLOB_RECURSE OSAL_RS_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/osal-rs/osal-rs/build.rs"
 )
 
-# Track dependencies for rust
+# Track dependencies for main
 file(GLOB_RECURSE RUST_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_SOURCE_DIR}/rust/src/*.rs"
-    "${CMAKE_SOURCE_DIR}/rust/Cargo.toml"
+    "${CMAKE_SOURCE_DIR}/main/src/*.rs"
+    "${CMAKE_SOURCE_DIR}/main/Cargo.toml"
 )
 
-# --- Automatic compilation of rust ---
+# --- Automatic compilation of main ---
 set(FREERTOS_CONFIG_PATH "inc/hhg-config/pico/FreeRTOSConfig.h")
 set(CARGO_BUILD_FLAGS --config "env.FREERTOS_CONFIG_PATH='${CMAKE_SOURCE_DIR}/${FREERTOS_CONFIG_PATH}'")
 
 add_custom_command(
     OUTPUT ${RUST_PATH}
-    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/rust cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --features pico,${HHG_TESTS_FEATURE} 
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/main cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --features pico,${HHG_TESTS_FEATURE} 
     DEPENDS ${RUST_SOURCES} ${OSAL_RS_SOURCES} ${HHG_PARSER_SOURCES} ${PARSER_RS_SOURCES}
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/rust
-    COMMENT "Building Rust library: rust"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/main
+    COMMENT "Building Rust library: main"
     VERBATIM
     USES_TERMINAL
 )
 
-add_custom_target(rust ALL DEPENDS ${RUST_PATH})
+add_custom_target(main ALL DEPENDS ${RUST_PATH})
 
 
 file(GLOB_RECURSE INCLUDES CONFIGURE_DEPENDS "inc/*.hpp" "inc/*.h" "osal-rs/osal-rs-build/osal-rs-ffi-freertos/inc/*.h" "osal-rs/osal-rs-porting/freeretos/inc/*.h")
@@ -185,7 +185,7 @@ add_executable(hi-happy-garden-rs
 )
 
 # Add dependency on Rust build
-add_dependencies(${PROJECT_NAME} rust)
+add_dependencies(${PROJECT_NAME} main)
 
 pico_set_program_name(${PROJECT_NAME} "hi-happy-garden-rs")
 pico_set_program_version(${PROJECT_NAME} ${PROJECT_VERSION})
