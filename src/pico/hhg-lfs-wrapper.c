@@ -25,6 +25,13 @@
 #include <hardware/flash.h>
 #include <hardware/sync.h>
 #include <pico/types.h>
+
+extern void * pvPortMalloc( size_t xWantedSize );
+extern void vPortFree( void * pv );
+
+#define LFS_MALLOC pvPortMalloc
+#define LFS_FREE   vPortFree
+
 #include <lfs.h>
 
 
@@ -133,35 +140,35 @@ int hhg_flash_mount(bool format) {
     return err;
 }
 
-long hhg_flash_open(const char* path, int flags) {
+void* hhg_flash_open(const char* path, int flags) {
     lfs_file_t* file = lfs_malloc(sizeof(lfs_file_t));
     if (file == NULL) {
-        return LFS_ERR_NOMEM;
+        return NULL;
     }
         
     int err = lfs_file_open(&lfs, file, path, flags);
     if (err != LFS_ERR_OK) {
         lfs_free(file);
-        return err;
+        return NULL;
     }
-    return (long)file;
+    return (void*)file;
 }
 
-int hhg_flash_close(long file) {
+int hhg_flash_close(void* file) {
     int res = lfs_file_close(&lfs, (lfs_file_t*)file);
     lfs_free((lfs_file_t*)file);
     return res;
 }
 
-lfs_size_t hhg_flash_write(long file, const void* buffer, lfs_size_t size) {
+lfs_size_t hhg_flash_write(void* file, const void* buffer, lfs_size_t size) {
     return lfs_file_write(&lfs, (lfs_file_t*)file, buffer, size);
 }
 
-lfs_size_t hhg_flash_read(long file, void* buffer, lfs_size_t size) {
+lfs_size_t hhg_flash_read(void* file, void* buffer, lfs_size_t size) {
     return lfs_file_read(&lfs, (lfs_file_t*)file, buffer, size);
 }
 
-int hhg_flash_rewind(long file) { 
+int hhg_flash_rewind(void* file) { 
     return lfs_file_rewind(&lfs, (lfs_file_t*)file); 
 }
 
@@ -184,16 +191,16 @@ int hhg_flash_fsstat(lfs_size_t* block_size, lfs_size_t* block_count, lfs_size_t
     return LFS_ERR_OK;
 }
 
-lfs_soff_t hhg_flash_lseek(long file, lfs_soff_t off, int whence) {
+lfs_soff_t hhg_flash_lseek(void* file, lfs_soff_t off, int whence) {
     return lfs_file_seek(&lfs, (lfs_file_t*)file, off, whence);
 }
 
 
-int hhg_flash_truncate(long file, lfs_off_t size) { 
+int hhg_flash_truncate(void* file, lfs_off_t size) { 
     return lfs_file_truncate(&lfs, (lfs_file_t*)file, size); 
 }
 
-lfs_soff_t hhg_flash_tell(long file) { 
+lfs_soff_t hhg_flash_tell(void* file) { 
     return lfs_file_tell(&lfs, (lfs_file_t*)file); 
 }
 
@@ -226,11 +233,11 @@ int hhg_flash_removeattr(const char* path, uint8_t type) {
 }
 
 
-int hhg_flash_fflush(long file) { 
+int hhg_flash_fflush(void* file) { 
     return lfs_file_sync(&lfs, (lfs_file_t*)file); 
 }
 
-lfs_soff_t hhg_flash_size(long file) { 
+lfs_soff_t hhg_flash_size(void* file) { 
     return lfs_file_size(&lfs, (lfs_file_t*)file); 
 }
 
@@ -238,26 +245,26 @@ int hhg_flash_mkdir(const char* path) {
     return lfs_mkdir(&lfs, path); 
 }
 
-long hhg_flash_dir_open(const char* path) {
+void* hhg_flash_dir_open(const char* path) {
 	lfs_dir_t* dir = lfs_malloc(sizeof(lfs_dir_t));
 	if (dir == NULL) {
-        return -1;
+        return NULL;
     }
 		
 	if (lfs_dir_open(&lfs, dir, path) != LFS_ERR_OK) {
 		lfs_free(dir);
-		return -1;
+		return NULL;
 	}
-	return (long)dir;
+	return (void*)dir;
 }
 
-int hhg_flash_dir_close(long dir) {
+int hhg_flash_dir_close(void* dir) {
 	int res = lfs_dir_close(&lfs, (lfs_dir_t*)dir);
 	lfs_free((void*)dir);
     return res;
 }
 
-int hhg_flash_dir_read(long dir, uint8_t* type, lfs_size_t* size, char* name) { 
+int hhg_flash_dir_read(void* dir, uint8_t* type, lfs_size_t* size, char* name) { 
 
     struct lfs_info info;
     int res = lfs_dir_read(&lfs, (lfs_dir_t*)dir, &info);
@@ -271,15 +278,15 @@ int hhg_flash_dir_read(long dir, uint8_t* type, lfs_size_t* size, char* name) {
     return LFS_ERR_OK;
 }
 
-int hhg_flash_dir_seek(long dir, lfs_off_t off) { 
+int hhg_flash_dir_seek(void* dir, lfs_off_t off) { 
     return lfs_dir_seek(&lfs, (lfs_dir_t*)dir, off); 
 }
 
-lfs_soff_t hhg_flash_dir_tell(long dir) { 
+lfs_soff_t hhg_flash_dir_tell(void* dir) { 
     return lfs_dir_tell(&lfs, (lfs_dir_t*)dir); 
 }
 
-int hhg_flash_dir_rewind(long dir) { 
+int hhg_flash_dir_rewind(void* dir) { 
     return lfs_dir_rewind(&lfs, (lfs_dir_t*)dir); 
 }
 

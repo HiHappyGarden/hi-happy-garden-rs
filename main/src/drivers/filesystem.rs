@@ -25,7 +25,7 @@ use osal_rs::utils::{Bytes, Error, Result};
 
 use core::ffi::c_int;
 use core::str::from_utf8;
-pub use core::ffi::c_long as Handler;
+pub use core::ffi::c_void;
 
 use crate::drivers::pico::flash::{FILESYSTEM_FN, FILE_FN, DIR_FN};
 use crate::traits::state::Initializable;
@@ -112,49 +112,49 @@ pub struct FileFn {
     pub open: fn (path: &str, flags: i32) -> Result<()>,
 
     /// Write data to the file
-    pub write: fn (handler: Handler, buffer: &[u8]) -> Result<isize>,
+    pub write: fn (handler: *mut c_void, buffer: &[u8]) -> Result<isize>,
 
     /// Read data from the file
-    pub read: fn (handler: Handler, buffer: &mut [u8]) -> Result<isize>, 
+    pub read: fn (handler: *mut c_void, buffer: &mut [u8]) -> Result<isize>, 
 
     /// Rewind file position to the beginning
-    pub rewind: fn (handler: Handler) -> Result<()>,
+    pub rewind: fn (handler: *mut c_void) -> Result<()>,
 
     /// Seek to a position in the file
-    pub seek: fn (handler: Handler, offset: i32, whence: i32) -> Result<isize>,
+    pub seek: fn (handler: *mut c_void, offset: i32, whence: i32) -> Result<isize>,
 
     /// Get current position in the file
-    pub tell: fn (handler: Handler) -> Result<isize>,
+    pub tell: fn (handler: *mut c_void) -> Result<isize>,
 
     /// Truncate file to specified size
-    pub truncate: fn (handler: Handler, size: u32) -> Result<()>,
+    pub truncate: fn (handler: *mut c_void, size: u32) -> Result<()>,
 
     /// Flush file buffers
-    pub flush: fn (handler: Handler) -> Result<()>,
+    pub flush: fn (handler: *mut c_void) -> Result<()>,
 
     /// Get file size
-    pub size: fn (handler: Handler) -> Result<isize>,
+    pub size: fn (handler: *mut c_void) -> Result<isize>,
 
     //Close file
-    pub close: fn (handler: Handler) -> Result<()>,
+    pub close: fn (handler: *mut c_void) -> Result<()>,
 }
 
 #[derive(Clone, Debug)]
 pub struct DirFn {
     /// Read next entry in the directory
-    pub read: fn (handler: Handler, type_: &mut u8, size: &mut u32, name: &mut [u8]) -> c_int,
+    pub read: fn (handler: *mut c_void, type_: &mut u8, size: &mut u32, name: &mut [u8]) -> c_int,
 
     /// Seek to a position in the directory
-    pub seek: fn (handler: Handler, offset: u32) -> Result<()>,
+    pub seek: fn (handler: *mut c_void, offset: u32) -> Result<()>,
 
     /// Get current position in the directory
-    pub tell: fn (handler: Handler) -> Result<i32>,
+    pub tell: fn (handler: *mut c_void) -> Result<i32>,
     
     /// Rewind directory position to the beginning
-    pub rewind: fn (handler: Handler) -> Result<()>,
+    pub rewind: fn (handler: *mut c_void) -> Result<()>,
 
     /// Close Dir
-    pub close: fn (handler: Handler) -> Result<()>,
+    pub close: fn (handler: *mut c_void) -> Result<()>,
 }
 
 
@@ -168,7 +168,7 @@ pub struct FilesystemFn {
     pub umount: fn () -> Result<()>,
 
     /// Open a file
-    pub open: fn (path: &str, flags: i32) -> Result<isize>,
+    pub open: fn (path: &str, flags: i32) -> Result<*mut c_void>,
 
     /// Remove a file or directory
     pub remove: fn (path: &str) -> Result<()>,
@@ -195,7 +195,7 @@ pub struct FilesystemFn {
     pub mkdir: fn (path: &str) -> Result<()>,
 
     /// Open a directory
-    pub open_dir: fn (path: &str) -> Result<isize>,
+    pub open_dir: fn (path: &str) -> Result<*mut c_void>,
 
     /// Get error message for error code
     pub errmsg: fn (err: i32) -> &'static str
@@ -205,7 +205,7 @@ pub struct FilesystemFn {
 #[derive(Clone, Debug)]
 pub struct File {
     functions: &'static FileFn,
-    handler: Handler,
+    handler: *mut c_void,
 }
 
 impl Drop for File {
@@ -260,7 +260,7 @@ impl File {
 #[derive(Clone, Debug)]
 pub struct Dir {
     functions: &'static DirFn,  
-    handler: Handler,
+    handler: *mut c_void,
 }
 
 impl Dir {
@@ -330,7 +330,7 @@ impl Filesystem {
         let handler = (FILESYSTEM_FN.open)(path, flags)?;
         Ok(File {
             functions: &FILE_FN,
-            handler: handler as Handler,
+            handler: handler as *mut c_void,
         })
     }
 
@@ -394,7 +394,7 @@ impl Filesystem {
         let handler = (FILESYSTEM_FN.open_dir)(path)?;
         Ok(Dir {
             functions: &DIR_FN,
-            handler: handler as Handler,
+            handler: handler
         })
     }
 
