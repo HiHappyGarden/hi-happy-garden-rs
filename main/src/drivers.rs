@@ -1,5 +1,6 @@
 #![allow(unused_imports)]
 mod button;
+mod ecnrypt;
 mod encoder;
 pub mod filesystem;
 pub mod gpio; 

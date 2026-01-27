@@ -403,3 +403,60 @@ impl Filesystem {
     }
 }
 
+
+// static KEY: SyncUnsafeCell<[u8; 16]> = SyncUnsafeCell::new([3u8; 16]);
+// static AES: SyncUnsafeCell<MbedtlsAes> = SyncUnsafeCell::new(MbedtlsAes(null_mut()));
+
+
+//     //TODO: enfore encryption initialization here
+//     let mut id_buffer = [0u8; 8];
+//     unsafe {
+//         hhg_get_unique_id(id_buffer.as_mut_ptr());
+
+//         let key = &mut *KEY.get();
+//         for i in 0..id_buffer.len() * 2 {
+//             key[i] = if i < id_buffer.len() {
+//                 id_buffer[i]
+//             } else {
+//                 id_buffer[i - id_buffer.len()]
+//             };
+//         }
+//     }
+
+
+
+//     unsafe { 
+//         let aes = &mut *AES.get();
+//         aes.0 = hhg_mbedtls_aes_init();
+//         if aes.0.is_null() {
+//             return Err(Error::NullPtr);
+//         }
+//     }
+
+
+// fn enc_dec(mode: aes_mode, buffer: &[u8]) -> Result<Vec<u8>> {
+    
+//     let padded_len: usize = if mode == aes_mode::AES_ENCRYPT { 
+//         (buffer.len() + 15) & !15usize
+//     } else { 
+//         buffer.len() + 1
+//     };
+
+//     let mut output: Vec<u8> = vec![0u8; padded_len];
+    
+//     unsafe { 
+//         let aes = &*AES.get();
+//         let key = &mut *KEY.get();
+//         let ret = hhg_mbedtls_aes_setkey_enc(aes.0, key.as_ptr(), 128);
+//         if ret != 0 {
+//             return Err(Error::ReturnWithCode(ret));
+//         }
+
+//         output[..buffer.len()].copy_from_slice(buffer);
+
+//         hhg_mbedtls_aes_crypt_cbc(aes.0, mode as i32, key.len() as usize, key.as_mut_ptr(), buffer.as_ptr(), output.as_mut_ptr())
+//     };
+
+//     Ok(output)
+// }
+
