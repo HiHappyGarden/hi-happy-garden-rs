@@ -62,6 +62,8 @@ impl Initializable for AppMain {
 
         self.display.draw()?;
 
+        let unique_id = self.hardware.get_unique_id();
+        log_info!(APP_TAG, "Device Unique ID: {:02X?}", unique_id);
 
         log_info!(APP_TAG, "App main initialized successfully heap_free:{}", System::get_free_heap_size());
 

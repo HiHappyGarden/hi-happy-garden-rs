@@ -27,12 +27,51 @@
 #include <hardware/gpio.h>
 #include <portmacro.h>
 
+#include <string.h>
+#include "mbedtls/aes.h"
 
 extern void start(void);
 
 int main()
 {
     stdio_init_all();
+
+    unsigned char key[32] = "0123456789abcdef0123456789abcdef";  // Chiave AES-256
+    unsigned char iv[16] = "abcdefghijklmnop";   // IV originale
+    unsigned char plaintext[] = "Hello, mbed TLS!";
+    unsigned char ciphertext[16];
+    unsigned char decrypted[16 + 1];
+    unsigned char iv_for_decrypt[16];  // Copia dell'IV per decifratura
+
+
+
+    mbedtls_aes_context aes;
+
+    // Inizializza contesto AES
+    mbedtls_aes_init(&aes);
+
+    // Salva una copia dell'IV per la decifratura
+    memcpy(iv_for_decrypt, iv, 16);
+
+    // Cifra
+    mbedtls_aes_setkey_enc(&aes, key, 256);
+    mbedtls_aes_crypt_cbc(&aes, MBEDTLS_AES_ENCRYPT, 16, iv, plaintext, ciphertext);
+
+    // Decifra (usa la copia dell'IV originale)
+    mbedtls_aes_setkey_dec(&aes, key, 256);
+    mbedtls_aes_crypt_cbc(&aes, MBEDTLS_AES_DECRYPT, 16, iv_for_decrypt, ciphertext, decrypted);
+
+decrypted[16] = '\0';  // Aggiungi terminatore di stringa
+
+    // Stampa risultati
+    printf("Plaintext:  %s\n", plaintext);
+    printf("Ciphertext: ");
+    for (int i = 0; i < 16; i++) printf("%02X", ciphertext[i]);
+    printf("\n");
+    printf("Decrypted:  %s\n", decrypted);
+
+    // Pulizia
+    mbedtls_aes_free(&aes);
 
     printf("===================================\r\n");
     printf("=== Hi Happy Garden RS %s ======\r\n", HHG_VER);

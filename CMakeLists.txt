@@ -124,7 +124,7 @@ endif()
 
 
 # Rust library paths
-set(RUST_PATH ${CMAKE_SOURCE_DIR}/main/target/${CARGO_TARGET}/${RUST_PROFILE_DIR}/librust.a)
+set(RUST_PATH ${CMAKE_SOURCE_DIR}/main/target/${CARGO_TARGET}/${RUST_PROFILE_DIR}/libmain.a)
 
 
 # Track dependencies for at-parser-rs

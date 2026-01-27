@@ -182,4 +182,7 @@ unsafe extern "C" {
     pub(super) fn hhg_flash_dir_tell(dir: c_long) -> LfsSoff;
     pub(super) fn hhg_flash_dir_rewind(dir: c_long) -> c_int;
     pub(super) fn hhg_flash_errmsg(err: c_int) -> *const c_char;
+
+    pub(super) fn hhg_get_unique_id(id_buffer: *mut u8);
+
 }   

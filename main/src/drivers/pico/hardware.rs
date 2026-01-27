@@ -34,7 +34,7 @@ use crate::drivers::button::Button;
 use crate::drivers::encoder::Encoder;
 use crate::drivers::filesystem::{EntryType, Filesystem, FsStat};
 use crate::drivers::i2c::I2C;
-use crate::drivers::pico::ffi::hhg_cyw43_arch_init;
+use crate::drivers::pico::ffi::{hhg_cyw43_arch_init, hhg_get_unique_id};
 use crate::drivers::relays::Relays;
 use crate::drivers::rgb_led::RgbLed;
 use crate::drivers::uart::Uart;
@@ -265,5 +265,14 @@ impl Hardware {
         Ok(())
     }
     
+
+    pub fn get_unique_id(&self) -> [u8; 8] {
+        let mut id_buffer = [0u8; 8];
+        unsafe {
+            hhg_get_unique_id(id_buffer.as_mut_ptr());
+        }
+        id_buffer
+    }   
+
 }
 
