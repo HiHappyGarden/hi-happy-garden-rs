@@ -24,7 +24,7 @@ use osal_rs::os::{MutexFn, QueueFn};
 use osal_rs::utils::{Error, Result};
 
 use crate::drivers::uart::{UartConfig, UartDataBits, UartFlowControl, UartFn, UartParity, UartStopBits};
-use crate::drivers::pico::ffi::{gpio_function_t, hhg_gpio_set_function, hhg_uart_deinit, hhg_uart_getc, hhg_uart_init, hhg_uart_irq_set_enabled, hhg_uart_irq_set_exclusive_handler, hhg_uart_is_readable, hhg_uart_putc, hhg_uart_set_format, hhg_uart_set_hw_flow, hhg_uart_set_irq_enables, uart_parity_t};
+use crate::drivers::pico::ffi::{gpio_function_type, hhg_gpio_set_function, hhg_uart_deinit, hhg_uart_getc, hhg_uart_init, hhg_uart_irq_set_enabled, hhg_uart_irq_set_exclusive_handler, hhg_uart_is_readable, hhg_uart_putc, hhg_uart_set_format, hhg_uart_set_hw_flow, hhg_uart_set_irq_enables, uart_parity};
 
 // const APP_TAG: &str = "PicoUart";
 const TX_PIN: u32 = 0;
@@ -64,9 +64,9 @@ unsafe extern "C" fn uart_isr() {
 fn init(config: &UartConfig) -> Result<()> {
     unsafe {
 
-        hhg_gpio_set_function(TX_PIN, gpio_function_t::GPIO_FUNC_UART as u32);
+        hhg_gpio_set_function(TX_PIN, gpio_function_type::GPIO_FUNC_UART as u32);
 
-        hhg_gpio_set_function(RX_PIN, gpio_function_t::GPIO_FUNC_UART as u32);
+        hhg_gpio_set_function(RX_PIN, gpio_function_type::GPIO_FUNC_UART as u32);
 
         let UartConfig {
             data_bits,
@@ -91,9 +91,9 @@ fn init(config: &UartConfig) -> Result<()> {
         } as c_uint;
 
         let parity = match parity {
-            UartParity::None => uart_parity_t::UART_PARITY_NONE,
-            UartParity::Even => uart_parity_t::UART_PARITY_EVEN,
-            UartParity::Odd => uart_parity_t::UART_PARITY_ODD,
+            UartParity::None => uart_parity::UART_PARITY_NONE,
+            UartParity::Even => uart_parity::UART_PARITY_EVEN,
+            UartParity::Odd => uart_parity::UART_PARITY_ODD,
         };
         
         hhg_uart_set_format(data_bits, stop_bits, parity);

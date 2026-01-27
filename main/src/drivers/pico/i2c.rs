@@ -25,7 +25,7 @@ use core::ffi::c_void;
 
 use osal_rs::utils::{Error, OsalRsBool, Result};
 
-use crate::drivers::{i2c::I2CFn, pico::ffi::{gpio_function_t, hhg_gpio_pull_up, hhg_gpio_set_function, hhg_i2c_init, hhg_i2c_init_pins_with_func, hhg_i2c_instance, hhg_i2c_read_blocking, hhg_i2c_write_blocking}};
+use crate::drivers::{i2c::I2CFn, pico::ffi::{gpio_function_type, hhg_gpio_pull_up, hhg_gpio_set_function, hhg_i2c_init, hhg_i2c_init_pins_with_func, hhg_i2c_instance, hhg_i2c_read_blocking, hhg_i2c_write_blocking}};
 use crate::drivers::plt::ffi::pico_error_codes::PICO_ERROR_GENERIC;
 
 pub const I2C_INSTANCE: u8 = 0;
@@ -46,8 +46,8 @@ fn init(i2c_instance: u8, baudrate: u32) -> Result<*mut c_void> {
 
     unsafe {
 
-        hhg_gpio_set_function(2, gpio_function_t::GPIO_FUNC_I2C as u32);
-        hhg_gpio_set_function(3, gpio_function_t::GPIO_FUNC_I2C as u32);
+        hhg_gpio_set_function(2, gpio_function_type::GPIO_FUNC_I2C as u32);
+        hhg_gpio_set_function(3, gpio_function_type::GPIO_FUNC_I2C as u32);
         hhg_gpio_pull_up(2);
         hhg_gpio_pull_up(3);
 

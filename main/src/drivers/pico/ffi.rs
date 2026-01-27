@@ -4,7 +4,7 @@
 #![allow(non_camel_case_types)]
 #![allow(dead_code)]
 
-use core::ffi::{c_char, c_int, c_long, c_uint, c_void};
+use core::{ffi::{c_char, c_int, c_long, c_uint, c_void}, ptr::null_mut};
 
 #[repr(C)]
 pub struct pwm_config {
@@ -16,24 +16,22 @@ pub struct pwm_config {
 pub(super) const GPIO_OUT: bool = true;
 pub(super) const GPIO_IN: bool = false;  
 
-#[repr(u32)]
-#[derive(Clone, Copy)]
-pub(super) enum gpio_function_t {
-    GPIO_FUNC_HSTX = 0,
-    GPIO_FUNC_SPI = 1,
-    GPIO_FUNC_UART = 2,
-    GPIO_FUNC_I2C = 3,
-    GPIO_FUNC_PWM = 4,
-    GPIO_FUNC_SIO = 5,
-    GPIO_FUNC_PIO0 = 6,
-    GPIO_FUNC_PIO1 = 7,
-    GPIO_FUNC_PIO2 = 8,
-    GPIO_FUNC_GPCK = 9,
-    // GPIO_FUNC_XIP_CS1 = 9,
-    // GPIO_FUNC_CORESIGHT_TRACE = 9,
-    GPIO_FUNC_USB = 10,
-    GPIO_FUNC_UART_AUX = 11,
-    GPIO_FUNC_NULL = 0x1f,
+pub(super) mod gpio_function_type {
+    pub const GPIO_FUNC_HSTX: u32 = 0;
+    pub const GPIO_FUNC_SPI: u32 = 1;
+    pub const GPIO_FUNC_UART: u32 = 2;
+    pub const GPIO_FUNC_I2C: u32 = 3;
+    pub const GPIO_FUNC_PWM: u32 = 4;
+    pub const GPIO_FUNC_SIO: u32 = 5;
+    pub const GPIO_FUNC_PIO0: u32 = 6;
+    pub const GPIO_FUNC_PIO1: u32 = 7;
+    pub const GPIO_FUNC_PIO2: u32 = 8;
+    pub const GPIO_FUNC_GPCK: u32 = 9;
+    pub const GPIO_FUNC_XIP_CS1: u32 = 9;
+    pub const GPIO_FUNC_CORESIGHT_TRACE: u32 = 9;
+    pub const GPIO_FUNC_USB: u32 = 10;
+    pub const GPIO_FUNC_UART_AUX: u32 = 11;
+    pub const GPIO_FUNC_NULL: u32 = 0x1f;
 }
 
 #[repr(C)]
@@ -74,11 +72,23 @@ pub(super) enum gpio_irq_level {
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub enum uart_parity_t {
+pub enum uart_parity {
     UART_PARITY_NONE = 0,
     UART_PARITY_EVEN = 1,
     UART_PARITY_ODD = 2,
 }
+
+#[repr(i32)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum aes_mode {
+    AES_ENCRYPT = 1,
+    AES_DECRYPT = 0,
+}
+pub struct MbedtlsAes (pub *mut c_void);
+
+unsafe impl Send for MbedtlsAes {}
+unsafe impl Sync for MbedtlsAes {}
+
 
 pub type irq_handler_t = unsafe extern "C" fn();
 
@@ -109,7 +119,7 @@ unsafe extern "C" {
     pub(super) fn hhg_uart_init(baudrate: c_uint) -> c_uint;
     pub(super) fn hhg_uart_deinit();
     pub(super) fn hhg_uart_set_hw_flow(cts: bool, rts: bool);
-    pub(super) fn hhg_uart_set_format(data_bits: c_uint, stop_bits: c_uint, parity: uart_parity_t);
+    pub(super) fn hhg_uart_set_format(data_bits: c_uint, stop_bits: c_uint, parity: uart_parity);
     pub(super) fn hhg_uart_irq_set_exclusive_handler(handler: irq_handler_t);
     pub(super) fn hhg_uart_irq_set_enabled(enabled: bool);
     pub(super) fn hhg_uart_set_irq_enables(rx_en: bool, tx_en: bool);
@@ -185,4 +195,10 @@ unsafe extern "C" {
 
     pub(super) fn hhg_get_unique_id(id_buffer: *mut u8);
 
+    pub(super) fn hhg_mbedtls_aes_init() -> *mut c_void;
+    pub(super) fn hhg_mbedtls_aes_setkey_enc(aes: *mut c_void, key: *const u8, keybits: u32) -> i32;
+    pub(super) fn hhg_mbedtls_aes_crypt_cbc(aes: *mut c_void, mode: i32, length: usize, iv: *mut u8, input: *const u8, output: *mut u8) -> i32;
+    pub(super) fn hhg_mbedtls_aes_setkey_dec(aes: *mut c_void, key: *const u8, keybits: u32) -> i32;
+    pub(super) fn hhg_mbedtls_aes_free(aes: *mut c_void);
+    
 }   

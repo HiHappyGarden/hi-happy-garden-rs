@@ -219,6 +219,9 @@ impl Hardware {
     pub fn init_fs(&self) -> Result<()> {
         Filesystem::mount(true)?;
 
+        // Filesystem::remove(FS_CONFIG_DIR).ok();
+        // Filesystem::remove(FS_DATA_DIR).ok();
+        // Filesystem::remove(FS_LOG_DIR).ok();
 
         if let Err(Error::ReturnWithCode(code)) = Filesystem::mkdir(FS_CONFIG_DIR) {
             if code != LFS_ERR_EXIST {
