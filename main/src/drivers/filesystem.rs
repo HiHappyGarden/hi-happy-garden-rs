@@ -27,11 +27,16 @@ use core::ffi::c_int;
 use core::str::from_utf8;
 pub use core::ffi::c_void;
 
+use crate::drivers::ecnrypt::Encrypt;
 use crate::drivers::pico::flash::{FILESYSTEM_FN, FILE_FN, DIR_FN};
 use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "Filesystem";
 const MAX_NAME_LEN: usize = 256;
+
+static mut ENCRYPT: Option<Encrypt<32, 16>> = None;
+static KEY: [u8; 32] = [0u8; 32];
+static IV: [u8; 16] = [0u8; 16];
 
 /// Seek position enum
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -313,6 +318,14 @@ pub struct Filesystem;
 impl Filesystem {
     
     pub fn mount(format: bool) -> Result<()> {
+
+        unsafe {
+            let mut encrypt = Encrypt::new(&KEY, &IV)?;
+            encrypt.init()?;
+            ENCRYPT = Some(encrypt);
+        }
+
+
         if (FILESYSTEM_FN.mount)(format).is_ok() {
             log_info!(APP_TAG, "Filesystem mounted");
             Ok(())
@@ -323,6 +336,9 @@ impl Filesystem {
     }
 
     pub fn umount() -> Result<()> {
+        unsafe {
+            let _ = &ENCRYPT.unwrap().drop();
+        }
         (FILESYSTEM_FN.umount)()
     }
 
@@ -403,60 +419,4 @@ impl Filesystem {
     }
 }
 
-
-// static KEY: SyncUnsafeCell<[u8; 16]> = SyncUnsafeCell::new([3u8; 16]);
-// static AES: SyncUnsafeCell<MbedtlsAes> = SyncUnsafeCell::new(MbedtlsAes(null_mut()));
-
-
-//     //TODO: enfore encryption initialization here
-//     let mut id_buffer = [0u8; 8];
-//     unsafe {
-//         hhg_get_unique_id(id_buffer.as_mut_ptr());
-
-//         let key = &mut *KEY.get();
-//         for i in 0..id_buffer.len() * 2 {
-//             key[i] = if i < id_buffer.len() {
-//                 id_buffer[i]
-//             } else {
-//                 id_buffer[i - id_buffer.len()]
-//             };
-//         }
-//     }
-
-
-
-//     unsafe { 
-//         let aes = &mut *AES.get();
-//         aes.0 = hhg_mbedtls_aes_init();
-//         if aes.0.is_null() {
-//             return Err(Error::NullPtr);
-//         }
-//     }
-
-
-// fn enc_dec(mode: aes_mode, buffer: &[u8]) -> Result<Vec<u8>> {
-    
-//     let padded_len: usize = if mode == aes_mode::AES_ENCRYPT { 
-//         (buffer.len() + 15) & !15usize
-//     } else { 
-//         buffer.len() + 1
-//     };
-
-//     let mut output: Vec<u8> = vec![0u8; padded_len];
-    
-//     unsafe { 
-//         let aes = &*AES.get();
-//         let key = &mut *KEY.get();
-//         let ret = hhg_mbedtls_aes_setkey_enc(aes.0, key.as_ptr(), 128);
-//         if ret != 0 {
-//             return Err(Error::ReturnWithCode(ret));
-//         }
-
-//         output[..buffer.len()].copy_from_slice(buffer);
-
-//         hhg_mbedtls_aes_crypt_cbc(aes.0, mode as i32, key.len() as usize, key.as_mut_ptr(), buffer.as_ptr(), output.as_mut_ptr())
-//     };
-
-//     Ok(output)
-// }
 
