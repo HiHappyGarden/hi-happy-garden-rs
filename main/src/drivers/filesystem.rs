@@ -234,7 +234,7 @@ impl File {
 
         #[cfg(feature = "encryption")]
         {
-            let encrypted_buffer = unsafe { (*&raw const crate::drivers::filesystem::ENCRYPT).unwrap().aes_encrypt(buffer)? };
+            let encrypted_buffer = unsafe { (*&raw const ENCRYPT).unwrap().aes_encrypt(buffer)? };
 
             (self.functions.write)(self.handler, &encrypted_buffer)
         }
@@ -254,9 +254,7 @@ impl File {
         {
             let encrypted_buffer = (self.functions.read)(self.handler)?;
 
-            let mut decrypted_buffer = unsafe { (*&raw const ENCRYPT).unwrap().aes_decrypt(&encrypted_buffer)? };
-
-            decrypted_buffer.append(&mut vec![0u8]);
+            let decrypted_buffer = unsafe { (*&raw const ENCRYPT).unwrap().aes_decrypt(&encrypted_buffer)? };
 
             Ok(decrypted_buffer)
         }
