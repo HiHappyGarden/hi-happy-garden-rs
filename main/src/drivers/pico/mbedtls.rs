@@ -52,11 +52,13 @@ fn enc_dec(handler: *mut c_void, mode: aes_mode, key: &[u8], iv: &[u8], buffer: 
     let padded_len: usize = if mode == aes_mode::AES_ENCRYPT { 
         (buffer.len() + 15) & !15usize
     } else { 
-        buffer.len() + 1
+        buffer.len()
     };
 
-    let mut output: Vec<u8> = Vec::with_capacity(padded_len);
-    
+    let mut output = Vec::<u8>::with_capacity(padded_len); 
+    output.resize(padded_len, 0u8);
+
+
     unsafe { 
         let ret = hhg_mbedtls_aes_setkey_enc(handler, key.as_ptr(), keybits);
         if ret != 0 {
@@ -65,7 +67,8 @@ fn enc_dec(handler: *mut c_void, mode: aes_mode, key: &[u8], iv: &[u8], buffer: 
 
         output[..buffer.len()].copy_from_slice(buffer);
 
-        hhg_mbedtls_aes_crypt_cbc(handler, mode as i32, key.len() as usize, iv.as_ptr() as *mut u8, buffer.as_ptr(), output.as_mut_ptr())
+        let iv = iv.to_vec();
+        hhg_mbedtls_aes_crypt_cbc(handler, mode as i32, key.len() as usize, iv.as_ptr() as *mut _, buffer.as_ptr(), output.as_mut_ptr())
     };
 
     Ok(output)
@@ -86,8 +89,8 @@ fn aes_encrypt(handler: *mut c_void, key: &[u8], iv: &[u8], plain: &[u8]) -> Res
     enc_dec(handler, aes_mode::AES_ENCRYPT, key, iv, plain)
 }
 
-fn aes_decrypt(handler: *mut c_void, key: &[u8], iv: &[u8], plain: &[u8]) -> Result<Vec<u8>> {
-    enc_dec(handler, aes_mode::AES_DECRYPT, key, iv, plain)
+fn aes_decrypt(handler: *mut c_void, key: &[u8], iv: &[u8], cipher: &[u8]) -> Result<Vec<u8>> {
+    enc_dec(handler, aes_mode::AES_DECRYPT, key, iv, cipher)
 }
 
 fn drop(handler: *mut c_void) {

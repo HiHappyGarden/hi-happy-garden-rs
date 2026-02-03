@@ -5,8 +5,7 @@ dirs=(
     "cmake-build-debug"
     "cmake-build-release"
     "cmake-build-relwithdebinfo"
-    "rust/target"
-    "osal-rs/target"
+    "main/target"
 )
 
 for dir in "${dirs[@]}"; do

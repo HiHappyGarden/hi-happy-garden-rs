@@ -35,3 +35,4 @@ Thumbs.db
 build
 cmake-build*
 documents/.$hw_scheme.drawio.dtmp
+build-host/cJSON

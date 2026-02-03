@@ -20,23 +20,26 @@
 #![allow(dead_code)]
 
 use alloc::ffi::CString;
+use alloc::vec;
+use alloc::vec::Vec;
 use osal_rs::log_info;
 use osal_rs::utils::{Bytes, Error, Result};
 
 use core::ffi::c_int;
 use core::str::from_utf8;
 pub use core::ffi::c_void;
-
+use core::ptr::null_mut;
 use crate::drivers::ecnrypt::Encrypt;
 use crate::drivers::pico::flash::{FILESYSTEM_FN, FILE_FN, DIR_FN};
+use crate::drivers::platform::Hardware;
 use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "Filesystem";
 const MAX_NAME_LEN: usize = 256;
 
 static mut ENCRYPT: Option<Encrypt<32, 16>> = None;
-static KEY: [u8; 32] = [0u8; 32];
-static IV: [u8; 16] = [0u8; 16];
+static mut KEY: [u8; 32] = [0u8; 32];
+static mut IV: [u8; 16] = [0u8; 16];
 
 /// Seek position enum
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -120,7 +123,7 @@ pub struct FileFn {
     pub write: fn (handler: *mut c_void, buffer: &[u8]) -> Result<isize>,
 
     /// Read data from the file
-    pub read: fn (handler: *mut c_void, buffer: &mut [u8]) -> Result<isize>, 
+    pub read: fn (handler: *mut c_void) -> Result<Vec<u8>>, 
 
     /// Rewind file position to the beginning
     pub rewind: fn (handler: *mut c_void) -> Result<()>,
@@ -140,7 +143,7 @@ pub struct FileFn {
     /// Get file size
     pub size: fn (handler: *mut c_void) -> Result<isize>,
 
-    //Close file
+    ///Close file
     pub close: fn (handler: *mut c_void) -> Result<()>,
 }
 
@@ -215,6 +218,9 @@ pub struct File {
 
 impl Drop for File {
     fn drop(&mut self) {
+        if self.handler.is_null() {
+            return;
+        }
         let _ = (self.functions.close)(self.handler);
     }
 }
@@ -222,42 +228,98 @@ impl Drop for File {
 impl File {
     /// Write data to the file
     pub fn write(&self, buffer: &[u8]) -> Result<isize> {
+        if self.handler.is_null() {
+            return Err(Error::NullPtr);
+        }
+
+        #[cfg(feature = "encryption")]
+        {
+            let encrypted_buffer = unsafe { (*&raw const crate::drivers::filesystem::ENCRYPT).unwrap().aes_encrypt(buffer)? };
+
+            (self.functions.write)(self.handler, &encrypted_buffer)
+        }
+
+        #[cfg(not(feature = "encryption"))]
         (self.functions.write)(self.handler, buffer)
+
     }
 
     /// Read data from the file
-    pub fn read(&self, buffer: &mut [u8]) -> Result<isize> {
-        (self.functions.read)(self.handler, buffer)
+    pub fn read(&self) -> Result<Vec<u8>> {
+        if self.handler.is_null() {
+            return Err(Error::NullPtr);
+        }
+
+        #[cfg(feature = "encryption")]
+        {
+            let encrypted_buffer = (self.functions.read)(self.handler)?;
+
+            let mut decrypted_buffer = unsafe { (*&raw const ENCRYPT).unwrap().aes_decrypt(&encrypted_buffer)? };
+
+            decrypted_buffer.append(&mut vec![0u8]);
+
+            Ok(decrypted_buffer)
+        }
+
+        #[cfg(not(feature = "encryption"))]
+        (self.functions.read)(self.handler)
     }
 
     /// Rewind file position to the beginning
     pub fn rewind(&self) -> Result<()> {
+        if self.handler.is_null() {
+            return Err(Error::NullPtr);
+        }
         (self.functions.rewind)(self.handler)
     }
 
     /// Seek to a position in the file
     pub fn seek(&self, offset: i32, whence: SeekFrom) -> Result<isize> {
+        if self.handler.is_null() {
+            return Err(Error::NullPtr);
+        }
         (self.functions.seek)(self.handler, offset, whence.to_int())
     }
 
     /// Get current position in the file
     pub fn tell(&self) -> Result<isize> {
+        if self.handler.is_null() {
+            return Err(Error::NullPtr);
+        }
         (self.functions.tell)(self.handler)
     }
 
     /// Truncate file to specified size
     pub fn truncate(&self, size: u32) -> Result<()> {
+        if self.handler.is_null() {
+            return Err(Error::NullPtr);
+        }
         (self.functions.truncate)(self.handler, size)
     }
 
     /// Flush file buffers
     pub fn flush(&self) -> Result<()> {
+        if self.handler.is_null() {
+            return Err(Error::NullPtr);
+        }
         (self.functions.flush)(self.handler)
     }
 
     /// Get file size
     pub fn size(&self) -> Result<isize> {
+        if self.handler.is_null() {
+            return Err(Error::NullPtr);
+        }
         (self.functions.size)(self.handler)
+    }
+
+    pub fn close(&mut self) -> Result<()> {
+        if self.handler.is_null() {
+            return Err(Error::NullPtr);
+        }
+        (self.functions.close)(self.handler)?;
+        self.handler = null_mut();
+        Ok(())
     }
 }
 
@@ -268,8 +330,21 @@ pub struct Dir {
     handler: *mut c_void,
 }
 
+impl Drop for Dir {
+    fn drop(&mut self) {
+        if self.handler.is_null() {
+            return;
+        }
+        let _ = (self.functions.close)(self.handler);
+    }
+}
+
 impl Dir {
     pub fn read(&self) -> Result<Option<DirEntry>> {
+        if self.handler.is_null() {
+            return Err(Error::NullPtr);
+        }
+
         let mut type_ = 0u8;
         let mut size = 0u32;
         let mut name = Bytes::<MAX_NAME_LEN>::new();
@@ -293,21 +368,36 @@ impl Dir {
     }
 
     pub fn seek(&self, offset: u32) -> Result<()> {
+        if self.handler.is_null() {
+            return Err(Error::NullPtr);
+        }
+
         (self.functions.seek)(self.handler, offset)
     }
 
     pub fn tell(&self) -> Result<i32> {
+        if self.handler.is_null() {
+            return Err(Error::NullPtr);
+        }
+
         (self.functions.tell)(self.handler)
     }
 
     pub fn rewind(&self) -> Result<()> {
+        if self.handler.is_null() {
+            return Err(Error::NullPtr);
+        }
+
         (self.functions.rewind)(self.handler)
     }
-}
 
-impl Drop for Dir {
-    fn drop(&mut self) {
-        let _ = (self.functions.close)(self.handler);
+    pub fn close(&mut self) -> Result<()> {
+        if self.handler.is_null() {
+            return Err(Error::NullPtr);
+        }
+        (self.functions.close)(self.handler)?;
+        self.handler = null_mut();
+        Ok(())
     }
 }
 
@@ -320,11 +410,22 @@ impl Filesystem {
     pub fn mount(format: bool) -> Result<()> {
 
         unsafe {
-            let mut encrypt = Encrypt::new(&KEY, &IV)?;
+
+            //todo: Enforce unique key/iv generation only once
+            let unique_id = Hardware::get_unique_id();
+
+            for i in 0..(*&raw const KEY).len() as usize {
+                KEY[i] = unique_id[i % unique_id.len()];
+            }
+    
+            for i in 0..(*&raw const IV).len() as usize {
+                IV[i] = unique_id[(i + 3) % unique_id.len()];
+            }
+
+            let mut encrypt = Encrypt::new(&*&raw const KEY, &*&raw const IV)?;
             encrypt.init()?;
             ENCRYPT = Some(encrypt);
         }
-
 
         if (FILESYSTEM_FN.mount)(format).is_ok() {
             log_info!(APP_TAG, "Filesystem mounted");

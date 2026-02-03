@@ -32,7 +32,7 @@ const APP_TAG: &str = "Encrypt";
 pub struct EncryptFn {
     pub init: fn() -> Result<*mut c_void>,
     pub aes_encrypt: fn(handler: *mut c_void, key: &[u8], iv: &[u8], plain: &[u8]) -> Result<Vec<u8>>,
-    pub aes_decrypt: fn(handler: *mut c_void, key: &[u8], iv: &[u8], plain: &[u8]) -> Result<Vec<u8>>,
+    pub aes_decrypt: fn(handler: *mut c_void, key: &[u8], iv: &[u8], cipher: &[u8]) -> Result<Vec<u8>>,
     pub drop: fn(*mut c_void),
 }
 
@@ -46,7 +46,7 @@ pub struct Encrypt<'a, const KEY_SIZE: usize = 16, const IV_SIZE: usize = 16> {
 
 impl<'a, const KEY_SIZE: usize, const IV_SIZE: usize> Initializable for Encrypt<'a, KEY_SIZE, IV_SIZE> {
     fn init(&mut self) -> Result<()> {
-        log_info!(APP_TAG, "Init excrypt");
+        log_info!(APP_TAG, "Init encrypt");
 
         self.handler = (self.functions.init)()?;
 

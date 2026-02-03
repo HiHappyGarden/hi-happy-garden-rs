@@ -24,6 +24,7 @@ use core::str::from_utf8;
 
 use alloc::ffi::CString;
 use alloc::string::String;
+use alloc::vec::Vec;
 use osal_rs::utils::{Error, Result};
 
 use crate::drivers::pico::ffi::{
@@ -32,6 +33,7 @@ use crate::drivers::pico::ffi::{
 use crate::drivers::filesystem::{DirEntry, DirFn, EntryType, FileFn, FileStat, FilesystemFn, FsStat, SeekFrom}; 
 
 const APP_TAG: &str = "Flash";
+const READ_BUFFER_SIZE: usize = 512;
 
 pub const FS_CONFIG_DIR: &str = "/etc";
 pub const FS_DATA_DIR: &str = "/var";
@@ -102,15 +104,20 @@ fn file_write(handler: *mut c_void, buffer: &[u8]) -> Result<isize> {
     Ok(written as isize)
 }
 
-fn file_read(handler: *mut c_void, buffer: &mut [u8]) -> Result<isize> {
-    let read = unsafe {
+fn file_read(handler: *mut c_void) -> Result<Vec<u8>> {
+
+    let mut buffer = Vec::<u8>::with_capacity(READ_BUFFER_SIZE);
+    buffer.resize(READ_BUFFER_SIZE, 0u8);
+
+    let len = unsafe {
         hhg_flash_read(
             handler,
             buffer.as_mut_ptr() as *mut _,
             buffer.len() as LfsSize,
         )
     };
-    Ok(read as isize)
+
+    Ok( buffer[..len as usize].to_vec())
 }
 
 fn file_rewind(handler: *mut c_void) -> Result<()> {

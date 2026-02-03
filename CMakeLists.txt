@@ -11,6 +11,8 @@ set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+message("Build type: ${CMAKE_BUILD_TYPE}")
+
 # Initialise pico_sdk from installed location
 # (note this can come from environment, CMake cache etc)
 
@@ -121,7 +123,6 @@ else()
     set(RUST_PROFILE "--release")
     set(RUST_PROFILE_DIR "release")
 endif()
-
 
 # Rust library paths
 set(RUST_PATH ${CMAKE_SOURCE_DIR}/main/target/${CARGO_TARGET}/${RUST_PROFILE_DIR}/libmain.a)

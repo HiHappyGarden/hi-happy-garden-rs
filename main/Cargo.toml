@@ -13,6 +13,7 @@ crate-type = ["staticlib"]
 [features]
 default = ["pico"]
 pico = []
+encryption = []
 tests = ["osal-rs-tests"]
 
 [dependencies]

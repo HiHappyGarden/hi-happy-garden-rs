@@ -18,27 +18,31 @@
  ***************************************************************************/
 
 use alloc::boxed::Box;
+use alloc::vec;
+
 use osal_rs::{arcmux, log_info};
 use osal_rs::os::types::UBaseType;
 use osal_rs::os::{Mutex, MutexFn, System, SystemFn, ToPriority};
 use osal_rs::utils::{ArcMux, Error, OsalRsBool, Result};
 
-use alloc::rc::Rc;
 
-use alloc::sync::Arc;
 use core::cell::RefCell;
 use core::ptr::read;
 
 use crate::apps::display;
 use crate::drivers::button::Button;
 use crate::drivers::encoder::Encoder;
-use crate::drivers::filesystem::{EntryType, Filesystem, FsStat};
+use crate::drivers::filesystem::{EntryType, Filesystem, FsStat, open_flags};
 use crate::drivers::i2c::I2C;
 use crate::drivers::pico::ffi::{hhg_cyw43_arch_init, hhg_get_unique_id};
 use crate::drivers::relays::Relays;
 use crate::drivers::rgb_led::RgbLed;
 use crate::drivers::uart::Uart;
 use crate::drivers::gpio::Gpio;
+use crate::drivers::platform::{GpioPeripheral, I2C_BAUDRATE, I2C_INSTANCE, LCDDisplay, UART_FN};
+use crate::drivers::plt::flash::{FS_CONFIG_DIR, FS_DATA_DIR, FS_LOG_DIR};
+use crate::drivers::plt::flash::lfs_errors::LFS_ERR_EXIST;
+
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rgb_led::RgbLed as RgbLedFn;
 use crate::traits::relays::Relays as RelaysFn;
@@ -46,12 +50,11 @@ use crate::traits::button::{ButtonState, OnClickable, SetClickable as ButtonOnCl
 use crate::traits::encoder::{OnRotatableAndClickable as EncoderOnRotatableAndClickable, SetRotatableAndClickable};
 use crate::traits::hardware::HardwareFn;
 use crate::traits::rx_tx::OnReceive;
-use super::gpio::{GPIO_FN, GPIO_CONFIG_SIZE};
 use crate::traits::state::Initializable;
 
-use crate::drivers::platform::{GpioPeripheral, I2C_BAUDRATE, I2C_INSTANCE, LCDDisplay, UART_FN};
-use crate::drivers::plt::flash::{FS_CONFIG_DIR, FS_DATA_DIR, FS_LOG_DIR};
-use crate::drivers::plt::flash::lfs_errors::LFS_ERR_EXIST;
+use super::gpio::{GPIO_FN, GPIO_CONFIG_SIZE};
+
+
 
 const APP_TAG: &str = "Hardware";
 
@@ -219,9 +222,9 @@ impl Hardware {
     pub fn init_fs(&self) -> Result<()> {
         Filesystem::mount(true)?;
 
-        // Filesystem::remove(FS_CONFIG_DIR).ok();
-        // Filesystem::remove(FS_DATA_DIR).ok();
-        // Filesystem::remove(FS_LOG_DIR).ok();
+        Filesystem::remove(FS_CONFIG_DIR).ok();
+        Filesystem::remove(FS_DATA_DIR).ok();
+        Filesystem::remove(FS_LOG_DIR).ok();
 
         if let Err(Error::ReturnWithCode(code)) = Filesystem::mkdir(FS_CONFIG_DIR) {
             if code != LFS_ERR_EXIST {
@@ -247,18 +250,33 @@ impl Hardware {
             log_info!(APP_TAG, "Created {FS_LOG_DIR} directory");
         }
 
-        // let dir = Filesystem::open_dir("/")?;
-        // while let Ok(i) = dir.read() {
-        //     if let Some(entry) = i {
-        //         if entry.type_ == EntryType::Unknown {
-        //             continue;
-        //         }
-        //         log_info!(APP_TAG, "Found entry in /: name={} type={:?}", entry.name, entry.type_);
+        let mut file = Filesystem::open("text.txt", open_flags::WRONLY | open_flags::CREAT)?;
+        let data = b"Hello, Hi Happy Garden!";
+
+        let bytes_written = file.write(data)?;
+        log_info!(APP_TAG, "Wrote {} bytes to text.txt", bytes_written);
+
+        file.close()?;
+
+
+        let mut file = Filesystem::open("text.txt", open_flags::RDONLY)?;
+        let read_buffer = file.read()?;
+        log_info!(APP_TAG, "Read from text.txt: {}", core::str::from_utf8(&read_buffer).unwrap_or("Invalid UTF-8"));
+        file.close()?;
+
+
+        let dir = Filesystem::open_dir("/")?;
+        while let Ok(i) = dir.read() {
+            if let Some(entry) = i {
+                if entry.type_ == EntryType::Unknown {
+                    continue;
+                }
+                log_info!(APP_TAG, "Found entry in /: name={} type={:?}", entry.name, entry.type_);
                 
-        //     } else {
-        //         break;
-        //     }
-        // }
+            } else {
+                break;
+            }
+        }
 
 
         let FsStat{block_size, block_count, blocks_used} = Filesystem::stat_fs()?;
@@ -269,7 +287,7 @@ impl Hardware {
     }
     
 
-    pub fn get_unique_id(&self) -> [u8; 8] {
+    pub fn get_unique_id() -> [u8; 8] {
         let mut id_buffer = [0u8; 8];
         unsafe {
             hhg_get_unique_id(id_buffer.as_mut_ptr());
