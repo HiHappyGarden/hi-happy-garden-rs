@@ -254,7 +254,11 @@ impl File {
         {
             let encrypted_buffer = (self.functions.read)(self.handler)?;
 
-            let decrypted_buffer = unsafe { (*&raw const ENCRYPT).unwrap().aes_decrypt(&encrypted_buffer)? };
+            let mut decrypted_buffer = unsafe { (*&raw const ENCRYPT).unwrap().aes_decrypt(&encrypted_buffer)? };
+
+            while decrypted_buffer.last() == Some(&0) {
+                decrypted_buffer.pop();
+            }
 
             Ok(decrypted_buffer)
         }

@@ -24,7 +24,7 @@ use core::ffi::c_void;
 use alloc::vec::Vec;
 use osal_rs::utils::{Error, Result};
 
-use crate::drivers::pico::ffi::{aes_mode, hhg_mbedtls_aes_crypt_cbc, hhg_mbedtls_aes_free, hhg_mbedtls_aes_init, hhg_mbedtls_aes_setkey_enc};
+use crate::drivers::pico::ffi::{aes_mode, hhg_mbedtls_aes_crypt_cbc, hhg_mbedtls_aes_free, hhg_mbedtls_aes_init, hhg_mbedtls_aes_setkey_enc, hhg_mbedtls_aes_setkey_dec};
 use crate::drivers::ecnrypt::{EncryptFn}; 
 
 const APP_TAG: &str = "MBEDTLS";
@@ -58,19 +58,41 @@ fn enc_dec(handler: *mut c_void, mode: aes_mode, key: &[u8], iv: &[u8], buffer: 
     let mut output = Vec::<u8>::with_capacity(padded_len); 
     output.resize(padded_len, 0u8);
 
+    // Copy of IV because it is modified during CBC operation
+    let mut iv_copy = iv.to_vec();
 
     unsafe { 
-        let ret = hhg_mbedtls_aes_setkey_enc(handler, key.as_ptr(), key_bits);
+        let ret = if mode == aes_mode::AES_ENCRYPT {
+            hhg_mbedtls_aes_setkey_enc(handler, key.as_ptr(), key_bits)
+        } else {
+            hhg_mbedtls_aes_setkey_dec(handler, key.as_ptr(), key_bits)
+        };
+        
         if ret != 0 {
             return Err(Error::ReturnWithCode(ret));
         }
 
-        if mode == aes_mode::AES_ENCRYPT {
-            output[..buffer.len()].copy_from_slice(buffer);
-        }
 
-        let iv = iv.to_vec().clone();
-        hhg_mbedtls_aes_crypt_cbc(handler, mode as i32, key.len() as usize, iv.as_ptr() as *mut _, buffer.as_ptr(), output.as_mut_ptr())
+        let (input_ptr, output_ptr) = if mode == aes_mode::AES_ENCRYPT {
+            
+            output[..buffer.len()].copy_from_slice(buffer);
+            (output.as_ptr(), output.as_mut_ptr())
+        } else {
+            (buffer.as_ptr(), output.as_mut_ptr())
+        };
+
+        let ret = hhg_mbedtls_aes_crypt_cbc(
+            handler, 
+            mode as i32, 
+            padded_len,  
+            iv_copy.as_mut_ptr(), 
+            input_ptr, 
+            output_ptr
+        );
+        
+        if ret != 0 {
+            return Err(Error::ReturnWithCode(ret));
+        }
     };
 
     Ok(output)

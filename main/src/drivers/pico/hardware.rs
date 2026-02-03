@@ -250,12 +250,12 @@ impl Hardware {
             log_info!(APP_TAG, "Created {FS_LOG_DIR} directory");
         }
 
-        let mut file = Filesystem::open("text.txt", open_flags::WRONLY | open_flags::CREAT)?;
+
         let data = b"Hello, Hi Happy Garden!";
 
+        let mut file = Filesystem::open("text.txt", open_flags::WRONLY | open_flags::CREAT)?;
         let bytes_written = file.write(data)?;
         log_info!(APP_TAG, "Wrote {} bytes to text.txt", bytes_written);
-
         file.close()?;
 
 
