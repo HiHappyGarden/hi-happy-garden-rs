@@ -17,7 +17,7 @@
  *
  ***************************************************************************/
  
-#![allow(unused)]
+//#![allow(unused)]
 
 use core::ffi::c_void;
 use core::ptr::null_mut;
@@ -30,6 +30,7 @@ use crate::drivers::platform::I2C_FN;
 
 const APP_TAG: &str = "I2C";
 
+#[allow(unused)]
 pub struct I2CFn {
     pub init: fn(u8, u32) -> Result<*mut c_void>, //i2c_instance, baudrate
     pub write: fn(*mut c_void, u8, data: &[u8]) -> i32, //instance, address, data
@@ -39,6 +40,7 @@ pub struct I2CFn {
 
 #[derive(Clone)]
  pub struct I2C<const ADDRESS: u8>  {
+    #[allow(unused)]
     i2c_instance: u8,
     instance: *mut c_void,
     baudrate: u32,
@@ -73,11 +75,13 @@ pub struct I2CFn {
         (I2C_FN.write)(self.instance, ADDRESS, data)
     }
 
+     #[allow(unused)]
      #[inline]
      pub fn read(&self, buffer: &mut [u8]) -> i32 {
         (I2C_FN.read)(self.instance, ADDRESS, buffer)
     }
 
+     #[allow(unused)]
      #[inline]
      pub fn write_and_read(&self, data: &[u8], buffer: &mut [u8]) -> OsalRsBool {
         (I2C_FN.write_and_read)(self.instance, ADDRESS, data, buffer)

@@ -6,6 +6,7 @@ pub mod filesystem;
 pub mod gpio; 
 mod i2c;
 mod lcd_sh1106;
+pub mod network;
 mod relays;
 pub mod rgb_led;
 mod uart;

@@ -17,7 +17,7 @@
  *
  ***************************************************************************/
 
-#![allow(unused)]
+//#![allow(unused)]
 
 use alloc::format;
 use alloc::string::String;

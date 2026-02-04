@@ -17,7 +17,7 @@
  *
  ***************************************************************************/
 
-#![allow(unused)]
+//#![allow(unused)]
 
 use crate::drivers::i2c::I2C;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
@@ -30,6 +30,7 @@ use crate::drivers::plt::ffi::pico_error_codes::PICO_ERROR_GENERIC;
 const APP_TAG: &str = "LCDSH1106";
 const ASCII_TABLE_START_AT_IDX: u8 = 32;
 
+#[allow(unused)]
 pub(super) mod sh1106_commands {
     pub(super) const CONTRAST: u8 = 0x80;
     pub(super) const ENTRTY_DISPLAY_OFF: u8 = 0xA4;
@@ -68,6 +69,7 @@ pub struct LCDSH1106 {
     i2c: I2C<{LCDSH1106::I2C_ADDRESS}>,
     buffer: [u8; (LCDSH1106::WIDTH as usize) * (LCDSH1106::HEIGHT as usize)],
     orientation: bool,
+    #[allow(unused)]
     turned_on: bool,
 }
 
@@ -107,7 +109,7 @@ impl Initializable  for LCDSH1106 {
             DISPLAY_ON,                 // Turn on display
         ];
 
-        self.send_cmds(&init_sequence);
+        let _ = self.send_cmds(&init_sequence);
 
         self.clear();
 
@@ -119,8 +121,8 @@ impl Initializable  for LCDSH1106 {
 
 impl LCDDisplayFn for LCDSH1106 {
     fn draw(&mut self) -> Result<()> {
-        self.send_cmd(LOW_COLUMN);
-        self.send_cmd(HIGH_COLUMN);
+        let _ = self.send_cmd(LOW_COLUMN);
+        let _ = self.send_cmd(HIGH_COLUMN);
 
         for page in 0..LCDSH1106::HEIGHT {
             self.send_cmd_with_data(PAGE_ADDR, page)?;
@@ -151,14 +153,14 @@ impl LCDDisplayFn for LCDSH1106 {
         let idx = (page as usize * LCDSH1106::WIDTH as usize) + x as usize;
 
         match write_mode {
-            ADD => self.buffer[idx] |= (1 << bit),
+            ADD => self.buffer[idx] |= 1 << bit,
             REMOVE =>  self.buffer[idx] &= !(1 << bit),
-            INVERT => self.buffer[idx] ^= (1 << bit),
+            INVERT => self.buffer[idx] ^= 1 << bit,
         }
         Ok(())
     }
 
-    fn draw_bitmap_image(&mut self, x: u8, y: u8, width: u8, height: u8, image: &[u8], write_mode: LCDWriteMode) -> Result<()> {
+    fn draw_bitmap_image(&mut self, x: u8, y: u8, width: u8, height: u8, image: &[u8], _write_mode: LCDWriteMode) -> Result<()> {
         if image.len() ==0 || width * height != image.len() as u8 {
             return Err(Error::InvalidType);
         }
@@ -171,9 +173,9 @@ impl LCDDisplayFn for LCDSH1106 {
                 let x = x + w;
                 let y = y + (height - 1 - h);
                 if image[idx] != 0 {
-                    self.draw_pixel(x, y, LCDWriteMode::ADD);
+                    let _ = self.draw_pixel(x, y, LCDWriteMode::ADD);
                 } else {
-                    self.draw_pixel(x, y, LCDWriteMode::REMOVE);
+                    let _ = self.draw_pixel(x, y, LCDWriteMode::REMOVE);
                 }
                 idx += 1;
             }
@@ -199,7 +201,7 @@ impl LCDDisplayFn for LCDSH1106 {
         let height = (font[1] / 8) + (font[1] % 8 != 0) as u8;
         let single_font_size = (width * height) as usize;
 
-        if((font.len() - 2) % width as usize != 0) {
+        if (font.len() - 2) % width as usize != 0 {
             return Err(Error::InvalidType);
         }
 
