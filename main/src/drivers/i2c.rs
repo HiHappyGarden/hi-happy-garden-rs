@@ -44,6 +44,9 @@ pub struct I2CFn {
     baudrate: u32,
  }
 
+ unsafe impl<const ADDRESS: u8> Send for I2C<ADDRESS> {}
+ unsafe impl<const ADDRESS: u8> Sync for I2C<ADDRESS> {}
+
  impl<const ADDRESS: u8> Initializable for I2C<ADDRESS> {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init i2c address: 0x{:02X}", ADDRESS);

@@ -64,6 +64,9 @@ pub struct Wifi {
     thread: Thread,
 }
 
+ unsafe impl Send for Wifi {}
+ unsafe impl Sync for Wifi {}
+
 impl Initializable for Wifi {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init wifi");

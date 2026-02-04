@@ -51,6 +51,7 @@ use crate::traits::encoder::{OnRotatableAndClickable as EncoderOnRotatableAndCli
 use crate::traits::hardware::HardwareFn;
 use crate::traits::rx_tx::OnReceive;
 use crate::traits::state::Initializable;
+use crate::traits::wifi::{OnWifiChangeStatus, WifiStatus};
 
 use super::gpio::{GPIO_FN, GPIO_CONFIG_SIZE};
 
@@ -189,6 +190,12 @@ impl HardwareFn<'static> for Hardware {
             System::delay(10);
         }
         sum 
+    }
+}
+
+impl OnWifiChangeStatus<'static> for Hardware {
+    fn on_status_change(&self, old_status: WifiStatus, status: WifiStatus) {
+        log_info!(APP_TAG, "WiFi status changed: {} -> {}", old_status, status);
     }
 }
 
