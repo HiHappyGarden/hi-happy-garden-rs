@@ -63,6 +63,7 @@ impl RaleayFn for Relays {
 }
 
 impl Relays {
+    #[inline]
     pub fn new() -> Self {
         Self (Gpio::new())    
     }

@@ -73,14 +73,17 @@ impl<'a, const KEY_SIZE: usize, const IV_SIZE: usize> Encrypt<'a, KEY_SIZE, IV_S
         })
     }
 
+    #[inline]
     pub fn aes_encrypt(&self, plain: &[u8]) -> Result<Vec<u8>> {
         (self.functions.aes_encrypt)(self.handler,  self.key, self.iv, plain)
     }
 
+    #[inline]
     pub fn aes_decrypt(&self, cipher: &[u8]) -> Result<Vec<u8>> {
         (self.functions.aes_decrypt)(self.handler, self.key, self.iv, cipher)
     }
 
+    #[inline]
     pub fn drop(&mut self) {
         log_info!(APP_TAG, "Free encrypt");
 

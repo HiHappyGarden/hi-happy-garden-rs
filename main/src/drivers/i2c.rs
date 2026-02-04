@@ -65,15 +65,18 @@ pub struct I2CFn {
         }
     }
 
-    pub fn write(&self, data: &[u8]) -> i32 {
+     #[inline]
+     pub fn write(&self, data: &[u8]) -> i32 {
         (I2C_FN.write)(self.instance, ADDRESS, data)
     }
 
-    pub fn read(&self, buffer: &mut [u8]) -> i32 {
+     #[inline]
+     pub fn read(&self, buffer: &mut [u8]) -> i32 {
         (I2C_FN.read)(self.instance, ADDRESS, buffer)
     }
 
-    pub fn write_and_read(&self, data: &[u8], buffer: &mut [u8]) -> OsalRsBool {
+     #[inline]
+     pub fn write_and_read(&self, data: &[u8], buffer: &mut [u8]) -> OsalRsBool {
         (I2C_FN.write_and_read)(self.instance, ADDRESS, data, buffer)
     }
 }

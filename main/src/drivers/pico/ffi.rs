@@ -5,6 +5,7 @@
 #![allow(dead_code)]
 
 use core::{ffi::{c_char, c_int, c_long, c_uint, c_void}, ptr::null_mut};
+use core::ffi::{c_uchar, c_ushort};
 
 #[repr(C)]
 pub struct pwm_config {
@@ -98,6 +99,51 @@ pub type LfsSsize = i32;
 pub type LfsSoff = i32;
 pub type LfsOff = u32;
 
+pub mod cyw43_auth {
+    ///< No authorisation required (open)
+    pub const OPEN: u32 = 0;
+
+    ///< WPA authorisation
+    pub const WPA_TKIP_PSK: u32 = 0x00200002;
+
+    ///< WPA2 authorisation (preferred)
+    pub const WPA2_AES_PSK: u32 = 0x00400004;
+
+    ///< WPA2/WPA mixed authorisation
+    pub const WPA2_MIXED_PSK: u32 = 0x00400006;
+
+    ///< WPA3 AES authorisation
+    pub const WPA3_SAE_AES_PSK: u32 = 0x01000004;
+
+    ///< WPA2/WPA3 authorisation
+    pub const WPA3_WPA2_AES_PSK: u32 = 0x01400004;
+}
+
+#[repr(i32)]
+pub enum CYW43Itf {
+    ///< Client interface STA mode
+    STA = 0,
+    ///< Access point (AP) interface mode
+    AP = 1,
+}
+
+#[repr(C)]
+pub struct udp_pcb {
+    _private: [u8; 0],
+}
+
+#[repr(C)]
+pub struct pbuf {
+    _private: [u8; 0],
+}
+
+#[repr(C)]
+pub struct ip4_addr {
+    pub addr: u32
+}
+
+pub type udp_recv_fn = extern "C" fn(arg: *mut c_void, pcb: *mut udp_pcb, pbuf: *mut pbuf, addr: *const ip4_addr, port: c_ushort);
+
 unsafe extern "C" {
     pub(super) fn hhg_gpio_init(gpio: u32);
     pub(super) fn hhg_gpio_set_dir(gpio: u32, out: bool);
@@ -132,8 +178,27 @@ unsafe extern "C" {
     pub(super) fn hhg_adc_select_input(input: c_uint);
     pub(super) fn hhg_adc_read() -> u16;
 
-    pub(super) fn hhg_cyw43_arch_init() -> c_int;
+
     pub(super) fn hhg_cyw43_arch_gpio_put(wl_gpio: u32, value: bool);
+    pub(super) fn hhg_cyw43_arch_init() -> c_int;
+    pub(super) fn hhg_cyw43_arch_deinit();
+    pub(super) fn  hhg_cyw43_arch_enable_sta_mode();
+    pub(super) fn  hhg_cyw43_arch_disable_sta_mode();
+    pub(super) fn hhg_cyw43_wifi_link_status(itf: c_uint) -> c_int;
+    pub(super) fn hhg_cyw43_arch_wifi_connect_async(ssid: *const c_char, pw: *const c_char, auth: c_uint) -> c_int;
+    pub(super) fn hhg_cyw43_arch_lwip_begin();
+    pub(super) fn hhg_cyw43_arch_lwip_end();
+
+
+    pub(super) fn hhg_dhcp_get_ip_address() -> *const c_char;
+    pub(super) fn hhg_dhcp_get_binary_ip_address() -> c_uint;
+    pub(super) fn  hhg_dhcp_supplied_address() -> bool;
+    pub(super) fn hhg_udp_new_ip_type(_type: c_uchar) -> *mut c_void;
+    pub(super) fn hhg_udp_recv(pcb: *mut c_void, recv: udp_recv_fn, recv_arg: *mut c_void);
+    pub(super) fn hhg_pbuf_alloc(length: c_ushort) -> *mut c_void;
+    pub(super) fn hhg_pbuf_free(p: *mut c_void) -> c_uchar;
+    pub(super) fn hhg_netif_is_link_up() -> c_uchar;
+
 
     pub(super) fn hhg_i2c_instance(i2c_num: u8) -> *mut c_void;
     pub(super) fn hhg_i2c_init(i2c: *mut c_void, baudrate: c_uint) -> c_uint;

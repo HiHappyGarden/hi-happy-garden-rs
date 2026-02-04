@@ -26,4 +26,5 @@ pub mod relays;
 pub mod rgb_led;
 pub mod rx_tx;
 pub mod state;
+pub mod wifi;
 

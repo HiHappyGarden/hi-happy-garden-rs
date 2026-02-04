@@ -1,3 +1,4 @@
+
 /***************************************************************************
  *
  * Hi Happy Garden
@@ -16,22 +17,38 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
+  
 #![allow(dead_code)]
 
+use core::fmt::Display;
 
-#[derive(PartialEq, Eq)]
- pub enum ButtonState {
-     Pressed,
-     Released,
-     None
- }
+pub enum WifiStatus {
+    Disabled,
+    Enabling,
+    Enabled,
+    Connecting,
+    Connected,
+    Disconnecting,
+    Error
+}
 
- 
- pub trait SetClickable<'a> {
-     fn set_on_click(&mut self, clicclable: &'a dyn OnClickable);
-     fn get_state(&self) -> ButtonState;
- }
+impl Display for WifiStatus {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        use WifiStatus::*;
+        match self {
+            Disabled => write!(f, "Disabled"),
+            Enabling => write!(f, "Enabling"),
+            Enabled => write!(f, "Enabled"),
+            Connecting => write!(f, "Connecting"),
+            Connected => write!(f, "Connected"),
+            Disconnecting => write!(f, "Disconnecting"),
+            Error => write!(f, "Error"),
+        }
+    }
+}
 
-pub trait OnClickable: Send + Sync {
-    fn on_click(&self, state: ButtonState);
- }
+pub trait OnWifiChangeStatus: Send + Sync {
+
+    fn on_status_change(&self, status: WifiStatus, old_status: WifiStatus);
+    
+}

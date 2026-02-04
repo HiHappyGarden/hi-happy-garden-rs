@@ -16,22 +16,39 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
-#![allow(dead_code)]
+
+#include <pico/cyw43_arch.h>
 
 
-#[derive(PartialEq, Eq)]
- pub enum ButtonState {
-     Pressed,
-     Released,
-     None
- }
+const char * hhg_dhcp_get_ip_address(void) {
+    return ip4addr_ntoa(&cyw43_state.netif[CYW43_ITF_STA].ip_addr);
+}
 
- 
- pub trait SetClickable<'a> {
-     fn set_on_click(&mut self, clicclable: &'a dyn OnClickable);
-     fn get_state(&self) -> ButtonState;
- }
+u32_t hhg_dhcp_get_binary_ip_address(void) {
+    return cyw43_state.netif[CYW43_ITF_STA].ip_addr.addr;
+}
 
-pub trait OnClickable: Send + Sync {
-    fn on_click(&self, state: ButtonState);
- }
+
+u8_t hhg_dhcp_supplied_address(void) {
+    return dhcp_supplied_address(&cyw43_state.netif[CYW43_ITF_STA]);
+}
+
+void* hhg_udp_new_ip_type(u8_t type) {
+    return udp_new_ip_type(type);
+}
+
+void hhg_udp_recv(void *pcb, udp_recv_fn recv, void *recv_arg) {
+    udp_recv((struct udp_pcb *)pcb, recv, recv_arg);
+}
+
+void * hhg_pbuf_alloc(u16_t length) {
+    return pbuf_alloc(PBUF_TRANSPORT, length, PBUF_RAM);
+}
+
+u8_t hhg_pbuf_free(void *p) {
+    return pbuf_free((struct pbuf *)p);
+}
+
+u8_t hhg_netif_is_link_up(void) {
+    return netif_is_link_up(netif_default);
+}

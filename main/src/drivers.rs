@@ -9,10 +9,10 @@ mod lcd_sh1106;
 mod relays;
 pub mod rgb_led;
 mod uart;
+mod wifi;
 
 #[cfg(feature = "pico")]
 mod pico;
-mod wifi;
 
 #[cfg(feature = "pico")]
 use crate::drivers::pico as plt;

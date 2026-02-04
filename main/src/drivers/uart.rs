@@ -147,7 +147,8 @@ impl Uart {
         }
     }
 
-    
+
+    #[inline]
     pub fn transmit(&self, data: &[u8]) -> usize {
         (self.functions.transmit)(data)
     }

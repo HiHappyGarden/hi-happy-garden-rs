@@ -20,12 +20,38 @@
 #include <pico/cyw43_arch.h>
 #include <pico/types.h>
 
-typedef unsigned int uint;
-
 int hhg_cyw43_arch_init(void) {
     return cyw43_arch_init();
 }
 
 void hhg_cyw43_arch_gpio_put(uint wl_gpio, bool value) {
     cyw43_arch_gpio_put(wl_gpio, value);
+}
+
+void hhg_cyw43_arch_deinit(void) {
+    cyw43_arch_deinit();
+}
+
+void hhg_cyw43_arch_enable_sta_mode(void) {
+    cyw43_arch_enable_sta_mode();
+}
+
+void hhg_cyw43_arch_disable_sta_mode(void) {
+    cyw43_arch_disable_sta_mode();
+}
+
+int hhg_cyw43_wifi_link_status(int itf) {
+    return cyw43_wifi_link_status(&cyw43_state, CYW43_ITF_STA);
+}
+
+int hhg_cyw43_arch_wifi_connect_async(const char *ssid, const char *pw, uint32_t auth) {
+    return cyw43_arch_wifi_connect_async(ssid, pw, auth);
+}
+
+void hhg_cyw43_arch_lwip_begin(void) {
+    cyw43_arch_lwip_begin();
+}
+
+void hhg_cyw43_arch_lwip_end(void) {
+    cyw43_arch_lwip_end();
 }
