@@ -39,7 +39,6 @@ pub struct I2CFn {
 
 #[derive(Clone)]
  pub struct I2C<const ADDRESS: u8>  {
-    functions: &'static I2CFn,
     i2c_instance: u8,
     instance: *mut c_void,
     baudrate: u32,
@@ -49,7 +48,7 @@ pub struct I2CFn {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init i2c address: 0x{:02X}", ADDRESS);
 
-        self.instance = (self.functions.init)(1, self.baudrate)?;
+        self.instance = (I2C_FN.init)(1, self.baudrate)?;
 
         Ok(())
     }
@@ -60,7 +59,6 @@ pub struct I2CFn {
  impl<const ADDRESS: u8> I2C<ADDRESS> {
     pub fn new(i2c_instance: u8, baudrate: u32) -> Self {
         Self{
-            functions: &I2C_FN,
             i2c_instance,
             instance: null_mut(),
             baudrate,
@@ -68,14 +66,14 @@ pub struct I2CFn {
     }
 
     pub fn write(&self, data: &[u8]) -> i32 {
-        (self.functions.write)(self.instance, ADDRESS, data)
+        (I2C_FN.write)(self.instance, ADDRESS, data)
     }
 
     pub fn read(&self, buffer: &mut [u8]) -> i32 {
-        (self.functions.read)(self.instance, ADDRESS, buffer)
+        (I2C_FN.read)(self.instance, ADDRESS, buffer)
     }
 
     pub fn write_and_read(&self, data: &[u8], buffer: &mut [u8]) -> OsalRsBool {
-        (self.functions.write_and_read)(self.instance, ADDRESS, data, buffer)
+        (I2C_FN.write_and_read)(self.instance, ADDRESS, data, buffer)
     }
 }

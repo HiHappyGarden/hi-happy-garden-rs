@@ -125,7 +125,6 @@ unsafe impl Sync for GpioFn {}
 
 
 pub struct Gpio<const GPIO_CONFIG_SIZE: usize> {
-    functions: &'static GpioFn,
     configs: &'static mut GpioConfigs<'static, GPIO_CONFIG_SIZE>,
     mutex: RawMutex,
 }
@@ -139,7 +138,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<GPIO_CONFIG_SIZE> {
         
         log_info!(APP_TAG, "Init GPIO");
 
-        if let Some(init) = self.functions.init {
+        if let Some(init) = &GPIO_FN.init {
             init()?;
         }
 
@@ -153,7 +152,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<GPIO_CONFIG_SIZE> {
                         GpioType::NotInitialized => log_info!(APP_TAG, "Not Initialized:{}", config.get_name()),
                         GpioType::Input(base, pin, input_type, default_value) => 
                             
-                            if let Some(input) = self.functions.input {
+                            if let Some(input) = &GPIO_FN.input {
                                 log_info!(APP_TAG, "Input:{}", config.get_name());
 
                                 input(&config, *base, *pin, *input_type, *default_value)?;
@@ -165,7 +164,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<GPIO_CONFIG_SIZE> {
 
                         GpioType::InputAnalog(base, pin, channel, ranck) => 
                             
-                            if let Some(input_analog) = self.functions.input_analog {
+                            if let Some(input_analog) = &GPIO_FN.input_analog {
                                 log_info!(APP_TAG, "Input Analog:{}", config.get_name());
                                 input_analog(&config, *base, *pin, *channel, *ranck)?;
                             } else {
@@ -176,7 +175,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<GPIO_CONFIG_SIZE> {
                         
                         GpioType::Output(base, pin, default_value) => 
     
-                            if let Some(output) = self.functions.output {
+                            if let Some(output) = &GPIO_FN.output {
                                 log_info!(APP_TAG, "Output:{}", config.get_name());
                                 output(&config, *base, *pin, *default_value)?;
                             } else {
@@ -186,7 +185,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<GPIO_CONFIG_SIZE> {
                     
                         GpioType::OutputPWM(base, pin, default_value) => 
                             
-                            if let Some(output_pwm) = self.functions.output_pwm {
+                            if let Some(output_pwm) = &GPIO_FN.output_pwm {
                                 log_info!(APP_TAG, "Output PWM:{}", config.get_name());
                                 output_pwm(&config, *base, *pin, *default_value)?;
                             } else {
@@ -196,7 +195,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<GPIO_CONFIG_SIZE> {
 
                         GpioType::Peripheral(base, pin, peripheral_data) =>
 
-                            if let Some(peripheral) = self.functions.peripheral {
+                            if let Some(peripheral) = &GPIO_FN.peripheral {
                                 log_info!(APP_TAG, "Peripheral:{}", config.get_name());
                                 peripheral(&config, *base, *pin, peripheral_data.clone())?;
                             } else {
@@ -220,7 +219,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Deinitializable for Gpio<GPIO_CONFIG_SIZE> {
 
     fn deinit(&mut self) -> Result<()> {
        
-        if let Some(deinit) = self.functions.deinit {
+        if let Some(deinit) = &GPIO_FN.deinit {
             deinit()?;
         } else {
             log_warning!(APP_TAG, "Deinit function not defined");
@@ -240,7 +239,6 @@ impl Gpio<{GPIO_CONFIG_SIZE}> {
         };
 
         Self {
-            functions: &GPIO_FN,
             configs:  unsafe { &mut *(&raw mut GPIO_CONFIGS ) },
             mutex
         }
@@ -260,7 +258,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
             match &config.get_io_type() {
                 GpioType::Output(base, pin, _) => 
                     
-                    match &self.functions.write {
+                    match &&GPIO_FN.write {
                         Some(write) => write(&config, *base, *pin, state),
                         None => OsalRsBool::False,
                     }
@@ -279,14 +277,14 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
         if let Some(config) = &self.configs[name] {
             match &config.get_io_type() {
                 GpioType::Input(base, pin, _, _) => {
-                    if let Some(read) = self.functions.read {
+                    if let Some(read) = &GPIO_FN.read {
                         read(&config, *base, *pin).map_err(|_| Error::Unhandled("GPIO Read Error"))
                     } else {
                         Err(Error::NotFound)
                     }
                 }
                 GpioType::InputAnalog(base, _, channel, _) => {
-                    if let Some(read) = self.functions.read {
+                    if let Some(read) = &GPIO_FN.read {
                         read(&config, *base, *channel).map_err(|_| Error::Unhandled("GPIO Read Error"))
                     } else {
                         Err(Error::NotFound)
@@ -305,7 +303,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
         if let Some(config) = &self.configs[name] {
             match &config.get_io_type() {
                 GpioType::OutputPWM(base, pin,_) => 
-                    if let Some(set_pwm) = self.functions.set_pwm {
+                    if let Some(set_pwm) = &GPIO_FN.set_pwm {
                         set_pwm(&config, *base, *pin, pwm_duty_cycle as u32)
                     } else {
                         OsalRsBool::False
@@ -337,7 +335,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
                     
 
                     let ret : OsalRsBool;
-                    if let Some(set_interrupt) = self.functions.set_interrupt {
+                    if let Some(set_interrupt) = &GPIO_FN.set_interrupt {
                         log_info!(APP_TAG, "Interrupt:{} type:{:?} enabled:{enable}", name.as_str(), irq_type);
                         ret = set_interrupt(&config, *base, *pin, irq_type.clone(), callback, enable);
                     
@@ -373,7 +371,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
 
 
                             let ret : OsalRsBool;
-                            if let Some(enable_interrupt) = self.functions.enable_interrupt {
+                            if let Some(enable_interrupt) = &GPIO_FN.enable_interrupt {
                                 ret = enable_interrupt(&config_clone, *base, *pin, enable);
                             } else {
                                 return OsalRsBool::False

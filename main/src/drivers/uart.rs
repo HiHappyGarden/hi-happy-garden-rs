@@ -18,7 +18,6 @@
  ***************************************************************************/
 #![allow(dead_code)]
 
-use core::ptr::addr_of_mut;
 use core::time::Duration;
 
 use osal_rs::{log_error, log_info, minimal_stack_size};
@@ -139,10 +138,10 @@ impl Uart {
     pub fn new() -> Self {
         Self { 
             functions: unsafe {
-                &mut *addr_of_mut!(UART_FN)   
+                &*&raw mut(UART_FN)   
             },
             config: unsafe {
-                &mut *addr_of_mut!(UART_CONFIG)   
+                &*&raw mut(UART_CONFIG)   
             }, 
             thread: Thread::new_with_to_priority(APP_THREAD_NAME, minimal_stack_size!(), ThreadPriority::Normal),
         }
