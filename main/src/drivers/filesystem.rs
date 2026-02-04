@@ -29,7 +29,7 @@ use core::ffi::c_int;
 use core::str::from_utf8;
 pub use core::ffi::c_void;
 use core::ptr::null_mut;
-use crate::drivers::ecnrypt::Encrypt;
+use crate::drivers::encrypt::Encrypt;
 use crate::drivers::pico::flash::{FILESYSTEM_FN, FILE_FN, DIR_FN};
 use crate::drivers::platform::Hardware;
 use crate::traits::state::Initializable;

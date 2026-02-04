@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 mod button;
-mod ecnrypt;
 mod encoder;
+mod encrypt;
 pub mod filesystem;
 pub mod gpio; 
 mod i2c;
@@ -12,7 +12,7 @@ mod uart;
 
 #[cfg(feature = "pico")]
 mod pico;
-
+mod wifi;
 
 #[cfg(feature = "pico")]
 use crate::drivers::pico as plt;

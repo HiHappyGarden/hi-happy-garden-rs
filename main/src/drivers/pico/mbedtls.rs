@@ -25,7 +25,7 @@ use alloc::vec::Vec;
 use osal_rs::utils::{Error, Result};
 
 use crate::drivers::pico::ffi::{aes_mode, hhg_mbedtls_aes_crypt_cbc, hhg_mbedtls_aes_free, hhg_mbedtls_aes_init, hhg_mbedtls_aes_setkey_enc, hhg_mbedtls_aes_setkey_dec};
-use crate::drivers::ecnrypt::{EncryptFn}; 
+use crate::drivers::encrypt::{EncryptFn};
 
 const APP_TAG: &str = "MBEDTLS";
 
