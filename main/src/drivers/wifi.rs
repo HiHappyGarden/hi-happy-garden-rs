@@ -21,8 +21,8 @@
 use core::ffi::{c_int, c_void};
 use core::ptr::null_mut;
 use core::time::Duration;
-use osal_rs::log_info;
-use osal_rs::os::{System, Thread, ThreadFn};
+use osal_rs::{log_error, log_info};
+use osal_rs::os::{MutexFn, MutexGuard, System, Thread, ThreadFn};
 use osal_rs::os::types::{StackType, TickType};
 use osal_rs::utils::{ArcMux, Result};
 
@@ -32,7 +32,7 @@ use crate::drivers::pico::wifi_cyw43::WIFI_FN;
 use crate::traits::wifi::{OnWifiChangeStatus, WifiStatus};
 use crate::traits::wifi::WifiStatus::{Connected, Connecting, Disabled, Disconnecting, Enabled, Enabling, Error};
 
-const APP_TAG: &str = "Encoder";
+const APP_TAG: &str = "WIFI";
 const APP_THREAD_NAME: &str = "wifi_trd";
 const APP_STACK_SIZE: StackType = 256;
 
@@ -62,69 +62,13 @@ pub struct WifiFn {
 pub struct Wifi {
     handle: *mut c_void,
     thread: Thread,
-    on_wifi_change_status_callback: Option<ArcMux<dyn OnWifiChangeStatus>>,
 }
 
 impl Initializable for Wifi {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init wifi");
 
-        let on_wifi_change_status_callback = self.on_wifi_change_status_callback.clone();
-
-        self.thread = self.thread.spawn_simple(move || {
-
-            use WifiStatus::*;
-
-
-
-            unsafe {
-                loop {
-                    match FSM_STATUS_CURRENT {
-                        Disabled => {
-                            log_info!(APP_TAG, "WiFi FSM: Disabled -> Enabling");
-
-                            if on_wifi_change_status_callback.is_none() {
-                                continue;
-                            }
-
-                            FSM_STATUS_CURRENT = Enabling;
-                        },
-                        Enabling => {
-                            log_info!(APP_TAG, "WiFi FSM: Enabling -> Enabled");
-
-
-                            FSM_STATUS_CURRENT = Enabled;
-                        },
-                        Enabled => {
-                            log_info!(APP_TAG, "WiFi FSM: Enabled -> Connecting");
-                            FSM_STATUS_CURRENT = Connecting;
-                        },
-                        Connecting => {
-                            log_info!(APP_TAG, "WiFi FSM: Connecting -> Connected");
-                            FSM_STATUS_CURRENT = Connected;
-                        },
-                        Connected => {
-                            log_info!(APP_TAG, "WiFi FSM: Connected -> Disconnecting");
-                            FSM_STATUS_CURRENT = Disconnecting;
-                        },
-                        Disconnecting => {
-                            log_info!(APP_TAG, "WiFi FSM: Disconnecting -> Disabled");
-                            FSM_STATUS_CURRENT = Disabled;
-                        },
-                        Error => {
-                            log_info!(APP_TAG, "WiFi FSM: Error -> Disabled");
-                            FSM_STATUS_CURRENT = Disabled;
-                        },
-
-
-                    }
-
-                    System::delay_with_to_tick(Duration::from_millis(100));
-                }
-            }
-
-
-        })?;
+        (WIFI_FN.init)()?;
 
         Ok(())
     }
@@ -132,7 +76,8 @@ impl Initializable for Wifi {
 
 impl Drop for Wifi {
     fn drop(&mut self) {
-        self.thread.delete();
+        unsafe {FSM_STATUS_CURRENT = Disconnecting };
+        System::delay_with_to_tick(Duration::from_millis(200));
         (WIFI_FN.drop)(self.handle);
     }
 }
@@ -145,7 +90,6 @@ impl Wifi {
         Self {
             handle: null_mut(),
             thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal),
-            on_wifi_change_status_callback: None,
         }
     }
 
@@ -154,7 +98,71 @@ impl Wifi {
         (WIFI_FN.link_status)(self.handle);
     }
 
-    pub fn set_on_wifi_change_status(&mut self, callback: ArcMux<dyn OnWifiChangeStatus>) {
-        self.on_wifi_change_status_callback = Some(callback);
+    pub fn set_on_wifi_change_status(&mut self, on_wifi_change_status: &'static dyn OnWifiChangeStatus) {
+
+        let ret = self.thread.spawn_simple(move || {
+
+            use WifiStatus::*;
+
+            unsafe {
+                loop {
+                    match FSM_STATUS_CURRENT {
+                        Disabled => {
+                            log_info!(APP_TAG, "WiFi FSM: Disabled -> Enabling");
+
+                            FSM_STATUS_OLD = FSM_STATUS_CURRENT;
+                            FSM_STATUS_CURRENT = Enabling;
+                            on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
+                        },
+                        Enabling => {
+                            log_info!(APP_TAG, "WiFi FSM: Enabling -> Enabled");
+
+                            FSM_STATUS_OLD = FSM_STATUS_CURRENT;
+                            FSM_STATUS_CURRENT = Enabled;
+                            on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
+                        },
+                        Enabled => {
+                            log_info!(APP_TAG, "WiFi FSM: Enabled -> Connecting");
+                            FSM_STATUS_OLD = FSM_STATUS_CURRENT;
+                            FSM_STATUS_CURRENT = Connecting;
+                            on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
+                        },
+                        Connecting => {
+                            log_info!(APP_TAG, "WiFi FSM: Connecting -> Connected");
+                            FSM_STATUS_OLD = FSM_STATUS_CURRENT;
+                            FSM_STATUS_CURRENT = Connected;
+                            on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
+                        },
+                        Connected => {
+                            log_info!(APP_TAG, "WiFi FSM: Connected -> Disconnecting");
+                            FSM_STATUS_OLD = FSM_STATUS_CURRENT;
+                            FSM_STATUS_CURRENT = Disconnecting;
+                            on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
+                        },
+                        Disconnecting => {
+                            log_info!(APP_TAG, "WiFi FSM: Disconnecting -> Disabled");
+                            FSM_STATUS_OLD = FSM_STATUS_CURRENT;
+                            FSM_STATUS_CURRENT = Disabled;
+                            on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
+                            break;
+                        },
+                        Error => {
+                            log_info!(APP_TAG, "WiFi FSM: Error -> Disabled");
+                            FSM_STATUS_OLD = FSM_STATUS_CURRENT;
+                            FSM_STATUS_CURRENT = Disabled;
+                            on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
+                        },
+
+
+                    }
+
+                    System::delay_with_to_tick(Duration::from_millis(100));
+                }
+            }
+        });
+
+        if let Err(e) = ret {
+            log_error!(APP_TAG, "Error spawning wifi thread: {:?}", e);
+        }
     }
 }

@@ -21,7 +21,7 @@
 #![allow(dead_code)]
 
 use core::fmt::Display;
-
+#[derive(Copy, Clone, Debug)]
 pub enum WifiStatus {
     Disabled,
     Enabling,
@@ -47,8 +47,8 @@ impl Display for WifiStatus {
     }
 }
 
-pub trait OnWifiChangeStatus: Send + Sync {
+pub trait OnWifiChangeStatus<'a>: Send + Sync + 'a {
 
-    fn on_status_change(&self, status: WifiStatus, old_status: WifiStatus);
+    fn on_status_change(&self, old_status: WifiStatus, status: WifiStatus);
     
 }
