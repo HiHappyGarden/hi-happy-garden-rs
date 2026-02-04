@@ -29,7 +29,7 @@ use osal_rs::utils::{ArcMux, Result};
 use crate::traits::state::Initializable;
 use crate::drivers::platform::ThreadPriority;
 use crate::drivers::pico::wifi_cyw43::WIFI_FN;
-use crate::traits::wifi::{OnWifiChangeStatus, WifiStatus};
+use crate::traits::wifi::{OnWifiChangeStatus, SetOnWifiChangeStatus, WifiStatus};
 use crate::traits::wifi::WifiStatus::{Connected, Connecting, Disabled, Disconnecting, Enabled, Enabling, Error};
 
 const APP_TAG: &str = "WIFI";
@@ -85,23 +85,8 @@ impl Drop for Wifi {
     }
 }
 
-impl Wifi {
-    pub fn new() -> Self {
-        use alloc::sync::Arc;
-        use osal_rs::os::Mutex;
-        
-        Self {
-            handle: null_mut(),
-            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal),
-        }
-    }
-
-    #[inline]
-    pub fn get_link_status(&self) {
-        (WIFI_FN.link_status)(self.handle);
-    }
-
-    pub fn set_on_wifi_change_status(&mut self, on_wifi_change_status: &'static dyn OnWifiChangeStatus) {
+impl SetOnWifiChangeStatus<'static> for Wifi {
+    fn set_on_wifi_change_status(&mut self, on_wifi_change_status: &'static dyn OnWifiChangeStatus) {
 
         let ret = self.thread.spawn_simple(move || {
 
@@ -168,4 +153,22 @@ impl Wifi {
             log_error!(APP_TAG, "Error spawning wifi thread: {:?}", e);
         }
     }
+}
+
+impl Wifi {
+    pub fn new() -> Self {
+        use alloc::sync::Arc;
+        use osal_rs::os::Mutex;
+        
+        Self {
+            handle: null_mut(),
+            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal),
+        }
+    }
+
+    #[inline]
+    pub fn get_link_status(&self) {
+        (WIFI_FN.link_status)(self.handle);
+    }
+
 }

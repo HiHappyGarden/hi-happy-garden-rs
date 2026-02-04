@@ -33,6 +33,8 @@ Thumbs.db
 
 #C/C++
 build
-cmake-build*
+cmake-build-debug
+cmake-build-release
+cmake-build-relwithdebinfo
 documents/.$hw_scheme.drawio.dtmp
 build-host/cJSON
