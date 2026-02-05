@@ -142,6 +142,16 @@ pub struct ip4_addr {
     pub addr: u32
 }
 
+#[repr(C)]
+pub enum lwip_ip_addr_type {
+    /** IPv4 */
+    IPADDR_TYPE_V4 =   0,
+    /** IPv6 */
+    IPADDR_TYPE_V6 =   6,
+    /** IPv4+IPv6 ("dual-stack") */
+    IPADDR_TYPE_ANY = 46
+}
+
 pub type udp_recv_fn = extern "C" fn(arg: *mut c_void, pcb: *mut udp_pcb, pbuf: *mut pbuf, addr: *const ip4_addr, port: c_ushort);
 
 unsafe extern "C" {

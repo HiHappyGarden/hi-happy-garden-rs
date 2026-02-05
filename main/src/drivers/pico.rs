@@ -24,6 +24,7 @@ pub(crate) mod flash;
 pub(crate) mod gpio;
 pub(crate) mod hardware;
 pub(crate) mod i2c;
+pub(crate) mod lwip;
 pub(crate) mod mbedtls;
 pub(crate) mod uart;
 pub(crate) mod wifi_cyw43;
