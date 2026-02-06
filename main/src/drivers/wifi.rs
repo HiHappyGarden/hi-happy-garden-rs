@@ -50,42 +50,42 @@ pub enum Auth {
     Wpa3 = 5,
     Wpa2Wpa3 = 6
 }
-// 
-// impl Into<u8> for Auth {
-//     fn into(self) -> u8 {
-//         self as u8
-//     }
-// }
-// 
-// impl From<u8> for Auth {
-//     fn from(value: u8) -> Self {
-//         match value {
-//             0 => Auth::Open,
-//             1 => Auth::Web,
-//             2 => Auth::Wpa,
-//             3 => Auth::Wpa2,
-//             4 => Auth::Wpa2Mixed,
-//             5 => Auth::Wpa3,
-//             6 => Auth::Wpa2Wpa3,
-//             _ => Auth::Open, // Default to Open if unknown value
-//         }
-//     }
-// }
-// 
-// impl Serialize for Auth {
-//     #[inline]
-//     fn serialize<S: osal_rs_serde::Serializer>(&self, name: &str, serializer: &mut S) -> core::result::Result<(), S::Error> {
-//         serializer.serialize_u8(name, *self as u8)?;
-//         Ok(())
-//     }
-// }
-// 
-// impl Deserialize for Auth {
-//     #[inline]
-//     fn deserialize<D: osal_rs_serde::Deserializer>(deserializer: &mut D, name: &str) -> core::result::Result<Self, D::Error> {
-//         Ok(Auth::from(deserializer.deserialize_u8(name)?))
-//     }
-// }
+
+impl Into<u8> for Auth {
+    fn into(self) -> u8 {
+        self as u8
+    }
+}
+
+impl From<u8> for Auth {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => Auth::Open,
+            1 => Auth::Web,
+            2 => Auth::Wpa,
+            3 => Auth::Wpa2,
+            4 => Auth::Wpa2Mixed,
+            5 => Auth::Wpa3,
+            6 => Auth::Wpa2Wpa3,
+            _ => Auth::Open, // Default to Open if unknown value
+        }
+    }
+}
+
+impl Serialize for Auth {
+    #[inline]
+    fn serialize<S: osal_rs_serde::Serializer>(&self, name: &str, serializer: &mut S) -> core::result::Result<(), S::Error> {
+        serializer.serialize_u8(name, *self as u8)?;
+        Ok(())
+    }
+}
+
+impl Deserialize for Auth {
+    #[inline]
+    fn deserialize<D: osal_rs_serde::Deserializer>(deserializer: &mut D, name: &str) -> core::result::Result<Self, D::Error> {
+        Ok(Auth::from(deserializer.deserialize_u8(name)?))
+    }
+}
 
 pub struct WifiFn {
     pub init: fn() -> Result<(*mut c_void, i32)>,

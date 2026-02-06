@@ -26,32 +26,65 @@ static mut WIFI_CONFIG: WifiConfig = WifiConfig {
     password: Bytes::new(),
     hostname: Bytes::new(),
     enabled: false,
-    // auth: Auth::Wpa2
+    auth: Auth::Wpa2
 };
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct WifiConfig {
-    pub ssid: Bytes<32>,
-    pub password: Bytes<64>,
-    pub hostname: Bytes<32>,
-    pub enabled: bool,
-    // pub auth: Auth
+    ssid: Bytes<32>,
+    password: Bytes<64>,
+    hostname: Bytes<32>,
+    enabled: bool,
+    auth: Auth
 }
 
-// impl WifiConfig {
-//
-//     pub const fn load() {
-//
-//     }
-//
-//     pub const fn save(config: Self) {
-//
-//     }
-//     pub fn get() -> Self {
-//         unsafe { WIFI_CONFIG }.clone()
-//     }
-//
-//     pub fn set(config: Self) {
-//         //unsafe { WIFI_CONFIG = config };
-//     }
-// }
+impl WifiConfig {
+
+    pub const fn load() {
+
+    }
+
+    pub const fn save(config: Self) {
+
+    }
+
+    pub fn get_ssid(&self) -> &Bytes<32> {
+        &self.ssid
+    }
+
+    pub fn get_password(&self) -> &Bytes<64> {
+        &self.password
+    }
+
+    pub fn get_hostname(&self) -> &Bytes<32> {
+        &self.hostname
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    pub fn get_auth(&self) -> Auth {
+        self.auth
+    }
+
+    pub fn set_ssid(&mut self, ssid: Bytes<32>) {
+        self.ssid = ssid;
+    }
+
+    pub fn set_password(&mut self, password: Bytes<64>) {
+        self.password = password;
+    }
+
+    pub fn set_hostname(&mut self, hostname: Bytes<32>) {
+        self.hostname = hostname;
+    }
+
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
+    }
+
+    pub fn set_auth(&mut self, auth: Auth) {
+        self.auth = auth;
+    }
+}
