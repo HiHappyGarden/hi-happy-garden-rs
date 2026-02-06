@@ -10,7 +10,7 @@ pub mod network;
 mod relays;
 pub mod rgb_led;
 mod uart;
-mod wifi;
+pub(super) mod wifi;
 
 #[cfg(feature = "pico")]
 mod pico;

@@ -37,6 +37,10 @@ void* hhg_udp_new_ip_type(u8_t type) {
     return udp_new_ip_type(type);
 }
 
+u16_t hhg_pbuf_copy_partial(const void *buf, void *dataptr, u16_t len, u16_t offset) {
+    return pbuf_copy_partial((const struct pbuf *)buf, dataptr, len, offset);
+}
+
 void hhg_udp_recv(void *pcb, udp_recv_fn recv, void *recv_arg) {
     udp_recv((struct udp_pcb *)pcb, recv, recv_arg);
 }
@@ -51,4 +55,8 @@ u8_t hhg_pbuf_free(void *p) {
 
 u8_t hhg_netif_is_link_up(void) {
     return netif_is_link_up(netif_default);
+}
+
+u8_t hhg_ip_addr_cmp(const ip_addr_t *addr, const ip_addr_t *addr2) {
+    return ip_addr_cmp(addr, addr2);
 }

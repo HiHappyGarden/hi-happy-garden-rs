@@ -27,15 +27,20 @@ use crate::drivers::plt::lwip::NETWORK_FN;
 
 pub(crate) const IPV6_ADDR_LEN: usize = 40;
 
+#[allow(dead_code)]
 pub enum IpType {
     IPv4,
     IPv6,
     ANY,
 }
 
+#[allow(dead_code)]
 pub struct Udp(pub *mut c_void);
 
+#[allow(dead_code)]
 pub type UdpRecvFn = dyn Fn(dyn Any);
+
+#[allow(dead_code)]
 pub struct NetworkFn {
     pub get_ip_address: fn() -> Bytes<IPV6_ADDR_LEN>,
     pub get_binary_ip_address: fn () -> u32,
@@ -45,9 +50,10 @@ pub struct NetworkFn {
     pub is_link_up: fn() -> bool
 }
 
-
+#[allow(dead_code)]
 pub struct Network;
 
+#[allow(dead_code)]
 impl Network {
     #[inline]
     pub fn get_ip_address() -> Bytes<IPV6_ADDR_LEN> {

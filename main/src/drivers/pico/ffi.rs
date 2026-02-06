@@ -5,7 +5,7 @@
 #![allow(dead_code)]
 
 use core::{ffi::{c_char, c_int, c_long, c_uint, c_void}, ptr::null_mut};
-use core::ffi::{c_uchar, c_ushort};
+use core::ffi::{c_short, c_uchar, c_ushort};
 
 #[repr(C)]
 pub struct pwm_config {
@@ -127,19 +127,57 @@ pub enum CYW43Itf {
     AP = 1,
 }
 
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct ip4_addr {
+    pub addr: u32
+}
+type ip_addr = ip4_addr;
+
+
+#[derive(Debug)]
 #[repr(C)]
 pub struct udp_pcb {
     _private: [u8; 0],
 }
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct pbuf {
-    _private: [u8; 0],
-}
+    /// next pbuf in singly linked pbuf chain
+    pub next: Option<*mut pbuf>,
 
-#[repr(C)]
-pub struct ip4_addr {
-    pub addr: u32
+    /// pointer to the actual data in the buffer
+    pub payload: *mut c_void,
+
+    /**
+     * total length of this buffer and all next buffers in chain
+     * belonging to the same packet.
+     *
+     * For non-queue packet chains this is the invariant:
+     * p->tot_len == p->len + (p->next? p->next->tot_len: 0)
+     */
+    pub tot_len: u16,
+
+    /// length of this buffer
+    pub len: u16,
+
+    /// a bit field indicating pbuf type and allocation sources
+    /// (see PBUF_TYPE_FLAG_*, PBUF_ALLOC_FLAG_* and PBUF_TYPE_ALLOC_SRC_MASK)
+    pub type_internal: u8,
+
+    /// misc flags
+    pub flags: u8,
+
+    /**
+     * the reference count always equals the number of pointers
+     * that refer to this pbuf. This can be pointers from an application,
+     * the stack itself, or pbuf->next pointers from a chain.
+     */
+    pub ref_count: u8,
+
+    /// For incoming packets, this contains the input netif's index
+    pub if_idx: u8,
 }
 
 #[repr(C)]
@@ -205,11 +243,11 @@ unsafe extern "C" {
     pub(super) fn  hhg_dhcp_supplied_address() -> bool;
     pub(super) fn hhg_udp_new_ip_type(_type: c_uchar) -> *mut c_void;
     pub(super) fn hhg_udp_recv(pcb: *mut c_void, recv: udp_recv_fn, recv_arg: *mut c_void);
+    pub(super) fn hhg_pbuf_copy_partial(buf: *mut c_void, dataptr: *mut c_void, len: u16, offset: u16) -> u16;
     pub(super) fn hhg_pbuf_alloc(length: c_ushort) -> *mut c_void;
     pub(super) fn hhg_pbuf_free(p: *mut c_void) -> c_uchar;
     pub(super) fn hhg_netif_is_link_up() -> c_uchar;
-
-
+    pub(super) fn hhg_ip_addr_cmp(addr: *const ip_addr, addr2: *const ip_addr) -> i32;
     pub(super) fn hhg_i2c_instance(i2c_num: u8) -> *mut c_void;
     pub(super) fn hhg_i2c_init(i2c: *mut c_void, baudrate: c_uint) -> c_uint;
     pub(super) fn hhg_i2c_init_pins_with_func();

@@ -16,11 +16,42 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
- 
-mod app_main;
-pub(super) mod configurations;
-pub(super) mod display;
 
+use osal_rs::utils::Bytes;
+use osal_rs_serde::{Deserialize, Serialize};
+use crate::drivers::wifi::Auth;
 
-pub use app_main::AppMain;
+static mut WIFI_CONFIG: WifiConfig = WifiConfig {
+    ssid: Bytes::new(),
+    password: Bytes::new(),
+    hostname: Bytes::new(),
+    enabled: false,
+    // auth: Auth::Wpa2
+};
 
+#[derive(Serialize, Deserialize, Clone, Copy)]
+pub struct WifiConfig {
+    pub ssid: Bytes<32>,
+    pub password: Bytes<64>,
+    pub hostname: Bytes<32>,
+    pub enabled: bool,
+    // pub auth: Auth
+}
+
+// impl WifiConfig {
+//
+//     pub const fn load() {
+//
+//     }
+//
+//     pub const fn save(config: Self) {
+//
+//     }
+//     pub fn get() -> Self {
+//         unsafe { WIFI_CONFIG }.clone()
+//     }
+//
+//     pub fn set(config: Self) {
+//         //unsafe { WIFI_CONFIG = config };
+//     }
+// }

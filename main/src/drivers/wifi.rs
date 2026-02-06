@@ -24,8 +24,8 @@ use core::time::Duration;
 use osal_rs::{log_error, log_info};
 use osal_rs::os::{MutexFn, MutexGuard, System, Thread, ThreadFn};
 use osal_rs::os::types::{StackType, TickType};
-use osal_rs::utils::{ArcMux, Result};
-
+use osal_rs::utils::{ArcMux, Bytes, Result};
+use osal_rs_serde::{Deserialize, Serialize};
 use crate::traits::state::Initializable;
 use crate::drivers::platform::ThreadPriority;
 use crate::drivers::pico::wifi_cyw43::WIFI_FN;
@@ -39,16 +39,53 @@ const APP_STACK_SIZE: StackType = 256;
 static mut FSM_STATUS_CURRENT: WifiStatus = WifiStatus::Disabled;
 static mut FSM_STATUS_OLD: WifiStatus = WifiStatus::Disabled;
 
+#[repr(u8)]
+#[derive(Copy, Clone, Debug)]
 pub enum Auth {
-    Open,
-    Web,
-    Wpa,
-    Wpa2,
-    Wpa2Mixed,
-    Wpa3,
-    Wpa2Wpa3
+    Open = 0,
+    Web = 1,
+    Wpa = 2,
+    Wpa2 = 3,
+    Wpa2Mixed = 4,
+    Wpa3 = 5,
+    Wpa2Wpa3 = 6
 }
-
+// 
+// impl Into<u8> for Auth {
+//     fn into(self) -> u8 {
+//         self as u8
+//     }
+// }
+// 
+// impl From<u8> for Auth {
+//     fn from(value: u8) -> Self {
+//         match value {
+//             0 => Auth::Open,
+//             1 => Auth::Web,
+//             2 => Auth::Wpa,
+//             3 => Auth::Wpa2,
+//             4 => Auth::Wpa2Mixed,
+//             5 => Auth::Wpa3,
+//             6 => Auth::Wpa2Wpa3,
+//             _ => Auth::Open, // Default to Open if unknown value
+//         }
+//     }
+// }
+// 
+// impl Serialize for Auth {
+//     #[inline]
+//     fn serialize<S: osal_rs_serde::Serializer>(&self, name: &str, serializer: &mut S) -> core::result::Result<(), S::Error> {
+//         serializer.serialize_u8(name, *self as u8)?;
+//         Ok(())
+//     }
+// }
+// 
+// impl Deserialize for Auth {
+//     #[inline]
+//     fn deserialize<D: osal_rs_serde::Deserializer>(deserializer: &mut D, name: &str) -> core::result::Result<Self, D::Error> {
+//         Ok(Auth::from(deserializer.deserialize_u8(name)?))
+//     }
+// }
 
 pub struct WifiFn {
     pub init: fn() -> Result<(*mut c_void, i32)>,
