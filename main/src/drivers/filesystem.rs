@@ -27,7 +27,7 @@ use osal_rs::utils::{Bytes, Error, Result};
 
 use core::ffi::c_int;
 use core::str::from_utf8;
-pub use core::ffi::c_void;
+use core::ffi::c_void;
 use core::ptr::null_mut;
 use osal_rs::os::AsSyncStr;
 use crate::drivers::encrypt::Encrypt;
@@ -60,6 +60,16 @@ impl SeekFrom {
     }
 }
 
+
+/// Filesystem statistics
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FsStat {
+    pub block_size: u32,
+    pub block_count: u32,
+    pub blocks_used: u32,
+}
+
+
 /// File/directory type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EntryType {
@@ -78,30 +88,6 @@ impl EntryType {
     }
 }
 
-/// Directory entry information
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DirEntry {
-    pub name: Bytes<MAX_NAME_LEN>,
-    pub type_: EntryType,
-    pub size: u32,
-}
-
-/// Filesystem statistics
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct FsStat {
-    pub block_size: u32,
-    pub block_count: u32,
-    pub blocks_used: u32,
-}
-
-/// File statistics
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FileStat {
-    pub name: Bytes<MAX_NAME_LEN>,
-    pub type_: EntryType,
-    pub size: u32,
-
-}
 
 
 /// File open flags
@@ -207,23 +193,38 @@ pub struct FilesystemFn {
     pub open_dir: fn (path: &str) -> Result<*mut c_void>,
 
     /// Get error message for error code
-    pub errmsg: fn (err: i32) -> &'static str
+    pub err_msg: fn (err: i32) -> &'static str
 }
 
+
 /// File handle wrapper
-#[derive(Clone, Debug)]
-pub struct File (*mut c_void);
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct File {
+    handler: *mut c_void,
+    pub name: Bytes<MAX_NAME_LEN>,
+    pub type_: EntryType,
+    pub size: u32,
+}
 
 impl Drop for File {
     fn drop(&mut self) {
-        if self.0.is_null() {
+        if self.handler.is_null() {
             return;
         }
-        let _ = (FILE_FN.close)(self.0);
+        let _ = (FILE_FN.close)(self.handler);
     }
 }
 
 impl File {
+
+    pub(super) fn new (name: Bytes::<MAX_NAME_LEN>, type_: EntryType, size: u32) -> Self {
+        Self {
+            handler: null_mut(),
+            name,
+            type_,
+            size,
+        }
+    }
 
     /// Write data to the file
     #[inline]
@@ -233,7 +234,7 @@ impl File {
 
     /// Write data to the file
     pub fn write(&self, buffer: &[u8]) -> Result<isize> {
-        if self.0.is_null() {
+        if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
 
@@ -241,7 +242,9 @@ impl File {
         {
             let encrypted_buffer = unsafe { (*&raw const ENCRYPT).unwrap().aes_encrypt(buffer)? };
 
-            (FILE_FN.write)(self.0, &encrypted_buffer)
+            let ret = (FILE_FN.write)(self.handler, &encrypted_buffer);
+
+            ret
         }
 
         #[cfg(not(feature = "encryption"))]
@@ -250,13 +253,13 @@ impl File {
 
     /// Read data from the file
     pub fn read(&self) -> Result<Vec<u8>> {
-        if self.0.is_null() {
+        if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
 
         #[cfg(feature = "encryption")]
         {
-            let encrypted_buffer = (FILE_FN.read)(self.0)?;
+            let encrypted_buffer = (FILE_FN.read)(self.handler)?;
 
             let mut decrypted_buffer = unsafe { (*&raw const ENCRYPT).unwrap().aes_decrypt(&encrypted_buffer)? };
 
@@ -273,78 +276,93 @@ impl File {
 
     /// Rewind file position to the beginning
     pub fn rewind(&self) -> Result<()> {
-        if self.0.is_null() {
+        if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
-        (FILE_FN.rewind)(self.0)
+        (FILE_FN.rewind)(self.handler)
     }
 
     /// Seek to a position in the file
     pub fn seek(&self, offset: i32, whence: SeekFrom) -> Result<isize> {
-        if self.0.is_null() {
+        if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
-        (FILE_FN.seek)(self.0, offset, whence.to_int())
+        (FILE_FN.seek)(self.handler, offset, whence.to_int())
     }
 
     /// Get current position in the file
     pub fn tell(&self) -> Result<isize> {
-        if self.0.is_null() {
+        if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
-        (FILE_FN.tell)(self.0)
+        (FILE_FN.tell)(self.handler)
     }
 
     /// Truncate file to specified size
     pub fn truncate(&self, size: u32) -> Result<()> {
-        if self.0.is_null() {
+        if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
-        (FILE_FN.truncate)(self.0, size)
+        (FILE_FN.truncate)(self.handler, size)
     }
 
     /// Flush file buffers
     pub fn flush(&self) -> Result<()> {
-        if self.0.is_null() {
+        if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
-        (FILE_FN.flush)(self.0)
+        (FILE_FN.flush)(self.handler)
     }
 
     /// Get file size
     pub fn size(&self) -> Result<isize> {
-        if self.0.is_null() {
+        if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
-        (FILE_FN.size)(self.0)
+        (FILE_FN.size)(self.handler)
     }
 
     pub fn close(&mut self) -> Result<()> {
-        if self.0.is_null() {
+        if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
-        (FILE_FN.close)(self.0)?;
-        self.0 = null_mut();
+        (FILE_FN.close)(self.handler)?;
+        self.handler = null_mut();
         Ok(())
     }
 }
 
 // /// Directory handle wrapper
 #[derive(Clone, Debug)]
-pub struct Dir (*mut c_void);
+pub struct Dir {
+    handler: *mut c_void,
+    pub name: Bytes<MAX_NAME_LEN>,
+    pub type_: EntryType,
+    pub size: u32,
+}
 
 impl Drop for Dir {
     fn drop(&mut self) {
-        if self.0.is_null() {
+        if self.handler.is_null() {
             return;
         }
-        let _ = (DIR_FN.close)(self.0);
+        let _ = (DIR_FN.close)(self.handler);
     }
 }
 
 impl Dir {
-    pub fn read(&self) -> Result<Option<DirEntry>> {
-        if self.0.is_null() {
+
+    fn new (name: Bytes::<MAX_NAME_LEN>, type_: EntryType, size: u32) -> Self {
+        Self {
+            handler: null_mut(),
+            name,
+            type_,
+            size,
+        }
+    }
+
+    pub fn read(&self) -> Result<Self> {
+        if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
 
@@ -353,53 +371,45 @@ impl Dir {
         let mut name = Bytes::<MAX_NAME_LEN>::new();
 
 
-        let ret = (DIR_FN.read)(self.0, &mut type_, &mut size, name.as_mut_slice());
+        let ret = (DIR_FN.read)(self.handler, &mut type_, &mut size, name.as_mut_slice());
 
         if ret < 0 {
             return Err(Error::ReturnWithCode(ret));
         }
 
-        Ok(Some(DirEntry {
-            name,
-            type_: match EntryType::from_u8(type_) {
-                EntryType::File => EntryType::File,
-                EntryType::Dir => EntryType::Dir,
-                EntryType::Unknown => EntryType::Unknown,
-            },
-            size,
-        }))
+        Ok(Self::new(name, EntryType::from_u8(type_), size))
     }
 
     pub fn seek(&self, offset: u32) -> Result<()> {
-        if self.0.is_null() {
+        if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
 
-        (DIR_FN.seek)(self.0, offset)
+        (DIR_FN.seek)(self.handler, offset)
     }
 
     pub fn tell(&self) -> Result<i32> {
-        if self.0.is_null() {
+        if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
 
-        (DIR_FN.tell)(self.0)
+        (DIR_FN.tell)(self.handler)
     }
 
     pub fn rewind(&self) -> Result<()> {
-        if self.0.is_null() {
+        if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
 
-        (DIR_FN.rewind)(self.0)
+        (DIR_FN.rewind)(self.handler)
     }
 
     pub fn close(&mut self) -> Result<()> {
-        if self.0.is_null() {
+        if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
-        (DIR_FN.close)(self.0)?;
-        self.0 = null_mut();
+        (DIR_FN.close)(self.handler)?;
+        self.handler = null_mut();
         Ok(())
     }
 }
@@ -454,7 +464,12 @@ impl Filesystem {
 
     pub fn open(path: &str, flags: i32) -> Result<File> {
         let handler = (FILESYSTEM_FN.open)(path, flags)?;
-        Ok(File (handler as *mut c_void))
+        Ok(File {
+            handler,
+            name: Bytes::<MAX_NAME_LEN>::new_by_str(path),
+            type_: EntryType::File,
+            size: 0,
+        })
     }
 
     #[inline]
@@ -491,7 +506,7 @@ impl Filesystem {
         })
     }
 
-    pub fn stat(path: &str) -> Result<FileStat> {
+    pub fn stat(path: &str) -> Result<File> {
         let mut type_ = 0u8;
         let mut size = 0u32;
         let mut name = Bytes::<MAX_NAME_LEN>::new();
@@ -502,15 +517,11 @@ impl Filesystem {
             return Err(Error::ReturnWithCode(ret));
         }
 
-        Ok(FileStat {
-            name,
-            size,
-            type_: EntryType::from_u8(type_),
-        })
+        Ok(File::new(name, EntryType::from_u8(type_), size))
     }
 
     #[inline]
-    pub fn stat_with_as_sync_str(path: &impl AsSyncStr) -> Result<FileStat> {
+    pub fn stat_with_as_sync_str(path: &impl AsSyncStr) -> Result<File> {
         Filesystem::stat(path.as_str())
     }
 
@@ -556,7 +567,12 @@ impl Filesystem {
 
     pub fn open_dir(path: &str) -> Result<Dir> {
         let handler = (FILESYSTEM_FN.open_dir)(path)?;
-        Ok(Dir (handler as *mut _))
+        Ok(Dir {
+            handler,
+            name: Bytes::<MAX_NAME_LEN>::new_by_str(path),
+            type_: EntryType::Dir,
+            size: 0,
+        })
     }
 
     #[inline]
@@ -565,7 +581,7 @@ impl Filesystem {
     }
 
     pub fn err_msg(err: i32) -> &'static str {
-        (FILESYSTEM_FN.errmsg)(err)
+        (FILESYSTEM_FN.err_msg)(err)
     }
 }
 

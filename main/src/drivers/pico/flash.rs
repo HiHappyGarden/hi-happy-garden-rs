@@ -30,7 +30,7 @@ use osal_rs::utils::{Error, Result};
 use crate::drivers::pico::ffi::{
     LfsOff, LfsSize, LfsSoff, LfsSsize, hhg_flash_close, hhg_flash_dir_close, hhg_flash_dir_open, hhg_flash_dir_read, hhg_flash_dir_rewind, hhg_flash_dir_seek, hhg_flash_dir_tell, hhg_flash_errmsg, hhg_flash_fflush, hhg_flash_fsstat, hhg_flash_getattr, hhg_flash_lseek, hhg_flash_mkdir, hhg_flash_mount, hhg_flash_open, hhg_flash_read, hhg_flash_remove, hhg_flash_removeattr, hhg_flash_rename, hhg_flash_rewind, hhg_flash_setattr, hhg_flash_size, hhg_flash_stat, hhg_flash_tell, hhg_flash_truncate, hhg_flash_umount, hhg_flash_write
 };
-use crate::drivers::filesystem::{DirEntry, DirFn, EntryType, FileFn, FileStat, FilesystemFn, FsStat, SeekFrom}; 
+use crate::drivers::filesystem::{DirFn, FileFn, FilesystemFn};
 
 const APP_TAG: &str = "Flash";
 const READ_BUFFER_SIZE: usize = 512;
@@ -254,7 +254,7 @@ pub const FILESYSTEM_FN: FilesystemFn = FilesystemFn {
 
     open_dir: filesystem_open_dir,
 
-    errmsg: filesystem_errmsg,
+    err_msg: filesystem_err_msg,
 };
 
 fn filesystem_mount(format: bool) -> Result<()> {
@@ -414,7 +414,7 @@ fn filesystem_open_dir(path: &str) -> Result<*mut c_void> {
     Ok(handle)
 }
 
-fn filesystem_errmsg(err: i32) -> &'static str {
+fn filesystem_err_msg(err: i32) -> &'static str {
     unsafe {
         let msg_ptr = hhg_flash_errmsg(err);
         if msg_ptr.is_null() {
