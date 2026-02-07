@@ -29,6 +29,7 @@ use core::ffi::c_int;
 use core::str::from_utf8;
 pub use core::ffi::c_void;
 use core::ptr::null_mut;
+use osal_rs::os::AsSyncStr;
 use crate::drivers::encrypt::Encrypt;
 use crate::drivers::pico::flash::{FILESYSTEM_FN, FILE_FN, DIR_FN};
 use crate::drivers::platform::Hardware;
@@ -182,7 +183,7 @@ pub struct FilesystemFn {
     pub remove: fn (path: &str) -> Result<()>,
 
     /// Rename a file or directory
-    pub rename: fn (oldpath: &str, newpath: &str) -> Result<()>,
+    pub rename: fn (old_path: &str, new_path: &str) -> Result<()>,
 
     /// Get filesystem statistics
     pub stat_fs: fn (block_size: &mut u32, block_count: &mut u32, blocks_used: &mut u32) -> Result<()>,
@@ -191,13 +192,13 @@ pub struct FilesystemFn {
     pub stat: fn (path: &str, type_: &mut u8, size: &mut u32, name: &mut [u8]) -> Result<i32>,
 
     /// Get extended attribute
-    pub getattr: fn (path: &str, type_: u8, buffer: &mut [u8]) -> Result<i32>,
+    pub get_attr: fn (path: &str, type_: u8, buffer: &mut [u8]) -> Result<i32>,
 
     /// Set extended attribute
-    pub setattr: fn (path: &str, type_: u8, buffer: &[u8]) -> Result<()>,
+    pub set_attr: fn (path: &str, type_: u8, buffer: &[u8]) -> Result<()>,
 
     /// Remove extended attribute
-    pub removeattr: fn (path: &str, type_: u8) -> Result<()>,
+    pub remove_attr: fn (path: &str, type_: u8) -> Result<()>,
 
     /// Create a directory
     pub mkdir: fn (path: &str) -> Result<()>,
@@ -223,6 +224,13 @@ impl Drop for File {
 }
 
 impl File {
+
+    /// Write data to the file
+    #[inline]
+    pub fn write_with_as_sync_str(&self, buffer: &impl AsSyncStr) -> Result<isize> {
+        self.write(buffer.as_str().as_bytes())
+    }
+
     /// Write data to the file
     pub fn write(&self, buffer: &[u8]) -> Result<isize> {
         if self.0.is_null() {
@@ -438,17 +446,35 @@ impl Filesystem {
         (FILESYSTEM_FN.umount)()
     }
 
+    #[inline]
+    pub fn open_with_as_sync_str(path: &impl AsSyncStr, flags: i32) -> Result<File>  {
+        Filesystem::open(path.as_str(), flags)
+    }
+
+
     pub fn open(path: &str, flags: i32) -> Result<File> {
         let handler = (FILESYSTEM_FN.open)(path, flags)?;
         Ok(File (handler as *mut c_void))
     }
 
+    #[inline]
     pub fn remove(path: &str) -> Result<()> {
         (FILESYSTEM_FN.remove)(path)
     }
 
-    pub fn rename(oldpath: &str, newpath: &str) -> Result<()> {
-        (FILESYSTEM_FN.rename)(oldpath, newpath)
+    #[inline]
+    pub fn remove_with_as_sync_str(path: &impl AsSyncStr) -> Result<()>  {
+        Filesystem::remove(path.as_str())
+    }
+
+    #[inline]
+    pub fn rename(old_path: &str, new_path: &str) -> Result<()> {
+        (FILESYSTEM_FN.rename)(old_path, new_path)
+    }
+
+    #[inline]
+    pub fn rename_with_as_sync_str(old_path: &impl AsSyncStr, new_path: &impl AsSyncStr) -> Result<()>  {
+        Filesystem::rename(old_path.as_str(), new_path.as_str())
     }
 
     pub fn stat_fs() -> Result<FsStat> {
@@ -483,20 +509,49 @@ impl Filesystem {
         })
     }
 
-    pub fn getattr(path: &str, type_: u8, buffer: &mut [u8]) -> Result<i32> {
-        (FILESYSTEM_FN.getattr)(path, type_, buffer)
+    #[inline]
+    pub fn stat_with_as_sync_str(path: &impl AsSyncStr) -> Result<FileStat> {
+        Filesystem::stat(path.as_str())
     }
 
-    pub fn setattr(path: &str, type_: u8, buffer: &[u8]) -> Result<()> {
-        (FILESYSTEM_FN.setattr)(path, type_, buffer)
+    #[inline]
+    pub fn get_attr(path: &str, type_: u8, buffer: &mut [u8]) -> Result<i32> {
+        (FILESYSTEM_FN.get_attr)(path, type_, buffer)
     }
 
-    pub fn removeattr(path: &str, type_: u8) -> Result<()> {
-        (FILESYSTEM_FN.removeattr)(path, type_)
+    #[inline]
+    pub fn get_attr_with_as_sync_str(path: &impl AsSyncStr, type_: u8, buffer: &mut [u8]) -> Result<i32> {
+        (FILESYSTEM_FN.get_attr)(path.as_str(), type_, buffer)
     }
 
+    #[inline]
+    pub fn set_attr(path: &str, type_: u8, buffer: &[u8]) -> Result<()> {
+        (FILESYSTEM_FN.set_attr)(path, type_, buffer)
+    }
+
+    #[inline]
+    pub fn set_attr_with_as_sync_str(path: &impl AsSyncStr, type_: u8, buffer: &[u8]) -> Result<()> {
+        (FILESYSTEM_FN.set_attr)(path.as_str(), type_, buffer)
+    }
+
+    #[inline]
+    pub fn remove_attr(path: &str, type_: u8) -> Result<()> {
+        (FILESYSTEM_FN.remove_attr)(path, type_)
+    }
+
+    #[inline]
+    pub fn remove_attr_with_as_sync_str(path: &impl AsSyncStr, type_: u8) -> Result<()> {
+        (FILESYSTEM_FN.remove_attr)(path.as_str(), type_)
+    }
+
+    #[inline]
     pub fn mkdir(path: &str) -> Result<()> {
         (FILESYSTEM_FN.mkdir)(path)
+    }
+
+    #[inline]
+    pub fn mkdir_attr_with_as_sync_str(path: &impl AsSyncStr) -> Result<()> {
+        (FILESYSTEM_FN.mkdir)(path.as_str())
     }
 
     pub fn open_dir(path: &str) -> Result<Dir> {
@@ -504,7 +559,12 @@ impl Filesystem {
         Ok(Dir (handler as *mut _))
     }
 
-    pub fn errmsg(err: i32) -> &'static str {
+    #[inline]
+    pub fn open_dir_with_as_sync_str(path: &impl AsSyncStr) -> Result<Dir> {
+        Filesystem::open_dir(path.as_str())
+    }
+
+    pub fn err_msg(err: i32) -> &'static str {
         (FILESYSTEM_FN.errmsg)(err)
     }
 }

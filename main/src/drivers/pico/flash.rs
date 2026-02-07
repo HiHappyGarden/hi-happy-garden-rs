@@ -244,11 +244,11 @@ pub const FILESYSTEM_FN: FilesystemFn = FilesystemFn {
 
     stat: filesystem_stat,
 
-    getattr: filesystem_getattr,
+    get_attr: filesystem_get_attr,
 
-    setattr: filesystem_setattr,
+    set_attr: filesystem_set_attr,
 
-    removeattr: filesystem_removeattr,
+    remove_attr: filesystem_removeattr,
 
     mkdir: filesystem_mkdir,
 
@@ -296,11 +296,11 @@ fn filesystem_remove(path: &str) -> Result<()> {
     Ok(())
 }
 
-fn filesystem_rename(oldpath: &str, newpath: &str) -> Result<()> {
-    let oldpath_cstr = CString::new(oldpath).map_err(|_| Error::InvalidType)?;
-    let newpath_cstr = CString::new(newpath).map_err(|_| Error::InvalidType)?;
+fn filesystem_rename(old_path: &str, new_path: &str) -> Result<()> {
+    let old_path_cstr = CString::new(old_path).map_err(|_| Error::InvalidType)?;
+    let new_path_cstr = CString::new(new_path).map_err(|_| Error::InvalidType)?;
     
-    let ret = unsafe { hhg_flash_rename(oldpath_cstr.as_ptr(), newpath_cstr.as_ptr()) };
+    let ret = unsafe { hhg_flash_rename(old_path_cstr.as_ptr(), new_path_cstr.as_ptr()) };
     
     if ret < 0 {
         return Err(Error::ReturnWithCode(ret));
@@ -340,7 +340,7 @@ fn filesystem_stat(path: &str, type_: &mut u8, size: &mut u32, name: &mut [u8]) 
     Ok(ret)
 }
 
-fn filesystem_getattr(path: &str, type_: u8, buffer: &mut [u8]) -> Result<i32> {
+fn filesystem_get_attr(path: &str, type_: u8, buffer: &mut [u8]) -> Result<i32> {
     let path_cstr = CString::new(path).map_err(|_| Error::InvalidType)?;
     
     let ret = unsafe {
@@ -359,7 +359,7 @@ fn filesystem_getattr(path: &str, type_: u8, buffer: &mut [u8]) -> Result<i32> {
     Ok(ret)
 }
 
-fn filesystem_setattr(path: &str, type_: u8, buffer: &[u8]) -> Result<()> {
+fn filesystem_set_attr(path: &str, type_: u8, buffer: &[u8]) -> Result<()> {
     let path_cstr = CString::new(path).map_err(|_| Error::InvalidType)?;
     
     let ret = unsafe {
