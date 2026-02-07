@@ -23,22 +23,23 @@ use core::{ffi::c_void, ptr::null_mut};
 
 use alloc::{str, vec::Vec};
 use osal_rs::{log_info, utils::{Error, Result}};
-
+use osal_rs::utils::Bytes;
 use crate::traits::state::Initializable;
 use crate::drivers::pico::mbedtls::ENCRYPT_FN;
 
 const APP_TAG: &str = "Encrypt";
+pub const SHA256_RESULT_BYTES: usize = 32;
 
 pub struct EncryptFn {
     pub init: fn() -> Result<*mut c_void>,
     pub aes_encrypt: fn(handler: *mut c_void, key: &[u8], iv: &[u8], plain: &[u8]) -> Result<Vec<u8>>,
     pub aes_decrypt: fn(handler: *mut c_void, key: &[u8], iv: &[u8], cipher: &[u8]) -> Result<Vec<u8>>,
+    pub get_sha256: fn(data: &[u8]) -> Result<Bytes<SHA256_RESULT_BYTES>>,
     pub drop: fn(*mut c_void),
 }
 
 #[derive(Clone, Copy)]
 pub struct Encrypt<'a, const KEY_SIZE: usize = 16, const IV_SIZE: usize = 16> {
-    functions: &'static EncryptFn,
     handler: *mut c_void,
     key: &'a [u8; KEY_SIZE], 
     iv: &'a [u8; IV_SIZE],
@@ -48,7 +49,7 @@ impl<'a, const KEY_SIZE: usize, const IV_SIZE: usize> Initializable for Encrypt<
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init encrypt");
 
-        self.handler = (self.functions.init)()?;
+        self.handler = (ENCRYPT_FN.init)()?;
 
 
         Ok(())
@@ -66,7 +67,6 @@ impl<'a, const KEY_SIZE: usize, const IV_SIZE: usize> Encrypt<'a, KEY_SIZE, IV_S
         }
 
         Ok(Self {
-            functions: &ENCRYPT_FN,
             handler: null_mut(),
             key,
             iv,
@@ -75,18 +75,25 @@ impl<'a, const KEY_SIZE: usize, const IV_SIZE: usize> Encrypt<'a, KEY_SIZE, IV_S
 
     #[inline]
     pub fn aes_encrypt(&self, plain: &[u8]) -> Result<Vec<u8>> {
-        (self.functions.aes_encrypt)(self.handler,  self.key, self.iv, plain)
+        (ENCRYPT_FN.aes_encrypt)(self.handler,  self.key, self.iv, plain)
     }
 
     #[inline]
     pub fn aes_decrypt(&self, cipher: &[u8]) -> Result<Vec<u8>> {
-        (self.functions.aes_decrypt)(self.handler, self.key, self.iv, cipher)
+        (ENCRYPT_FN.aes_decrypt)(self.handler, self.key, self.iv, cipher)
+    }
+
+    #[inline]
+    pub fn get_sha256(data: &[u8]) -> Result<Bytes<SHA256_RESULT_BYTES>> {
+        (ENCRYPT_FN.get_sha256)(data)
     }
 
     #[inline]
     pub fn drop(&mut self) {
         log_info!(APP_TAG, "Free encrypt");
 
-        (self.functions.drop)(self.handler);
+        (ENCRYPT_FN.drop)(self.handler);
     }
 }
+
+pub type EncryptGeneric<'a> = Encrypt<'a, 0, 0>;

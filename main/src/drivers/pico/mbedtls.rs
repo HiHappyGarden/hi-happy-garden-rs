@@ -22,15 +22,18 @@
 use core::ffi::c_void;
 
 use alloc::vec::Vec;
-use osal_rs::utils::{Error, Result};
+use core::ptr::null_mut;
+use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::drivers::pico::ffi::{aes_mode, hhg_mbedtls_aes_crypt_cbc, hhg_mbedtls_aes_free, hhg_mbedtls_aes_init, hhg_mbedtls_aes_setkey_enc, hhg_mbedtls_aes_setkey_dec};
-use crate::drivers::encrypt::{EncryptFn};
+use crate::drivers::encrypt::{EncryptFn, SHA256_RESULT_BYTES};
+use crate::drivers::plt::ffi::{hhg_pico_sha256_finish, hhg_pico_sha256_start_blocking, hhg_pico_sha256_update_blocking};
 
 pub const ENCRYPT_FN: EncryptFn = EncryptFn {
     init,
     aes_encrypt,
     aes_decrypt,
+    get_sha256,
     drop,
 };
 
@@ -113,6 +116,28 @@ fn aes_encrypt(handler: *mut c_void, key: &[u8], iv: &[u8], plain: &[u8]) -> Res
 
 fn aes_decrypt(handler: *mut c_void, key: &[u8], iv: &[u8], cipher: &[u8]) -> Result<Vec<u8>> {
     enc_dec(handler, aes_mode::AES_DECRYPT, key, iv, cipher)
+}
+
+pub fn get_sha256(data: &[u8]) -> Result<Bytes<SHA256_RESULT_BYTES>> {
+    let mut hash = Bytes::<SHA256_RESULT_BYTES>::new();
+
+    let mut state: *mut c_void = null_mut();
+
+    let ret = unsafe { hhg_pico_sha256_start_blocking(&mut state, true) };
+    if ret != 0 {
+        return Err(Error::ReturnWithCode(ret));
+    }
+    if state.is_null() {
+        return Err(Error::NullPtr);
+    }
+
+    unsafe {
+        hhg_pico_sha256_update_blocking(state, data.as_ptr(), data.len());
+
+        hhg_pico_sha256_finish(state, hash.as_mut_ptr());
+    };
+
+    Ok(hash)
 }
 
 fn drop(handler: *mut c_void) {
