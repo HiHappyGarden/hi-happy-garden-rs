@@ -16,10 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
+#![allow(dead_code)]
 
 use osal_rs::utils::Bytes;
 use osal_rs_serde::{Deserialize, Serialize};
 use crate::drivers::wifi::Auth;
+
+
 
 static mut WIFI_CONFIG: WifiConfig = WifiConfig {
     ssid: Bytes::new(),
@@ -44,7 +47,7 @@ impl WifiConfig {
 
     }
 
-    pub const fn save(config: Self) {
+    pub const fn save(_config: Self) {
 
     }
 

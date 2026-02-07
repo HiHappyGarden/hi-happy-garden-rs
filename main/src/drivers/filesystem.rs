@@ -30,7 +30,7 @@ use core::str::from_utf8;
 use core::ffi::c_void;
 use core::ptr::null_mut;
 use osal_rs::os::AsSyncStr;
-use crate::drivers::encrypt::Encrypt;
+use crate::drivers::encrypt::{Encrypt, EncryptGeneric};
 use crate::drivers::pico::flash::{FILESYSTEM_FN, FILE_FN, DIR_FN};
 use crate::drivers::platform::Hardware;
 use crate::traits::state::Initializable;
@@ -202,7 +202,6 @@ pub struct FilesystemFn {
 pub struct File {
     handler: *mut c_void,
     pub name: Bytes<MAX_NAME_LEN>,
-    pub type_: EntryType,
     pub size: u32,
 }
 
@@ -217,23 +216,22 @@ impl Drop for File {
 
 impl File {
 
-    pub(super) fn new (name: Bytes::<MAX_NAME_LEN>, type_: EntryType, size: u32) -> Self {
+    pub(super) fn new (name: Bytes::<MAX_NAME_LEN>, size: u32) -> Self {
         Self {
             handler: null_mut(),
             name,
-            type_,
             size,
         }
     }
 
     /// Write data to the file
     #[inline]
-    pub fn write_with_as_sync_str(&self, buffer: &impl AsSyncStr) -> Result<isize> {
+    pub fn write_with_as_sync_str(&mut self, buffer: &impl AsSyncStr) -> Result<isize> {
         self.write(buffer.as_str().as_bytes())
     }
 
     /// Write data to the file
-    pub fn write(&self, buffer: &[u8]) -> Result<isize> {
+    pub fn write(&mut self, buffer: &[u8]) -> Result<isize> {
         if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
@@ -242,17 +240,40 @@ impl File {
         {
             let encrypted_buffer = unsafe { (*&raw const ENCRYPT).unwrap().aes_encrypt(buffer)? };
 
-            let ret = (FILE_FN.write)(self.handler, &encrypted_buffer);
+            let ret = (FILE_FN.write)(self.handler, &encrypted_buffer)?;
 
-            ret
+            self.size = ret as u32;
+
+            let mut buffer_sha_file =  self.name.clone();
+            buffer_sha_file.append_str(".sha256");
+
+            let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), open_flags::WRONLY | open_flags::CREAT)?;
+            file_sha.write(EncryptGeneric::get_sha256(buffer)?.as_slice())?;
+            file_sha.close()?;
+
+            Ok(ret)
         }
 
         #[cfg(not(feature = "encryption"))]
-        (FILE_FN.write)(self.0, buffer)
+        {
+            let ret = (FILE_FN.write)(self.0, buffer)?;
+
+            self.size = ret as u32;
+
+            let mut buffer_sha_file =  self.name.clone();
+            buffer_sha_file.append_str(".sha256");
+
+            let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), open_flags::WRONLY | open_flags::CREAT)?;
+            file_sha.write(EncryptGeneric::get_sha256(buffer)?.as_slice())?;
+            file_sha.close()?;
+
+            Ok(ret)
+        }
+
     }
 
     /// Read data from the file
-    pub fn read(&self) -> Result<Vec<u8>> {
+    pub fn read(&mut self) -> Result<Vec<u8>> {
         if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
@@ -260,6 +281,7 @@ impl File {
         #[cfg(feature = "encryption")]
         {
             let encrypted_buffer = (FILE_FN.read)(self.handler)?;
+            self.size = encrypted_buffer.len() as u32;
 
             let mut decrypted_buffer = unsafe { (*&raw const ENCRYPT).unwrap().aes_decrypt(&encrypted_buffer)? };
 
@@ -267,11 +289,31 @@ impl File {
                 decrypted_buffer.pop();
             }
 
+            let mut buffer_sha_file =  self.name.clone();
+            buffer_sha_file.append_str(".sha256");
+
+            let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), open_flags::RDONLY)?;
+            let sha256_stored = file_sha.read()?;
+            file_sha.close()?;
+
+            let sha256_computed = EncryptGeneric::get_sha256(&decrypted_buffer)?;
+
+            if sha256_stored != sha256_computed.as_slice() {
+                return Err(Error::ReadError("Data integrity check failed. SHA256 hash does not match."));
+            }
+
             Ok(decrypted_buffer)
         }
 
         #[cfg(not(feature = "encryption"))]
-        (FILE_FN.read)(self.0)
+        {
+            let buffer = (FILE_FN.read)(self.0)?;
+
+            self.size = buffer.len() as u32;
+
+            Ok(buffer)
+        }
+
     }
 
     /// Rewind file position to the beginning
@@ -338,7 +380,7 @@ pub struct Dir {
     handler: *mut c_void,
     pub name: Bytes<MAX_NAME_LEN>,
     pub type_: EntryType,
-    pub size: u32,
+
 }
 
 impl Drop for Dir {
@@ -352,12 +394,11 @@ impl Drop for Dir {
 
 impl Dir {
 
-    fn new (name: Bytes::<MAX_NAME_LEN>, type_: EntryType, size: u32) -> Self {
+    fn new (name: Bytes::<MAX_NAME_LEN>, type_: EntryType) -> Self {
         Self {
             handler: null_mut(),
             name,
             type_,
-            size,
         }
     }
 
@@ -377,7 +418,7 @@ impl Dir {
             return Err(Error::ReturnWithCode(ret));
         }
 
-        Ok(Self::new(name, EntryType::from_u8(type_), size))
+        Ok(Self::new(name, EntryType::from_u8(type_)))
     }
 
     pub fn seek(&self, offset: u32) -> Result<()> {
@@ -467,7 +508,6 @@ impl Filesystem {
         Ok(File {
             handler,
             name: Bytes::<MAX_NAME_LEN>::new_by_str(path),
-            type_: EntryType::File,
             size: 0,
         })
     }
@@ -517,7 +557,7 @@ impl Filesystem {
             return Err(Error::ReturnWithCode(ret));
         }
 
-        Ok(File::new(name, EntryType::from_u8(type_), size))
+        Ok(File::new(name, size))
     }
 
     #[inline]
@@ -571,7 +611,6 @@ impl Filesystem {
             handler,
             name: Bytes::<MAX_NAME_LEN>::new_by_str(path),
             type_: EntryType::Dir,
-            size: 0,
         })
     }
 

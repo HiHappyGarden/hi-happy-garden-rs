@@ -306,7 +306,7 @@ impl LCDSH1106 {
     fn send_cmd(&self, cmd: u8) -> Result<()>{
         let data = [0x00, cmd]; // Control byte 0x00 for commands
         if self.i2c.write(&data) == PICO_ERROR_GENERIC as i32 {
-            Err(Error::WriteError)
+            Err(Error::WriteError("Failed to send command to LCD"))
         } else {
             Ok(()) 
         }
@@ -331,7 +331,7 @@ impl LCDSH1106 {
         buffer[1..=len].copy_from_slice(&data[..len]);
         
         if self.i2c.write(&buffer) == PICO_ERROR_GENERIC as i32 {
-            Err(Error::WriteError)
+            Err(Error::WriteError("Failed to send data to LCD"))
         } else {
             Ok(())
         }
