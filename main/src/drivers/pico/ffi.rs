@@ -313,5 +313,8 @@ unsafe extern "C" {
     pub(super) fn hhg_mbedtls_aes_crypt_cbc(aes: *mut c_void, mode: i32, length: usize, iv: *mut u8, input: *const u8, output: *mut u8) -> i32;
     pub(super) fn hhg_mbedtls_aes_setkey_dec(aes: *mut c_void, key: *const u8, keybits: u32) -> i32;
     pub(super) fn hhg_mbedtls_aes_free(aes: *mut c_void);
-    
+
+    pub(super) fn hhg_pico_sha256_start_blocking(state: *mut *mut c_void, use_dma: bool) -> c_int;
+    pub(super) fn hhg_pico_sha256_update_blocking(state: *mut c_void, data: *const c_uchar, data_size_bytes: usize);
+    pub(super) fn hhg_pico_sha256_finish(state: *mut c_void, out: *mut c_uchar);
 }   
