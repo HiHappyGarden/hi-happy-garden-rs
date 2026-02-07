@@ -17,10 +17,7 @@
  *
  ***************************************************************************/
 
-#include <stdlib.h>
-#include <string.h>
 #include <mbedtls/aes.h>
-#include "FreeRTOS.h"
 
 extern void * pvPortMalloc( size_t xWantedSize );
 extern void vPortFree( void * pv );
@@ -34,17 +31,13 @@ void* hhg_mbedtls_aes_init(void) {
     return (void*)aes;
 }
 
-
-
 int hhg_mbedtls_aes_setkey_enc(void* aes, const unsigned char* key, unsigned int keybits) {
     return mbedtls_aes_setkey_enc((mbedtls_aes_context*)aes, key, keybits);
 }
 
-
 int hhg_mbedtls_aes_crypt_cbc(void* aes, int mode, size_t length, unsigned char* iv, const unsigned char* input, unsigned char* output) {
     return mbedtls_aes_crypt_cbc((mbedtls_aes_context*)aes, mode, length, iv, input, output);
 }
-
 
 int hhg_mbedtls_aes_setkey_dec(void* aes, const unsigned char* key, unsigned int keybits) {
     return mbedtls_aes_setkey_dec((mbedtls_aes_context*)aes, key, keybits);
