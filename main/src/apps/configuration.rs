@@ -42,6 +42,17 @@ static mut WIFI_CONFIG: WifiConfig = WifiConfig {
     auth: Auth::Wpa2
 };
 
+static mut CONFIG: Config = Config {
+    version: 0,
+    timezone: 0,
+    daylight_saving_time: false,
+    users: [UserConfig {
+        version: 0,
+        user: Bytes::new(),
+        password: Bytes::new()
+    }; 2]
+};
+
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct WifiConfig {
     version: u8,
@@ -159,8 +170,139 @@ impl WifiConfig {
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
+pub struct UserConfig {
+    version: u8,
+    user: Bytes<32>,
+    password: Bytes<64>
+}
+
+impl Default for UserConfig {
+    fn default() -> Self {
+        Self {
+            version: 0,
+            user: Bytes::new(),
+            password: Bytes::new()
+        }
+    }
+}
+
+impl UserConfig {
+    pub fn get_version(&self) -> u8 {
+        self.version
+    }
+
+    pub fn get_user(&self) -> &Bytes<32> {
+        &self.user
+    }
+
+    pub fn get_password(&self) -> &Bytes<64> {
+        &self.password
+    }
+
+    pub fn set_user(&mut self, user: Bytes<32>) {
+        self.user = user;
+    }
+
+    pub fn set_password(&mut self, password: Bytes<64>) {
+        self.password = password;
+    }
+    
+}
+
+
+#[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct Config {
     version: u8,
     timezone: u16,
-    daylight_saving_time: bool
+    daylight_saving_time: bool,
+    users: [UserConfig; 2],
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            version: 0,
+            timezone: 0,
+            daylight_saving_time: false,
+            users: [Default::default(); 2],
+        }
+    }
+}
+
+impl Config {
+
+    const FILE_NAME: &'static str = "config.json";
+
+    pub fn load() -> Result<()> {
+        let mut file_name = FileBytes::new_by_str(FS_CONFIG_DIR);
+        file_name.append_str(FS_SEPARATOR_DIR);
+        file_name.append_str(Config::FILE_NAME);
+
+        let mut file = Filesystem::open_with_as_sync_str(&file_name, open_flags::RDONLY | open_flags::CREAT)?;
+        let wifi_json = file.read_with_as_sync_str(true)?;
+        let wifi_json = match String::from_utf8(wifi_json) {
+            Ok(json) => json,
+            Err(e) => {
+                return Err(Error::UnhandledOwned(format!("Failed to parse config JSON: {}", e)));
+            }
+        };
+ 
+        from_json::<Config>(&wifi_json)
+            .map_err(|e| Error::UnhandledOwned(format!("Failed to deserialize config JSON: {}", e)))
+            .and_then(|config| {
+                unsafe {
+                    CONFIG = config;
+                }
+                Ok(())
+            })
+    }
+
+    pub fn save(_config: Self)  -> Result<()> {
+        let mut file_name = FileBytes::new_by_str(FS_CONFIG_DIR);
+        file_name.append_str(FS_SEPARATOR_DIR);
+        file_name.append_str(Config::FILE_NAME);
+
+        unsafe {
+            to_json(&*&raw const CONFIG)
+                .map_err(|e| Error::UnhandledOwned(format!("Failed to serialize config to JSON: {}", e)))
+                .and_then(|json| {
+                    let json_bytes = json.into_bytes();
+                    
+                    let mut file = Filesystem::open_with_as_sync_str(&file_name, open_flags::WRONLY | open_flags::CREAT)?;
+                    file.write(&json_bytes, true)?;
+
+                    Ok(())
+                })
+        }
+    }
+
+    pub fn get_version(&self) -> u8 {
+        self.version
+    }
+
+    pub fn get_timezone(&self) -> u16 {
+        self.timezone
+    }
+
+    pub fn is_daylight_saving_time(&self) -> bool {
+        self.daylight_saving_time
+    }
+
+    pub fn get_users(&self) -> &[UserConfig; 2] {
+        &self.users
+    }
+
+    pub fn set_timezone(&mut self, timezone: u16) {
+        self.timezone = timezone;
+    }
+
+    pub fn set_daylight_saving_time(&mut self, dst: bool) {
+        self.daylight_saving_time = dst;
+    }
+
+    pub fn set_user(&mut self, index: usize, user: UserConfig) {
+        if index < self.users.len() {
+            self.users[index] = user;
+        }
+    }
 }
