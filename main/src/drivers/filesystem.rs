@@ -20,18 +20,22 @@
 #![allow(dead_code)]
 
 use alloc::ffi::CString;
-use alloc::vec;
+use alloc::string::{String, ToString};
+use alloc::{format, vec};
 use alloc::vec::Vec;
-use osal_rs::log_info;
+
+use osal_rs::{log_info, println};
 use osal_rs::utils::{Bytes, Error, Result};
+use osal_rs::os::AsSyncStr;
 
 use core::ffi::c_int;
 use core::str::from_utf8;
 use core::ffi::c_void;
+use core::fmt::Display;
 use core::ptr::null_mut;
-use osal_rs::os::AsSyncStr;
+
 use crate::drivers::encrypt::{Encrypt, EncryptGeneric};
-use crate::drivers::pico::flash::{FILESYSTEM_FN, FILE_FN, DIR_FN};
+use crate::drivers::pico::flash::{FILESYSTEM_FN, FILE_FN, DIR_FN, FS_SEPARATOR_DIR};
 use crate::drivers::platform::Hardware;
 use crate::traits::state::Initializable;
 
@@ -76,6 +80,16 @@ pub enum EntryType {
     File,
     Dir,
     Unknown,
+}
+
+impl Display for EntryType {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            EntryType::File => write!(f, "File"),
+            EntryType::Dir => write!(f, "Directory"),
+            EntryType::Unknown => write!(f, "Unknown"),
+        }
+    }
 }
 
 impl EntryType {
@@ -523,12 +537,6 @@ impl Filesystem {
         (FILESYSTEM_FN.umount)()
     }
 
-    #[inline]
-    pub fn open_with_as_sync_str(path: &impl AsSyncStr, flags: i32) -> Result<File>  {
-        Filesystem::open(path.as_str(), flags)
-    }
-
-
     pub fn open(path: &str, flags: i32) -> Result<File> {
         let handler = (FILESYSTEM_FN.open)(path, flags)?;
         Ok(File {
@@ -539,13 +547,18 @@ impl Filesystem {
     }
 
     #[inline]
+    pub fn open_with_as_sync_str(path: &impl AsSyncStr, flags: i32) -> Result<File>  {
+        Self::open(path.as_str(), flags)
+    }
+
+    #[inline]
     pub fn remove(path: &str) -> Result<()> {
         (FILESYSTEM_FN.remove)(path)
     }
 
     #[inline]
     pub fn remove_with_as_sync_str(path: &impl AsSyncStr) -> Result<()>  {
-        Filesystem::remove(path.as_str())
+        Self::remove(path.as_str())
     }
 
     #[inline]
@@ -555,7 +568,7 @@ impl Filesystem {
 
     #[inline]
     pub fn rename_with_as_sync_str(old_path: &impl AsSyncStr, new_path: &impl AsSyncStr) -> Result<()>  {
-        Filesystem::rename(old_path.as_str(), new_path.as_str())
+        Self::rename(old_path.as_str(), new_path.as_str())
     }
 
     pub fn stat_fs() -> Result<FsStat> {
@@ -588,7 +601,7 @@ impl Filesystem {
 
     #[inline]
     pub fn stat_with_as_sync_str(path: &impl AsSyncStr) -> Result<File> {
-        Filesystem::stat(path.as_str())
+        Self::stat(path.as_str())
     }
 
     #[inline]
@@ -642,9 +655,53 @@ impl Filesystem {
 
     #[inline]
     pub fn open_dir_with_as_sync_str(path: &impl AsSyncStr) -> Result<Dir> {
-        Filesystem::open_dir(path.as_str())
+        Self::open_dir(path.as_str())
     }
 
+
+    pub fn ls(path: &str) -> Result<Vec<(String, EntryType)>> {
+
+        let mut output = Vec::<(String, EntryType)>::new();
+
+        let dir = Filesystem::open_dir(path)?;
+        while let Ok(i) = dir.read() {
+            if i.type_ == EntryType::Unknown {
+                break
+            }
+            output.push((i.name.to_string(),  i.type_));
+        }
+
+        Ok(output)
+    }
+
+    #[inline]
+    pub fn ls_with_as_sync_str(path:  &impl AsSyncStr) -> Result<Vec<(String, EntryType)>> {
+        Self::ls(path.as_str())
+    }
+
+    pub fn remove_recursive(path: &str) -> Result<()> {
+        let entries = Self::ls(path)?;
+
+        let is_root =  if path != "/" { true } else { false } ;
+
+        for (name, type_) in entries {
+            if name == "." || name == ".." {
+                continue;
+            }
+            let full_path = if is_root { format!("{FS_SEPARATOR_DIR}{name}") } else { format!("{path}{FS_SEPARATOR_DIR}{name}") };
+            match type_ {
+                EntryType::File => Self::remove(&full_path)?,
+                EntryType::Dir => Self::remove_recursive(&full_path)?,
+                EntryType::Unknown => continue,
+            }
+        }
+
+        if is_root {
+            Ok(())
+        } else {
+            Self::remove(path)
+        }
+    }
     pub fn err_msg(err: i32) -> &'static str {
         (FILESYSTEM_FN.err_msg)(err)
     }

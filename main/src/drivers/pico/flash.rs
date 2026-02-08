@@ -35,6 +35,8 @@ use crate::drivers::filesystem::{DirFn, FileFn, FilesystemFn};
 const APP_TAG: &str = "Flash";
 const READ_BUFFER_SIZE: usize = 512;
 
+
+pub const FS_SEPARATOR_DIR: &str = "/";
 pub const FS_CONFIG_DIR: &str = "/etc";
 pub const FS_DATA_DIR: &str = "/var";
 pub const FS_LOG_DIR: &str = "/var/log";
@@ -262,10 +264,6 @@ fn filesystem_mount(format: bool) -> Result<()> {
     if ret < 0 {
         return Err(Error::ReturnWithCode(ret));
     }
-
-    
-
-
     Ok(())
 }
 
