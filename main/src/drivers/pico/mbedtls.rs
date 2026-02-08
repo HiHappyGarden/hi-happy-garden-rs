@@ -22,8 +22,9 @@
 use core::ffi::c_void;
 
 use alloc::vec::Vec;
+use core::ops::{Deref, DerefMut};
 use core::ptr::null_mut;
-use osal_rs::utils::{Bytes, Error, Result};
+use osal_rs::utils::{bytes_to_hex_into_slice, Bytes, Error, Result};
 
 use crate::drivers::pico::ffi::{aes_mode, hhg_mbedtls_aes_crypt_cbc, hhg_mbedtls_aes_free, hhg_mbedtls_aes_init, hhg_mbedtls_aes_setkey_enc, hhg_mbedtls_aes_setkey_dec};
 use crate::drivers::encrypt::{EncryptFn, SHA256_RESULT_BYTES};
@@ -118,7 +119,8 @@ fn aes_decrypt(handler: *mut c_void, key: &[u8], iv: &[u8], cipher: &[u8]) -> Re
     enc_dec(handler, aes_mode::AES_DECRYPT, key, iv, cipher)
 }
 
-pub fn get_sha256(data: &[u8]) -> Result<Bytes<SHA256_RESULT_BYTES>> {
+#[allow(unused_assignments)]
+pub fn get_sha256(data: &[u8]) -> Result<Bytes<{SHA256_RESULT_BYTES * 2}>> {
     let mut hash = Bytes::<SHA256_RESULT_BYTES>::new();
 
     let mut state: *mut c_void = null_mut();
@@ -137,7 +139,15 @@ pub fn get_sha256(data: &[u8]) -> Result<Bytes<SHA256_RESULT_BYTES>> {
         hhg_pico_sha256_finish(state, hash.as_mut_ptr());
     };
 
-    Ok(hash)
+    state = null_mut(); // state is freed by finish, avoid dangling pointer
+
+    let mut ret = Bytes::<{SHA256_RESULT_BYTES * 2}>::new();
+
+    if bytes_to_hex_into_slice(hash.deref(), ret.deref_mut()) != SHA256_RESULT_BYTES * 2 {
+        return Err(Error::Unhandled("Failed to convert hash to hex string"));
+    }
+
+    Ok(ret)
 }
 
 fn drop(handler: *mut c_void) {

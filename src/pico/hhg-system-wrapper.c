@@ -34,7 +34,7 @@ void hhg_get_unique_id(uint8_t* id_buffer) {
 
 int hhg_pico_sha256_start_blocking(void **state, bool use_dma) {
     *state = pvPortMalloc(sizeof(pico_sha256_state_t));
-    return pico_sha256_start_blocking((pico_sha256_state_t *)state, SHA256_BIG_ENDIAN, use_dma);
+    return pico_sha256_start_blocking((pico_sha256_state_t *)*state, SHA256_BIG_ENDIAN, use_dma);
 }
 
 void hhg_pico_sha256_update_blocking(void *state, const uint8_t *data, size_t data_size_bytes) {

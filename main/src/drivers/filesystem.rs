@@ -226,12 +226,12 @@ impl File {
 
     /// Write data to the file
     #[inline]
-    pub fn write_with_as_sync_str(&mut self, buffer: &impl AsSyncStr) -> Result<isize> {
-        self.write(buffer.as_str().as_bytes())
+    pub fn write_with_as_sync_str(&mut self, buffer: &impl AsSyncStr, sha256: bool) -> Result<isize> {
+        self.write(buffer.as_str().as_bytes(), sha256)
     }
 
     /// Write data to the file
-    pub fn write(&mut self, buffer: &[u8]) -> Result<isize> {
+    pub fn write(&mut self, buffer: &[u8], sha256: bool) -> Result<isize> {
         if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
@@ -244,12 +244,15 @@ impl File {
 
             self.size = ret as u32;
 
-            let mut buffer_sha_file =  self.name.clone();
-            buffer_sha_file.append_str(".sha256");
+            if sha256  {
+                let mut buffer_sha_file =  self.name.clone();
+                buffer_sha_file.append_str(".sha256");
 
-            let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), open_flags::WRONLY | open_flags::CREAT)?;
-            file_sha.write(EncryptGeneric::get_sha256(buffer)?.as_slice())?;
-            file_sha.close()?;
+                let buffer_sha256 = EncryptGeneric::get_sha256(buffer)?;
+
+                let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), open_flags::WRONLY | open_flags::CREAT)?;
+                file_sha.write_with_as_sync_str(&buffer_sha256, false)?;
+            }
 
             Ok(ret)
         }
@@ -260,20 +263,27 @@ impl File {
 
             self.size = ret as u32;
 
-            let mut buffer_sha_file =  self.name.clone();
-            buffer_sha_file.append_str(".sha256");
-
-            let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), open_flags::WRONLY | open_flags::CREAT)?;
-            file_sha.write(EncryptGeneric::get_sha256(buffer)?.as_slice())?;
-            file_sha.close()?;
+            if sha256  {
+                let mut buffer_sha_file =  self.name.clone();
+                buffer_sha_file.append_str(".sha256");
+                let buffer_sha256 = EncryptGeneric::get_sha256(buffer)?;
+                let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), open_flags::WRONLY | open_flags::CREAT)?;
+                file_sha.write_with_as_sync_str(&buffer_sha256, false)?;
+            }
 
             Ok(ret)
         }
 
     }
 
+    #[inline]
+    pub fn read_with_as_sync_str(&mut self, sha256: bool) -> Result<Vec<u8>> {
+        self.read(sha256)
+    }
+
+
     /// Read data from the file
-    pub fn read(&mut self) -> Result<Vec<u8>> {
+    pub fn read(&mut self, sha256: bool) -> Result<Vec<u8>> {
         if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
@@ -289,18 +299,21 @@ impl File {
                 decrypted_buffer.pop();
             }
 
-            let mut buffer_sha_file =  self.name.clone();
-            buffer_sha_file.append_str(".sha256");
 
-            let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), open_flags::RDONLY)?;
-            let sha256_stored = file_sha.read()?;
-            file_sha.close()?;
+            if sha256 {
+                let mut buffer_sha_file =  self.name.clone();
+                buffer_sha_file.append_str(".sha256");
 
-            let sha256_computed = EncryptGeneric::get_sha256(&decrypted_buffer)?;
+                let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), open_flags::RDONLY)?;
+                let sha256_stored = file_sha.read(false)?;
+                let sha256_computed = EncryptGeneric::get_sha256(&decrypted_buffer)?;
 
-            if sha256_stored != sha256_computed.as_slice() {
-                return Err(Error::ReadError("Data integrity check failed. SHA256 hash does not match."));
+                if &sha256_stored != sha256_computed.as_slice() {
+                    return Err(Error::ReadError("Data integrity check failed. SHA256 hash does not match."));
+                }
             }
+
+
 
             Ok(decrypted_buffer)
         }
@@ -310,6 +323,19 @@ impl File {
             let buffer = (FILE_FN.read)(self.0)?;
 
             self.size = buffer.len() as u32;
+
+            if sha256 {
+                let mut buffer_sha_file =  self.name.clone();
+                buffer_sha_file.append_str(".sha256");
+
+                let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), open_flags::RDONLY)?;
+                let sha256_stored = file_sha.read(false)?;
+                let sha256_computed = EncryptGeneric::get_sha256(&decrypted_buffer)?;
+
+                if sha256_stored != sha256_computed.as_slice() {
+                    return Err(Error::ReadError("Data integrity check failed. SHA256 hash does not match."));
+                }
+            }
 
             Ok(buffer)
         }

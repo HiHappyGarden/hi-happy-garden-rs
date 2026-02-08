@@ -34,7 +34,7 @@ pub struct EncryptFn {
     pub init: fn() -> Result<*mut c_void>,
     pub aes_encrypt: fn(handler: *mut c_void, key: &[u8], iv: &[u8], plain: &[u8]) -> Result<Vec<u8>>,
     pub aes_decrypt: fn(handler: *mut c_void, key: &[u8], iv: &[u8], cipher: &[u8]) -> Result<Vec<u8>>,
-    pub get_sha256: fn(data: &[u8]) -> Result<Bytes<SHA256_RESULT_BYTES>>,
+    pub get_sha256: fn(data: &[u8]) -> Result<Bytes<{SHA256_RESULT_BYTES * 2}>>,
     pub drop: fn(*mut c_void),
 }
 
@@ -84,7 +84,7 @@ impl<'a, const KEY_SIZE: usize, const IV_SIZE: usize> Encrypt<'a, KEY_SIZE, IV_S
     }
 
     #[inline]
-    pub fn get_sha256(data: &[u8]) -> Result<Bytes<SHA256_RESULT_BYTES>> {
+    pub fn get_sha256(data: &[u8]) -> Result<Bytes<{SHA256_RESULT_BYTES * 2}>> {
         (ENCRYPT_FN.get_sha256)(data)
     }
 
