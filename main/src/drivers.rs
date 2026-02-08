@@ -19,6 +19,7 @@ mod pico;
 use crate::drivers::pico as plt;
 
 pub mod platform {
+    pub use crate::drivers::plt::flash::*;
     pub use crate::drivers::plt::gpio::*;
     pub use crate::drivers::plt::hardware::*;
     pub use crate::drivers::plt::i2c::*;

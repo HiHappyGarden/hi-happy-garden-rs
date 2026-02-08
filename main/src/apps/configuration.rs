@@ -18,13 +18,23 @@
  ***************************************************************************/
 #![allow(dead_code)]
 
-use osal_rs::utils::Bytes;
-use osal_rs_serde::{Deserialize, Serialize};
-use crate::drivers::wifi::Auth;
+use alloc::format;
+use alloc::string::String;
 
+use cjson_binding::{from_json, to_json};
+
+use osal_rs::utils::Bytes;
+use osal_rs::utils::{Result, Error};
+
+use osal_rs_serde::{Deserialize, Serialize};
+
+use crate::drivers::filesystem::{open_flags, FileBytes, Filesystem};
+use crate::drivers::wifi::Auth;
+use crate::drivers::platform::{FS_CONFIG_DIR, FS_SEPARATOR_DIR};
 
 
 static mut WIFI_CONFIG: WifiConfig = WifiConfig {
+    version: 0,
     ssid: Bytes::new(),
     password: Bytes::new(),
     hostname: Bytes::new(),
@@ -34,6 +44,7 @@ static mut WIFI_CONFIG: WifiConfig = WifiConfig {
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct WifiConfig {
+    version: u8,
     ssid: Bytes<32>,
     password: Bytes<64>,
     hostname: Bytes<32>,
@@ -41,14 +52,69 @@ pub struct WifiConfig {
     auth: Auth
 }
 
+impl Default for WifiConfig {
+    fn default() -> Self {
+        Self {
+            version: 0,
+            ssid: Bytes::new(),
+            password: Bytes::new(),
+            hostname: Bytes::new(),
+            enabled: false,
+            auth: Auth::Wpa2
+        }
+    }
+}
+
 impl WifiConfig {
 
-    pub const fn load() {
+    const FILE_NAME: &'static str = "wifi_config.json";
 
+
+    pub fn load() -> Result<()> {
+        let mut file_name = FileBytes::new_by_str(FS_CONFIG_DIR);
+        file_name.append_str(FS_SEPARATOR_DIR);
+        file_name.append_str(WifiConfig::FILE_NAME);
+
+        let mut file = Filesystem::open_with_as_sync_str(&file_name, open_flags::RDONLY | open_flags::CREAT)?;
+        let wifi_json = file.read_with_as_sync_str(true)?;
+        let wifi_json = match String::from_utf8(wifi_json) {
+            Ok(json) => json,
+            Err(e) => {
+                return Err(Error::UnhandledOwned(format!("Failed to parse wifi config JSON: {}", e)));
+            }
+        };
+ 
+        from_json::<WifiConfig>(&wifi_json)
+            .map_err(|e| Error::UnhandledOwned(format!("Failed to deserialize wifi config JSON: {}", e)))
+            .and_then(|config| {
+                unsafe {
+                    WIFI_CONFIG = config;
+                }
+                Ok(())
+            })
     }
 
-    pub const fn save(_config: Self) {
+    pub fn save(_config: Self)  -> Result<()> {
+        let mut file_name = FileBytes::new_by_str(FS_CONFIG_DIR);
+        file_name.append_str(FS_SEPARATOR_DIR);
+        file_name.append_str(WifiConfig::FILE_NAME);
 
+        unsafe {
+            to_json(&*&raw const WIFI_CONFIG)
+                .map_err(|e| Error::UnhandledOwned(format!("Failed to serialize wifi config to JSON: {}", e)))
+                .and_then(|json| {
+                    let json_bytes = json.into_bytes();
+                    
+                    let mut file = Filesystem::open_with_as_sync_str(&file_name, open_flags::WRONLY | open_flags::CREAT)?;
+                    file.write(&json_bytes, true)?;
+
+                    Ok(())
+                })
+        }
+    }
+
+    pub fn get_version(&self) -> u8 {
+        self.version
     }
 
     pub fn get_ssid(&self) -> &Bytes<32> {
@@ -90,4 +156,11 @@ impl WifiConfig {
     pub fn set_auth(&mut self, auth: Auth) {
         self.auth = auth;
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy)]
+pub struct Config {
+    version: u8,
+    timezone: u16,
+    daylight_saving_time: bool
 }

@@ -40,7 +40,7 @@ use crate::drivers::platform::Hardware;
 use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "Filesystem";
-const MAX_NAME_LEN: usize = 256;
+pub type FileBytes = Bytes<256>;
 
 static mut ENCRYPT: Option<Encrypt<32, 16>> = None;
 static mut KEY: [u8; 32] = [0u8; 32];
@@ -215,7 +215,7 @@ pub struct FilesystemFn {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct File {
     handler: *mut c_void,
-    pub name: Bytes<MAX_NAME_LEN>,
+    pub name: FileBytes,
     pub size: u32,
 }
 
@@ -230,7 +230,7 @@ impl Drop for File {
 
 impl File {
 
-    pub(super) fn new (name: Bytes::<MAX_NAME_LEN>, size: u32) -> Self {
+    pub(super) fn new (name: FileBytes, size: u32) -> Self {
         Self {
             handler: null_mut(),
             name,
@@ -418,7 +418,7 @@ impl File {
 #[derive(Clone, Debug)]
 pub struct Dir {
     handler: *mut c_void,
-    pub name: Bytes<MAX_NAME_LEN>,
+    pub name: FileBytes,
     pub type_: EntryType,
 
 }
@@ -434,7 +434,7 @@ impl Drop for Dir {
 
 impl Dir {
 
-    fn new (name: Bytes::<MAX_NAME_LEN>, type_: EntryType) -> Self {
+    fn new (name: FileBytes, type_: EntryType) -> Self {
         Self {
             handler: null_mut(),
             name,
@@ -449,7 +449,7 @@ impl Dir {
 
         let mut type_ = 0u8;
         let mut size = 0u32;
-        let mut name = Bytes::<MAX_NAME_LEN>::new();
+        let mut name = FileBytes::new();
 
 
         let ret = (DIR_FN.read)(self.handler, &mut type_, &mut size, name.as_mut_slice());
@@ -541,7 +541,7 @@ impl Filesystem {
         let handler = (FILESYSTEM_FN.open)(path, flags)?;
         Ok(File {
             handler,
-            name: Bytes::<MAX_NAME_LEN>::new_by_str(path),
+            name: FileBytes::new_by_str(path),
             size: 0,
         })
     }
@@ -588,7 +588,7 @@ impl Filesystem {
     pub fn stat(path: &str) -> Result<File> {
         let mut type_ = 0u8;
         let mut size = 0u32;
-        let mut name = Bytes::<MAX_NAME_LEN>::new();
+        let mut name = FileBytes::new();
 
         let ret = (FILESYSTEM_FN.stat)(path, &mut type_, &mut size, name.as_mut_slice())?;
 
@@ -648,7 +648,7 @@ impl Filesystem {
         let handler = (FILESYSTEM_FN.open_dir)(path)?;
         Ok(Dir {
             handler,
-            name: Bytes::<MAX_NAME_LEN>::new_by_str(path),
+            name: FileBytes::new_by_str(path),
             type_: EntryType::Dir,
         })
     }
