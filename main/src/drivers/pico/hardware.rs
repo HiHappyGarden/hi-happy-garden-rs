@@ -259,13 +259,13 @@ impl Hardware {
         let data = b"Hello, Hi Happy Garden!";
 
         let mut file = Filesystem::open("text.txt", open_flags::WRONLY | open_flags::CREAT)?;
-        let bytes_written = file.write(data)?;
+        let bytes_written = file.write(data, true)?;
         log_info!(APP_TAG, "Wrote {} bytes to text.txt", bytes_written);
         file.close()?;
 
 
         let mut file = Filesystem::open("text.txt", open_flags::RDONLY)?;
-        let read_buffer = file.read()?;
+        let read_buffer = file.read(true)?;
         log_info!(APP_TAG, "Read from text.txt: {}", core::str::from_utf8(&read_buffer).unwrap_or("Invalid UTF-8"));
         file.close()?;
 
