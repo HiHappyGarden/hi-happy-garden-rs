@@ -682,7 +682,7 @@ impl Filesystem {
     pub fn remove_recursive(path: &str) -> Result<()> {
         let entries = Self::ls(path)?;
 
-        let is_root =  if path != "/" { true } else { false } ;
+        let is_root =  if path == "/" { true } else { false } ;
 
         for (name, type_) in entries {
             if name == "." || name == ".." {

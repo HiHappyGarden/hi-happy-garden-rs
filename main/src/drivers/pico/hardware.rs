@@ -225,12 +225,7 @@ impl Hardware {
 
     pub fn init_fs(&self) -> Result<()> {
         Filesystem::mount(true)?;
-
-        Filesystem::remove(FS_CONFIG_DIR).ok();
-        Filesystem::remove(FS_DATA_DIR).ok();
-        Filesystem::remove(FS_LOG_DIR).ok();
-        Filesystem::remove("text.txt").ok();
-
+        
         if let Err(Error::ReturnWithCode(code)) = Filesystem::mkdir(FS_CONFIG_DIR) {
             if code != LFS_ERR_EXIST {
                 return Err(Error::ReturnWithCode(code))
@@ -256,27 +251,22 @@ impl Hardware {
         }
 
         //test wtrite/read
-        let data = b"Hello, Hi Happy Garden!";
-
-        let mut file = Filesystem::open("text.txt", open_flags::WRONLY | open_flags::CREAT)?;
-        let bytes_written = file.write(data, true)?;
-        log_info!(APP_TAG, "Wrote {} bytes to text.txt", bytes_written);
-        file.close()?;
-
-
-        let mut file = Filesystem::open("text.txt", open_flags::RDONLY)?;
-        let read_buffer = file.read(true)?;
-        log_info!(APP_TAG, "Read from text.txt: {}", core::str::from_utf8(&read_buffer).unwrap_or("Invalid UTF-8"));
-        file.close()?;
-
-        //ls /
-        let dir = Filesystem::open_dir("/")?;
-        while let Ok(i) = dir.read() {
-            if i.type_ == EntryType::Unknown {
-                continue;
-            }
-            log_info!(APP_TAG, "Found entry in /: name={} type={:?}", i.name, i.type_);
-        }
+        // let data = b"Hello, Hi Happy Garden!";
+        // let mut file = Filesystem::open("text.txt", open_flags::WRONLY | open_flags::CREAT)?;
+        // let bytes_written = file.write(data, true)?;
+        // log_info!(APP_TAG, "Wrote {} bytes to text.txt", bytes_written);
+        // file.close()?;
+        //
+        //
+        // let mut file = Filesystem::open("text.txt", open_flags::RDONLY)?;
+        // let read_buffer = file.read(true)?;
+        // log_info!(APP_TAG, "Read from text.txt: {}", core::str::from_utf8(&read_buffer).unwrap_or("Invalid UTF-8"));
+        // file.close()?;
+        //
+        // //ls /
+        // for (name, type_) in Filesystem::ls("/")? {
+        //     log_info!(APP_TAG, "{} - {}", name, type_);
+        // }
 
         let FsStat{block_size, block_count, blocks_used} = Filesystem::stat_fs()?;
 
