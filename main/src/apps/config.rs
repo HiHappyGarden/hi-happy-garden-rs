@@ -37,6 +37,8 @@ mod defaults {
     include!(concat!(env!("OUT_DIR"), "/defaults.rs"));
 }
 
+const APP_TAG: &str = "Config";
+
 static mut CONFIG: Config = Config {
     version: 0,
     timezone: 0,
@@ -213,6 +215,7 @@ impl Config {
         if wifi_json.is_empty() {
             unsafe {
                 CONFIG = Self::with_defaults();
+                Self::save(CONFIG)?;
             }
             return Ok(());
         }

@@ -18,7 +18,7 @@
  ***************************************************************************/
  
 mod app_main;
-pub(super) mod configuration;
+pub(super) mod config;
 pub(super) mod display;
 
 
