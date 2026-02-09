@@ -307,6 +307,10 @@ impl File {
             let encrypted_buffer = (FILE_FN.read)(self.handler)?;
             self.size = encrypted_buffer.len() as u32;
 
+            if self.size == 0 {
+                return Ok(encrypted_buffer);
+            }
+
             let mut decrypted_buffer = unsafe { (*&raw const ENCRYPT).unwrap().aes_decrypt(&encrypted_buffer)? };
 
             while decrypted_buffer.last() == Some(&0) {
