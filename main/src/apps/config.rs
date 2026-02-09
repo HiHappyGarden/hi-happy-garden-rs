@@ -23,6 +23,7 @@ use alloc::string::String;
 
 use cjson_binding::{from_json, to_json};
 
+use osal_rs::log_info;
 use osal_rs::utils::Bytes;
 use osal_rs::utils::{Result, Error};
 
@@ -213,6 +214,7 @@ impl Config {
         
         // If file is empty or doesn't exist, use defaults
         if wifi_json.is_empty() {
+            log_info!(APP_TAG, "Config file not found or empty, using defaults");
             unsafe {
                 CONFIG = Self::with_defaults();
                 Self::save(CONFIG)?;
@@ -223,16 +225,17 @@ impl Config {
         let wifi_json = match String::from_utf8(wifi_json) {
             Ok(json) => json,
             Err(e) => {
-                return Err(Error::UnhandledOwned(format!("Failed to parse config JSON: {}", e)));
+                return Err(Error::UnhandledOwned(format!("Failed to parse config JSON: {e}")));
             }
         };
  
         from_json::<Config>(&wifi_json)
-            .map_err(|e| Error::UnhandledOwned(format!("Failed to deserialize config JSON: {}", e)))
+            .map_err(|e| Error::UnhandledOwned(format!("Failed to deserialize config JSON: {e}")))
             .and_then(|config| {
                 unsafe {
                     CONFIG = config;
                 }
+                log_info!(APP_TAG, "Config loaded successfully");
                 Ok(())
             })
     }
@@ -244,13 +247,14 @@ impl Config {
 
         unsafe {
             to_json(&*&raw const CONFIG)
-                .map_err(|e| Error::UnhandledOwned(format!("Failed to serialize config to JSON: {}", e)))
+                .map_err(|e| Error::UnhandledOwned(format!("Failed to serialize config to JSON: {e}")))
                 .and_then(|json| {
                     let json_bytes = json.into_bytes();
                     
                     let mut file = Filesystem::open_with_as_sync_str(&file_name, open_flags::WRONLY | open_flags::CREAT)?;
                     file.write(&json_bytes, true)?;
 
+                    log_info!(APP_TAG, "Config saved successfully");
                     Ok(())
                 })
         }
