@@ -88,9 +88,11 @@ pub const FILE_FN: FileFn = FileFn {
 
 fn file_open(path: &str, flags: i32) -> Result<()> {
     let c_path = CString::new(path).map_err(|_| Error::InvalidType)?;
-    let file = unsafe { hhg_flash_open(c_path.as_ptr(), flags) };
+
+    let mut err = 0i32;
+    let file = unsafe { hhg_flash_open(c_path.as_ptr(), flags, &raw mut err) };
     if file.is_null() {
-        return Err(Error::ReturnWithCode(file as i32));
+        return Err(Error::ReturnWithCode(err));
     }
     Ok(())
 }
@@ -277,9 +279,11 @@ fn filesystem_umount() -> Result<()> {
 
 fn filesystem_open(path: &str, flags: i32) -> Result<*mut c_void> {
     let c_path = CString::new(path).map_err(|_| Error::InvalidType)?;
-    let handle = unsafe { hhg_flash_open(c_path.as_ptr(), flags) };
+
+    let mut err = 0i32;
+    let handle = unsafe { hhg_flash_open(c_path.as_ptr(), flags, &raw mut err) };
     if handle.is_null() {
-        return Err(Error::ReturnWithCode(handle as i32));
+        return Err(Error::ReturnWithCode(err));
     }
     Ok(handle)
 }

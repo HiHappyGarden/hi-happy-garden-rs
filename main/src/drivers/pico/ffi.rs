@@ -255,7 +255,7 @@ unsafe extern "C" {
     pub(super) fn hhg_i2c_read_blocking(i2c: *mut c_void, addr: u8, dst: *mut u8, len: usize, nostop: bool) -> i32;
 
     pub(super) fn hhg_flash_mount(format: bool) -> c_int;
-    pub(super) fn hhg_flash_open(path: *const c_char, flags: c_int) -> *mut c_void;
+    pub(super) fn hhg_flash_open(path: *const c_char, flags: c_int, err: *mut c_int) -> *mut c_void;
     pub(super) fn hhg_flash_close(file: *mut c_void) -> c_int;
     pub(super) fn hhg_flash_write(file: *mut c_void, buffer: *const c_void, size: LfsSize) -> LfsSize;
     pub(super) fn hhg_flash_read(file: *mut c_void, buffer: *mut c_void, size: LfsSize) -> LfsSize;

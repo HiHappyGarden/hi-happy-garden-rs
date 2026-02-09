@@ -140,14 +140,14 @@ int hhg_flash_mount(bool format) {
     return err;
 }
 
-void* hhg_flash_open(const char* path, int flags) {
+void* hhg_flash_open(const char* path, int flags, int* err) {
     lfs_file_t* file = lfs_malloc(sizeof(lfs_file_t));
     if (file == NULL) {
         return NULL;
     }
         
-    int err = lfs_file_open(&lfs, file, path, flags);
-    if (err != LFS_ERR_OK) {
+    *err = lfs_file_open(&lfs, file, path, flags);
+    if (*err != LFS_ERR_OK) {
         lfs_free(file);
         return NULL;
     }
