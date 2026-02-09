@@ -21,6 +21,7 @@ use osal_rs::log_info;
 use osal_rs::os::{System, SystemFn};
 use osal_rs::utils::Result;
 
+use crate::apps::config::Config;
 use crate::apps::display::{Display};
 use crate::drivers::platform::{GpioPeripheral, Hardware, LCDDisplay};
 use crate::traits::hardware::HardwareFn;
@@ -32,6 +33,7 @@ const APP_TAG: &str = "AppMain";
 
 pub struct AppMain{
     hardware: &'static mut Hardware,
+    config: &'static mut Config,
     display: Display<LCDDisplay>,
 }
 
@@ -40,7 +42,7 @@ impl Initializable for AppMain {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init app main");
 
-        
+        self.config.init()?;
         
         self.display.init()?;
         
@@ -76,6 +78,7 @@ impl AppMain {
         let display = Display::new(hardware.get_lcd_display());
         Self {
             hardware,
+            config: Config::new(),
             display,
         }
     }
