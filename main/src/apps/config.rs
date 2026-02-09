@@ -352,7 +352,15 @@ impl Config {
         file_name.append_str(FS_SEPARATOR_DIR);
         file_name.append_str(Config::FILE_NAME);
 
-        let mut file = Filesystem::open_with_as_sync_str(&file_name, open_flags::RDONLY | open_flags::CREAT)?;
+        let mut file = match Filesystem::open_with_as_sync_str(&file_name, open_flags::RDWR | open_flags::CREAT) {
+            Ok(file) => file,
+            Err(e @ Error::ReturnWithCode(-2) )  => {
+                log_info!(APP_TAG, "Failed to open config file: {e}, try to create it");
+                Filesystem::open_with_as_sync_str(&file_name, open_flags::WRONLY | open_flags::CREAT)?
+            }
+            Err(e) => return Err(e),
+        };
+
         let wifi_json = file.read_with_as_sync_str(true)?;
         
         // If file is empty or doesn't exist, use defaults
@@ -395,8 +403,18 @@ impl Config {
                 .map_err(|e| Error::UnhandledOwned(format!("Failed to serialize config to JSON: {e}")))
                 .and_then(|json| {
                     let json_bytes = json.into_bytes();
-                    
-                    let mut file = Filesystem::open_with_as_sync_str(&file_name, open_flags::WRONLY | open_flags::CREAT)?;
+
+                    let mut file = match Filesystem::open_with_as_sync_str(&file_name, open_flags::WRONLY | open_flags::CREAT) {
+                        Ok(file) => file,
+                        Err(e @ Error::ReturnWithCode(-2) )  => {
+                            log_info!(APP_TAG, "Failed to open config file: {e}, try to create it");
+                            Filesystem::open_with_as_sync_str(&file_name, open_flags::WRONLY | open_flags::CREAT)?
+                        }
+                        Err(e) => return Err(e),
+                    };
+
+                    log_info!(APP_TAG, "Read File: {}", String::from_utf8_lossy(&json_bytes));
+
                     file.write(&json_bytes, true)?;
 
                     log_info!(APP_TAG, "Config saved successfully");
