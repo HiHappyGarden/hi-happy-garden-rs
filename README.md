@@ -17,6 +17,12 @@ You can configure the application's default values via CMake options. These valu
 - **HHG_DEFAULT_WIFI_HOSTNAME**: Device hostname (default: "hi-happy-garden")
 - **HHG_DEFAULT_WIFI_ENABLED**: Enable WiFi at startup (default: OFF)
 
+### NTP Configuration
+
+- **HHG_DEFAULT_NTP_SERVER**: NTP server address (default: "0.europe.pool.ntp.org")
+- **HHG_DEFAULT_NTP_PORT**: NTP server port (default: 123)
+- **HHG_DEFAULT_NTP_MSG_LEN**: NTP message length in bytes (default: 48)
+
 ### General Configuration
 
 - **HHG_DEFAULT_TIMEZONE**: Timezone offset in minutes (default: 0)
@@ -35,6 +41,9 @@ WIFI_SSID="MyNetwork"
 WIFI_PASSWORD="MyPassword"
 WIFI_HOSTNAME="garden-controller"
 WIFI_ENABLED=ON
+NTP_SERVER="0.europe.pool.ntp.org"
+NTP_PORT=123
+NTP_MSG_LEN=48
 TIMEZONE=60
 DAYLIGHT_SAVING=ON
 BUILD_TYPE=Release
@@ -52,6 +61,9 @@ cmake -B build \
   -DHHG_DEFAULT_WIFI_PASSWORD="${WIFI_PASSWORD}" \
   -DHHG_DEFAULT_WIFI_HOSTNAME="${WIFI_HOSTNAME}" \
   -DHHG_DEFAULT_WIFI_ENABLED=${WIFI_ENABLED} \
+  -DHHG_DEFAULT_NTP_SERVER="${NTP_SERVER}" \
+  -DHHG_DEFAULT_NTP_PORT=${NTP_PORT} \
+  -DHHG_DEFAULT_NTP_MSG_LEN=${NTP_MSG_LEN} \
   -DHHG_DEFAULT_TIMEZONE=${TIMEZONE} \
   -DHHG_DEFAULT_DAYLIGHT_SAVING=${DAYLIGHT_SAVING}
 
@@ -77,6 +89,9 @@ cmake -B build \
   -DHHG_DEFAULT_WIFI_PASSWORD="MySecurePassword123" \
   -DHHG_DEFAULT_WIFI_HOSTNAME="garden-controller-01" \
   -DHHG_DEFAULT_WIFI_ENABLED=ON \
+  -DHHG_DEFAULT_NTP_SERVER="pool.ntp.org" \
+  -DHHG_DEFAULT_NTP_PORT=123 \
+  -DHHG_DEFAULT_NTP_MSG_LEN=48 \
   -DHHG_DEFAULT_TIMEZONE=60 \
   -DHHG_DEFAULT_DAYLIGHT_SAVING=ON
 ```
@@ -91,6 +106,9 @@ cmake -B build-production \
   -DHHG_DEFAULT_WIFI_PASSWORD="ProdSecurePass456" \
   -DHHG_DEFAULT_WIFI_HOSTNAME="hhg-prod-01" \
   -DHHG_DEFAULT_WIFI_ENABLED=ON \
+  -DHHG_DEFAULT_NTP_SERVER="0.europe.pool.ntp.org" \
+  -DHHG_DEFAULT_NTP_PORT=123 \
+  -DHHG_DEFAULT_NTP_MSG_LEN=48 \
   -DHHG_DEFAULT_TIMEZONE=60 \
   -DHHG_DEFAULT_DAYLIGHT_SAVING=ON
 ```

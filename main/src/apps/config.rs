@@ -56,6 +56,11 @@ static mut CONFIG: Config = Config {
         hostname: Bytes::new(),
         enabled: false,
         auth: Auth::Wpa2
+    },
+    ntp: NtpConfig {
+        server: Bytes::new(),
+        port: 0,
+        msg_len: 0
     }
 };
 
@@ -123,6 +128,49 @@ impl WifiConfig {
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
+pub struct NtpConfig {
+    server: Bytes<64>,
+    port: u16,
+    msg_len: u16
+}
+
+impl Default for NtpConfig {
+    fn default() -> Self {
+        Self {
+            server: Bytes::new(),
+            port: 0,
+            msg_len: 0
+        }
+    }
+}
+
+impl NtpConfig {
+    pub fn get_server(&self) -> &Bytes<64> {
+        &self.server
+    }
+
+    pub fn get_port(&self) -> u16 {
+        self.port
+    }
+
+    pub fn get_msg_len(&self) -> u16 {
+        self.msg_len
+    }
+
+    pub fn set_server(&mut self, server: Bytes<64>) {
+        self.server = server;
+    }
+
+    pub fn set_port(&mut self, port: u16) {
+        self.port = port;
+    }
+
+    pub fn set_msg_len(&mut self, msg_len: u16) {
+        self.msg_len = msg_len;
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct UserConfig {
     version: u8,
     user: Bytes<32>,
@@ -169,7 +217,8 @@ pub struct Config {
     timezone: u16,
     daylight_saving_time: bool,
     users: [UserConfig; 2],
-    wifi: WifiConfig
+    wifi: WifiConfig,
+    ntp: NtpConfig,
 }
 
 impl Default for Config {
@@ -179,7 +228,8 @@ impl Default for Config {
             timezone: 0,
             daylight_saving_time: false,
             users: [Default::default(); 2],
-            wifi: Default::default()
+            wifi: Default::default(),
+            ntp: NtpConfig::default()
         }
     }
 }
