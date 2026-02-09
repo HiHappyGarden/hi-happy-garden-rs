@@ -24,6 +24,7 @@ use alloc::string::String;
 use cjson_binding::{from_json, to_json};
 
 use osal_rs::log_info;
+use osal_rs::os::{RawMutex, RawMutexFn};
 use osal_rs::utils::Bytes;
 use osal_rs::utils::{Result, Error};
 
@@ -41,12 +42,22 @@ mod defaults {
 
 const APP_TAG: &str = "Config";
 
+static mut MUTEX: Option<RawMutex> = None;
+
+const fn mutex() -> &'static RawMutex {
+    unsafe {
+        match &*&raw const MUTEX {
+            Some(mutex) => mutex,
+            None => panic!("EVENT_HANDLER is not initialized"),
+        }
+    }
+}
+
 static mut CONFIG: Config = Config {
     version: 0,
     timezone: 0,
     daylight_saving_time: false,
     users: [UserConfig {
-        version: 0,
         user: Bytes::new(),
         password: Bytes::new()
     }; 2],
@@ -54,13 +65,14 @@ static mut CONFIG: Config = Config {
         ssid: Bytes::new(),
         password: Bytes::new(),
         hostname: Bytes::new(),
-        enabled: false,
-        auth: Auth::Wpa2
+        auth: Auth::Wpa2,
+        enabled: false
     },
     ntp: NtpConfig {
         server: Bytes::new(),
-        port: 0,
-        msg_len: 0
+        port: 123,
+        msg_len: 48,
+        enabled: false
     }
 };
 
@@ -69,8 +81,8 @@ pub struct WifiConfig {
     ssid: Bytes<32>,
     password: Bytes<64>,
     hostname: Bytes<32>,
+    auth: Auth,
     enabled: bool,
-    auth: Auth
 }
 
 impl Default for WifiConfig {
@@ -79,51 +91,76 @@ impl Default for WifiConfig {
             ssid: Bytes::new(),
             password: Bytes::new(),
             hostname: Bytes::new(),
+            auth: Auth::Wpa2,
             enabled: false,
-            auth: Auth::Wpa2
         }
     }
 }
 
 impl WifiConfig {
     pub fn get_ssid(&self) -> &Bytes<32> {
-        &self.ssid
+        mutex().lock();
+        let ssid = &self.ssid;
+        mutex().unlock();
+        ssid
     }
 
     pub fn get_password(&self) -> &Bytes<64> {
-        &self.password
+        mutex().lock();
+        let password = &self.password;
+        mutex().unlock();
+        password
     }
 
     pub fn get_hostname(&self) -> &Bytes<32> {
-        &self.hostname
+        mutex().lock();
+        let hostname = &self.hostname;
+        mutex().unlock();
+        hostname
     }
 
     pub fn is_enabled(&self) -> bool {
-        self.enabled
+        mutex().lock();
+        let enabled = self.enabled;
+        mutex().unlock();
+        enabled
     }
 
     pub fn get_auth(&self) -> Auth {
-        self.auth
+        mutex().lock();
+        let auth = self.auth;
+        mutex().unlock();
+        auth
     }
 
     pub fn set_ssid(&mut self, ssid: Bytes<32>) {
+        mutex().lock();
         self.ssid = ssid;
+        mutex().unlock();
     }
 
     pub fn set_password(&mut self, password: Bytes<64>) {
+        mutex().lock();
         self.password = password;
+        mutex().unlock();
     }
 
     pub fn set_hostname(&mut self, hostname: Bytes<32>) {
+        mutex().lock();
         self.hostname = hostname;
+        mutex().unlock();
     }
 
     pub fn set_enabled(&mut self, enabled: bool) {
+        mutex().lock();
         self.enabled = enabled;
+        mutex().unlock();
     }
 
     pub fn set_auth(&mut self, auth: Auth) {
+        mutex().lock();
         self.auth = auth;
+        mutex().unlock();
     }
 }
 
@@ -131,48 +168,77 @@ impl WifiConfig {
 pub struct NtpConfig {
     server: Bytes<64>,
     port: u16,
-    msg_len: u16
+    msg_len: u16,
+    enabled: bool,
 }
 
 impl Default for NtpConfig {
     fn default() -> Self {
         Self {
             server: Bytes::new(),
-            port: 0,
-            msg_len: 0
+            port: 123,
+            msg_len: 48,
+            enabled: false,
         }
     }
 }
 
 impl NtpConfig {
     pub fn get_server(&self) -> &Bytes<64> {
-        &self.server
+        mutex().lock();
+        let server = &self.server;
+        mutex().unlock();
+        server
     }
 
     pub fn get_port(&self) -> u16 {
-        self.port
+        mutex().lock();
+        let port = self.port;
+        mutex().unlock();
+        port
     }
 
     pub fn get_msg_len(&self) -> u16 {
-        self.msg_len
+        mutex().lock();
+        let msg_len = self.msg_len;
+        mutex().unlock();
+        msg_len
     }
 
     pub fn set_server(&mut self, server: Bytes<64>) {
+        mutex().lock();
         self.server = server;
+        mutex().unlock();
     }
 
     pub fn set_port(&mut self, port: u16) {
+        mutex().lock();
         self.port = port;
+        mutex().unlock();
     }
 
     pub fn set_msg_len(&mut self, msg_len: u16) {
+        mutex().lock();
         self.msg_len = msg_len;
+        mutex().unlock();
+    }
+
+    pub fn set_enabled(&mut self, enabled: bool) {
+        mutex().lock();
+        self.enabled = enabled;
+        mutex().unlock();
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        mutex().lock();
+        let enabled = self.enabled;
+        mutex().unlock();
+        enabled
     }
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct UserConfig {
-    version: u8,
     user: Bytes<32>,
     password: Bytes<64>
 }
@@ -180,7 +246,6 @@ pub struct UserConfig {
 impl Default for UserConfig {
     fn default() -> Self {
         Self {
-            version: 0,
             user: Bytes::new(),
             password: Bytes::new()
         }
@@ -188,24 +253,30 @@ impl Default for UserConfig {
 }
 
 impl UserConfig {
-    pub fn get_version(&self) -> u8 {
-        self.version
-    }
-
     pub fn get_user(&self) -> &Bytes<32> {
-        &self.user
+        mutex().lock();
+        let user = &self.user;
+        mutex().unlock();
+        user
     }
 
     pub fn get_password(&self) -> &Bytes<64> {
-        &self.password
+        mutex().lock();
+        let password = &self.password;
+        mutex().unlock();
+        password
     }
 
     pub fn set_user(&mut self, user: Bytes<32>) {
+        mutex().lock();
         self.user = user;
+        mutex().unlock();
     }
 
     pub fn set_password(&mut self, password: Bytes<64>) {
+        mutex().lock();
         self.password = password;
+        mutex().unlock();
     }
     
 }
@@ -238,6 +309,10 @@ impl Default for Config {
 impl Initializable for Config {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init config");
+
+        unsafe {
+            MUTEX = Some(RawMutex::new()?);
+        }
 
         let _ = Self::load()?;
 
@@ -331,39 +406,54 @@ impl Config {
     }
 
     pub fn get_version(&self) -> u8 {
-        self.version
+        mutex().lock();
+        let version = self.version;
+        mutex().unlock();
+        version
     }
 
     pub fn get_timezone(&self) -> u16 {
-        self.timezone
+        mutex().lock();
+        let timezone = self.timezone;
+        mutex().unlock();
+        timezone
     }
 
     pub fn is_daylight_saving_time(&self) -> bool {
-        self.daylight_saving_time
-    }
-
-    pub fn get_users(&self) -> &[UserConfig; 2] {
-        &self.users
+        mutex().lock();
+        let dst = self.daylight_saving_time;
+        mutex().unlock();
+        dst
     }
 
     pub fn set_timezone(&mut self, timezone: u16) {
+        mutex().lock();
         self.timezone = timezone;
+        mutex().unlock();
     }
 
     pub fn set_daylight_saving_time(&mut self, dst: bool) {
+        mutex().lock();
         self.daylight_saving_time = dst;
+        mutex().unlock();
     }
 
     pub fn set_user(&mut self, index: usize, user: UserConfig) {
+        mutex().lock();
         if index < self.users.len() {
             self.users[index] = user;
         }
+        mutex().unlock();
     }
 
     pub fn get_user(&self, index: usize) -> Result<&UserConfig> {
+        mutex().lock();
         if index < self.users.len() {
-            Ok(&self.users[index])
+            let user = &self.users[index];
+            mutex().unlock();
+            Ok(user)
         } else {
+            mutex().unlock();
             Err(Error::OutOfIndex)
         }
     }
