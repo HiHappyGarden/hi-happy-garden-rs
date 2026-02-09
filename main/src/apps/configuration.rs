@@ -33,15 +33,6 @@ use crate::drivers::wifi::Auth;
 use crate::drivers::platform::{FS_CONFIG_DIR, FS_SEPARATOR_DIR};
 
 
-static mut WIFI_CONFIG: WifiConfig = WifiConfig {
-    version: 0,
-    ssid: Bytes::new(),
-    password: Bytes::new(),
-    hostname: Bytes::new(),
-    enabled: false,
-    auth: Auth::Wpa2
-};
-
 static mut CONFIG: Config = Config {
     version: 0,
     timezone: 0,
@@ -50,12 +41,18 @@ static mut CONFIG: Config = Config {
         version: 0,
         user: Bytes::new(),
         password: Bytes::new()
-    }; 2]
+    }; 2],
+    wifi: WifiConfig {
+        ssid: Bytes::new(),
+        password: Bytes::new(),
+        hostname: Bytes::new(),
+        enabled: false,
+        auth: Auth::Wpa2
+    }
 };
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct WifiConfig {
-    version: u8,
     ssid: Bytes<32>,
     password: Bytes<64>,
     hostname: Bytes<32>,
@@ -66,7 +63,6 @@ pub struct WifiConfig {
 impl Default for WifiConfig {
     fn default() -> Self {
         Self {
-            version: 0,
             ssid: Bytes::new(),
             password: Bytes::new(),
             hostname: Bytes::new(),
@@ -77,57 +73,6 @@ impl Default for WifiConfig {
 }
 
 impl WifiConfig {
-
-    const FILE_NAME: &'static str = "wifi_config.json";
-
-
-    pub fn load() -> Result<()> {
-        let mut file_name = FileBytes::new_by_str(FS_CONFIG_DIR);
-        file_name.append_str(FS_SEPARATOR_DIR);
-        file_name.append_str(WifiConfig::FILE_NAME);
-
-        let mut file = Filesystem::open_with_as_sync_str(&file_name, open_flags::RDONLY | open_flags::CREAT)?;
-        let wifi_json = file.read_with_as_sync_str(true)?;
-        let wifi_json = match String::from_utf8(wifi_json) {
-            Ok(json) => json,
-            Err(e) => {
-                return Err(Error::UnhandledOwned(format!("Failed to parse wifi config JSON: {}", e)));
-            }
-        };
- 
-        from_json::<WifiConfig>(&wifi_json)
-            .map_err(|e| Error::UnhandledOwned(format!("Failed to deserialize wifi config JSON: {}", e)))
-            .and_then(|config| {
-                unsafe {
-                    WIFI_CONFIG = config;
-                }
-                Ok(())
-            })
-    }
-
-    pub fn save(_config: Self)  -> Result<()> {
-        let mut file_name = FileBytes::new_by_str(FS_CONFIG_DIR);
-        file_name.append_str(FS_SEPARATOR_DIR);
-        file_name.append_str(WifiConfig::FILE_NAME);
-
-        unsafe {
-            to_json(&*&raw const WIFI_CONFIG)
-                .map_err(|e| Error::UnhandledOwned(format!("Failed to serialize wifi config to JSON: {}", e)))
-                .and_then(|json| {
-                    let json_bytes = json.into_bytes();
-                    
-                    let mut file = Filesystem::open_with_as_sync_str(&file_name, open_flags::WRONLY | open_flags::CREAT)?;
-                    file.write(&json_bytes, true)?;
-
-                    Ok(())
-                })
-        }
-    }
-
-    pub fn get_version(&self) -> u8 {
-        self.version
-    }
-
     pub fn get_ssid(&self) -> &Bytes<32> {
         &self.ssid
     }
@@ -216,6 +161,7 @@ pub struct Config {
     timezone: u16,
     daylight_saving_time: bool,
     users: [UserConfig; 2],
+    wifi: WifiConfig
 }
 
 impl Default for Config {
@@ -225,6 +171,7 @@ impl Default for Config {
             timezone: 0,
             daylight_saving_time: false,
             users: [Default::default(); 2],
+            wifi: Default::default()
         }
     }
 }
@@ -304,5 +251,17 @@ impl Config {
         if index < self.users.len() {
             self.users[index] = user;
         }
+    }
+
+    pub fn get_user(&self, index: usize) -> Result<&UserConfig> {
+        if index < self.users.len() {
+            Ok(&self.users[index])
+        } else {
+            Err(Error::OutOfIndex)
+        }
+    }
+
+    pub fn get_wifi_config(&mut self) -> &mut WifiConfig {
+        &mut self.wifi
     }
 }
