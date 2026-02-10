@@ -26,7 +26,7 @@ use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "RTC";
 
-pub struct RTC (I2C<{RTC::I2C_ADDRESS}, {I2C0_INSTANCE}>);
+pub struct RTC (I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>);
 
 impl Initializable for RTC {
     fn init(&mut self) -> Result<()> {
@@ -40,7 +40,7 @@ impl Initializable for RTC {
 impl RTC {
     pub const I2C_ADDRESS: u8 = 0x68;
 
-    pub fn new(i2c: I2C<{RTC::I2C_ADDRESS}, {I2C0_INSTANCE}>) -> Self {
+    pub fn new(i2c: I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Self {
         Self (i2c)
     }
 
