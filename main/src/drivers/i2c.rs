@@ -39,19 +39,19 @@ pub struct I2CFn {
 }
 
 #[derive(Clone)]
- pub struct I2C<const ADDRESS: u8, const INSTANCE: u8>  {
+ pub struct I2C<const INSTANCE: u8, const BAUDRATE: u32>  {
     instance: *mut c_void,
-    baudrate: u32,
+    address: u8,
  }
 
- unsafe impl<const ADDRESS: u8, const INSTANCE: u8> Send for I2C<ADDRESS, INSTANCE> {}
- unsafe impl<const ADDRESS: u8, const INSTANCE: u8> Sync for I2C<ADDRESS, INSTANCE> {}
+ unsafe impl<const INSTANCE: u8, const BAUDRATE: u32> Send for I2C<INSTANCE, BAUDRATE> {}
+ unsafe impl<const INSTANCE: u8, const BAUDRATE: u32> Sync for I2C<INSTANCE, BAUDRATE> {}
 
- impl<const ADDRESS: u8, const INSTANCE: u8> Initializable for I2C<ADDRESS, INSTANCE> {
+ impl<const INSTANCE: u8, const BAUDRATE: u32> Initializable for I2C<INSTANCE, BAUDRATE> {
     fn init(&mut self) -> Result<()> {
-        log_info!(APP_TAG, "Init i2c instance: {} address: 0x{:02X}", INSTANCE, ADDRESS);
+        log_info!(APP_TAG, "Init i2c instance: {} baudrate: {}", INSTANCE, BAUDRATE);
 
-        self.instance = (I2C_FN.init)(INSTANCE, self.baudrate)?;
+        self.instance = (I2C_FN.init)(INSTANCE, BAUDRATE)?;
 
         Ok(())
     }
@@ -59,28 +59,34 @@ pub struct I2CFn {
 
 
 
- impl<const ADDRESS: u8, const INSTANCE: u8> I2C<ADDRESS, INSTANCE> {
-    pub fn new(baudrate: u32) -> Self {
+ impl<const INSTANCE: u8, const BAUDRATE: u32> I2C<INSTANCE, BAUDRATE> {
+    pub fn new(address: u8) -> Self {
         Self{
             instance: null_mut(),
-            baudrate,
+            address,
         }
     }
 
-     #[inline]
-     pub fn write(&self, data: &[u8]) -> i32 {
-        (I2C_FN.write)(self.instance, ADDRESS, data)
+    #[allow(unused)]
+    #[inline]
+    pub fn set_address(&mut self, address: u8) {
+        self.address = address;
     }
 
-     #[allow(unused)]
-     #[inline]
-     pub fn read(&self, buffer: &mut [u8]) -> i32 {
-        (I2C_FN.read)(self.instance, ADDRESS, buffer)
+    #[inline]
+    pub fn write(&self, data: &[u8]) -> i32 {
+        (I2C_FN.write)(self.instance, self.address, data)
     }
 
-     #[allow(unused)]
-     #[inline]
-     pub fn write_and_read(&self, data: &[u8], buffer: &mut [u8]) -> OsalRsBool {
-        (I2C_FN.write_and_read)(self.instance, ADDRESS, data, buffer)
+    #[allow(unused)]
+    #[inline]
+    pub fn read(&self, buffer: &mut [u8]) -> i32 {
+        (I2C_FN.read)(self.instance, self.address, buffer)
+    }
+
+    #[allow(unused)]
+    #[inline]
+    pub fn write_and_read(&self, data: &[u8], buffer: &mut [u8]) -> OsalRsBool {
+        (I2C_FN.write_and_read)(self.instance, self.address, data, buffer)
     }
 }
