@@ -413,8 +413,6 @@ impl Config {
                         Err(e) => return Err(e),
                     };
 
-                    log_info!(APP_TAG, "Read File: {}", String::from_utf8_lossy(&json_bytes));
-
                     file.write(&json_bytes, true)?;
 
                     log_info!(APP_TAG, "Config saved successfully");
