@@ -9,6 +9,7 @@ mod lcd_sh1106;
 pub mod network;
 mod relays;
 pub mod rgb_led;
+pub mod rtc;
 mod uart;
 pub(super) mod wifi;
 

@@ -39,21 +39,19 @@ pub struct I2CFn {
 }
 
 #[derive(Clone)]
- pub struct I2C<const ADDRESS: u8>  {
-    #[allow(unused)]
-    i2c_instance: u8,
+ pub struct I2C<const ADDRESS: u8, const INSTANCE: u8>  {
     instance: *mut c_void,
     baudrate: u32,
  }
 
- unsafe impl<const ADDRESS: u8> Send for I2C<ADDRESS> {}
- unsafe impl<const ADDRESS: u8> Sync for I2C<ADDRESS> {}
+ unsafe impl<const ADDRESS: u8, const INSTANCE: u8> Send for I2C<ADDRESS, INSTANCE> {}
+ unsafe impl<const ADDRESS: u8, const INSTANCE: u8> Sync for I2C<ADDRESS, INSTANCE> {}
 
- impl<const ADDRESS: u8> Initializable for I2C<ADDRESS> {
+ impl<const ADDRESS: u8, const INSTANCE: u8> Initializable for I2C<ADDRESS, INSTANCE> {
     fn init(&mut self) -> Result<()> {
-        log_info!(APP_TAG, "Init i2c address: 0x{:02X}", ADDRESS);
+        log_info!(APP_TAG, "Init i2c instance: {} address: 0x{:02X}", INSTANCE, ADDRESS);
 
-        self.instance = (I2C_FN.init)(1, self.baudrate)?;
+        self.instance = (I2C_FN.init)(INSTANCE, self.baudrate)?;
 
         Ok(())
     }
@@ -61,10 +59,9 @@ pub struct I2CFn {
 
 
 
- impl<const ADDRESS: u8> I2C<ADDRESS> {
-    pub fn new(i2c_instance: u8, baudrate: u32) -> Self {
+ impl<const ADDRESS: u8, const INSTANCE: u8> I2C<ADDRESS, INSTANCE> {
+    pub fn new(baudrate: u32) -> Self {
         Self{
-            i2c_instance,
             instance: null_mut(),
             baudrate,
         }

@@ -26,6 +26,7 @@ pub(crate) mod hardware;
 pub(crate) mod i2c;
 pub(crate) mod lwip;
 pub(crate) mod mbedtls;
+pub(crate) mod rtc_ds3231;
 pub(crate) mod uart;
 pub(crate) mod wifi_cyw43;
 

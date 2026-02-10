@@ -33,13 +33,14 @@ use crate::apps::display;
 use crate::drivers::button::Button;
 use crate::drivers::encoder::Encoder;
 use crate::drivers::filesystem::{EntryType, Filesystem, FsStat, open_flags};
-use crate::drivers::i2c::I2C;
+use crate::drivers::i2c::{self, I2C};
 use crate::drivers::pico::ffi::{hhg_cyw43_arch_init, hhg_get_unique_id};
 use crate::drivers::relays::Relays;
 use crate::drivers::rgb_led::RgbLed;
+use crate::drivers::rtc::RTC;
 use crate::drivers::uart::Uart;
 use crate::drivers::gpio::Gpio;
-use crate::drivers::platform::{GpioPeripheral, I2C_BAUDRATE, I2C_INSTANCE, LCDDisplay, UART_FN};
+use crate::drivers::platform::{GpioPeripheral, I2C_BAUDRATE, I2C0_INSTANCE, I2C1_INSTANCE, LCDDisplay, UART_FN};
 use crate::drivers::plt::flash::{FS_CONFIG_DIR, FS_DATA_DIR, FS_LOG_DIR};
 use crate::drivers::plt::flash::lfs_errors::LFS_ERR_EXIST;
 use crate::drivers::wifi::Wifi;
@@ -103,12 +104,14 @@ impl ThreadPriority {
 
 pub struct Hardware {
     uart: Uart,
-    i2c: I2C<{LCDDisplay::I2C_ADDRESS}>,
     encoder: Encoder,
     button: Button,
     rgb_led: RgbLed,
     relays: Relays,
-    wifi: Wifi
+    i2c0: I2C<{RTC::I2C_ADDRESS}, {I2C0_INSTANCE}>,
+    i2c1: I2C<{LCDDisplay::I2C_ADDRESS}, {I2C1_INSTANCE}>,
+    wifi: Wifi,
+    rtc: RTC,
 }
 
 impl Initializable for Hardware {
@@ -129,7 +132,9 @@ impl Initializable for Hardware {
 
         self.rgb_led.init()?;
 
-        self.i2c.init()?;
+        self.i2c0.init()?;
+
+        self.i2c1.init()?;
         
         self.init_fs()?;
 
@@ -202,14 +207,19 @@ impl SetOnWifiChangeStatus<'static> for Hardware {
 impl Hardware {
     pub fn new() -> Self {        
         
+        let i2c0 = I2C::<{RTC::I2C_ADDRESS}, {I2C0_INSTANCE}>::new(I2C_BAUDRATE);
+        let i2c0_clone = i2c0.clone();
+        
         Self { 
             uart: Uart::new(),
-            i2c: I2C::new(I2C_INSTANCE, I2C_BAUDRATE),
             encoder: Encoder::new(),
             button: Button::new(),
             rgb_led: RgbLed::new(),
             relays: Relays::new(),
+            i2c0,
+            i2c1: I2C::new(I2C_BAUDRATE),
             wifi: Wifi::new(),
+            rtc: RTC::new(i2c0_clone),
         }
     }
 
@@ -218,7 +228,7 @@ impl Hardware {
     }
 
     pub fn get_lcd_display(&mut self) -> LCDDisplay {
-        let mut ret = LCDDisplay::new(self.i2c.clone());
+        let mut ret = LCDDisplay::new(self.i2c1.clone());
         ret.init().unwrap();
         ret
     }

@@ -17,9 +17,8 @@
  *
  ***************************************************************************/
 
-//#![allow(unused)]
-
 use crate::drivers::i2c::I2C;
+use crate::drivers::platform::{I2C_BAUDRATE, I2C1_INSTANCE};
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use crate::traits::state::Initializable;
 use osal_rs::log_info;
@@ -66,7 +65,7 @@ pub(super) mod sh1106_commands {
 
 #[derive(Clone)]
 pub struct LCDSH1106 {
-    i2c: I2C<{LCDSH1106::I2C_ADDRESS}>,
+    i2c: I2C<{LCDSH1106::I2C_ADDRESS}, {I2C1_INSTANCE}>,
     buffer: [u8; (LCDSH1106::WIDTH as usize) * (LCDSH1106::HEIGHT as usize)],
     orientation: bool,
     #[allow(unused)]
@@ -294,7 +293,7 @@ impl LCDSH1106 {
     pub const HEIGHT: u8 = 8; // in pages (8 pixels each)
 
 
-    pub fn new(i2c: I2C<{LCDSH1106::I2C_ADDRESS}>) -> Self {
+    pub fn new(i2c: I2C<{LCDSH1106::I2C_ADDRESS}, {I2C1_INSTANCE}>) -> Self {
         Self { 
             i2c,
             buffer: [0u8; (LCDSH1106::WIDTH as usize) * (LCDSH1106::HEIGHT as usize)],
