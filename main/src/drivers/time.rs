@@ -30,7 +30,7 @@ pub struct Time {
     hour: u8,
     minute: u8,
     second: u8,
-    pub timezone: u16,
+    pub timezone: i16,
     pub daylight_saving_time: bool,
 }
 

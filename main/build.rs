@@ -9,7 +9,7 @@ fn main() {
     let default_wifi_password = env::var("HHG_DEFAULT_WIFI_PASSWORD").unwrap_or_else(|_| "\"\"".to_string());
     let default_wifi_hostname = env::var("HHG_DEFAULT_WIFI_HOSTNAME").unwrap_or_else(|_| "\"hi-happy-garden-rs\"".to_string());
     let default_wifi_enabled = env::var("HHG_DEFAULT_WIFI_ENABLED").unwrap_or_else(|_| "false".to_string()).parse::<bool>().unwrap_or(false);
-    let default_timezone = env::var("HHG_DEFAULT_TIMEZONE").unwrap_or_else(|_| "0".to_string()).parse::<u16>().unwrap_or(60);
+    let default_timezone = env::var("HHG_DEFAULT_TIMEZONE").unwrap_or_else(|_| "0".to_string()).parse::<i16>().unwrap_or(60);
     let default_daylight_saving = env::var("HHG_DEFAULT_DAYLIGHT_SAVING").unwrap_or_else(|_| "false".to_string()).parse::<bool>().unwrap_or(true);
     let default_ntp_msg_len = env::var("HHG_DEFAULT_NTP_MSG_LEN").unwrap_or_else(|_| "48".to_string()).parse::<u16>().unwrap_or(48);
     let default_ntp_port = env::var("HHG_DEFAULT_NTP_PORT").unwrap_or_else(|_| "123".to_string()).parse::<u16>().unwrap_or(123);
@@ -26,7 +26,7 @@ fn main() {
     writeln!(f, "pub const DEFAULT_WIFI_PASSWORD: &str = {};", default_wifi_password).unwrap();
     writeln!(f, "pub const DEFAULT_WIFI_HOSTNAME: &str = {};", default_wifi_hostname).unwrap();
     writeln!(f, "pub const DEFAULT_WIFI_ENABLED: bool = {};", default_wifi_enabled).unwrap();
-    writeln!(f, "pub const DEFAULT_TIMEZONE: u16 = {};", default_timezone).unwrap();
+    writeln!(f, "pub const DEFAULT_TIMEZONE: i16 = {};", default_timezone).unwrap();
     writeln!(f, "pub const DEFAULT_DAYLIGHT_SAVING: bool = {};", default_daylight_saving).unwrap();
     writeln!(f, "pub const DEFAULT_NTP_MSG_LEN: u16 = {};", default_ntp_msg_len).unwrap();
     writeln!(f, "pub const DEFAULT_NTP_PORT: u16 = {};", default_ntp_port).unwrap();

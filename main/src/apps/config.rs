@@ -287,7 +287,7 @@ impl UserConfig {
 pub struct Config {
     version: u8,
     serial: Bytes<16>,
-    timezone: u16,
+    timezone: i16,
     daylight_saving_time: bool,
     users: [UserConfig; 2],
     wifi: WifiConfig,
@@ -438,7 +438,7 @@ impl Config {
         serial
     }
 
-    pub fn get_timezone(&self) -> u16 {
+    pub fn get_timezone(&self) -> i16 {
         mutex().lock();
         let timezone = self.timezone;
         mutex().unlock();
@@ -458,7 +458,7 @@ impl Config {
         mutex().unlock();
     }
 
-    pub fn set_timezone(&mut self, timezone: u16) {
+    pub fn set_timezone(&mut self, timezone: i16) {
         mutex().lock();
         self.timezone = timezone;
         mutex().unlock();
