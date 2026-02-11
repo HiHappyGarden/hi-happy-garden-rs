@@ -10,6 +10,7 @@ pub mod network;
 mod relays;
 pub mod rgb_led;
 pub mod rtc;
+pub mod time;
 mod uart;
 pub(super) mod wifi;
 
