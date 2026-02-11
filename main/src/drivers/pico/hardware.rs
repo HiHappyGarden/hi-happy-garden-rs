@@ -124,6 +124,8 @@ impl Initializable for Hardware {
 
         self.uart.init()?;
 
+        self.rtc.init()?;
+        
         self.relays.init()?;
 
         self.encoder.init()?;
