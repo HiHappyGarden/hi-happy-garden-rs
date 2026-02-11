@@ -56,6 +56,7 @@ const fn mutex() -> &'static RawMutex {
 static mut CONFIG: Config = Config {
     version: 0,
     timezone: 0,
+    serial: Bytes::new(),
     daylight_saving_time: false,
     users: [UserConfig {
         user: Bytes::new(),
@@ -285,6 +286,7 @@ impl UserConfig {
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct Config {
     version: u8,
+    serial: Bytes<16>,
     timezone: u16,
     daylight_saving_time: bool,
     users: [UserConfig; 2],
@@ -297,6 +299,7 @@ impl Default for Config {
         Self {
             version: 0,
             timezone: 0,
+            serial: Bytes::new(),
             daylight_saving_time: false,
             users: [Default::default(); 2],
             wifi: Default::default(),
@@ -362,7 +365,9 @@ impl Config {
         };
 
         let wifi_json = file.read_with_as_sync_str(true)?;
-        
+
+        osal_rs::log_info!(APP_TAG, "--->{}", String::from_utf8(wifi_json.clone()).unwrap());
+
         // If file is empty or doesn't exist, use defaults
         if wifi_json.is_empty() {
             log_info!(APP_TAG, "Config file not found or empty, using defaults");
@@ -428,6 +433,13 @@ impl Config {
         version
     }
 
+    pub fn get_serial(&self) -> &Bytes<16> {
+        mutex().lock();
+        let serial = &self.serial;
+        mutex().unlock();
+        serial
+    }
+
     pub fn get_timezone(&self) -> u16 {
         mutex().lock();
         let timezone = self.timezone;
@@ -440,6 +452,12 @@ impl Config {
         let dst = self.daylight_saving_time;
         mutex().unlock();
         dst
+    }
+
+    pub fn set_serial(&mut self, serial: Bytes<16>) {
+        mutex().lock();
+        self.serial = serial;
+        mutex().unlock();
     }
 
     pub fn set_timezone(&mut self, timezone: u16) {
