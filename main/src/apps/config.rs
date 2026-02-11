@@ -366,8 +366,6 @@ impl Config {
 
         let wifi_json = file.read_with_as_sync_str(true)?;
 
-        osal_rs::log_info!(APP_TAG, "--->{}", String::from_utf8(wifi_json.clone()).unwrap());
-
         // If file is empty or doesn't exist, use defaults
         if wifi_json.is_empty() {
             log_info!(APP_TAG, "Config file not found or empty, using defaults");
