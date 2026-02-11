@@ -55,8 +55,8 @@ const fn mutex() -> &'static RawMutex {
 
 static mut CONFIG: Config = Config {
     version: 0,
-    timezone: 0,
     serial: Bytes::new(),
+    timezone: 0,
     daylight_saving_time: false,
     users: [UserConfig {
         user: Bytes::new(),
@@ -298,8 +298,8 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             version: 0,
-            timezone: 0,
             serial: Bytes::new(),
+            timezone: 0,
             daylight_saving_time: false,
             users: [Default::default(); 2],
             wifi: Default::default(),
