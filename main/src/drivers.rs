@@ -1,5 +1,6 @@
 #![allow(unused_imports)]
 mod button;
+pub mod date_time;
 mod encoder;
 mod encrypt;
 pub mod filesystem;
@@ -9,8 +10,7 @@ mod lcd_sh1106;
 pub mod network;
 mod relays;
 pub mod rgb_led;
-pub mod rtc;
-pub mod time;
+mod rtc;
 mod uart;
 pub(super) mod wifi;
 

@@ -19,22 +19,24 @@
 
 #![allow(unused)]
 
+use core::fmt::{Debug, Display};
+
 use alloc::string::String;
 use osal_rs::utils::{Result, Error};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Time {
-    year: i32,
-    month: u8,
-    day: u8,
-    hour: u8,
-    minute: u8,
-    second: u8,
-    pub timezone: i16,
-    pub daylight_saving_time: bool,
+pub struct DateTime {
+    pub year: i32, //starting from 1970, can be negative for dates before 1970
+    pub month: u8, // 1-12
+    pub day: u8, // 1-31
+    pub hour: u8, // 0-23
+    pub minute: u8, // 0-59
+    pub second: u8, // 0-59
+    pub timezone: i16, // in minutes, e.g. +120 for UTC+2, -60 for UTC-1
+    pub daylight_saving_time: bool, // true if daylight saving time is in effect
 }
 
-impl Time {
+impl DateTime {
 
     /// New Input: year, month (1-12), day (1-31), hour (0-23), minute (0-59), second (0-59)
     pub fn new(
@@ -66,10 +68,26 @@ impl Time {
         Ok(Self { year, month, day, hour, minute, second, timezone: 0, daylight_saving_time: false })
     }
 
+    /// Returns true if the year is a leap year
+    fn is_leap_year(year: i32) -> bool {
+        (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+    }
+
+    /// Returns the number of days in a given month (accounting for leap year)
+    fn days_in_month(month: u8, year: i32) -> u8 {
+        match month {
+            1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+            4 | 6 | 9 | 11 => 30,
+            2 => if Self::is_leap_year(year) { 29 } else { 28 },
+            _ => 0, // invalid
+        }
+    }
+
+
     /// Creates a Time from a Unix timestamp (UTC)
     /// Input: Unix timestamp (seconds since 1970-01-01 00:00:00 UTC)
     /// Output: Result<Time>
-    pub fn new_from_unix_timestamp(timestamp: i64) -> Result<Self> {
+    pub fn from_timestamp(timestamp: i64) -> Result<Self> {
         let mut remaining_seconds = timestamp;
         
         // Calculate year
@@ -134,24 +152,9 @@ impl Time {
         Self::new(year, month, day, hour, minute, second)
     }
 
-    /// Returns true if the year is a leap year
-    fn is_leap_year(year: i32) -> bool {
-        (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
-    }
-
-    /// Returns the number of days in a given month (accounting for leap year)
-    fn days_in_month(month: u8, year: i32) -> u8 {
-        match month {
-            1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
-            4 | 6 | 9 | 11 => 30,
-            2 => if Self::is_leap_year(year) { 29 } else { 28 },
-            _ => 0, // invalid
-        }
-    }
-
     /// Converts date/time to Unix timestamp (UTC)
     /// Output: i64 (Unix timestamp) 
-    pub fn to_unix_timestamp(&self) -> i64 {
+    pub fn to_timestamp(&self) -> i64 {
 
 
         // Calculate total seconds from start of year
@@ -203,5 +206,30 @@ impl Time {
         }
 
         total_seconds
+    }
+}
+
+impl Default for DateTime {
+    fn default() -> Self {
+        Self { year: 1970, month: 1, day: 1, hour: 0, minute: 0, second: 0, timezone: 0, daylight_saving_time: false }
+    }
+}
+
+impl Display for DateTime {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:04}-{:02}-{:02} {:02}:{:02}:{:02} (UTC{:+03}:{:02}){}",
+            self.year, self.month, self.day, self.hour, self.minute, self.second,
+            self.timezone / 60, self.timezone % 60,
+            if self.daylight_saving_time { " DST" } else { "" }
+        )
+    }
+}
+
+impl Debug for DateTime {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Time {{ year: {}, month: {}, day: {}, hour: {}, minute: {}, second: {}, timezone: {}, daylight_saving_time: {} }}",
+            self.year, self.month, self.day, self.hour, self.minute, self.second,
+            self.timezone, self.daylight_saving_time
+        )
     }
 }
