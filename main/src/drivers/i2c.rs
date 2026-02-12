@@ -22,9 +22,10 @@
 use core::ffi::c_void;
 use core::ptr::null_mut;
 
+use alloc::format;
 use alloc::vec::Vec;
 use osal_rs::log_info;
-use osal_rs::utils::{OsalRsBool, Result};
+use osal_rs::utils::{Error, Result};
 
 use crate::traits::state::Initializable;
 use crate::drivers::platform::I2C_FN;
@@ -95,9 +96,15 @@ pub struct I2CFn {
     }
 
     #[allow(unused)]
-    #[inline]
-    pub fn write_and_read(&self, data: &[u8], buffer: &mut [u8]) -> (Result<()>, Result<()>) {
-        (I2C_FN.write_and_read)(self.instance, self.address, data, buffer)
+    pub fn write_and_read(&self, data: &[u8], buffer: &mut [u8]) -> Result<()> {
+        let (r, w) = (I2C_FN.write_and_read)(self.instance, self.address, data, buffer);
+        if r.is_err() {
+            Err(Error::UnhandledOwned(format!("I2C write failed: {:?}", r.err())))
+        } else if w.is_err() {           
+            Err(Error::UnhandledOwned(format!("I2C read failed: {:?}", w.err())))
+        } else {
+            Ok(())
+        }
     }
 
     #[allow(unused)]

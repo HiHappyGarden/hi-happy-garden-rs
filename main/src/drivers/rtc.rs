@@ -19,28 +19,31 @@
 
 #![allow(unused)]
 
+use core::time;
+
 use alloc::sync;
 use osal_rs::log_info;
-use osal_rs::utils::Result;
+use osal_rs::utils::{Error, Result};
 
 use crate::drivers::i2c::{I2C, I2CFn};
 use crate::drivers::pico::rtc_ds3231::RTC_FN;
 use crate::drivers::platform::{I2C0_INSTANCE, I2C_BAUDRATE};
+use crate::drivers::date_time::DateTime;
 use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "RTC";
 
-const MINIMUM_DATE: i64 = 0;
+const MINIMUM_DATE: i64 = 1_577_836_800; // 2020-01-01T00:00:00Z
 
 #[derive(Clone, Debug)]
 pub struct RTCFn {
     pub init: fn (&mut I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<()>,
 
-    pub synch: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: u64) -> Result<()>,
+    pub synch: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: i64) -> Result<()>,
 
-    pub set_rtc: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: u64) -> Result<()>,
+    pub set_rtc: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: i64) -> Result<()>,
 
-    pub get_rtc: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<u64>, 
+    pub get_rtc: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<i64>, 
 }
 
 pub struct RTC (Option<I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>>);
@@ -49,7 +52,17 @@ impl Initializable for RTC {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init RTC");
 
+        if self.0.is_none() {
+            return Err(Error::NullPtr);
+        }
         (RTC_FN.init)(&mut self.0.as_mut().unwrap())?;
+
+        let timestamp = self.get_rtc()?;
+
+        let time = DateTime::new(2026, 02, 12, 22, 45, 01)?;
+
+        self.set_rtc(time.to_timestamp())?;
+
         
         Ok(())
     }
@@ -68,21 +81,52 @@ impl RTC {
 
 
     #[inline]
-    pub fn sync(&self, timestamp: u64) -> Result<()> {
+    pub fn sync(&self, timestamp: i64) -> Result<()> {
+        if self.0.is_none() {
+            return Err(Error::NullPtr);
+        }
         (RTC_FN.synch)(&self.0.as_ref().unwrap(), timestamp)
     } 
 
     #[inline]
-    pub fn set_rtc(&self, timestamp: u64) -> Result<()> {
+    pub fn set_rtc(&self, timestamp: i64) -> Result<()> {
+        if self.0.is_none() {
+            return Err(Error::NullPtr);
+        }
         (RTC_FN.set_rtc)(&self.0.as_ref().unwrap(), timestamp)
     }
 
     #[inline]
-    pub fn get_rtc(&self) -> Result<u64> {
+    pub fn get_rtc(&self) -> Result<i64> {
+        if self.0.is_none() {
+            return Err(Error::NullPtr);
+        }
         (RTC_FN.get_rtc)(&self.0.as_ref().unwrap())
     }
 
-    pub fn is_to_synch() -> bool {
-        false
+    pub fn is_to_synch(&self) -> bool {
+        if self.0.is_none() {
+            return false;
+        }
+
+        let ret = self.get_rtc();
+        if ret.is_err() {
+            return false;
+        }
+
+        if ret.unwrap() > MINIMUM_DATE {
+            true
+        } else {
+            false
+        }
     }
+
+
+    pub fn synch_if_needed(&self, timestamp: i64) -> Result<()> {
+        if self.is_to_synch() {
+            self.sync(timestamp)?;
+        }
+        Ok(())
+    }
+
 }

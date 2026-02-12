@@ -319,4 +319,6 @@ unsafe extern "C" {
     pub(super) fn hhg_pico_sha256_start_blocking(state: *mut *mut c_void, use_dma: bool) -> c_int;
     pub(super) fn hhg_pico_sha256_update_blocking(state: *mut c_void, data: *const c_uchar, data_size_bytes: usize);
     pub(super) fn hhg_pico_sha256_finish(state: *mut c_void, out: *mut c_uchar);
+
+    pub(super) fn hhg_powman_timer_set_ms(time_ms: u64);
 }   

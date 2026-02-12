@@ -22,6 +22,7 @@
 #include <string.h>
 #include <pico/unique_id.h>
 #include <pico/sha256.h>
+#include <hardware/powman.h>
 
 extern void * pvPortMalloc( size_t xWantedSize );
 extern void vPortFree( void * pv );
@@ -47,4 +48,8 @@ void hhg_pico_sha256_finish(void *state, uint8_t out[SHA256_RESULT_BYTES]) {
     memcpy(out, result.bytes, SHA256_RESULT_BYTES);
     pico_sha256_cleanup((pico_sha256_state_t *)state);
     vPortFree(state);
+}
+
+void hhg_powman_timer_set_ms (uint64_t time_ms) {
+    powman_timer_set_ms(time_ms);
 }

@@ -287,6 +287,7 @@ target_link_libraries(${PROJECT_NAME}
         hardware_i2c
         hardware_flash
         hardware_sha256
+        hardware_powman
         FreeRTOS-Kernel
         FreeRTOS-Kernel-Heap4
         cjson
