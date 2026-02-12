@@ -27,7 +27,7 @@ use osal_rs::utils::{Error, OsalRsBool, Result};
 
 use crate::drivers::i2c::I2CFn;
 use crate::drivers::pico::ffi::{gpio_function_type, hhg_gpio_pull_up, hhg_gpio_set_function, hhg_i2c_init, hhg_i2c_init_pins_with_func, hhg_i2c_instance, hhg_i2c_read_blocking, hhg_i2c_write_blocking};
-use crate::drivers::plt::ffi::pico_error_codes::PICO_ERROR_GENERIC;
+use crate::drivers::plt::ffi::pico_error_codes::PICO_OK;
 
 pub const I2C0_INSTANCE: u8 = 0;
 pub const I2C1_INSTANCE: u8 = 1;
@@ -38,6 +38,7 @@ pub static I2C_FN: I2CFn = I2CFn {
     write,
     read,
     write_and_read,
+    drop
 };
 
 fn init(i2c_instance: u8, baudrate: u32) -> Result<*mut c_void> {
@@ -86,19 +87,28 @@ fn read(instance: *mut c_void, address: u8, buffer: &mut [u8]) -> i32 {
     }
 }
 
-fn write_and_read(instance: *mut c_void, address: u8, data: &[u8], buffer: &mut [u8]) -> OsalRsBool {
+fn write_and_read(instance: *mut c_void, address: u8, data: &[u8], buffer: &mut [u8]) -> (i32, i32) {
+
+    let mut ret = (0, 0);
+
     unsafe {
         if data.len() > 0 {
-            if hhg_i2c_write_blocking(instance, address, data.as_ptr(), data.len(), true) == PICO_ERROR_GENERIC as i32 {
-                return OsalRsBool::False;
+            ret.0 = hhg_i2c_write_blocking(instance, address, data.as_ptr(), data.len(), true);
+            if ret.0 != PICO_OK as i32 {
+                return ret;
             }
         }
 
         if buffer.len() > 0 {
-            if hhg_i2c_read_blocking(instance, address, buffer.as_mut_ptr(), buffer.len(), true) == PICO_ERROR_GENERIC as i32 {
-                return OsalRsBool::False;
+            ret.1 = hhg_i2c_read_blocking(instance, address, buffer.as_mut_ptr(), buffer.len(), true);
+            if ret.1 != PICO_OK as i32 {
+                return ret;
             }
         }
     }
-    OsalRsBool::True
+    ret
+}
+
+fn drop(instance: *mut c_void) {
+    // No need to drop anything for now, but we can implement this if needed in the future
 }

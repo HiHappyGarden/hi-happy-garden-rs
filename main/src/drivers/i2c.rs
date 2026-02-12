@@ -35,7 +35,8 @@ pub struct I2CFn {
     pub init: fn(u8, u32) -> Result<*mut c_void>, //i2c_instance, baudrate
     pub write: fn(*mut c_void, u8, data: &[u8]) -> i32, //instance, address, data
     pub read: fn(*mut c_void, u8, buffer: &mut [u8]) -> i32, //instance, address, buffer
-    pub write_and_read: fn(*mut c_void, u8, data: &[u8], buffer: &mut [u8]) -> OsalRsBool, //instance, address, data, buffer
+    pub write_and_read: fn(*mut c_void, u8, data: &[u8], buffer: &mut [u8]) -> (i32, i32), //instance, address, data, buffer
+    pub drop: fn(*mut c_void), //instance
 }
 
 #[derive(Clone)]
@@ -60,7 +61,14 @@ pub struct I2CFn {
 
 
  impl<const INSTANCE: u8, const BAUDRATE: u32> I2C<INSTANCE, BAUDRATE> {
-    pub fn new(address: u8) -> Self {
+    pub const fn new() -> Self {
+        Self{
+            instance: null_mut(),
+            address: 0,
+        }
+    }
+
+    pub const fn new_with_address(address: u8) -> Self {
         Self{
             instance: null_mut(),
             address,
@@ -86,7 +94,13 @@ pub struct I2CFn {
 
     #[allow(unused)]
     #[inline]
-    pub fn write_and_read(&self, data: &[u8], buffer: &mut [u8]) -> OsalRsBool {
+    pub fn write_and_read(&self, data: &[u8], buffer: &mut [u8]) -> (i32, i32) {
         (I2C_FN.write_and_read)(self.instance, self.address, data, buffer)
+    }
+
+    #[allow(unused)]
+    #[inline]
+    pub fn drop(&self) {
+        (I2C_FN.drop)(self.instance);
     }
 }
