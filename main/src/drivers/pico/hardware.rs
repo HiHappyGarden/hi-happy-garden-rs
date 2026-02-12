@@ -132,11 +132,12 @@ impl Initializable for Hardware {
 
         self.rgb_led.init()?;
 
-//        self.i2c0.init()?;
-
+        self.i2c0.init()?;
+        
         self.i2c1.init()?;
         
-//        self.rtc.init()?;
+        self.rtc.set_i2c(self.i2c0.clone());
+        self.rtc.init()?;
 
         self.init_fs()?;
 
@@ -208,20 +209,17 @@ impl SetOnWifiChangeStatus<'static> for Hardware {
 
 impl Hardware {
     pub fn new() -> Self {        
-        
-        let i2c0 = I2C::<{I2C0_INSTANCE}, {I2C_BAUDRATE}>::new();
-        let i2c0_clone = i2c0.clone();
-        
+
         Self { 
             uart: Uart::new(),
             encoder: Encoder::new(),
             button: Button::new(),
             rgb_led: RgbLed::new(),
             relays: Relays::new(),
-            i2c0,
+            i2c0: I2C::<{I2C0_INSTANCE}, {I2C_BAUDRATE}>::new(),
             i2c1: I2C::new_with_address(LCDDisplay::I2C_ADDRESS),
             wifi: Wifi::new(),
-            rtc: RTC::new(i2c0_clone),
+            rtc: RTC::new(),
         }
     }
 
