@@ -22,14 +22,18 @@ use osal_rs::utils::Result;
 
 use crate::drivers::{i2c::{I2C, I2CFn}, platform::{I2C_BAUDRATE, I2C0_INSTANCE}, rtc::RTCFn};
 
+pub const RTC_DS3231_I2C_ADDRESS: u8 = 0x68;
+
 mod registers {
-    const SECONDS: u8 =  0x00;
-    const MINUTES: u8 =  0x01;
-    const HOURS: u8 =  0x02;
-    const DAY: u8 =  0x03;
-    const DATE: u8 =  0x04;
-    const MONTH_CENTURY: u8 =  0x05;
-    const YEAR: u8 =  0x06;
+    pub(super) const SECONDS: u8 =  0x00;
+    pub(super) const MINUTES: u8 =  0x01;
+    pub(super) const HOURS: u8 =  0x02;
+    pub(super) const DAY: u8 =  0x03;
+    pub(super) const DATE: u8 =  0x04;
+    pub(super) const MONTH_CENTURY: u8 =  0x05;
+    pub(super) const YEAR: u8 =  0x06;
+    pub(super) const CONTROL: u8 =  0x0E; 
+    pub(super) const CONTROL_STATUS: u8 = 0x0F;
 }
 
 pub const RTC_FN: RTCFn = RTCFn {
@@ -40,8 +44,13 @@ pub const RTC_FN: RTCFn = RTCFn {
 };
 
 
-fn init(i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<()> {
+fn init(i2c: &mut I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<()> {
 
+    i2c.set_address(RTC_DS3231_I2C_ADDRESS);
+
+    let data = [registers::SECONDS];
+    let mut buffer = [0u8; 16];
+    //i2c.write_and_read(&i2c, &data, &mut buffer); 
 
     Ok(())
 }

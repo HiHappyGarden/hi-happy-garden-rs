@@ -240,7 +240,7 @@ unsafe extern "C" {
 
     pub(super) fn hhg_dhcp_get_ip_address() -> *const c_char;
     pub(super) fn hhg_dhcp_get_binary_ip_address() -> c_uint;
-    pub(super) fn  hhg_dhcp_supplied_address() -> bool;
+    pub(super) fn hhg_dhcp_supplied_address() -> bool;
     pub(super) fn hhg_udp_new_ip_type(_type: c_uchar) -> *mut c_void;
     pub(super) fn hhg_udp_recv(pcb: *mut c_void, recv: udp_recv_fn, recv_arg: *mut c_void);
     pub(super) fn hhg_pbuf_copy_partial(buf: *mut c_void, dataptr: *mut c_void, len: u16, offset: u16) -> u16;
@@ -253,7 +253,8 @@ unsafe extern "C" {
     pub(super) fn hhg_i2c_init_pins_with_func();
     pub(super) fn hhg_i2c_write_blocking(i2c: *mut c_void, addr: u8, src: *const u8, len: usize, nostop: bool) -> i32;
     pub(super) fn hhg_i2c_read_blocking(i2c: *mut c_void, addr: u8, dst: *mut u8, len: usize, nostop: bool) -> i32;
-
+    pub(super) fn hhg_i2c_deinit(i2c: *mut c_void);
+    
     pub(super) fn hhg_flash_mount(format: bool) -> c_int;
     pub(super) fn hhg_flash_open(path: *const c_char, flags: c_int, err: *mut c_int) -> *mut c_void;
     pub(super) fn hhg_flash_close(file: *mut c_void) -> c_int;

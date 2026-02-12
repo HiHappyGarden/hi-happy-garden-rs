@@ -34,7 +34,7 @@ const MINIMUM_DATE: i64 = 0;
 
 #[derive(Clone, Debug)]
 pub struct RTCFn {
-    pub init: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<()>,
+    pub init: fn (&mut I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<()>,
 
     pub synch: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: u64) -> Result<()>,
 
@@ -49,7 +49,7 @@ impl Initializable for RTC {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init RTC");
 
-        (RTC_FN.init)(&self.0)?;
+        (RTC_FN.init)(&mut self.0)?;
 
 
 
@@ -59,7 +59,6 @@ impl Initializable for RTC {
 }
 
 impl RTC {
-    pub const I2C_ADDRESS: u8 = 0x68;
 
     #[inline]
     pub fn new(i2c: I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Self {
