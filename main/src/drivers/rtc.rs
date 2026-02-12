@@ -43,16 +43,13 @@ pub struct RTCFn {
     pub get_rtc: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<u64>, 
 }
 
-pub struct RTC (I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>);
+pub struct RTC (Option<I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>>);
 
 impl Initializable for RTC {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init RTC");
 
-        (RTC_FN.init)(&mut self.0)?;
-
-
-
+        (RTC_FN.init)(&mut self.0.as_mut().unwrap())?;
         
         Ok(())
     }
@@ -61,23 +58,28 @@ impl Initializable for RTC {
 impl RTC {
 
     #[inline]
-    pub fn new(i2c: I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Self {
-        Self (i2c)
+    pub const fn new() -> Self {
+        Self (None)
     }
+
+    pub fn set_i2c(&mut self, i2c: I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) {
+        self.0 = Some(i2c);
+    }
+
 
     #[inline]
     pub fn sync(&self, timestamp: u64) -> Result<()> {
-        (RTC_FN.synch)(&self.0, timestamp)
+        (RTC_FN.synch)(&self.0.as_ref().unwrap(), timestamp)
     } 
 
     #[inline]
     pub fn set_rtc(&self, timestamp: u64) -> Result<()> {
-        (RTC_FN.set_rtc)(&self.0, timestamp)
+        (RTC_FN.set_rtc)(&self.0.as_ref().unwrap(), timestamp)
     }
 
     #[inline]
     pub fn get_rtc(&self) -> Result<u64> {
-        (RTC_FN.get_rtc)(&self.0)
+        (RTC_FN.get_rtc)(&self.0.as_ref().unwrap())
     }
 
     pub fn is_to_synch() -> bool {
