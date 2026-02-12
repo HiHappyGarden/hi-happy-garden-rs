@@ -209,7 +209,7 @@ impl SetOnWifiChangeStatus<'static> for Hardware {
 impl Hardware {
     pub fn new() -> Self {        
         
-        let i2c0 = I2C::<{I2C0_INSTANCE}, {I2C_BAUDRATE}>::new(RTC::I2C_ADDRESS);
+        let i2c0 = I2C::<{I2C0_INSTANCE}, {I2C_BAUDRATE}>::new();
         let i2c0_clone = i2c0.clone();
         
         Self { 
@@ -219,7 +219,7 @@ impl Hardware {
             rgb_led: RgbLed::new(),
             relays: Relays::new(),
             i2c0,
-            i2c1: I2C::new(LCDDisplay::I2C_ADDRESS),
+            i2c1: I2C::new_with_address(LCDDisplay::I2C_ADDRESS),
             wifi: Wifi::new(),
             rtc: RTC::new(i2c0_clone),
         }
