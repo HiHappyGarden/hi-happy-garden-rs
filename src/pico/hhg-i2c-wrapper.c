@@ -18,34 +18,53 @@
  ***************************************************************************/
 
 #include <pico/types.h>
+#include <pico/error.h>
 #include <pico/binary_info.h>
 #include <hardware/i2c.h>
 #include <hardware/gpio.h>
 
 
 void* hhg_i2c_instance(uint8_t i2c_num) {
+    if (i2c_num > 1) {
+        return NULL;
+    }
     return I2C_INSTANCE(i2c_num);
 }
 
 uint hhg_i2c_init(void *i2c, uint baudrate) {
     if (i2c == NULL) {
-        return 0;
+        return 1;
     }
     return i2c_init((i2c_inst_t *)i2c, baudrate);
 }
 
-void hhg_i2c_init_pins_with_func(void) {
+void hhg_i2c0_init_pins_with_func(void) {
+    bi_decl(bi_2pins_with_func(16, 17, GPIO_FUNC_I2C));
+}
+
+void hhg_i2c1_init_pins_with_func(void) {
     bi_decl(bi_2pins_with_func(2, 3, GPIO_FUNC_I2C));
 }
 
 int hhg_i2c_write_blocking(void *i2c, uint8_t addr, const uint8_t *src, size_t len, bool nostop) {
+    if (i2c == NULL) {
+        return PICO_ERROR_INVALID_ARG;
+    }
+    //return i2c_write_timeout_per_char_us((i2c_inst_t *)i2c, addr, src, len, nostop, 1000);
     return i2c_write_blocking((i2c_inst_t *)i2c, addr, src, len, nostop);
 }
 
 int hhg_i2c_read_blocking(void *i2c, uint8_t addr, uint8_t *dst, size_t len, bool nostop) {
+    if (i2c == NULL) {
+        return PICO_ERROR_INVALID_ARG;
+    }
+    //return i2c_read_timeout_per_char_us((i2c_inst_t *)i2c, addr, dst, len, nostop, 1000);
     return i2c_read_blocking((i2c_inst_t *)i2c, addr, dst, len, nostop);
 }
 
 void hhg_i2c_deinit(void *i2c) {
+    if (i2c == NULL) {
+        return;
+    }
     i2c_deinit((i2c_inst_t *)i2c);
 }

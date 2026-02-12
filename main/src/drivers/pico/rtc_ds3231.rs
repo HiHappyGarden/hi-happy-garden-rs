@@ -18,6 +18,7 @@
  ***************************************************************************/
 #![allow(unused)]
 
+use osal_rs::println;
 use osal_rs::utils::Result;
 
 use crate::drivers::{i2c::{I2C, I2CFn}, platform::{I2C_BAUDRATE, I2C0_INSTANCE}, rtc::RTCFn};
@@ -50,7 +51,8 @@ fn init(i2c: &mut I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<()> {
 
     let data = [registers::SECONDS];
     let mut buffer = [0u8; 16];
-    //i2c.write_and_read(&i2c, &data, &mut buffer); 
+    
+    let (w,r) = i2c.write_and_read(&data, &mut buffer);
 
     Ok(())
 }

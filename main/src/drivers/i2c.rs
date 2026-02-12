@@ -22,6 +22,7 @@
 use core::ffi::c_void;
 use core::ptr::null_mut;
 
+use alloc::vec::Vec;
 use osal_rs::log_info;
 use osal_rs::utils::{OsalRsBool, Result};
 
@@ -33,9 +34,10 @@ const APP_TAG: &str = "I2C";
 #[allow(unused)]
 pub struct I2CFn {
     pub init: fn(u8, u32) -> Result<*mut c_void>, //i2c_instance, baudrate
-    pub write: fn(*mut c_void, u8, data: &[u8]) -> i32, //instance, address, data
-    pub read: fn(*mut c_void, u8, buffer: &mut [u8]) -> i32, //instance, address, buffer
-    pub write_and_read: fn(*mut c_void, u8, data: &[u8], buffer: &mut [u8]) -> (i32, i32), //instance, address, data, buffer
+    pub write: fn(*mut c_void, u8, data: &[u8]) -> Result<()>, //instance, address, data
+    pub read: fn(*mut c_void, u8, buffer: &mut [u8]) -> Result<()>, //instance, address, buffer
+    pub write_and_read: fn(*mut c_void, u8, data: &[u8], buffer: &mut [u8]) -> (Result<()>, Result<()>), //instance, address, data, buffer
+    pub scan_i2c: fn(*mut c_void) -> Result<Vec<u8>>, //instance
     pub drop: fn(*mut c_void), //instance
 }
 
@@ -82,20 +84,26 @@ pub struct I2CFn {
     }
 
     #[inline]
-    pub fn write(&self, data: &[u8]) -> i32 {
+    pub fn write(&self, data: &[u8]) -> Result<()> {
         (I2C_FN.write)(self.instance, self.address, data)
     }
 
     #[allow(unused)]
     #[inline]
-    pub fn read(&self, buffer: &mut [u8]) -> i32 {
+    pub fn read(&self, buffer: &mut [u8]) -> Result<()> {
         (I2C_FN.read)(self.instance, self.address, buffer)
     }
 
     #[allow(unused)]
     #[inline]
-    pub fn write_and_read(&self, data: &[u8], buffer: &mut [u8]) -> (i32, i32) {
+    pub fn write_and_read(&self, data: &[u8], buffer: &mut [u8]) -> (Result<()>, Result<()>) {
         (I2C_FN.write_and_read)(self.instance, self.address, data, buffer)
+    }
+
+    #[allow(unused)]
+    #[inline]
+    pub fn scan(&self) -> Result<Vec<u8>> {
+        (I2C_FN.scan_i2c)(self.instance)
     }
 
     #[allow(unused)]

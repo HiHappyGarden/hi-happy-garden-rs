@@ -123,8 +123,6 @@ impl Initializable for Hardware {
         Gpio::new().init()?;
 
         self.uart.init()?;
-
-        self.rtc.init()?;
         
         self.relays.init()?;
 
@@ -134,10 +132,12 @@ impl Initializable for Hardware {
 
         self.rgb_led.init()?;
 
-        self.i2c0.init()?;
+//        self.i2c0.init()?;
 
         self.i2c1.init()?;
         
+//        self.rtc.init()?;
+
         self.init_fs()?;
 
         log_info!(APP_TAG, "Hardware initialized successfully heap_free:{}", System::get_free_heap_size());
