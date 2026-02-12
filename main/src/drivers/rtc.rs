@@ -61,6 +61,7 @@ impl Initializable for RTC {
 impl RTC {
     pub const I2C_ADDRESS: u8 = 0x68;
 
+    #[inline]
     pub fn new(i2c: I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Self {
         Self (i2c)
     }
@@ -80,4 +81,7 @@ impl RTC {
         (RTC_FN.get_rtc)(&self.0)
     }
 
+    pub fn is_to_synch() -> bool {
+        false
+    }
 }
