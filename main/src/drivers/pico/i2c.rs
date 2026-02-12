@@ -30,7 +30,14 @@ use crate::drivers::pico::ffi::{gpio_function_type, hhg_gpio_pull_up, hhg_gpio_s
 use crate::drivers::plt::ffi::pico_error_codes::PICO_OK;
 
 pub const I2C0_INSTANCE: u8 = 0;
+pub const I2C0_PIN_SDA: u32 = 16;
+pub const I2C0_PIN_SCL: u32 = 17;
+
+
 pub const I2C1_INSTANCE: u8 = 1;
+pub const I2C1_PIN_SDA: u32 = 2;
+pub const I2C1_PIN_SCL: u32 = 3;
+
 pub const I2C_BAUDRATE: u32 = 100_000;
 
 pub static I2C_FN: I2CFn = I2CFn {
@@ -50,15 +57,15 @@ fn init(i2c_instance: u8, baudrate: u32) -> Result<*mut c_void> {
     unsafe {
 
         if I2C0_INSTANCE == i2c_instance {
-            hhg_gpio_set_function(16, gpio_function_type::GPIO_FUNC_I2C as u32);
-            hhg_gpio_set_function(17, gpio_function_type::GPIO_FUNC_I2C as u32);
-            hhg_gpio_pull_up(16);
-            hhg_gpio_pull_up(17);
+            hhg_gpio_set_function(I2C0_PIN_SDA, gpio_function_type::GPIO_FUNC_I2C as u32);
+            hhg_gpio_set_function(I2C0_PIN_SCL, gpio_function_type::GPIO_FUNC_I2C as u32);
+            hhg_gpio_pull_up(I2C0_PIN_SDA);
+            hhg_gpio_pull_up(I2C0_PIN_SCL);
         } else if I2C1_INSTANCE == i2c_instance {
-            hhg_gpio_set_function(2, gpio_function_type::GPIO_FUNC_I2C as u32);
-            hhg_gpio_set_function(3, gpio_function_type::GPIO_FUNC_I2C as u32);
-            hhg_gpio_pull_up(2);
-            hhg_gpio_pull_up(3);
+            hhg_gpio_set_function(I2C1_PIN_SDA, gpio_function_type::GPIO_FUNC_I2C as u32);
+            hhg_gpio_set_function(I2C1_PIN_SCL, gpio_function_type::GPIO_FUNC_I2C as u32);
+            hhg_gpio_pull_up(I2C1_PIN_SDA);
+            hhg_gpio_pull_up(I2C1_PIN_SCL);
         } else {
             return Err(Error::UnhandledOwned(format!("Invalid I2C instance: {}", i2c_instance)));
         }
