@@ -20,10 +20,9 @@
 //#![allow(unused)]
 
 use alloc::format;
-use alloc::string::String;
 use core::ffi::c_void;
 
-use osal_rs::utils::{Error, OsalRsBool, Result};
+use osal_rs::utils::{Error, Result};
 
 use crate::drivers::i2c::I2CFn;
 use crate::drivers::pico::ffi::{gpio_function_type, hhg_gpio_pull_up, hhg_gpio_set_function, hhg_i2c_deinit, hhg_i2c_init, hhg_i2c0_init_pins_with_func, hhg_i2c1_init_pins_with_func, hhg_i2c_instance, hhg_i2c_read_blocking, hhg_i2c_write_blocking};

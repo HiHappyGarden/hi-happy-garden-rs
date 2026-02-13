@@ -4,8 +4,7 @@
 #![allow(non_camel_case_types)]
 #![allow(dead_code)]
 
-use core::ptr::null_mut;
-use core::ffi::{c_short, c_uchar, c_ushort, c_char, c_int, c_long, c_uint, c_ulonglong, c_void};
+use core::ffi::{c_uchar, c_ushort, c_char, c_int, c_uint, c_ulonglong, c_void};
 
 
 #[repr(C)]

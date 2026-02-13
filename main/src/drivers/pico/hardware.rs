@@ -17,47 +17,35 @@
  *
  ***************************************************************************/
 
-use alloc::boxed::Box;
-use alloc::vec;
-
-use osal_rs::{arcmux, log_error, log_info};
+use osal_rs::{log_error, log_info};
 use osal_rs::os::types::UBaseType;
-use osal_rs::os::{Mutex, MutexFn, System, SystemFn, ToPriority};
-use osal_rs::utils::{ArcMux, Error, OsalRsBool, Result};
+use osal_rs::os::{System, SystemFn, ToPriority};
+use osal_rs::utils::{Error, OsalRsBool, Result};
 
-
-use core::cell::RefCell;
-use core::ptr::read;
-
-use crate::apps::display;
 use crate::drivers::button::Button;
 use crate::drivers::date_time::DateTime;
 use crate::drivers::encoder::Encoder;
-use crate::drivers::filesystem::{EntryType, Filesystem, FsStat, open_flags};
-use crate::drivers::i2c::{self, I2C};
-use crate::drivers::pico::ffi::{hhg_cyw43_arch_init, hhg_get_unique_id};
+use crate::drivers::filesystem::{Filesystem, FsStat};
+use crate::drivers::i2c::I2C;
+use crate::drivers::pico::ffi::{hhg_get_unique_id};
 use crate::drivers::relays::Relays;
 use crate::drivers::rgb_led::RgbLed;
 use crate::drivers::rtc::RTC;
 use crate::drivers::uart::Uart;
 use crate::drivers::gpio::Gpio;
-use crate::drivers::platform::{GpioPeripheral, I2C_BAUDRATE, I2C0_INSTANCE, I2C1_INSTANCE, LCDDisplay, UART_FN};
+use crate::drivers::platform::{GpioPeripheral, I2C_BAUDRATE, I2C0_INSTANCE, I2C1_INSTANCE, LCDDisplay};
 use crate::drivers::plt::flash::{FS_CONFIG_DIR, FS_DATA_DIR, FS_LOG_DIR};
 use crate::drivers::plt::flash::lfs_errors::LFS_ERR_EXIST;
 use crate::drivers::wifi::Wifi;
-use crate::traits::lcd_display::LCDDisplayFn;
+
 use crate::traits::rgb_led::RgbLed as RgbLedFn;
 use crate::traits::relays::Relays as RelaysFn;
-use crate::traits::button::{ButtonState, OnClickable, SetClickable as ButtonOnClickable};
+use crate::traits::button::{OnClickable, SetClickable as ButtonOnClickable};
 use crate::traits::encoder::{OnRotatableAndClickable as EncoderOnRotatableAndClickable, SetRotatableAndClickable};
 use crate::traits::hardware::HardwareFn;
 use crate::traits::rtc::RTC as RTCFn;
-use crate::traits::rx_tx::OnReceive;
 use crate::traits::state::Initializable;
-use crate::traits::wifi::{OnWifiChangeStatus, SetOnWifiChangeStatus, WifiStatus};
-
-use super::gpio::{GPIO_FN, GPIO_CONFIG_SIZE};
-
+use crate::traits::wifi::{OnWifiChangeStatus, SetOnWifiChangeStatus};
 
 
 const APP_TAG: &str = "Hardware";

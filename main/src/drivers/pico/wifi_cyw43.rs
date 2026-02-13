@@ -17,9 +17,8 @@
  *
  ***************************************************************************/
 use alloc::ffi::CString;
-use core::ffi::{c_uchar, c_void};
+use core::ffi::c_void;
 use core::ptr::null_mut;
-use osal_rs::{log_info, to_c_str};
 use osal_rs::utils::{Error, Result};
 use crate::drivers::pico::ffi::{hhg_cyw43_arch_disable_sta_mode, hhg_cyw43_arch_enable_sta_mode, hhg_cyw43_arch_init, hhg_cyw43_wifi_link_status};
 use crate::drivers::pico::ffi::cyw43_auth::{OPEN, WPA_TKIP_PSK, WPA2_AES_PSK, WPA2_MIXED_PSK, WPA3_SAE_AES_PSK, WPA3_WPA2_AES_PSK};

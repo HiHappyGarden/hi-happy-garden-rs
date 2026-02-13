@@ -20,15 +20,13 @@
  #![allow(dead_code)]
 
 use core::ffi::{CStr, c_int, c_void};
-use core::str::from_utf8;
 
 use alloc::ffi::CString;
-use alloc::string::String;
 use alloc::vec::Vec;
 use osal_rs::utils::{Error, Result};
 
 use crate::drivers::pico::ffi::{
-    LfsOff, LfsSize, LfsSoff, LfsSsize, hhg_flash_close, hhg_flash_dir_close, hhg_flash_dir_open, hhg_flash_dir_read, hhg_flash_dir_rewind, hhg_flash_dir_seek, hhg_flash_dir_tell, hhg_flash_errmsg, hhg_flash_fflush, hhg_flash_fsstat, hhg_flash_getattr, hhg_flash_lseek, hhg_flash_mkdir, hhg_flash_mount, hhg_flash_open, hhg_flash_read, hhg_flash_remove, hhg_flash_removeattr, hhg_flash_rename, hhg_flash_rewind, hhg_flash_setattr, hhg_flash_size, hhg_flash_stat, hhg_flash_tell, hhg_flash_truncate, hhg_flash_umount, hhg_flash_write
+    LfsSize, hhg_flash_close, hhg_flash_dir_close, hhg_flash_dir_open, hhg_flash_dir_read, hhg_flash_dir_rewind, hhg_flash_dir_seek, hhg_flash_dir_tell, hhg_flash_errmsg, hhg_flash_fflush, hhg_flash_fsstat, hhg_flash_getattr, hhg_flash_lseek, hhg_flash_mkdir, hhg_flash_mount, hhg_flash_open, hhg_flash_read, hhg_flash_remove, hhg_flash_removeattr, hhg_flash_rename, hhg_flash_rewind, hhg_flash_setattr, hhg_flash_size, hhg_flash_stat, hhg_flash_tell, hhg_flash_truncate, hhg_flash_umount, hhg_flash_write
 };
 use crate::drivers::filesystem::{DirFn, FileFn, FilesystemFn};
 

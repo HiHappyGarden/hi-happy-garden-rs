@@ -18,7 +18,6 @@
  ***************************************************************************/
 use alloc::boxed::Box;
 use core::ffi::{c_ushort, c_void};
-use core::ptr::null_mut;
 use core::slice::from_raw_parts;
 use osal_rs::utils::{Bytes, Error, Result};
 use crate::drivers::network::{IpType, NetworkFn, Udp, UdpRecvFn, IPV6_ADDR_LEN};

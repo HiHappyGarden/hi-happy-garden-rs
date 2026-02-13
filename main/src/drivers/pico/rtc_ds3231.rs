@@ -17,11 +17,10 @@
  *
  ***************************************************************************/
 
-use alloc::fmt::format;
 use alloc::format;
 use osal_rs::utils::{Error, Result};
 
-use crate::drivers::i2c::{I2C, I2CFn};
+use crate::drivers::i2c::I2C;
 use crate::drivers::pico::ffi::{hhg_powman_timer_get_ms, hhg_powman_timer_set_ms};
 use crate::drivers::pico::rtc_ds3231::registers::*;
 use crate::drivers::rtc::RTCFn;

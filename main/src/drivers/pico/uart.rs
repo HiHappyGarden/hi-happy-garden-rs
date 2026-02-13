@@ -20,7 +20,7 @@
 use core::ffi::c_uint;
 use core::ptr::null_mut;
 
-use osal_rs::os::{MutexFn, QueueFn};
+use osal_rs::os::QueueFn;
 use osal_rs::utils::{Error, Result};
 
 use crate::drivers::uart::{UartConfig, UartDataBits, UartFlowControl, UartFn, UartParity, UartStopBits};
