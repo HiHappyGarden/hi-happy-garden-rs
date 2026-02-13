@@ -18,7 +18,9 @@
  ***************************************************************************/
 #![allow(unused)]
 
-use osal_rs::utils::Result;
+use alloc::fmt::format;
+use alloc::format;
+use osal_rs::utils::{Error, Result};
 
 use crate::drivers::i2c::{I2C, I2CFn};
 use crate::drivers::pico::ffi::hhg_powman_timer_set_ms;
@@ -35,7 +37,7 @@ mod registers {
     pub(super) const SECONDS: u8 =  0x00;
     pub(super) const MINUTES: u8 =  0x01;
     pub(super) const HOURS: u8 =  0x02;
-    pub(super) const DAY: u8 =  0x04;
+    pub(super) const DAY_OF_MONTH: u8 =  0x04;
     pub(super) const MONTH_CENTURY: u8 =  0x05;
     pub(super) const YEAR: u8 =  0x06;
 }
@@ -67,34 +69,55 @@ fn synch(i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: i64) -> Result<(
 fn set_rtc(i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: i64) -> Result<()> {
     let time = DateTime::from_timestamp(timestamp)?;
 
+    {
+        let second = ((time.second / 10) << 4) | (time.second % 10);
+        i2c.write(&[SECONDS, second])?;
+    }
     
-    let second = ((time.second / 10) << 4) | (time.second % 10);
-    let minute = ((time.minute / 10) << 4) | (time.minute % 10);
-    let hour = {
+    {
+        let minute = ((time.minute / 10) << 4) | (time.minute % 10);
+        i2c.write(&[MINUTES, minute])?;
+    }
+    
+    {
+        let hour = {
         let lower = (time.hour % 10);
         let upper = match time.hour {
-            10..19 => 0x10, // 10-19
-            20..23 => 0x20, // 20-23
+            10..=19 => 0x10, // 10-19
+            20..=23 => 0x20, // 20-23
             _ => 0x00, // should never happen due to validation in Time::new
+            };
+            upper | lower
         };
-        upper | lower
-    };
-
-    let day = ((time.day / 10) << 4) | (time.day % 10);
-    let month = ((time.month / 10) << 4) | (time.month % 10);
-    let year = ((time.year - START_YEAR) / 10) << 4 | ((time.year - START_YEAR) % 10);
-
-
-
-    // Write to RTC registers
-    i2c.write(&[SECONDS, second])?;
-    i2c.write(&[MINUTES, minute])?;
-    i2c.write(&[HOURS, hour])?;
-    i2c.write(&[DAY, day])?;
-    i2c.write(&[MONTH_CENTURY, month])?;
-    //i2c.write(&[YEAR, year])?;
+        i2c.write(&[HOURS, hour])?;
+    }
     
+
+    {
+        let day = ((time.day / 10) << 4) | (time.day % 10);
+        i2c.write(&[DAY_OF_MONTH, day])?;
+    }
     
+    {
+        let century = if time.year >= 2100 { 0x80 } else { 0x00 }; // bit 7 of MONTH register is century bit
+        let month = {
+            let lower = (time.month % 10);
+            let upper = match time.month {
+                10..=12 => 0x10, // 10-12
+                _ => 0x00, // should never happen due to validation in Time::new
+            };
+            century | upper | lower
+        };
+        i2c.write(&[MONTH_CENTURY, month])?;
+    }
+    {
+        let year = ((time.year - START_YEAR) / 10) << 4 | ((time.year - START_YEAR) % 10);
+        let year = match year.try_into() {
+            Ok(y) => y,
+            Err(e) => return Err(Error::UnhandledOwned(format!("Year overflow u8 size error: {}", e))),
+        };
+        i2c.write(&[YEAR, year])?;
+    }
     
     Ok(())
 }
@@ -128,7 +151,7 @@ fn get_rtc (i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<i64> {
 
         let mode24h = buffer[0] & 0x40 == 0; // bit 6 is 0 for 24h mode, 1 for 12h mode
         if mode24h {
-            let hour20 = (buffer[0] & 0x20) >> 4;
+            let hour20 = (buffer[0] & 0x20) >> 5;
             let hour10 = (buffer[0] & 0x10) >> 4;
             let lower = buffer[0] & 0x0F;
             if hour20 == 1 {
@@ -152,7 +175,7 @@ fn get_rtc (i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<i64> {
 
 
     let day = {
-        let data = [DAY];
+        let data = [DAY_OF_MONTH];
         let mut buffer = [0u8; 7];
         i2c.write_and_read(&data, &mut buffer)?;
 
