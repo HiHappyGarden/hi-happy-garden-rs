@@ -22,32 +22,28 @@
 use core::fmt::{Debug, Display};
 
 use alloc::string::String;
-use osal_rs::utils::{Result, Error};
+use osal_rs::utils::{Error, Result};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DateTime {
-    pub year: i32, //starting from 1970, can be negative for dates before 1970
-    pub month: u8, // 1-12
-    pub day: u8, // 1-31
-    pub hour: u8, // 0-23
-    pub minute: u8, // 0-59
-    pub second: u8, // 0-59
+    pub year: i32,     //starting from 1970, can be negative for dates before 1970
+    pub month: u8,     // 1-12
+    pub day: u8,       // 1-31
+    pub hour: u8,      // 0-23
+    pub minute: u8,    // 0-59
+    pub second: u8,    // 0-59
     pub timezone: i16, // in minutes, e.g. +120 for UTC+2, -60 for UTC-1
     pub daylight_saving_time: bool, // true if daylight saving time is in effect
 }
 
 impl DateTime {
+    pub const SECONDS_PER_MINUTE: i64 = 60;
+    pub const SECONDS_PER_HOUR: i64 = 3600;
+    pub const SECONDS_PER_DAY: i64 = 86400;
+
 
     /// New Input: year, month (1-12), day (1-31), hour (0-23), minute (0-59), second (0-59)
-    pub fn new(
-        year: i32,
-        month: u8,
-        day: u8,
-        hour: u8,
-        minute: u8,
-        second: u8
-    ) -> Result<Self> {
-
+    pub fn new(year: i32, month: u8, day: u8, hour: u8, minute: u8, second: u8) -> Result<Self> {
         // Validate input
         if month < 1 || month > 12 {
             return Err(Error::Unhandled("Invalid month"));
@@ -65,7 +61,16 @@ impl DateTime {
             return Err(Error::Unhandled("Invalid second"));
         }
 
-        Ok(Self { year, month, day, hour, minute, second, timezone: 0, daylight_saving_time: false })
+        Ok(Self {
+            year,
+            month,
+            day,
+            hour,
+            minute,
+            second,
+            timezone: 0,
+            daylight_saving_time: false,
+        })
     }
 
     /// Returns true if the year is a leap year
@@ -78,131 +83,107 @@ impl DateTime {
         match month {
             1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
             4 | 6 | 9 | 11 => 30,
-            2 => if Self::is_leap_year(year) { 29 } else { 28 },
+            2 => {
+                if Self::is_leap_year(year) {
+                    29
+                } else {
+                    28
+                }
+            }
             _ => 0, // invalid
         }
     }
-
 
     /// Creates a Time from a Unix timestamp (UTC)
     /// Input: Unix timestamp (seconds since 1970-01-01 00:00:00 UTC)
     /// Output: Result<Time>
     pub fn from_timestamp(timestamp: i64) -> Result<Self> {
-        let mut remaining_seconds = timestamp;
-        
-        // Calculate year
-        let start_year = 1970;
-        let mut year = start_year;
-        
-        if remaining_seconds >= 0 {
-            // Forward from 1970
+        // Split days and seconds in day
+        let mut days = timestamp.div_euclid(Self::SECONDS_PER_DAY);
+        let day_seconds = timestamp.rem_euclid(Self::SECONDS_PER_DAY);
+
+        let hour = (day_seconds / Self::SECONDS_PER_HOUR) as u8;
+        let minute = ((day_seconds % Self::SECONDS_PER_HOUR) / Self::SECONDS_PER_MINUTE) as u8;
+        let second = (day_seconds % Self::SECONDS_PER_MINUTE) as u8;
+
+        // Compute year
+        let mut year: i32 = 1970;
+
+        if days >= 0 {
             loop {
                 let days_in_year = if Self::is_leap_year(year) { 366 } else { 365 };
-                let seconds_in_year = days_in_year * 24 * 3600;
-                
-                if remaining_seconds >= seconds_in_year {
-                    remaining_seconds -= seconds_in_year;
-                    year += 1;
-                } else {
+                if days < days_in_year {
                     break;
                 }
+                days -= days_in_year;
+                year += 1;
             }
         } else {
-            // Backward from 1970
             loop {
                 year -= 1;
                 let days_in_year = if Self::is_leap_year(year) { 366 } else { 365 };
-                let seconds_in_year = days_in_year * 24 * 3600;
-                
-                remaining_seconds += seconds_in_year;
-                if remaining_seconds >= 0 {
+                days += days_in_year;
+                if days >= 0 {
                     break;
                 }
             }
         }
-        
-        // Calculate month and day
-        let mut month = 1u8;
-        while month <= 12 {
-            let days_in_month = Self::days_in_month(month, year);
-            let seconds_in_month = days_in_month as i64 * 24 * 3600;
-            
-            if remaining_seconds >= seconds_in_month {
-                remaining_seconds -= seconds_in_month;
-                month += 1;
-            } else {
+
+        // Compute month
+        let mut month: u8 = 1;
+        loop {
+            let dim = Self::days_in_month(month, year) as i64;
+            if days < dim {
                 break;
             }
+            days -= dim;
+            month += 1;
         }
-        
-        // Calculate day
-        let day = (remaining_seconds / (24 * 3600)) as u8 + 1;
-        remaining_seconds %= 24 * 3600;
-        
-        // Calculate hour
-        let hour = (remaining_seconds / 3600) as u8;
-        remaining_seconds %= 3600;
-        
-        // Calculate minute
-        let minute = (remaining_seconds / 60) as u8;
-        
-        // Calculate second
-        let second = (remaining_seconds % 60) as u8;
-        
-        Self::new(year, month, day, hour, minute, second)
+
+        let day = (days + 1) as u8;
+
+        Ok(Self {
+            year,
+            month,
+            day,
+            hour,
+            minute,
+            second,
+            timezone: 0,
+            daylight_saving_time: false,
+        })
     }
 
     /// Converts date/time to Unix timestamp (UTC)
-    /// Output: i64 (Unix timestamp) 
+    /// Output: i64 (Unix timestamp)
     pub fn to_timestamp(&self) -> i64 {
-
-
-        // Calculate total seconds from start of year
-        let mut total_seconds = 0;
+        let mut total_seconds: i64 = 0;
 
         // Add seconds, minutes, hours
         total_seconds += self.second as i64;
         total_seconds += (self.minute as i64) * 60;
         total_seconds += (self.hour as i64) * 3600;
 
-        // Add days (from start of year to today)
-        let mut days = 0;
+        // Add days from start of year to current day
+        let mut days_in_current_year: i64 = 0;
         for m in 1..self.month {
-            days += Self::days_in_month(m, self.year) as i64;
+            days_in_current_year += Self::days_in_month(m, self.year) as i64;
         }
-        days += (self.day - 1) as i64; // -1 because day 1 is the first day of the month
-        total_seconds += days * 24 * 3600;
+        days_in_current_year += (self.day - 1) as i64;
+        total_seconds += days_in_current_year * Self::SECONDS_PER_DAY;
 
-        // Add years (from 1970 to today)
-        let mut years = 0;
+        // Add days from all complete years since 1970
         let start_year = 1970;
         if self.year >= start_year {
             for y in start_year..self.year {
-                years += if Self::is_leap_year(y) { 366 } else { 365 };
+                let days_in_year = if Self::is_leap_year(y) { 366 } else { 365 };
+                total_seconds += days_in_year as i64 * Self::SECONDS_PER_DAY;
             }
         } else {
             for y in self.year..start_year {
-                years -= if Self::is_leap_year(y) { 366 } else { 365 };
+                let days_in_year = if Self::is_leap_year(y) { 366 } else { 365 };
+                total_seconds -= days_in_year as i64 * Self::SECONDS_PER_DAY;
             }
-        }
-        total_seconds += years * 24 * 3600 * 365;
-        // Add missing leap days (correction for leap years)
-        if self.year > start_year {
-            let mut leap_days = 0;
-            for y in start_year..self.year {
-                if Self::is_leap_year(y) {
-                    leap_days += 1;
-                }
-            }
-            total_seconds += leap_days * 24 * 3600;
-        } else if self.year < start_year {
-            let mut leap_days = 0;
-            for y in self.year..start_year {
-                if Self::is_leap_year(y) {
-                    leap_days += 1;
-                }
-            }
-            total_seconds -= leap_days * 24 * 3600;
         }
 
         total_seconds
@@ -211,25 +192,54 @@ impl DateTime {
 
 impl Default for DateTime {
     fn default() -> Self {
-        Self { year: 1970, month: 1, day: 1, hour: 0, minute: 0, second: 0, timezone: 0, daylight_saving_time: false }
+        Self {
+            year: 1970,
+            month: 1,
+            day: 1,
+            hour: 0,
+            minute: 0,
+            second: 0,
+            timezone: 0,
+            daylight_saving_time: false,
+        }
     }
 }
 
 impl Display for DateTime {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{:04}-{:02}-{:02} {:02}:{:02}:{:02} (UTC{:+03}:{:02}){}",
-            self.year, self.month, self.day, self.hour, self.minute, self.second,
-            self.timezone / 60, self.timezone % 60,
-            if self.daylight_saving_time { " DST" } else { "" }
+        write!(
+            f,
+            "{:04}-{:02}-{:02} {:02}:{:02}:{:02} (UTC{:+03}:{:02}){}",
+            self.year,
+            self.month,
+            self.day,
+            self.hour,
+            self.minute,
+            self.second,
+            self.timezone / 60,
+            self.timezone % 60,
+            if self.daylight_saving_time {
+                " DST"
+            } else {
+                ""
+            }
         )
     }
 }
 
 impl Debug for DateTime {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Time {{ year: {}, month: {}, day: {}, hour: {}, minute: {}, second: {}, timezone: {}, daylight_saving_time: {} }}",
-            self.year, self.month, self.day, self.hour, self.minute, self.second,
-            self.timezone, self.daylight_saving_time
+        write!(
+            f,
+            "Time {{ year: {}, month: {}, day: {}, hour: {}, minute: {}, second: {}, timezone: {}, daylight_saving_time: {} }}",
+            self.year,
+            self.month,
+            self.day,
+            self.hour,
+            self.minute,
+            self.second,
+            self.timezone,
+            self.daylight_saving_time
         )
     }
 }
