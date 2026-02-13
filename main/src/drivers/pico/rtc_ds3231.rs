@@ -16,7 +16,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
-#![allow(unused)]
 
 use alloc::fmt::format;
 use alloc::format;
@@ -59,18 +58,14 @@ fn init(i2c: &mut I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<()> {
 }
 
 #[inline]
-fn set_timestamp(i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: u64) {
-
+fn set_timestamp(_i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: u64) {
     unsafe { hhg_powman_timer_set_ms(timestamp *  1_000) };
 }
 
 #[inline]
-fn get_timestamp(i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> u64 {
+fn get_timestamp(_i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> u64 {
     unsafe {hhg_powman_timer_get_ms() / 1_000}
 }
-
-
-
 
 fn set_rtc_timestamp(i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: i64) -> Result<()> {
     let time = DateTime::from_timestamp(timestamp)?;

@@ -17,8 +17,6 @@
  *
  ***************************************************************************/
 
-#![allow(unused)]
-
 use core::time;
 
 use alloc::sync;
@@ -39,8 +37,10 @@ pub struct RTCFn {
 
     pub set_timestamp: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: u64),
 
+    #[allow(unused)]
     pub get_timestamp: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> u64,
 
+    #[allow(unused)]
     pub set_rtc_timestamp: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: i64) -> Result<()>,
 
     pub get_rtc_timestamp: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<i64>, 
@@ -106,12 +106,12 @@ impl RTC {
 
     pub fn is_to_synch(&self) -> bool {
         if self.0.is_none() {
-            return false;
+            return true; // if we don't have an I2C instance, we assume we need to sync
         }
 
         let ret = self.get_rtc_timestamp();
         if ret.is_err() {
-            return false;
+            return true; // if we can't read the RTC timestamp, we assume we need to sync
         }
 
         if ret.unwrap() > Self::MINIMUM_DATE {

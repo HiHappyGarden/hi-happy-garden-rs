@@ -20,7 +20,7 @@
 use alloc::boxed::Box;
 use alloc::vec;
 
-use osal_rs::{arcmux, log_info};
+use osal_rs::{arcmux, log_error, log_info};
 use osal_rs::os::types::UBaseType;
 use osal_rs::os::{Mutex, MutexFn, System, SystemFn, ToPriority};
 use osal_rs::utils::{ArcMux, Error, OsalRsBool, Result};
@@ -51,6 +51,7 @@ use crate::traits::relays::Relays as RelaysFn;
 use crate::traits::button::{ButtonState, OnClickable, SetClickable as ButtonOnClickable};
 use crate::traits::encoder::{OnRotatableAndClickable as EncoderOnRotatableAndClickable, SetRotatableAndClickable};
 use crate::traits::hardware::HardwareFn;
+use crate::traits::rtc::RTC as RTCFn;
 use crate::traits::rx_tx::OnReceive;
 use crate::traits::state::Initializable;
 use crate::traits::wifi::{OnWifiChangeStatus, SetOnWifiChangeStatus, WifiStatus};
@@ -215,6 +216,26 @@ impl HardwareFn<'static> for Hardware {
 impl SetOnWifiChangeStatus<'static> for Hardware {
     fn set_on_wifi_change_status(&mut self, on_wifi_change_status: &'static dyn OnWifiChangeStatus) {
         self.wifi.set_on_wifi_change_status(on_wifi_change_status);
+    }
+}
+
+impl RTCFn for Hardware {
+    #[inline]
+    fn set_timestamp(&self, timestamp: u64) {
+        self.rtc.set_timestamp(timestamp).unwrap_or_else(|e| log_error!(APP_TAG, "Failed to set timestamp: {:?}", e));
+    }
+
+    #[inline]
+    fn get_timestamp(&self) -> u64 {
+        self.rtc.get_timestamp().unwrap_or_else(|e| {
+            log_error!(APP_TAG, "Failed to get timestamp: {:?}", e);
+            0
+        })
+    }
+
+    #[inline]
+    fn is_to_synch(&self) -> bool {
+        self.rtc.is_to_synch()
     }
 }
 

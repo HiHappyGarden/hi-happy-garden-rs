@@ -17,7 +17,7 @@
  *
  ***************************************************************************/
 
- pub trait RgbLed {
+pub trait RgbLed {
     fn set_color(&self, red: u8, green: u8, blue: u8);
 
     #[inline]
@@ -39,4 +39,4 @@
     fn turn_off(&self) {
         self.set_color(0, 0, 0);
     }
- }
+}

@@ -16,16 +16,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
- 
-pub mod button;
-pub mod draw;
-pub mod encoder;
-pub mod hardware;
-pub mod lcd_display;
-pub mod relays;
-pub mod rgb_led;
-pub mod rtc;
-pub mod rx_tx;
-pub mod state;
-pub mod wifi;
 
+ pub trait RTC {
+    fn set_timestamp(&self, timestamp: u64);
+
+    fn get_timestamp(&self) -> u64;
+
+    fn is_to_synch(&self) -> bool;
+ }
