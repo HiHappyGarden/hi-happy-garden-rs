@@ -248,7 +248,7 @@ impl Hardware {
             button: Button::new(),
             rgb_led: RgbLed::new(),
             relays: Relays::new(),
-            i2c0: I2C::<{I2C0_INSTANCE}, {I2C_BAUDRATE}>::new(),
+            i2c0: I2C::new(),
             i2c1: I2C::new_with_address(LCDDisplay::I2C_ADDRESS),
             wifi: Wifi::new(),
             rtc: RTC::new(),
