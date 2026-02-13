@@ -17,6 +17,7 @@
  *
  ***************************************************************************/
 
+ #[allow(dead_code)]
  pub trait RTC {
     fn set_timestamp(&self, timestamp: u64);
 

@@ -82,7 +82,7 @@ fn set_rtc_timestamp(i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: i64)
     
     {
         let hour = {
-        let lower = (time.hour % 10);
+        let lower = time.hour % 10;
         let upper = match time.hour {
             10..=19 => 0x10, // 10-19
             20..=23 => 0x20, // 20-23
@@ -102,7 +102,7 @@ fn set_rtc_timestamp(i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: i64)
     {
         let century = if time.year >= 2100 { 0x80 } else { 0x00 }; // bit 7 of MONTH register is century bit
         let month = {
-            let lower = (time.month % 10);
+            let lower = time.month % 10;
             let upper = match time.month {
                 10..=12 => 0x10, // 10-12
                 _ => 0x00, // should never happen due to validation in Time::new
@@ -209,7 +209,7 @@ fn get_rtc_timestamp (i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<i64>
 
     let month = month.0;
 
-    let mut time = DateTime::new(year, month, day, hour, minute, second)?;
+    let time = DateTime::new(year, month, day, hour, minute, second)?;
 
     Ok(time.to_timestamp())
 }

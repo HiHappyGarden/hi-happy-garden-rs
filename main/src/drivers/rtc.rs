@@ -69,10 +69,12 @@ impl RTC {
         Self (None)
     }
 
+    #[inline]
     pub fn set_i2c(&mut self, i2c: I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) {
         self.0 = Some(i2c);
     }
 
+    #[inline]
     pub fn set_timestamp(&self, timestamp: u64) -> Result<()> {
         if self.0.is_none() {
             return Err(Error::NullPtr);
@@ -81,6 +83,8 @@ impl RTC {
         Ok(())
     } 
 
+    #[allow(unused)]
+    #[inline]
     pub fn get_timestamp(&self) -> Result<u64> {
         if self.0.is_none() {
             return Err(Error::NullPtr);
@@ -88,6 +92,7 @@ impl RTC {
         Ok((RTC_FN.get_timestamp)(&self.0.as_ref().unwrap()))
     }
 
+    #[allow(unused)]
     #[inline]
     pub fn set_rtc_timestamp(&self, timestamp: i64) -> Result<()> {
         if self.0.is_none() {
