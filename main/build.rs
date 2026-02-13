@@ -11,10 +11,16 @@ fn main() {
     let default_wifi_enabled = env::var("HHG_DEFAULT_WIFI_ENABLED").unwrap_or_else(|_| "false".to_string()).parse::<bool>().unwrap_or(false);
     let default_timezone = env::var("HHG_DEFAULT_TIMEZONE").unwrap_or_else(|_| "0".to_string()).parse::<i16>().unwrap_or(60);
     let default_daylight_saving = env::var("HHG_DEFAULT_DAYLIGHT_SAVING").unwrap_or_else(|_| "false".to_string()).parse::<bool>().unwrap_or(true);
+    let default_daylight_saving_start_month = env::var("HHG_DAYLIGHT_SAVING_TIME_START_MONTH").unwrap_or_else(|_| "2".to_string()).parse::<u8>().unwrap_or(2);
+    let default_daylight_saving_start_day = env::var("HHG_DAYLIGHT_SAVING_TIME_START_DAY").unwrap_or_else(|_| "31".to_string()).parse::<u8>().unwrap_or(31);
+    let default_daylight_saving_start_hour = env::var("HHG_DAYLIGHT_SAVING_TIME_START_HOUR").unwrap_or_else(|_| "2".to_string()).parse::<u8>().unwrap_or(2);
+    let default_daylight_saving_end_month = env::var("HHG_DAYLIGHT_SAVING_TIME_END_MONTH").unwrap_or_else(|_| "9".to_string()).parse::<u8>().unwrap_or(9);
+    let default_daylight_saving_end_day = env::var("HHG_DAYLIGHT_SAVING_TIME_END_DAY").unwrap_or_else(|_| "31".to_string()).parse::<u8>().unwrap_or(31);
+    let default_daylight_saving_end_hour = env::var("HHG_DAYLIGHT_SAVING_TIME_END_HOUR").unwrap_or_else(|_| "3".to_string()).parse::<u8>().unwrap_or(3);
     let default_ntp_msg_len = env::var("HHG_DEFAULT_NTP_MSG_LEN").unwrap_or_else(|_| "48".to_string()).parse::<u16>().unwrap_or(48);
     let default_ntp_port = env::var("HHG_DEFAULT_NTP_PORT").unwrap_or_else(|_| "123".to_string()).parse::<u16>().unwrap_or(123);
     let default_ntp_server = env::var("HHG_DEFAULT_NTP_SERVER").unwrap_or_else(|_| "\"0.europe.pool.ntp.org\"".to_string());
-    
+
     // Generate defaults.rs file
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let dest_path = out_dir.join("defaults.rs");
@@ -28,9 +34,21 @@ fn main() {
     writeln!(f, "pub const DEFAULT_WIFI_ENABLED: bool = {};", default_wifi_enabled).unwrap();
     writeln!(f, "pub const DEFAULT_TIMEZONE: i16 = {};", default_timezone).unwrap();
     writeln!(f, "pub const DEFAULT_DAYLIGHT_SAVING: bool = {};", default_daylight_saving).unwrap();
+    writeln!(f, "pub const DAYLIGHT_SAVING_START_MONTH: u8 = {};", default_daylight_saving_start_month).unwrap();
+    writeln!(f, "pub const DAYLIGHT_SAVING_START_DAY: u8 = {};", default_daylight_saving_start_day).unwrap();
+    writeln!(f, "pub const DAYLIGHT_SAVING_START_HOUR: u8 = {};", default_daylight_saving_start_hour).unwrap();
+    writeln!(f, "pub const DAYLIGHT_SAVING_END_MONTH: u8 = {};", default_daylight_saving_end_month).unwrap();
+    writeln!(f, "pub const DAYLIGHT_SAVING_END_DAY: u8 = {};", default_daylight_saving_end_day).unwrap();
+    writeln!(f, "pub const DAYLIGHT_SAVING_END_HOUR: u8 = {};", default_daylight_saving_end_hour).unwrap();
     writeln!(f, "pub const DEFAULT_NTP_MSG_LEN: u16 = {};", default_ntp_msg_len).unwrap();
     writeln!(f, "pub const DEFAULT_NTP_PORT: u16 = {};", default_ntp_port).unwrap();
     writeln!(f, "pub const DEFAULT_NTP_SERVER: &str = {};", default_ntp_server).unwrap();
+
+    // Flush and close file explicitly
+    f.flush().unwrap();
+    drop(f);
+    
+    println!("cargo:warning=File written and flushed to: {}", dest_path.display());
 
     
     println!("cargo:rerun-if-env-changed=HHG_DEFAULT_WIFI_SSID");
@@ -39,6 +57,12 @@ fn main() {
     println!("cargo:rerun-if-env-changed=HHG_DEFAULT_WIFI_ENABLED");
     println!("cargo:rerun-if-env-changed=HHG_DEFAULT_TIMEZONE");
     println!("cargo:rerun-if-env-changed=HHG_DEFAULT_DAYLIGHT_SAVING");
+    println!("cargo:rerun-if-env-changed=HHG_DAYLIGHT_SAVING_TIME_START_MONTH");
+    println!("cargo:rerun-if-env-changed=HHG_DAYLIGHT_SAVING_TIME_START_DAY");
+    println!("cargo:rerun-if-env-changed=HHG_DAYLIGHT_SAVING_TIME_START_HOUR");
+    println!("cargo:rerun-if-env-changed=HHG_DAYLIGHT_SAVING_TIME_END_MONTH");
+    println!("cargo:rerun-if-env-changed=HHG_DAYLIGHT_SAVING_TIME_END_DAY");
+    println!("cargo:rerun-if-env-changed=HHG_DAYLIGHT_SAVING_TIME_END_HOUR");
     println!("cargo:rerun-if-env-changed=HHG_DEFAULT_NTP_MSG_LEN");
     println!("cargo:rerun-if-env-changed=HHG_DEFAULT_NTP_PORT");
     println!("cargo:rerun-if-env-changed=HHG_DEFAULT_NTP_SERVER");

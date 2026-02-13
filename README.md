@@ -12,6 +12,8 @@ You can configure the application's default values via CMake options. These valu
 
 ### WiFi Configuration
 
+> **Note**: WiFi credentials (**HHG_DEFAULT_WIFI_SSID** and **HHG_DEFAULT_WIFI_PASSWORD**) should be configured using the `secrets.cmake` file, which is excluded from git. See the `secrets.cmake.example` file for reference.
+
 - **HHG_DEFAULT_WIFI_SSID**: WiFi network SSID (default: "")
 - **HHG_DEFAULT_WIFI_PASSWORD**: WiFi network password (default: "")
 - **HHG_DEFAULT_WIFI_HOSTNAME**: Device hostname (default: "hi-happy-garden")
@@ -27,6 +29,39 @@ You can configure the application's default values via CMake options. These valu
 
 - **HHG_DEFAULT_TIMEZONE**: Timezone offset in minutes (default: 0)
 - **HHG_DEFAULT_DAYLIGHT_SAVING**: Enable daylight saving time (default: OFF)
+
+#### Daylight Saving Time Configuration
+
+When **HHG_DEFAULT_DAYLIGHT_SAVING** is enabled, you can configure the DST transition dates:
+
+- **HHG_DAYLIGHT_SAVING_TIME_START_MONTH**: Month when DST starts (1-12, default: 2)
+- **HHG_DAYLIGHT_SAVING_TIME_START_DAY**: Day when DST starts (1-31, default: 31)
+- **HHG_DAYLIGHT_SAVING_TIME_START_HOUR**: Hour when DST starts (0-23, default: 2)
+- **HHG_DAYLIGHT_SAVING_TIME_END_MONTH**: Month when DST ends (1-12, default: 9)
+- **HHG_DAYLIGHT_SAVING_TIME_END_DAY**: Day when DST ends (1-31, default: 31)
+- **HHG_DAYLIGHT_SAVING_TIME_END_HOUR**: Hour when DST ends (0-23, default: 3)
+
+## Secrets Configuration
+
+For security reasons, WiFi credentials should not be hardcoded in CMakeLists.txt. Instead, use the `secrets.cmake` file:
+
+1. Copy the example file:
+   ```bash
+   cp secrets.cmake.example secrets.cmake
+   ```
+
+2. Edit `secrets.cmake` with your credentials:
+   ```cmake
+   set(HHG_DEFAULT_WIFI_SSID "YourSSID")
+   set(HHG_DEFAULT_WIFI_PASSWORD "YourPassword")
+   ```
+
+3. Include it in your CMakeLists.txt (if not already included):
+   ```cmake
+   include(secrets.cmake OPTIONAL)
+   ```
+
+> **Note**: The `secrets.cmake` file is in `.gitignore` and will not be committed to version control.
 
 ## Usage Examples
 
@@ -75,8 +110,6 @@ cmake --build build -j$(nproc)
 
 ```bash
 cmake -B build \
-  -DHHG_DEFAULT_WIFI_SSID="MyNetwork" \
-  -DHHG_DEFAULT_WIFI_PASSWORD="MyPassword" \
   -DHHG_DEFAULT_WIFI_HOSTNAME="garden-controller" \
   -DHHG_DEFAULT_WIFI_ENABLED=ON
 ```
@@ -85,8 +118,6 @@ cmake -B build \
 
 ```bash
 cmake -B build \
-  -DHHG_DEFAULT_WIFI_SSID="MyNetwork" \
-  -DHHG_DEFAULT_WIFI_PASSWORD="MySecurePassword123" \
   -DHHG_DEFAULT_WIFI_HOSTNAME="garden-controller-01" \
   -DHHG_DEFAULT_WIFI_ENABLED=ON \
   -DHHG_DEFAULT_NTP_SERVER="pool.ntp.org" \
@@ -102,8 +133,6 @@ cmake -B build \
 # Central Europe (UTC+1 with daylight saving)
 cmake -B build-production \
   -DCMAKE_BUILD_TYPE=Release \
-  -DHHG_DEFAULT_WIFI_SSID="ProductionNetwork" \
-  -DHHG_DEFAULT_WIFI_PASSWORD="ProdSecurePass456" \
   -DHHG_DEFAULT_WIFI_HOSTNAME="hhg-prod-01" \
   -DHHG_DEFAULT_WIFI_ENABLED=ON \
   -DHHG_DEFAULT_NTP_SERVER="0.europe.pool.ntp.org" \
@@ -141,8 +170,6 @@ cmake -B build-debug \
 During CMake configuration, the set values are printed:
 
 ```
--- HHG_DEFAULT_WIFI_SSID: MyNetwork
--- HHG_DEFAULT_WIFI_HOSTNAME: garden-controller
 -- HHG_DEFAULT_WIFI_ENABLED: ON
 -- HHG_DEFAULT_TIMEZONE: 60
 ```

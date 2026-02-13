@@ -23,7 +23,7 @@ use alloc::string::String;
 
 use cjson_binding::{from_json, to_json};
 
-use osal_rs::log_info;
+use osal_rs::{log_info, log_warning};
 use osal_rs::os::{RawMutex, RawMutexFn};
 use osal_rs::utils::Bytes;
 use osal_rs::utils::{Result, Error};
@@ -57,7 +57,15 @@ static mut CONFIG: Config = Config {
     version: 0,
     serial: Bytes::new(),
     timezone: 0,
-    daylight_saving_time: false,
+    daylight_saving_time: DaylightSavingTime {
+        start_month: 2,
+        start_day: 31,
+        start_hour: 2,
+        end_month: 9,
+        end_day: 31,
+        end_hour: 3,
+        enabled: false
+    },
     users: [UserConfig {
         user: Bytes::new(),
         password: Bytes::new()
@@ -76,6 +84,31 @@ static mut CONFIG: Config = Config {
         enabled: false
     }
 };
+
+#[derive(Serialize, Deserialize, Clone, Copy)]
+pub struct DaylightSavingTime {
+    pub start_month: u8,
+    pub start_day: u8,
+    pub start_hour: u8,
+    pub end_month: u8,
+    pub end_day: u8,
+    pub end_hour: u8,
+    pub enabled: bool
+}
+
+impl Default for DaylightSavingTime {
+    fn default() -> Self {
+        Self {
+            start_month: 2,
+            start_day: 31,
+            start_hour: 2,
+            end_month: 9,
+            end_day: 31,
+            end_hour: 3,
+            enabled: false
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct WifiConfig {
@@ -288,7 +321,7 @@ pub struct Config {
     version: u8,
     serial: Bytes<16>,
     timezone: i16,
-    daylight_saving_time: bool,
+    daylight_saving_time: DaylightSavingTime,
     users: [UserConfig; 2],
     wifi: WifiConfig,
     ntp: NtpConfig,
@@ -300,10 +333,10 @@ impl Default for Config {
             version: 0,
             serial: Bytes::new(),
             timezone: 0,
-            daylight_saving_time: false,
+            daylight_saving_time: Default::default(),
             users: [Default::default(); 2],
             wifi: Default::default(),
-            ntp: NtpConfig::default()
+            ntp: Default::default()
         }
     }
 }
@@ -339,7 +372,15 @@ impl Config {
         
         // Apply CMake defaults to general config
         config.timezone = defaults::DEFAULT_TIMEZONE;
-        config.daylight_saving_time = defaults::DEFAULT_DAYLIGHT_SAVING;
+        config.daylight_saving_time = DaylightSavingTime {
+            start_month: defaults::DAYLIGHT_SAVING_START_MONTH,
+            start_day: defaults::DAYLIGHT_SAVING_START_DAY,
+            start_hour: defaults::DAYLIGHT_SAVING_START_HOUR,
+            end_month: defaults::DAYLIGHT_SAVING_END_MONTH,
+            end_day: defaults::DAYLIGHT_SAVING_END_DAY,
+            end_hour: defaults::DAYLIGHT_SAVING_END_HOUR,
+            enabled: defaults::DEFAULT_DAYLIGHT_SAVING
+        };
         
         config
     }
@@ -384,16 +425,24 @@ impl Config {
                 return Err(Error::UnhandledOwned(format!("Failed to parse config JSON: {e}")));
             }
         };
- 
-        from_json::<Config>(&wifi_json)
-            .map_err(|e| Error::UnhandledOwned(format!("Failed to deserialize config JSON: {e}")))
-            .and_then(|config| {
+
+        match from_json::<Config>(&wifi_json) {
+            Ok(config) => {
                 unsafe {
                     CONFIG = config;
                 }
                 log_info!(APP_TAG, "Config loaded successfully");
                 Ok(unsafe { &mut *&raw mut CONFIG })
-            })
+            }
+            Err(e) => {
+                log_warning!(APP_TAG, "Using default config values err: {e}");
+                let ret = unsafe { CONFIG = Default::default() };
+
+                Self::save()?;
+
+                Ok(unsafe { &mut *&raw mut CONFIG })
+            }
+        }
     }
 
     pub fn save()  -> Result<&'static mut Self> {
@@ -445,9 +494,9 @@ impl Config {
         timezone
     }
 
-    pub fn is_daylight_saving_time(&self) -> bool {
+    pub fn get_daylight_saving_time(&self) -> DaylightSavingTime {
         mutex().lock();
-        let dst = self.daylight_saving_time;
+        let dst = self.daylight_saving_time.clone();
         mutex().unlock();
         dst
     }
@@ -461,12 +510,6 @@ impl Config {
     pub fn set_timezone(&mut self, timezone: i16) {
         mutex().lock();
         self.timezone = timezone;
-        mutex().unlock();
-    }
-
-    pub fn set_daylight_saving_time(&mut self, dst: bool) {
-        mutex().lock();
-        self.daylight_saving_time = dst;
         mutex().unlock();
     }
 
