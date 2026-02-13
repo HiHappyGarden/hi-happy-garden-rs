@@ -19,17 +19,15 @@
 
 #![allow(dead_code)]
 
-use alloc::ffi::CString;
 use alloc::string::{String, ToString};
-use alloc::{format, vec};
+use alloc::format;
 use alloc::vec::Vec;
 
-use osal_rs::{log_info, println};
+use osal_rs::log_info;
 use osal_rs::utils::{Bytes, Error, Result};
 use osal_rs::os::AsSyncStr;
 
 use core::ffi::c_int;
-use core::str::from_utf8;
 use core::ffi::c_void;
 use core::fmt::Display;
 use core::ptr::null_mut;

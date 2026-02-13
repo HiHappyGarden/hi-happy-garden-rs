@@ -23,7 +23,6 @@ use core::any::Any;
 use core::ops::{Index, IndexMut};
 
 use alloc::str;
-use alloc::string::ToString;
 use alloc::sync::Arc;
 
 use osal_rs::os::{RawMutex, AsSyncStr};

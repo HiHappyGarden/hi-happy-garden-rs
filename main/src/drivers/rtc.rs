@@ -17,16 +17,12 @@
  *
  ***************************************************************************/
 
-use core::time;
-
-use alloc::sync;
 use osal_rs::log_info;
 use osal_rs::utils::{Error, Result};
 
-use crate::drivers::i2c::{I2C, I2CFn};
+use crate::drivers::i2c::I2C;
 use crate::drivers::pico::rtc_ds3231::RTC_FN;
 use crate::drivers::platform::{I2C0_INSTANCE, I2C_BAUDRATE};
-use crate::drivers::date_time::DateTime;
 use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "RTC";

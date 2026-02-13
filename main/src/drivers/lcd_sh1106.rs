@@ -24,7 +24,6 @@ use crate::traits::state::Initializable;
 use osal_rs::log_info;
 use osal_rs::utils::{Error, Result};
 use sh1106_commands::*;
-use crate::drivers::plt::ffi::pico_error_codes::PICO_ERROR_GENERIC;
 
 const APP_TAG: &str = "LCDSH1106";
 const ASCII_TABLE_START_AT_IDX: u8 = 32;

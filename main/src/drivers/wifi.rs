@@ -18,19 +18,19 @@
  ***************************************************************************/
 #![allow(dead_code)]
 
-use core::ffi::{c_int, c_void};
+use core::ffi::c_void;
 use core::ptr::null_mut;
 use core::time::Duration;
 use osal_rs::{log_error, log_info};
-use osal_rs::os::{MutexFn, MutexGuard, System, Thread, ThreadFn};
-use osal_rs::os::types::{StackType, TickType};
-use osal_rs::utils::{ArcMux, Bytes, Result};
+use osal_rs::os::{System, Thread, ThreadFn};
+use osal_rs::os::types::StackType;
+use osal_rs::utils::Result;
 use osal_rs_serde::{Deserialize, Serialize};
 use crate::traits::state::Initializable;
 use crate::drivers::platform::ThreadPriority;
 use crate::drivers::pico::wifi_cyw43::WIFI_FN;
 use crate::traits::wifi::{OnWifiChangeStatus, SetOnWifiChangeStatus, WifiStatus};
-use crate::traits::wifi::WifiStatus::{Connected, Connecting, Disabled, Disconnecting, Enabled, Enabling, Error};
+use crate::traits::wifi::WifiStatus::Disconnecting;
 
 const APP_TAG: &str = "WIFI";
 const APP_THREAD_NAME: &str = "wifi_trd";
@@ -194,8 +194,6 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
 impl Wifi {
     pub fn new() -> Self {
-        use alloc::sync::Arc;
-        use osal_rs::os::Mutex;
         
         Self {
             handle: null_mut(),

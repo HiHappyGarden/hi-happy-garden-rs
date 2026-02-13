@@ -18,12 +18,10 @@
  ***************************************************************************/
 #![allow(dead_code)]
 
-use core::time::Duration;
-
 use osal_rs::{log_error, log_info, minimal_stack_size};
 use osal_rs::os::{Queue, QueueFn, Thread, ThreadFn};
 use osal_rs::os::types::{TickType, UBaseType};
-use osal_rs::utils::{Bytes, Error, Ptr, Result};
+use osal_rs::utils::{Error, Ptr, Result};
 
 use crate::traits::rx_tx::OnReceive; 
 use crate::traits::state::Initializable;

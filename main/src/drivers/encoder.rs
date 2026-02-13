@@ -17,28 +17,23 @@
  *
  ***************************************************************************/
  
-use core::cell::RefCell;
 use core::sync::atomic::{AtomicI32, AtomicU32, Ordering};
 
-use alloc::boxed::Box;
-use alloc::sync::Arc;
-
-use osal_rs::{arcmux, log_error, log_info, log_warning, minimal_stack_size};
+use osal_rs::{log_error, log_info};
 use osal_rs::os::types::{StackType, TickType};
-use osal_rs::os::{EventGroup, EventGroupFn, RawMutex, RawMutexFn, System, SystemFn, Thread, ThreadFn, ThreadParam};
-use osal_rs::utils::{ArcMux, Error, OsalRsBool, Result};
+use osal_rs::os::{EventGroup, EventGroupFn, RawMutexFn, System, SystemFn, Thread, ThreadFn};
+use osal_rs::utils::{Error, OsalRsBool, Result};
 
 use crate::drivers::gpio::{InterruptType};
-use crate::drivers::platform::{self, GPIO_CONFIG_SIZE, GpioPeripheral, ThreadPriority};
+use crate::drivers::platform::{GpioPeripheral, ThreadPriority};
 use crate::drivers::gpio::Gpio;
-use crate::traits::button::{ButtonState, OnClickable};
+use crate::traits::button::ButtonState;
 use crate::traits::encoder::{EncoderDirection, OnRotatableAndClickable, SetRotatableAndClickable};
-use crate::traits::state::Initializable;
 use encoder_events::*;
 
 const APP_TAG: &str = "Encoder";
 const APP_THREAD_NAME: &str = "encoder_trd";
-const APP_STACK_SIZE: StackType = 256;
+const APP_STACK_SIZE: StackType = 512;
 const APP_DEBOUNCE_TIME: TickType = 3;
 
 pub mod encoder_events {

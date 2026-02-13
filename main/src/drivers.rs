@@ -1,4 +1,3 @@
-#![allow(unused_imports)]
 mod button;
 pub mod date_time;
 mod encoder;
