@@ -33,17 +33,17 @@ use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "RTC";
 
-const MINIMUM_DATE: i64 = 1_577_836_800; // 2020-01-01T00:00:00Z
-
 #[derive(Clone, Debug)]
 pub struct RTCFn {
     pub init: fn (&mut I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<()>,
 
-    pub synch: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: i64) -> Result<()>,
+    pub set_timestamp: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: u64),
 
-    pub set_rtc: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: i64) -> Result<()>,
+    pub get_timestamp: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> u64,
 
-    pub get_rtc: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<i64>, 
+    pub set_rtc_timestamp: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: i64) -> Result<()>,
+
+    pub get_rtc_timestamp: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<i64>, 
 }
 
 pub struct RTC (Option<I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>>);
@@ -62,6 +62,7 @@ impl Initializable for RTC {
 }
 
 impl RTC {
+    pub const MINIMUM_DATE: i64 = 1_577_836_800; // 2020-01-01T00:00:00Z
 
     #[inline]
     pub const fn new() -> Self {
@@ -72,29 +73,35 @@ impl RTC {
         self.0 = Some(i2c);
     }
 
-
-    #[inline]
-    pub fn sync(&self, timestamp: i64) -> Result<()> {
+    pub fn set_timestamp(&self, timestamp: u64) -> Result<()> {
         if self.0.is_none() {
             return Err(Error::NullPtr);
         }
-        (RTC_FN.synch)(&self.0.as_ref().unwrap(), timestamp)
+        (RTC_FN.set_timestamp)(&self.0.as_ref().unwrap(), timestamp);
+        Ok(())
     } 
 
-    #[inline]
-    pub fn set_rtc(&self, timestamp: i64) -> Result<()> {
+    pub fn get_timestamp(&self) -> Result<u64> {
         if self.0.is_none() {
             return Err(Error::NullPtr);
         }
-        (RTC_FN.set_rtc)(&self.0.as_ref().unwrap(), timestamp)
+        Ok((RTC_FN.get_timestamp)(&self.0.as_ref().unwrap()))
     }
 
     #[inline]
-    pub fn get_rtc(&self) -> Result<i64> {
+    pub fn set_rtc_timestamp(&self, timestamp: i64) -> Result<()> {
         if self.0.is_none() {
             return Err(Error::NullPtr);
         }
-        (RTC_FN.get_rtc)(&self.0.as_ref().unwrap())
+        (RTC_FN.set_rtc_timestamp)(&self.0.as_ref().unwrap(), timestamp)
+    }
+
+    #[inline]
+    pub fn get_rtc_timestamp(&self) -> Result<i64> {
+        if self.0.is_none() {
+            return Err(Error::NullPtr);
+        }
+        (RTC_FN.get_rtc_timestamp)(&self.0.as_ref().unwrap())
     }
 
     pub fn is_to_synch(&self) -> bool {
@@ -102,24 +109,16 @@ impl RTC {
             return false;
         }
 
-        let ret = self.get_rtc();
+        let ret = self.get_rtc_timestamp();
         if ret.is_err() {
             return false;
         }
 
-        if ret.unwrap() > MINIMUM_DATE {
+        if ret.unwrap() > Self::MINIMUM_DATE {
             true
         } else {
             false
         }
-    }
-
-
-    pub fn synch_if_needed(&self, timestamp: i64) -> Result<()> {
-        if self.is_to_synch() {
-            self.sync(timestamp)?;
-        }
-        Ok(())
     }
 
 }

@@ -31,6 +31,7 @@ use core::ptr::read;
 
 use crate::apps::display;
 use crate::drivers::button::Button;
+use crate::drivers::date_time::DateTime;
 use crate::drivers::encoder::Encoder;
 use crate::drivers::filesystem::{EntryType, Filesystem, FsStat, open_flags};
 use crate::drivers::i2c::{self, I2C};
@@ -140,6 +141,16 @@ impl Initializable for Hardware {
         self.rtc.init()?;
 
         self.init_fs()?;
+
+
+        if self.rtc.is_to_synch() {
+            let timestamp = self.rtc.get_rtc_timestamp()?;
+
+            let now = DateTime::from_timestamp(timestamp)?;
+            log_info!(APP_TAG, "Sync RTS with POWMAN ({})", now);
+
+            self.rtc.set_timestamp(timestamp as u64)?;
+        }
 
         log_info!(APP_TAG, "Hardware initialized successfully heap_free:{}", System::get_free_heap_size());
         Ok(())

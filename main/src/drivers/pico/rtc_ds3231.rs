@@ -23,7 +23,7 @@ use alloc::format;
 use osal_rs::utils::{Error, Result};
 
 use crate::drivers::i2c::{I2C, I2CFn};
-use crate::drivers::pico::ffi::hhg_powman_timer_set_ms;
+use crate::drivers::pico::ffi::{hhg_powman_timer_get_ms, hhg_powman_timer_set_ms};
 use crate::drivers::pico::rtc_ds3231::registers::*;
 use crate::drivers::rtc::RTCFn;
 use crate::drivers::platform::{I2C_BAUDRATE, I2C0_INSTANCE};
@@ -44,9 +44,10 @@ mod registers {
 
 pub const RTC_FN: RTCFn = RTCFn {
     init,
-    synch,
-    set_rtc,
-    get_rtc
+    set_timestamp,
+    get_timestamp,
+    set_rtc_timestamp,
+    get_rtc_timestamp
 };
 
 
@@ -57,16 +58,21 @@ fn init(i2c: &mut I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<()> {
     Ok(())
 }
 
-fn synch(i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: i64) -> Result<()> {
+#[inline]
+fn set_timestamp(i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: u64) {
 
-    unsafe {
-        hhg_powman_timer_set_ms(timestamp as u64*  1_000);
-    }
-
-    Ok(())
+    unsafe { hhg_powman_timer_set_ms(timestamp *  1_000) };
 }
 
-fn set_rtc(i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: i64) -> Result<()> {
+#[inline]
+fn get_timestamp(i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> u64 {
+    unsafe {hhg_powman_timer_get_ms() / 1_000}
+}
+
+
+
+
+fn set_rtc_timestamp(i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: i64) -> Result<()> {
     let time = DateTime::from_timestamp(timestamp)?;
 
     {
@@ -122,7 +128,7 @@ fn set_rtc(i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: i64) -> Result
     Ok(())
 }
 
-fn get_rtc (i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<i64> {
+fn get_rtc_timestamp (i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<i64> {
 
     let second = {
         let data = [SECONDS];

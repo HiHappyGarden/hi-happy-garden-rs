@@ -4,8 +4,9 @@
 #![allow(non_camel_case_types)]
 #![allow(dead_code)]
 
-use core::{ffi::{c_char, c_int, c_long, c_uint, c_void}, ptr::null_mut};
-use core::ffi::{c_short, c_uchar, c_ushort};
+use core::ptr::null_mut;
+use core::ffi::{c_short, c_uchar, c_ushort, c_char, c_int, c_long, c_uint, c_ulonglong, c_void};
+
 
 #[repr(C)]
 pub struct pwm_config {
@@ -320,5 +321,6 @@ unsafe extern "C" {
     pub(super) fn hhg_pico_sha256_update_blocking(state: *mut c_void, data: *const c_uchar, data_size_bytes: usize);
     pub(super) fn hhg_pico_sha256_finish(state: *mut c_void, out: *mut c_uchar);
 
-    pub(super) fn hhg_powman_timer_set_ms(time_ms: u64);
+    pub(super) fn hhg_powman_timer_set_ms(time_ms: c_ulonglong);
+    pub(super) fn hhg_powman_timer_get_ms() -> c_ulonglong;
 }   
