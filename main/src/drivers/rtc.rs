@@ -56,13 +56,6 @@ impl Initializable for RTC {
             return Err(Error::NullPtr);
         }
         (RTC_FN.init)(&mut self.0.as_mut().unwrap())?;
-
-        let timestamp = self.get_rtc()?;
-
-        let time = DateTime::new(2026, 02, 12, 22, 45, 01)?;
-
-        self.set_rtc(time.to_timestamp())?;
-
         
         Ok(())
     }
