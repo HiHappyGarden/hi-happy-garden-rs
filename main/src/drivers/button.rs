@@ -23,21 +23,20 @@ use core::str;
 use core::sync::atomic::{AtomicU32, Ordering};
 
 use osal_rs::os::types::{StackType, TickType};
-use osal_rs::{log_error, log_info};
-use osal_rs::os::{EventGroup, EventGroupFn, Mutex, MutexFn, System, SystemFn, Thread, ThreadFn, ThreadParam, Timer, TimerFn, RawMutexFn};
+use osal_rs::os::{EventGroup, EventGroupFn, RawMutexFn, System, SystemFn, Thread, ThreadFn};
 use osal_rs::utils::{Error, OsalRsBool, Result};
+use osal_rs::{log_error, log_info};
 
 use crate::drivers::gpio::{Gpio, InterruptType};
-use crate::drivers::platform::{self, GpioPeripheral, ThreadPriority};
+use crate::drivers::platform::{GpioPeripheral, ThreadPriority};
 
 use crate::traits::button::{ButtonState, OnClickable, SetClickable};
-use crate::traits::state::Initializable;
 
 use button_events::*;
 
 const APP_TAG: &str = "Button";
 const APP_THREAD_NAME: &str = "button_trd";
-const APP_STACK_SIZE: StackType = 256;
+const APP_STACK_SIZE: StackType = 512;
 const APP_DEBOUNCE_TIME: TickType = 50;
 
 
