@@ -37,12 +37,17 @@ use crate::drivers::pico::flash::{FILESYSTEM_FN, FILE_FN, DIR_FN, FS_SEPARATOR_D
 use crate::drivers::platform::Hardware;
 use crate::traits::state::Initializable;
 
-const APP_TAG: &str = "Filesystem";
 pub type FileBytes = Bytes<256>;
 
-static mut ENCRYPT: Option<Encrypt<32, 16>> = None;
-static mut KEY: [u8; 32] = [0u8; 32];
-static mut IV: [u8; 16] = [0u8; 16];
+const APP_TAG: &str = "Filesystem";
+
+const KEY_SIZE: usize = 32;
+const IV_SIZE: usize = 16;
+
+
+static mut ENCRYPT: Option<Encrypt<KEY_SIZE, IV_SIZE>> = None;
+static mut KEY: [u8; KEY_SIZE] = [0u8; KEY_SIZE];
+static mut IV: [u8; IV_SIZE] = [0u8; IV_SIZE];
 
 /// Seek position enum
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
