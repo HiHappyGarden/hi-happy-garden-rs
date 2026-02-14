@@ -436,7 +436,7 @@ impl Config {
             }
             Err(e) => {
                 log_warning!(APP_TAG, "Using default config values err: {e}");
-                let ret = unsafe { CONFIG = Default::default() };
+                unsafe { CONFIG = Default::default() };
 
                 Self::save()?;
 
