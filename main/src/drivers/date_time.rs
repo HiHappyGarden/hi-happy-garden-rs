@@ -53,8 +53,8 @@ pub struct DateTime {
 
 impl DateTime {
     pub const SECONDS_PER_MINUTE: i64 = 60;
-    pub const SECONDS_PER_HOUR: i64 = 3600;
-    pub const SECONDS_PER_DAY: i64 = 86400;
+    pub const SECONDS_PER_HOUR: i64 = 3_600;
+    pub const SECONDS_PER_DAY: i64 = 86_400;
 
     pub fn set_daylight_saving_time(enabled: bool, start_month: u8, start_day: u8, start_hour: u8, end_month: u8, end_day: u8, end_hour: u8) {
         unsafe {
@@ -108,6 +108,7 @@ impl DateTime {
     }
 
     /// Returns true if the year is a leap year
+    #[inline]
     fn is_leap_year(year: i32) -> bool {
         (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
     }
@@ -172,13 +173,13 @@ impl DateTime {
 
     #[inline]
     pub fn from_timestamp(timestamp: i64) -> Result<Self> {
-        Self::from_timestamp_apply_locale(timestamp, false)
+        Self::from_timestamp_locale(timestamp, false)
     }
 
     /// Creates a Time from a Unix timestamp (UTC)
     /// Input: Unix timestamp (seconds since 1970-01-01 00:00:00 UTC)
     /// Output: Result<Time>
-    pub fn from_timestamp_apply_locale(timestamp: i64, locale: bool) -> Result<Self> {
+    pub fn from_timestamp_locale(timestamp: i64, locale: bool) -> Result<Self> {
         let mut adjusted_timestamp = timestamp;
         let mut is_apply_timezone = false;
         let mut is_apply_daylight_saving_time = false;
@@ -310,10 +311,12 @@ impl DateTime {
         total_seconds
     }
 
+    #[inline]
     pub fn is_apply_timezone(&self) -> bool {
         self.is_apply_timezone
     }
 
+    #[inline]
     pub fn is_apply_daylight_saving_time(&self) -> bool {
         self.is_apply_daylight_saving_time
     }
@@ -338,23 +341,41 @@ impl Default for DateTime {
 
 impl Display for DateTime {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(
-            f,
-            "{:04}-{:02}-{:02} {:02}:{:02}:{:02} (UTC{:+03}:{:02}){}",
-            self.year,
-            self.month,
-            self.mday,
-            self.hour,
-            self.minute,
-            self.second,
-            unsafe {TIMEZONE / 60},
-            unsafe {TIMEZONE % 60},
-            if self.is_apply_daylight_saving_time {
-                " DST"
-            } else {
-                ""
-            }
-        )
+        if self.is_apply_timezone || self.is_apply_daylight_saving_time {
+            let tz_offset = unsafe { TIMEZONE };
+            let tz_hours = tz_offset / 60;
+            let tz_minutes = (tz_offset % 60).abs(); // abs() to handle negative timezones correctly
+            
+            write!(
+                f,
+                "{:04}-{:02}-{:02} {:02}:{:02}:{:02} (UTC{:+03}:{:02}){}",
+                self.year,
+                self.month,
+                self.mday,
+                self.hour,
+                self.minute,
+                self.second,
+                tz_hours,
+                tz_minutes,
+                if self.is_apply_daylight_saving_time {
+                    " DST"
+                } else {
+                    ""
+                }
+            )
+        } else {
+            // UTC time without timezone offset
+            write!(
+                f,
+                "{:04}-{:02}-{:02} {:02}:{:02}:{:02} UTC",
+                self.year,
+                self.month,
+                self.mday,
+                self.hour,
+                self.minute,
+                self.second
+            )
+        }
     }
 }
 
