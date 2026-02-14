@@ -35,6 +35,7 @@ mod registers {
     pub(super) const SECONDS: u8 =  0x00;
     pub(super) const MINUTES: u8 =  0x01;
     pub(super) const HOURS: u8 =  0x02;
+    pub(super) const DAY_OF_WEEK: u8 =  0x03;
     pub(super) const DAY_OF_MONTH: u8 =  0x04;
     pub(super) const MONTH_CENTURY: u8 =  0x05;
     pub(super) const YEAR: u8 =  0x06;
@@ -92,10 +93,14 @@ fn set_rtc_timestamp(i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: i64)
         i2c.write(&[HOURS, hour])?;
     }
     
+    {
+        let wday = (time.wday + 1 ) & 0x07; // DS3231 expects 1-7 for Sunday-Saturday, while our DateTime uses 0-6 then adds 1 to convert to DS3231 format, and & 0x07 to ensure it stays within 3 bits
+        i2c.write(&[DAY_OF_WEEK, wday])?;
+    }
 
     {
-        let day = ((time.day / 10) << 4) | (time.day % 10);
-        i2c.write(&[DAY_OF_MONTH, day])?;
+        let mday = ((time.mday / 10) << 4) | (time.mday % 10);
+        i2c.write(&[DAY_OF_MONTH, mday])?;
     }
     
     {
@@ -126,7 +131,7 @@ fn get_rtc_timestamp (i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<i64>
 
     let second = {
         let data = [SECONDS];
-        let mut buffer = [0u8; 7];
+        let mut buffer = [0u8; 1];
         i2c.write_and_read(&data, &mut buffer)?;
 
         let upper = buffer[0] & 0xF0;
@@ -136,7 +141,7 @@ fn get_rtc_timestamp (i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<i64>
 
     let minute = {
         let data = [MINUTES];
-        let mut buffer = [0u8; 7];
+        let mut buffer = [0u8; 1];
         i2c.write_and_read(&data, &mut buffer)?;
 
         let upper = buffer[0] & 0xF0;
@@ -146,7 +151,7 @@ fn get_rtc_timestamp (i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<i64>
 
     let hour = {
         let data = [HOURS];
-        let mut buffer = [0u8; 7];
+        let mut buffer = [0u8; 11];
         i2c.write_and_read(&data, &mut buffer)?;
 
         let mode24h = buffer[0] & 0x40 == 0; // bit 6 is 0 for 24h mode, 1 for 12h mode
@@ -173,10 +178,19 @@ fn get_rtc_timestamp (i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<i64>
         }
     };
 
+    let wday = {
+        let data = [DAY_OF_WEEK];
+        let mut buffer = [0u8; 1];
+        i2c.write_and_read(&data, &mut buffer)?;
 
-    let day = {
+        buffer[0] & 0x07 // bits 0-2 are day of week (1-7)
+    };
+    let wday = wday - 1; // convert to 0-6 where 0 is Sunday, 1 is Monday, ..., 6 is Saturday
+
+
+    let mday = {
         let data = [DAY_OF_MONTH];
-        let mut buffer = [0u8; 7];
+        let mut buffer = [0u8; 1];
         i2c.write_and_read(&data, &mut buffer)?;
 
         let upper = buffer[0] & 0x30;
@@ -186,7 +200,7 @@ fn get_rtc_timestamp (i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<i64>
 
     let month = {
         let data = [MONTH_CENTURY];
-        let mut buffer = [0u8; 7];
+        let mut buffer = [0u8; 1];
         i2c.write_and_read(&data, &mut buffer)?;
 
         let upper = buffer[0] & 0x10;
@@ -196,7 +210,7 @@ fn get_rtc_timestamp (i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<i64>
 
     let year = {
         let data = [YEAR];
-        let mut buffer = [0u8; 7];
+        let mut buffer = [0u8; 1];
         i2c.write_and_read(&data, &mut buffer)?;
 
         let upper = buffer[0] & 0xF0;
@@ -208,7 +222,7 @@ fn get_rtc_timestamp (i2c: &I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<i64>
 
     let month = month.0;
 
-    let time = DateTime::new(year, month, day, hour, minute, second)?;
+    let time = DateTime::new(year, month, wday, mday, hour, minute, second)?;
 
     Ok(time.to_timestamp())
 }
