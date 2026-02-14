@@ -136,9 +136,11 @@ impl Initializable for Hardware {
             let timestamp = self.rtc.get_rtc_timestamp()?;
 
             let now = DateTime::from_timestamp(timestamp)?;
-            log_info!(APP_TAG, "Sync RTS with POWMAN ({})", now);
+            log_info!(APP_TAG, "Sync RTC with POWMAN ({})", now);
 
             self.rtc.set_timestamp(timestamp as u64)?;
+        } else {
+            log_info!(APP_TAG, "RTC is not ready to synch, skipping POWMAN synchronization");
         }
 
         log_info!(APP_TAG, "Hardware initialized successfully heap_free:{}", System::get_free_heap_size());
