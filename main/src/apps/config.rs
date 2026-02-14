@@ -49,7 +49,7 @@ const fn mutex() -> &'static RawMutex {
     unsafe {
         match &*&raw const MUTEX {
             Some(mutex) => mutex,
-            None => panic!("EVENT_HANDLER is not initialized"),
+            None => panic!("MUTEX_HANDLER is not initialized"),
         }
     }
 }
@@ -377,12 +377,12 @@ impl Config {
         // Apply CMake defaults to general config
         config.timezone = defaults::DEFAULT_TIMEZONE;
         config.daylight_saving_time = DaylightSavingTime {
-            start_month: defaults::DAYLIGHT_SAVING_START_MONTH,
-            start_day: defaults::DAYLIGHT_SAVING_START_DAY,
-            start_hour: defaults::DAYLIGHT_SAVING_START_HOUR,
-            end_month: defaults::DAYLIGHT_SAVING_END_MONTH,
-            end_day: defaults::DAYLIGHT_SAVING_END_DAY,
-            end_hour: defaults::DAYLIGHT_SAVING_END_HOUR,
+            start_month: defaults::DEFAULT_DAYLIGHT_SAVING_START_MONTH,
+            start_day: defaults::DEFAULT_DAYLIGHT_SAVING_START_DAY,
+            start_hour: defaults::DEFAULT_DAYLIGHT_SAVING_START_HOUR,
+            end_month: defaults::DEFAULT_DAYLIGHT_SAVING_END_MONTH,
+            end_day: defaults::DEFAULT_DAYLIGHT_SAVING_END_DAY,
+            end_hour: defaults::DEFAULT_DAYLIGHT_SAVING_END_HOUR,
             enabled: defaults::DEFAULT_DAYLIGHT_SAVING
         };
         
