@@ -30,6 +30,7 @@ use osal_rs::utils::{Result, Error};
 
 use osal_rs_serde::{Deserialize, Serialize};
 
+use crate::drivers::date_time::DateTime;
 use crate::drivers::filesystem::{open_flags, FileBytes, Filesystem};
 use crate::drivers::wifi::Auth;
 use crate::drivers::platform::{FS_CONFIG_DIR, FS_SEPARATOR_DIR};
@@ -385,6 +386,22 @@ impl Config {
         config
     }
 
+    pub fn apply_locale(&mut self) {
+        DateTime::set_timezone(self.timezone);
+    }
+
+    pub fn apply_daylight_saving_time(&mut self) {
+        DateTime::set_daylight_saving_time(
+            self.daylight_saving_time.enabled,
+            self.daylight_saving_time.start_month,
+            self.daylight_saving_time.start_day,
+            self.daylight_saving_time.start_hour,
+            self.daylight_saving_time.end_month,
+            self.daylight_saving_time.end_day,
+            self.daylight_saving_time.end_hour,
+        );
+    }
+
     pub const fn new() -> &'static mut Self {
         unsafe {
             &mut *&raw mut CONFIG
@@ -410,12 +427,18 @@ impl Config {
         // If file is empty or doesn't exist, use defaults
         if wifi_json.is_empty() {
             log_info!(APP_TAG, "Config file not found or empty, using defaults");
+
+            let mut default = Self::with_defaults();
+
             unsafe {
-                CONFIG = Self::with_defaults();
+                CONFIG = default;
             }
 
             Self::save()?;
 
+            default.apply_locale();   
+            default.apply_daylight_saving_time();
+            
             return Ok(unsafe { &mut *&raw mut CONFIG });
         }
         
@@ -427,10 +450,13 @@ impl Config {
         };
 
         match from_json::<Config>(&wifi_json) {
-            Ok(config) => {
+            Ok(mut config) => {
+                config.apply_locale();   
+                config.apply_daylight_saving_time();
                 unsafe {
                     CONFIG = config;
                 }
+
                 log_info!(APP_TAG, "Config loaded successfully");
                 Ok(unsafe { &mut *&raw mut CONFIG })
             }
