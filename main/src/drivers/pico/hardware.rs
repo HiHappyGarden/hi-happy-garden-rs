@@ -302,7 +302,17 @@ impl Hardware {
 
         let FsStat{block_size, block_count, blocks_used} = Filesystem::stat_fs()?;
 
-        log_info!(APP_TAG, "Filesystem size:{}, used:{}", block_size * block_count, block_size * blocks_used);
+        let total_size = (block_size as u64) * (block_count as u64);
+        let used_size = (block_size as u64) * (blocks_used as u64);
+        let free_size = total_size - used_size;
+
+        log_info!(
+            APP_TAG, 
+            "Filesystem total:{} bytes ({} KB), used:{} bytes ({} KB), free:{} bytes ({} KB)",
+            total_size, total_size / 1024,
+            used_size, used_size / 1024,
+            free_size, free_size / 1024
+        );
 
         Ok(())
     }
