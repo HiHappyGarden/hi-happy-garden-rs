@@ -396,9 +396,3 @@ impl Debug for DateTime {
         )
     }
 }
-
-macro_rules! date_time_now {
-    ($rtc:expr) => {
-        &crate::drivers::date_time::DateTime::now(&$rtc)
-    };
-}
