@@ -351,8 +351,11 @@ impl Initializable for Config {
             MUTEX = Some(RawMutex::new()?);
         }
 
-        let _ = Self::load()?;
-
+        let config = Self::load()?;
+        config.apply_locale();   
+        config.apply_daylight_saving_time();
+            
+ 
         Ok(())
     }
 }
@@ -428,17 +431,12 @@ impl Config {
         if wifi_json.is_empty() {
             log_info!(APP_TAG, "Config file not found or empty, using defaults");
 
-            let mut default = Self::with_defaults();
-
             unsafe {
-                CONFIG = default;
+                CONFIG = Self::with_defaults();
             }
 
             Self::save()?;
 
-            default.apply_locale();   
-            default.apply_daylight_saving_time();
-            
             return Ok(unsafe { &mut *&raw mut CONFIG });
         }
         
@@ -450,9 +448,7 @@ impl Config {
         };
 
         match from_json::<Config>(&wifi_json) {
-            Ok(mut config) => {
-                config.apply_locale();   
-                config.apply_daylight_saving_time();
+            Ok(config) => {
                 unsafe {
                     CONFIG = config;
                 }
