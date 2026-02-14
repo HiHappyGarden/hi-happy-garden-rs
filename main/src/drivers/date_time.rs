@@ -129,47 +129,44 @@ impl DateTime {
     }
 
     /// Checks if the current date/time is within the daylight saving time period based on the configured start and end dates/times
+    /// START_DAY and END_DAY should be in range 1-31 (not 0-based)
+    /// If START_DAY or END_DAY is greater than the number of days in the month, it will use the last day of that month
     fn is_daylight_saving_time(&self) -> bool {
         if !unsafe {DAYLIGHT_SAVING_TIME_ENABLED} {
             return false;
         }
 
-        let mut start = DateTime {
-            month: unsafe {START_MONTH},
-            mday: unsafe {START_DAY},
-            hour: unsafe {START_HOUR},
-            ..self.clone()
-        };
-        let _ = start.to_timestamp(); // just to validate the start date/time, we ignore the result since we only care about the timestamp of the end date/time for the comparison below
+        let start_month = unsafe {START_MONTH};
+        let start_day = unsafe {START_DAY};
+        let start_hour = unsafe {START_HOUR};
+        let end_month = unsafe {END_MONTH};
+        let end_day = unsafe {END_DAY};
+        let end_hour = unsafe {END_HOUR};
 
-        while start.wday != 0 {
-            start.wday -= 1;
-            start.mday -= 1;
-        }
+        // Calculate DST start date for current year
+        let start_mday = start_day.min(Self::days_in_month(start_month, self.year));
+        let start_timestamp = DateTime::new(self.year, start_month, 0, start_mday, start_hour, 0, 0)
+            .ok()
+            .and_then(|dt| Some(dt.to_timestamp_locale()))
+            .unwrap_or(0);
 
-        let mut end = DateTime {
-            month: unsafe {END_MONTH},
-            mday: unsafe {END_DAY},
-            hour: unsafe {END_HOUR},
-            ..self.clone()
-        };
-        let _ = end.to_timestamp(); // just to validate the end date/time, we ignore the result since we only care about the timestamp of the end date/time for the comparison below
+        // Calculate DST end date for current year
+        let end_mday = end_day.min(Self::days_in_month(end_month, self.year));
+        let end_timestamp = DateTime::new(self.year, end_month, 0, end_mday, end_hour, 0, 0)
+            .ok()
+            .and_then(|dt| Some(dt.to_timestamp_locale()))
+            .unwrap_or(0);
 
-        while end.wday != 0 {
-            end.wday -= 1;
-            end.mday -= 1;
-        }
+        let now_timestamp = self.to_timestamp_locale();
 
-        let now_ts = self.to_timestamp();
-        let start_ts = start.to_timestamp();
-        let end_ts = end.to_timestamp();
-
-        if now_ts >= start_ts && now_ts < end_ts {
-            true
+        // Handle both Northern and Southern hemisphere cases
+        if start_timestamp < end_timestamp {
+            // Northern hemisphere: DST starts in spring, ends in autumn
+            now_timestamp >= start_timestamp && now_timestamp < end_timestamp
         } else {
-            false
+            // Southern hemisphere: DST starts in autumn (year Y), ends in spring (year Y+1)
+            now_timestamp >= start_timestamp || now_timestamp < end_timestamp
         }
-
     }
 
 
