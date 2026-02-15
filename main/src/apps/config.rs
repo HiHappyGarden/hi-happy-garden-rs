@@ -42,7 +42,7 @@ mod defaults {
     include!(concat!(env!("OUT_DIR"), "/defaults.rs"));
 }
 
-const APP_TAG: &str = "Config";
+const APP_TAG: &str = "AppConfig";
 
 static mut MUTEX: Option<RawMutex> = None;
 

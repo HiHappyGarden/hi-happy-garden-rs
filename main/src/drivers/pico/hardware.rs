@@ -204,6 +204,7 @@ impl HardwareFn<'static> for Hardware {
 }
 
 impl SetOnWifiChangeStatus<'static> for Hardware {
+
     fn set_on_wifi_change_status(&mut self, on_wifi_change_status: &'static dyn OnWifiChangeStatus) {
         self.wifi.set_on_wifi_change_status(on_wifi_change_status);
     }

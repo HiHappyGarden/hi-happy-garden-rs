@@ -16,12 +16,32 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
- 
-mod main;
-pub(super) mod config;
-pub(super) mod display;
-pub(super) mod wifi;
 
+use osal_rs::{log_info, utils::Result};
 
-pub use main::AppMain;
+use crate::traits::{state::Initializable, wifi::OnWifiChangeStatus};
 
+const APP_TAG: &str = "AppWifi";
+
+pub struct WifiApp;
+
+impl Initializable for WifiApp {
+    fn init(&mut self) -> Result<()> {
+        log_info!(APP_TAG, "Init app wifi");
+
+        
+        Ok(())
+    }
+}
+
+impl OnWifiChangeStatus<'static> for WifiApp {
+    fn on_status_change(&self, old_status: crate::traits::wifi::WifiStatus, status: crate::traits::wifi::WifiStatus) {
+        log_info!(APP_TAG, "Wifi status changed from {} to {}", old_status, status);
+    }
+}
+
+impl WifiApp {
+    pub const fn new() -> Self {
+        Self
+    }
+}

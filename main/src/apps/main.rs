@@ -23,11 +23,13 @@ use osal_rs::utils::Result;
 
 use crate::apps::config::Config;
 use crate::apps::display::{Display};
+use crate::apps::wifi::WifiApp;
 use crate::drivers::platform::{GpioPeripheral, Hardware, LCDDisplay};
 use crate::traits::hardware::HardwareFn;
 use crate::traits::relays::Relays;
 use crate::traits::rgb_led::RgbLed;
 use crate::traits::state::Initializable;
+use crate::traits::wifi::SetOnWifiChangeStatus;
 
 const APP_TAG: &str = "AppMain";
 
@@ -35,6 +37,7 @@ pub struct AppMain{
     hardware: &'static mut Hardware,
     config: &'static mut Config,
     display: Display<LCDDisplay>,
+    wifi: WifiApp,
 }
 
 
@@ -45,7 +48,7 @@ impl Initializable for AppMain {
         self.config.init()?;
         
         self.display.init()?;
-        
+                
         // SAFETY: AppMain has 'static lifetime since it's created with 'static hardware
         let display_ref: &'static Display<LCDDisplay>  = unsafe { &*(&self.display as *const _) };
         
@@ -53,6 +56,8 @@ impl Initializable for AppMain {
         
         self.hardware.set_encoder_handler(display_ref);
     
+        self.wifi.init()?;
+        self.hardware.set_on_wifi_change_status(&mut self.wifi);
 
 //test funzionalità
 
@@ -80,6 +85,7 @@ impl AppMain {
             hardware,
             config: Config::new(),
             display,
+            wifi: WifiApp::new(),
         }
     }
 }
