@@ -115,8 +115,8 @@ impl Default for DaylightSavingTime {
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct WifiConfig {
     ssid: Bytes<32>,
-    password: Bytes<64>,
-    hostname: Bytes<32>,
+    password: Bytes<32>,
+    hostname: Bytes<64>,
     auth: Auth,
     enabled: bool,
 }
@@ -141,14 +141,14 @@ impl WifiConfig {
         ssid
     }
 
-    pub fn get_password(&self) -> &Bytes<64> {
+    pub fn get_password(&self) -> &Bytes<32> {
         mutex().lock();
         let password = &self.password;
         mutex().unlock();
         password
     }
 
-    pub fn get_hostname(&self) -> &Bytes<32> {
+    pub fn get_hostname(&self) -> &Bytes<64> {
         mutex().lock();
         let hostname = &self.hostname;
         mutex().unlock();
@@ -175,13 +175,13 @@ impl WifiConfig {
         mutex().unlock();
     }
 
-    pub fn set_password(&mut self, password: Bytes<64>) {
+    pub fn set_password(&mut self, password: Bytes<32>) {
         mutex().lock();
         self.password = password;
         mutex().unlock();
     }
 
-    pub fn set_hostname(&mut self, hostname: Bytes<32>) {
+    pub fn set_hostname(&mut self, hostname: Bytes<64>) {
         mutex().lock();
         self.hostname = hostname;
         mutex().unlock();
@@ -276,7 +276,7 @@ impl NtpConfig {
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct UserConfig {
     user: Bytes<32>,
-    password: Bytes<64>
+    password: Bytes<32>
 }
 
 impl Default for UserConfig {
@@ -296,7 +296,7 @@ impl UserConfig {
         user
     }
 
-    pub fn get_password(&self) -> &Bytes<64> {
+    pub fn get_password(&self) -> &Bytes<32> {
         mutex().lock();
         let password = &self.password;
         mutex().unlock();
@@ -309,7 +309,7 @@ impl UserConfig {
         mutex().unlock();
     }
 
-    pub fn set_password(&mut self, password: Bytes<64>) {
+    pub fn set_password(&mut self, password: Bytes<32>) {
         mutex().lock();
         self.password = password;
         mutex().unlock();

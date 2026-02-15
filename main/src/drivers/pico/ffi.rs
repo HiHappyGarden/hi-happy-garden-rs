@@ -93,8 +93,6 @@ unsafe impl Send for MbedtlsAes {}
 unsafe impl Sync for MbedtlsAes {}
 
 
-pub type irq_handler_t = unsafe extern "C" fn();
-
 // Type aliases for littlefs types
 pub type LfsSize = u32;
 pub type LfsSsize = i32;
@@ -154,7 +152,7 @@ unsafe extern "C" {
     pub(super) fn hhg_uart_deinit();
     pub(super) fn hhg_uart_set_hw_flow(cts: bool, rts: bool);
     pub(super) fn hhg_uart_set_format(data_bits: c_uint, stop_bits: c_uint, parity: uart_parity);
-    pub(super) fn hhg_uart_irq_set_exclusive_handler(handler: irq_handler_t);
+    pub(super) fn hhg_uart_irq_set_exclusive_handler(handler: unsafe extern "C" fn());
     pub(super) fn hhg_uart_irq_set_enabled(enabled: bool);
     pub(super) fn hhg_uart_set_irq_enables(rx_en: bool, tx_en: bool);
     pub(super) fn hhg_uart_is_readable() -> bool;
@@ -180,15 +178,15 @@ unsafe extern "C" {
     pub(super) fn hhg_dhcp_get_ip_address() -> *const c_char;
     pub(super) fn hhg_dhcp_get_binary_ip_address() -> c_uint;
     pub(super) fn hhg_dhcp_supplied_address() -> bool;
-
     pub(super) fn hhg_udp_new_ip_type(_type: c_uchar) -> *mut c_void;
-    //pub(super) fn hhg_udp_recv(pcb: *mut c_void, recv: udp_recv_fn, recv_arg: *mut c_void);
     pub(super) fn hhg_pbuf_copy_partial(buf: *mut c_void, dataptr: *mut c_void, len: u16, offset: u16) -> u16;
     pub(super) fn hhg_pbuf_alloc(length: c_ushort) -> *mut c_void;
     pub(super) fn hhg_pbuf_free(p: *mut c_void) -> c_uchar;
     pub(super) fn hhg_netif_is_link_up() -> c_uchar;
     pub(super) fn hhg_ip_addr_cmp(addr: *const ip_addr, addr2: *const ip_addr) -> i32;
-    
+    pub(super) fn hhg_dns_gethostbyname(hostname: *const c_char, addr: *mut ip_addr, dns_found_callback: extern "C" fn(name: *const c_char, ipaddr: *const ip_addr, callback_arg: *mut c_void), callback_arg: *mut c_void) -> c_char;
+
+
     pub(super) fn hhg_i2c_instance(i2c_num: u8) -> *mut c_void;
     pub(super) fn hhg_i2c_init(i2c: *mut c_void, baudrate: c_uint) -> c_uint;
     pub(super) fn hhg_i2c0_init_pins_with_func();

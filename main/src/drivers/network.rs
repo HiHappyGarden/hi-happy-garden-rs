@@ -16,9 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
-use alloc::boxed::Box;
 
-use core::any::Any;
 use core::ffi::c_void;
 
 use osal_rs::utils::{Bytes, Error, Result};
@@ -28,8 +26,8 @@ use crate::drivers::wifi::Auth;
 use crate::traits::network::{IPV6_ADDR_LEN, IpAddress};
 
 static mut WIFI_SSID: Bytes<32> = Bytes::new();
-static mut WIFI_PASSWORD: Bytes<64> = Bytes::new();
-static mut WIFI_HOSTNAME: Bytes<32> = Bytes::new();
+static mut WIFI_PASSWORD: Bytes<32> = Bytes::new();
+static mut WIFI_HOSTNAME: Bytes<64> = Bytes::new();
 static mut WIFI_AUTH: Auth = Auth::Wpa2;
 static mut WIFI_ENABLED: bool = false;
 
@@ -133,8 +131,8 @@ impl Network {
 
     pub fn set_wifi(
         ssid: Bytes<32>,
-        password: Bytes<64>,
-        hostname: Bytes<32>,
+        password: Bytes<32>,
+        hostname: Bytes<64>,
         auth: Auth,
         enabled: bool,
     ) {
