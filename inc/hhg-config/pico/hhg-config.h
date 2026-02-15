@@ -26,5 +26,8 @@
 #define HHG_VER_MINOR (1)
 #define HHG_VER_PATCH (0)
 
+#define HHG_DEFAULT_NTP_MSG_LEN (48)
+#define HHG_DEFAULT_NTP_PORT (123)
+#define HHG_DEFAULT_NTP_SERVER "0.europe.pool.ntp.org"
 
 #endif // HHG_CONFIG_H

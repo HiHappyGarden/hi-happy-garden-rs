@@ -107,12 +107,13 @@ pub struct Udp(pub *mut c_void);
 pub type UdpRecvFn = dyn Fn(dyn Any);
 
 #[allow(dead_code)]
-pub struct NetworkFn {
+pub struct NetworkFn<'a> {
     pub get_ip_address: fn() -> Bytes<IPV6_ADDR_LEN>,
     pub get_binary_ip_address: fn() -> u32,
     pub supplied_address: fn() -> bool,
     pub udp_new_ip_type: fn(ip_type: IpType) -> Result<Udp>,
-    pub udp_recv: fn(pcb: &Udp, recv: Box<UdpRecvFn>),
+    pub udp_recv: fn(pcb: &Udp, callback: fn(i64)),
+    pub dns_resolve_addrress: fn(hostname: &Bytes<32>) -> Result<&'a dyn IpAddress>,
     pub is_link_up: fn() -> bool,
 }
 
@@ -167,8 +168,12 @@ impl Network {
     }
 
     #[inline]
-    pub fn udp_recv(pcb: &Udp, recv: Box<UdpRecvFn>) {
+    pub fn udp_recv(pcb: &Udp, recv: fn(i64)) {
         (NETWORK_FN.udp_recv)(pcb, recv)
+    }
+
+    pub fn dns_resolve_addrress<'a>(hostname: &Bytes<32>) -> Result<&'a dyn IpAddress> {
+        (NETWORK_FN.dns_resolve_addrress)(hostname)
     }
 
     #[inline]
