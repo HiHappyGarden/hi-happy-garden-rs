@@ -32,6 +32,7 @@ use osal_rs_serde::{Deserialize, Serialize};
 
 use crate::drivers::date_time::DateTime;
 use crate::drivers::filesystem::{open_flags, FileBytes, Filesystem};
+use crate::drivers::network::Network;
 use crate::drivers::wifi::Auth;
 use crate::drivers::platform::{FS_CONFIG_DIR, FS_SEPARATOR_DIR};
 use crate::traits::state::Initializable;
@@ -354,8 +355,9 @@ impl Initializable for Config {
         let config = Self::load()?;
         config.apply_locale();   
         config.apply_daylight_saving_time();
-            
- 
+        config.apply_ntp();
+        config.apply_wifi();
+
         Ok(())
     }
 }
@@ -369,10 +371,13 @@ impl Config {
         let mut config = Self::default();
         
         // Apply CMake defaults to WiFi config
-        config.wifi.ssid = Bytes::new_by_str(defaults::DEFAULT_WIFI_SSID);
-        config.wifi.password = Bytes::new_by_str(defaults::DEFAULT_WIFI_PASSWORD);
-        config.wifi.hostname = Bytes::new_by_str(defaults::DEFAULT_WIFI_HOSTNAME);
-        config.wifi.enabled = defaults::DEFAULT_WIFI_ENABLED;
+        config.wifi = WifiConfig {
+            ssid: Bytes::new(),
+            password: Bytes::new(),
+            hostname: Bytes::new(),
+            auth: defaults::DEFAULT_WIFI_AUTH.into(),
+            enabled: defaults::DEFAULT_WIFI_ENABLED,
+        };
         
         // Apply CMake defaults to general config
         config.timezone = defaults::DEFAULT_TIMEZONE;
@@ -389,11 +394,11 @@ impl Config {
         config
     }
 
-    pub fn apply_locale(&mut self) {
+    pub fn apply_locale(&self) {
         DateTime::set_timezone(self.timezone);
     }
 
-    pub fn apply_daylight_saving_time(&mut self) {
+    pub fn apply_daylight_saving_time(&self) {
         DateTime::set_daylight_saving_time(
             self.daylight_saving_time.enabled,
             self.daylight_saving_time.start_month,
@@ -402,6 +407,25 @@ impl Config {
             self.daylight_saving_time.end_month,
             self.daylight_saving_time.end_day,
             self.daylight_saving_time.end_hour,
+        );
+    }
+
+    pub fn apply_ntp(&self) {
+        Network::set_ntp(
+            self.ntp.get_server().clone(),
+            self.ntp.get_port(),
+            self.ntp.get_msg_len(),
+            self.ntp.is_enabled()
+        );
+    }
+
+    pub fn apply_wifi(&self) {
+        Network::set_wifi(
+            self.wifi.get_ssid().clone(),
+            self.wifi.get_password().clone(),
+            self.wifi.get_hostname().clone(),
+            self.wifi.get_auth(),
+            self.wifi.is_enabled()
         );
     }
 

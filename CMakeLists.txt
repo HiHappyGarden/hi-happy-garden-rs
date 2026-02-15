@@ -115,10 +115,9 @@ endif()
 set(CARGO_TARGET "thumbv8m.main-none-eabi")
 set(CARGO_BUILD_DIR "${CMAKE_BINARY_DIR}/main")
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/hhg-config.h.in ${CMAKE_CURRENT_SOURCE_DIR}/inc/hhg-config/pico/hhg-config.h)
-
 # Default configuration options
 option(HHG_DEFAULT_WIFI_HOSTNAME "Default WiFi hostname" "${PROJECT_NAME}")
+option(HHG_DEFAULT_WIFI_AUTH "Enable WiFi authentication by default" 3)
 option(HHG_DEFAULT_WIFI_ENABLED "Enable WiFi by default" OFF)
 option(HHG_DEFAULT_TIMEZONE "Default timezone offset" 0)
 option(HHG_DEFAULT_DAYLIGHT_SAVING "Enable daylight saving time by default" OFF)
@@ -147,6 +146,13 @@ if(HHG_DEFAULT_TIMEZONE)
     set(HHG_DEFAULT_TIMEZONE "${HHG_DEFAULT_TIMEZONE}")
 else()
     set(HHG_DEFAULT_TIMEZONE 60)
+endif()
+
+
+if(HHG_DEFAULT_WIFI_AUTH)
+    set(HHG_DEFAULT_WIFI_AUTH ${HHG_DEFAULT_WIFI_AUTH})
+else()
+    set(HHG_DEFAULT_WIFI_AUTH 3)
 endif()
 
 if(HHG_DEFAULT_WIFI_ENABLED)
@@ -228,6 +234,7 @@ if(HHG_DEFAULT_WIFI_PASSWORD)
     message(STATUS "HHG_DEFAULT_WIFI_PASSWORD: is set")
 endif()
 message(STATUS "HHG_DEFAULT_WIFI_HOSTNAME: ${HHG_DEFAULT_WIFI_HOSTNAME}")
+message(STATUS "HHG_DEFAULT_WIFI_AUTH: ${HHG_DEFAULT_WIFI_AUTH}")
 message(STATUS "HHG_DEFAULT_WIFI_ENABLED: ${RUST_WIFI_ENABLED}")
 message(STATUS "HHG_DEFAULT_TIMEZONE: ${HHG_DEFAULT_TIMEZONE}")
 message(STATUS "HHG_DEFAULT_DAYLIGHT_SAVING: ${HHG_DEFAULT_DAYLIGHT_SAVING}")
@@ -247,6 +254,9 @@ endif()
 if(HHG_AES_IV_SALT) 
     message(STATUS "HHG_AES_IV_SALT: is set")
 endif()
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/hhg-config.h.in ${CMAKE_CURRENT_SOURCE_DIR}/inc/hhg-config/pico/hhg-config.h)
+
 
 # Determine Rust build profile based on CMAKE_BUILD_TYPE
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")

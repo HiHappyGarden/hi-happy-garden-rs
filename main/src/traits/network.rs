@@ -16,17 +16,35 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
- 
-pub mod button;
-pub mod draw;
-pub mod encoder;
-pub mod hardware;
-pub mod lcd_display;
-pub mod network;
-pub mod relays;
-pub mod rgb_led;
-pub mod rtc;
-pub mod rx_tx;
-pub mod state;
-pub mod wifi;
+
+#![allow(dead_code)]
+
+use osal_rs::utils::Bytes;
+
+pub(crate) const IPV6_ADDR_LEN: usize = 40;
+
+pub trait IpAddress {
+    
+    fn is_ipv4(&self, bytes: Bytes<IPV6_ADDR_LEN>) -> bool {
+        let mut counter = 0u8;
+        for &byte in bytes.as_slice() {
+            if byte == b':' {
+                counter += 1;
+            }
+        }
+        counter == 4
+    }
+
+
+    fn is_ipv6(&self, bytes: Bytes<IPV6_ADDR_LEN>) -> bool {
+        let mut counter = 0u8;
+        for &byte in bytes.as_slice() {
+            if byte == b':' {
+                counter += 1;
+            }
+        }
+        counter == 7
+    }
+
+}
 
