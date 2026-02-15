@@ -102,16 +102,12 @@ impl IP6Addr {
 pub struct Udp(pub *mut c_void);
 
 #[allow(dead_code)]
-pub type UdpRecvFn = dyn Fn(dyn Any);
-
-#[allow(dead_code)]
 pub struct NetworkFn<'a> {
-    pub get_ip_address: fn() -> Bytes<IPV6_ADDR_LEN>,
-    pub get_binary_ip_address: fn() -> u32,
-    pub supplied_address: fn() -> bool,
-    pub udp_new_ip_type: fn(ip_type: IpType) -> Result<Udp>,
-    pub udp_recv: fn(pcb: &Udp, callback: fn(i64)),
-    pub dns_resolve_addrress: fn(hostname: &Bytes<32>) -> Result<&'a dyn IpAddress>,
+    pub dhcp_get_ip_address: fn() -> Bytes<IPV6_ADDR_LEN>,
+    pub dhcp_get_binary_ip_address: fn() -> u32,
+    pub dhcp_supplied_address: fn() -> bool,
+    pub dns_resolve_addrress: fn(hostname: &Bytes<64>) -> Result<&'a dyn IpAddress>,
+    pub ntp_request: fn(ipaddr_dest: &'a dyn IpAddress, port: u16, msg_len: u16) -> Result<()>,
     pub is_link_up: fn() -> bool,
 }
 
@@ -146,36 +142,33 @@ impl Network {
     }
 
     #[inline]
-    pub fn get_ip_address() -> Bytes<IPV6_ADDR_LEN> {
-        (NETWORK_FN.get_ip_address)()
+    pub fn dhcp_get_ip_address() -> Bytes<IPV6_ADDR_LEN> {
+        (NETWORK_FN.dhcp_get_ip_address)()
     }
 
     #[inline]
-    pub fn get_binary_ip_address() -> u32 {
-        (NETWORK_FN.get_binary_ip_address)()
+    pub fn dhcp_get_binary_ip_address() -> u32 {
+        (NETWORK_FN.dhcp_get_binary_ip_address)()
     }
 
     #[inline]
-    pub fn supplied_address() -> bool {
-        (NETWORK_FN.supplied_address)()
+    pub fn dhcp_supplied_address() -> bool {
+        (NETWORK_FN.dhcp_supplied_address)()
     }
 
-    #[inline]
-    pub fn udp_new_ip_type(ip_type: IpType) -> Result<Udp> {
-        (NETWORK_FN.udp_new_ip_type)(ip_type)
-    }
-
-    #[inline]
-    pub fn udp_recv(pcb: &Udp, recv: fn(i64)) {
-        (NETWORK_FN.udp_recv)(pcb, recv)
-    }
-
-    pub fn dns_resolve_addrress<'a>(hostname: &Bytes<32>) -> Result<&'a dyn IpAddress> {
+    pub fn dns_resolve_addrress<'a>(hostname: &Bytes<64>) -> Result<&'a dyn IpAddress> {
         (NETWORK_FN.dns_resolve_addrress)(hostname)
+    }
+
+    pub fn ntp_request(ipaddr_dest: &'static dyn IpAddress, port: u16, msg_len: u16) -> Result<()> {
+        (NETWORK_FN.ntp_request)(ipaddr_dest, port, msg_len)
     }
 
     #[inline]
     pub fn is_link_up() -> bool {
         (NETWORK_FN.is_link_up)()
     }
+
+
+
 }

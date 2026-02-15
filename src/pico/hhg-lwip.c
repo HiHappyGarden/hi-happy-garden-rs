@@ -48,50 +48,6 @@ u16_t hhg_pbuf_copy_partial(const void *buf, void *dataptr, u16_t len, u16_t off
     return pbuf_copy_partial((const struct pbuf *)buf, dataptr, len, offset);
 }
 
-
-    // void ntp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port)
-    // {
-    //     auto state = static_cast<struct ntp*>(arg);
-    //     uint8_t mode = pbuf_get_at(p, 0) & 0x7;
-    //     uint8_t stratum = pbuf_get_at(p, 1);
-
-    //     // Check the result
-    //     if (ip_addr_cmp(addr, &state->server_address) && port == HHG_NTP_PORT && p->tot_len == HHG_NTP_MSG_LEN && mode == 0x4 && stratum != 0)
-    //     {
-    //         uint8_t seconds_buf[4] = {0};
-    //         pbuf_copy_partial(p, seconds_buf, sizeof(seconds_buf), 40);
-    //         uint32_t seconds_since_1900 = seconds_buf[0] << 24 | seconds_buf[1] << 16 | seconds_buf[2] << 8 | seconds_buf[3];
-    //         uint32_t seconds_since_1970 = seconds_since_1900 - NTP_DELTA;
-    //         time_t epoch = seconds_since_1970;
-    //         if(state->on_callback)
-    //         {
-    //             state->on_callback(exit::OK, epoch);
-    //         }
-    //         singleton->ntp.state = ntp::state::NONE;
-    //     }
-    //     else
-    //     {
-    //         if(state->error)
-    //         {
-    //             *state->error = OSAL_ERROR_APPEND(*state->error, "Invalid ntp response", error_type::OS_ECONNABORTED);
-    //             OSAL_ERROR_PTR_SET_POSITION(*state->error);
-    //         }
-
-    //         OSAL_LOG_DEBUG(APP_TAG, "NTP request - KO");
-    //         if(state->on_callback)
-    //         {
-    //             state->on_callback(exit::KO, 0);
-    //         }
-    //     }
-    //     pbuf_free(p);
-    // }
-
-//void             udp_recv       (struct udp_pcb *pcb, udp_recv_fn recv, void *recv_arg);
-
-void hhg_udp_recv(void *pcb, udp_recv_fn recv, void *recv_arg) {
-    udp_recv((struct udp_pcb *)pcb, recv, recv_arg);
-}
-
 void * hhg_pbuf_alloc(u16_t length) {
     return pbuf_alloc(PBUF_TRANSPORT, length, PBUF_RAM);
 }
@@ -109,33 +65,58 @@ u8_t hhg_ip_addr_cmp(const ip_addr_t *addr, const ip_addr_t *addr2) {
 }
 
 
-    // void dns_found(const char *hostname, const ip_addr_t *ipaddr, void *arg)
-    // {
-    //     auto state = static_cast<struct ntp*>(arg);
-    //     if (ipaddr)
-    //     {
-    //         state->server_address = *ipaddr;
-    //         OSAL_LOG_DEBUG(APP_TAG, "NTP address %s", ipaddr_ntoa(ipaddr));
-
-    //         singleton->ntp.state = ntp::state::DNS_FOUND;
-
-    //         ntp_request(state);
-    //     }
-    //     else
-    //     {
-    //         OSAL_LOG_DEBUG(APP_TAG, "NTP dns request failed");
-    //         if(state->error && *state->error)
-    //         {
-    //             *state->error = OSAL_ERROR_APPEND(*state->error, "NTP dns request failed", error_type::OS_EADDRNOTAVAIL);
-    //             OSAL_ERROR_PTR_SET_POSITION(*state->error);
-    //         }
-
-    //         singleton->ntp.state = ntp::state::NONE;
-    //     }
-    // }
-
-
-//typedef void (*dns_found_callback)(const char *name, const ip_addr_t *ipaddr, void *callback_arg);
 s8_t hhg_dns_gethostbyname(const char *hostname, ip_addr_t *addr, dns_found_callback found, void *callback_arg) {
     return dns_gethostbyname(hostname, addr, found, callback_arg);
 }
+
+
+//-----------------test functions-----------------
+
+static ip_addr_t static_ip_addr = {0};
+static void dns_found(const char *hostname, const ip_addr_t *ipaddr, void *arg)
+{
+    void (*dns_found)(bool found, const ip_addr_t *addr) = (void (*)(bool, const ip_addr_t *))arg;
+    if (ipaddr)
+    {
+        dns_found(true, ipaddr);
+    }
+    else
+    {
+        dns_found(false, NULL);
+        free(arg);
+    }
+    
+}
+
+void hhg_udp_recv(void *pcb, udp_recv_fn recv, void *recv_arg) {
+    udp_recv((struct udp_pcb *)pcb, recv, recv_arg);
+}
+
+static struct udp_pcb *pcb = NULL;
+s8_t hhg_ntp_request(const ip_addr_t *ipaddr_dest, s16_t port, s16_t msg_size) {
+    // cyw43_arch_lwip_begin/end should be used around calls into lwIP to ensure correct locking.
+    // You can omit them if you are in a callback from lwIP. Note that when using pico_cyw_arch_poll
+    // these calls are a no-op and can be omitted, but it is a good practice to use them in
+    // case you switch the cyw43_arch type later.
+    
+    cyw43_arch_lwip_begin();
+    struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, msg_size, PBUF_RAM);
+    if(!p)
+    {
+        cyw43_arch_lwip_end();
+        return -1;
+    }
+
+    uint8_t* req = (uint8_t*)p->payload;
+    memset(req, 0, msg_size);
+    req[0] = 0x1b;
+
+    pcb = udp_new_ip_type(IPADDR_TYPE_V4);
+    udp_sendto(pcb, p, ipaddr_dest, port);
+
+    pbuf_free(p);
+    cyw43_arch_lwip_end();
+
+    return 0;
+}
+

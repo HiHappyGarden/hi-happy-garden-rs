@@ -16,24 +16,23 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
-use alloc::boxed::Box;
+
 use core::slice::from_raw_parts;
 use osal_rs::utils::{Bytes, Error, Result};
-use crate::drivers::network::{IpType, NetworkFn, Udp, UdpRecvFn};
-use crate::drivers::plt::ffi::{hhg_dhcp_get_binary_ip_address, hhg_dhcp_get_ip_address, hhg_dhcp_supplied_address, hhg_netif_is_link_up, hhg_udp_new_ip_type};
+use crate::drivers::network::NetworkFn;
+use crate::drivers::plt::ffi::{hhg_dhcp_get_binary_ip_address, hhg_dhcp_get_ip_address, hhg_dhcp_supplied_address, hhg_netif_is_link_up};
 use crate::traits::network::{IPV6_ADDR_LEN, IpAddress};
 
 pub static NETWORK_FN: NetworkFn = NetworkFn {
-    get_ip_address,
-    get_binary_ip_address,
-    supplied_address,
-    udp_new_ip_type,
-    udp_recv,
+    dhcp_get_ip_address,
+    dhcp_get_binary_ip_address,
+    dhcp_supplied_address,
     dns_resolve_addrress,
+    ntp_request,
     is_link_up
 };
 
-fn get_ip_address() -> Bytes<IPV6_ADDR_LEN> {
+fn dhcp_get_ip_address() -> Bytes<IPV6_ADDR_LEN> {
 
     let ret = unsafe { hhg_dhcp_get_ip_address() };
 
@@ -48,31 +47,23 @@ fn get_ip_address() -> Bytes<IPV6_ADDR_LEN> {
 }
 
 #[inline]
-fn get_binary_ip_address() -> u32 {
+fn dhcp_get_binary_ip_address() -> u32 {
     unsafe { hhg_dhcp_get_binary_ip_address() }
 }
 
 
-fn supplied_address() -> bool {
+fn dhcp_supplied_address() -> bool {
     unsafe { hhg_dhcp_supplied_address() }
 }
 
-fn udp_new_ip_type(ip_type: IpType) -> Result<Udp> {
-    let ret = unsafe { hhg_udp_new_ip_type(ip_type as u8) };
-    if ret.is_null() {
-        return Err(Error::NullPtr);
-    }
-
-    Ok(Udp(ret))
-}
     
-
-fn udp_recv(_pcb: &Udp, _callback: fn(i64)) {
-
+fn dns_resolve_addrress<'a>(_hostname: &Bytes<64>) -> Result<&'a dyn IpAddress> {
+    Err(Error::Empty)
 }
 
-pub fn dns_resolve_addrress<'a>(_hostname: &Bytes<32>) -> Result<&'a dyn IpAddress> {
-    Err(Error::Empty)
+fn ntp_request(_ipaddr_dest: &'static dyn IpAddress, _port: u16, _msg_len: u16) -> Result<()> {
+    //unsafe { hhg_ntp_request(server.as_ptr() as *const _, port as i16, msg_len as i16) };
+    Ok(())
 }
 
 fn is_link_up() -> bool {
