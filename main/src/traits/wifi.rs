@@ -21,7 +21,7 @@
 #![allow(dead_code)]
 
 use core::fmt::Display;
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum WifiStatus {
     Disabled,
     Enabling,

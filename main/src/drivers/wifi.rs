@@ -21,11 +21,12 @@
 use core::ffi::c_void;
 use core::ptr::null_mut;
 use core::time::Duration;
-use osal_rs::{log_error, log_info};
+use osal_rs::{log_debug, log_error, log_info};
 use osal_rs::os::{System, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
 use osal_rs::utils::Result;
 use osal_rs_serde::{Deserialize, Serialize};
+use crate::apps::config::Config;
 use crate::traits::state::Initializable;
 use crate::drivers::platform::ThreadPriority;
 use crate::drivers::pico::wifi_cyw43::WIFI_FN;
@@ -34,7 +35,7 @@ use crate::traits::wifi::WifiStatus::Disconnecting;
 
 const APP_TAG: &str = "WIFI";
 const APP_THREAD_NAME: &str = "wifi_trd";
-const APP_STACK_SIZE: StackType = 256;
+const APP_STACK_SIZE: StackType = 512;
 
 static mut FSM_STATUS_CURRENT: WifiStatus = WifiStatus::Disabled;
 static mut FSM_STATUS_OLD: WifiStatus = WifiStatus::Disabled;
@@ -129,50 +130,81 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
             use WifiStatus::*;
 
+            
+
             unsafe {
                 loop {
                     match FSM_STATUS_CURRENT {
                         Disabled => {
-                            log_info!(APP_TAG, "WiFi FSM: Disabled -> Enabling");
+                            log_debug!(APP_TAG, "Disabled");
 
                             FSM_STATUS_OLD = FSM_STATUS_CURRENT;
                             FSM_STATUS_CURRENT = Enabling;
                             on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
                         },
                         Enabling => {
-                            log_info!(APP_TAG, "WiFi FSM: Enabling -> Enabled");
+                            log_debug!(APP_TAG, "Disabled -> Enabling");
+
+                            log_info!(APP_TAG, "Try to enable WiFi in station mode");
+
+                            (WIFI_FN.enable_sta_mode)(null_mut());
+
+                            System::delay_with_to_tick(Duration::from_millis(500));
 
                             FSM_STATUS_OLD = FSM_STATUS_CURRENT;
                             FSM_STATUS_CURRENT = Enabled;
                             on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
                         },
                         Enabled => {
-                            log_info!(APP_TAG, "WiFi FSM: Enabled -> Connecting");
+                            log_debug!(APP_TAG, "Enabling -> Enabled");
+
+                            let config = Config::new().get_wifi_config();
+
+                            let _ = (WIFI_FN.connect)(null_mut(), config.get_auth(), config.get_ssid().to_bytes(), config.get_password().to_bytes());
+
+
                             FSM_STATUS_OLD = FSM_STATUS_CURRENT;
                             FSM_STATUS_CURRENT = Connecting;
                             on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
                         },
                         Connecting => {
-                            log_info!(APP_TAG, "WiFi FSM: Connecting -> Connected");
-                            FSM_STATUS_OLD = FSM_STATUS_CURRENT;
-                            FSM_STATUS_CURRENT = Connected;
-                            on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
+                            log_debug!(APP_TAG, "Enabled -> Connecting");
+
+// #define CYW43_LINK_JOIN         (1)     ///< Connected to wifi
+// #define CYW43_LINK_NOIP         (2)     ///< Connected to wifi, but no IP address
+// #define CYW43_LINK_UP           (3)     ///< Connected to wifi with an IP address
+
+                            match (WIFI_FN.link_status)(null_mut()) {
+                                i if i == 1 => log_info!(APP_TAG, "Connected to WiFi, but no IP address"),
+                                i if i == 2 => log_info!(APP_TAG, "Connected to WiFi, but no IP address"),
+                                i if i == 3 => {
+                                    log_info!(APP_TAG, "Connected to WiFi with IP address");
+                                    FSM_STATUS_OLD = FSM_STATUS_CURRENT;
+                                    FSM_STATUS_CURRENT = Connected;
+                                    on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
+                                },
+                                i => log_info!(APP_TAG, "status:{}", i),
+                            }
+
+                            
                         },
                         Connected => {
-                            log_info!(APP_TAG, "WiFi FSM: Connected -> Disconnecting");
+                            log_debug!(APP_TAG, "Connecting -> Connected");
                             FSM_STATUS_OLD = FSM_STATUS_CURRENT;
-                            FSM_STATUS_CURRENT = Disconnecting;
-                            on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
+                            //FSM_STATUS_CURRENT = Disconnecting;
+                            if FSM_STATUS_OLD != FSM_STATUS_CURRENT {
+                                on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
+                            }
                         },
                         Disconnecting => {
-                            log_info!(APP_TAG, "WiFi FSM: Disconnecting -> Disabled");
+                            log_debug!(APP_TAG, "Disconnecting -> Disabled");
                             FSM_STATUS_OLD = FSM_STATUS_CURRENT;
                             FSM_STATUS_CURRENT = Disabled;
                             on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
                             break;
                         },
                         Error => {
-                            log_info!(APP_TAG, "WiFi FSM: Error -> Disabled");
+                            log_debug!(APP_TAG, "Error -> Disabled");
                             FSM_STATUS_OLD = FSM_STATUS_CURRENT;
                             FSM_STATUS_CURRENT = Disabled;
                             on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);

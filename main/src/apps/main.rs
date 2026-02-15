@@ -57,7 +57,9 @@ impl Initializable for AppMain {
         self.hardware.set_encoder_handler(display_ref);
     
         self.wifi.init()?;
-        self.hardware.set_on_wifi_change_status(&mut self.wifi);
+        
+
+        self.hardware.set_on_wifi_change_status(unsafe { &mut *&raw mut self.wifi });
 
 //test funzionalità
 
