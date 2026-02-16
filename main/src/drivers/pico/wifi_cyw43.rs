@@ -17,12 +17,13 @@
  *
  ***************************************************************************/
 use alloc::ffi::CString;
+use alloc::format;
 use core::ffi::c_void;
 use core::ptr::null_mut;
 use osal_rs::utils::{Error, Result};
 use crate::drivers::pico::ffi::{hhg_cyw43_arch_disable_sta_mode, hhg_cyw43_arch_enable_sta_mode, hhg_cyw43_arch_init, hhg_cyw43_wifi_link_status};
 use crate::drivers::pico::ffi::cyw43_auth::{OPEN, WPA_TKIP_PSK, WPA2_AES_PSK, WPA2_MIXED_PSK, WPA3_SAE_AES_PSK, WPA3_WPA2_AES_PSK};
-use crate::drivers::plt::ffi::{hhg_cyw43_arch_deinit, hhg_cyw43_arch_wifi_connect_async, CYW43Itf};
+use crate::drivers::plt::ffi::{hhg_cyw43_arch_deinit, hhg_cyw43_arch_wifi_connect_async};
 use crate::drivers::wifi::{Auth, WifiFn};
 
 pub const WIFI_FN: WifiFn = WifiFn {
@@ -34,11 +35,11 @@ pub const WIFI_FN: WifiFn = WifiFn {
     drop,
 };
 
-fn  init() -> Result<(*mut c_void, i32)> {
+fn  init() -> Result<*mut c_void> {
 
     let ret = unsafe { hhg_cyw43_arch_init() };
     if ret == 0 {
-        Ok((null_mut(),0))
+        Ok(null_mut())
     } else {
         Err(Error::ReturnWithCode(ret))
     }
@@ -56,7 +57,7 @@ fn disable_sta_mode(_: *mut c_void) {
     unsafe { hhg_cyw43_arch_disable_sta_mode(); }
 }
 
-fn  connect(_: *mut c_void, auth: Auth, ssid: &[u8], password: &[u8]) -> Result<i32> {
+fn  connect(_: *mut c_void, ssid: &str, password: &str, auth: Auth) -> Result<i32> {
     let pico_auth = match auth {
         Auth::Open => OPEN,
         Auth::Wpa => WPA_TKIP_PSK,
@@ -67,17 +68,20 @@ fn  connect(_: *mut c_void, auth: Auth, ssid: &[u8], password: &[u8]) -> Result<
         _ => return Err(Error::ReturnWithCode(-10))
     };
 
-    let ret = unsafe { hhg_cyw43_arch_wifi_connect_async( CString::new(ssid).map_err(|_| Error::NullPtr )?.into_raw(),  CString::new(password).map_err(|_| Error::NullPtr )?.into_raw(), pico_auth) };
-    if ret == 0 {
-        Ok(0)
+    let ssid = CString::new(ssid).map_err(|e| Error::UnhandledOwned(format!("SSID contains null byte: {}", e)))?;
+    let password = CString::new(password).map_err(|e| Error::UnhandledOwned(format!("Password contains null byte: {}", e)))?;
+
+    let ret = unsafe { hhg_cyw43_arch_wifi_connect_async(ssid.as_ptr(), password.as_ptr(), pico_auth) };
+    if ret > 0 {
+        Ok(ret)
     } else {
         Err(Error::ReturnWithCode(ret))
     }
 }
 
 #[inline]
-fn link_status(_: *mut c_void) -> i32 {
-    unsafe { hhg_cyw43_wifi_link_status(CYW43Itf::STA as u32) }
+fn link_status(_: *mut c_void, conf: i32) -> i32 {
+    unsafe { hhg_cyw43_wifi_link_status(conf) }
 }
 
 #[inline]

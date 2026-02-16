@@ -169,7 +169,7 @@ unsafe extern "C" {
     pub(super) fn hhg_cyw43_arch_deinit();
     pub(super) fn hhg_cyw43_arch_enable_sta_mode();
     pub(super) fn hhg_cyw43_arch_disable_sta_mode();
-    pub(super) fn hhg_cyw43_wifi_link_status(itf: c_uint) -> c_int;
+    pub(super) fn hhg_cyw43_wifi_link_status(itf: c_int) -> c_int;
     pub(super) fn hhg_cyw43_arch_wifi_connect_async(ssid: *const c_char, pw: *const c_char, auth: c_uint) -> c_int;
     pub(super) fn hhg_cyw43_arch_lwip_begin();
     pub(super) fn hhg_cyw43_arch_lwip_end();

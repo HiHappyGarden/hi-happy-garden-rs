@@ -20,16 +20,16 @@
   
 #![allow(dead_code)]
 
-use core::fmt::Display;
+use core::fmt::{Debug, Display};
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum WifiStatus {
     Disabled,
-    Enabling,
     Enabled,
     Connecting,
     Connected,
     Disconnecting,
-    Error
+    Error,
+    Resetting,
 }
 
 impl Display for WifiStatus {
@@ -37,12 +37,12 @@ impl Display for WifiStatus {
         use WifiStatus::*;
         match self {
             Disabled => write!(f, "Disabled"),
-            Enabling => write!(f, "Enabling"),
             Enabled => write!(f, "Enabled"),
             Connecting => write!(f, "Connecting"),
             Connected => write!(f, "Connected"),
             Disconnecting => write!(f, "Disconnecting"),
             Error => write!(f, "Error"),
+            Resetting => write!(f, "Resetting"),
         }
     }
 }
