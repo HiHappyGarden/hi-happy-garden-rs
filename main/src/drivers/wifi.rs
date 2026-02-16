@@ -22,20 +22,43 @@ use core::ffi::c_void;
 use core::ptr::null_mut;
 use core::time::Duration;
 use osal_rs::{log_debug, log_error, log_info};
-use osal_rs::os::{System, Thread, ThreadFn};
+use osal_rs::os::{AsSyncStr, System, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
-use osal_rs::utils::Result;
+use osal_rs::utils::{Result};
 use osal_rs_serde::{Deserialize, Serialize};
 use crate::apps::config::Config;
+use crate::drivers::date_time::DateTime;
+use crate::drivers::pico::ffi::CYW43Itf;
 use crate::traits::state::Initializable;
 use crate::drivers::platform::ThreadPriority;
 use crate::drivers::pico::wifi_cyw43::WIFI_FN;
+use crate::drivers::rtc::RTC;
 use crate::traits::wifi::{OnWifiChangeStatus, SetOnWifiChangeStatus, WifiStatus};
 use crate::traits::wifi::WifiStatus::Disconnecting;
+
+mod cyw43_status {
+    ///< link is down
+    pub const CYW43_LINK_DOWN   : i32 = 0;
+    ///< Connected to wifi
+    pub const CYW43_LINK_JOIN   : i32 = 1;
+    ///< Connected to wifi, but no IP address
+    pub const CYW43_LINK_NOIP   : i32 = 2;
+    ///< Connected to wifi with an IP address
+    pub const CYW43_LINK_UP     : i32 = 3;
+    ///< Connection failed
+    pub const CYW43_LINK_FAIL   : i32 = -1;
+    ///< No matching SSID found (could be out of range, or down)
+    pub const CYW43_LINK_NONET  : i32 = -2;
+    ///< Authenticatation failure
+    pub const CYW43_LINK_BADAUTH: i32 = -3;
+}
+
 
 const APP_TAG: &str = "WIFI";
 const APP_THREAD_NAME: &str = "wifi_trd";
 const APP_STACK_SIZE: StackType = 512;
+
+const MAX_ERROR: StackType = 5;
 
 static mut FSM_STATUS_CURRENT: WifiStatus = WifiStatus::Disabled;
 static mut FSM_STATUS_OLD: WifiStatus = WifiStatus::Disabled;
@@ -89,11 +112,11 @@ impl Deserialize for Auth {
 }
 
 pub struct WifiFn {
-    pub init: fn() -> Result<(*mut c_void, i32)>,
+    pub init: fn() -> Result<*mut c_void>,
     pub enable_sta_mode: fn(*mut c_void),
     pub disable_sta_mode: fn(*mut c_void),
-    pub connect: fn(*mut c_void, auth: Auth, ssid: &[u8], password: &[u8]) -> Result<i32>,
-    pub link_status: fn(*mut c_void) -> i32,
+    pub connect: fn(*mut c_void, ssid: &str, password: &str, auth: Auth) -> Result<i32>,
+    pub link_status: fn(*mut c_void, conf: i32) -> i32,
     pub drop: fn(*mut c_void),
 }
 
@@ -130,87 +153,111 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
             use WifiStatus::*;
 
-            
+            let mut count_error = 0;
+            let mut attempts = 0;
+
+            let rtc = RTC::new();
 
             unsafe {
-                loop {
+                'no_rtc: loop {
+
+
+                    // let now = rtc.get_timestamp().unwrap_or_else(|e| {
+                    //     log_error!(APP_TAG, "Error getting timestamp: {:?}", e);
+                    //     0
+                    // });
+                    //
+                    // if now == 0 {
+                    //     System::delay_with_to_tick(Duration::from_millis(1_000));
+                    //     continue 'no_rtc;
+                    // }
+
                     match FSM_STATUS_CURRENT {
                         Disabled => {
-                            log_debug!(APP_TAG, "Disabled");
 
-                            FSM_STATUS_OLD = FSM_STATUS_CURRENT;
-                            FSM_STATUS_CURRENT = Enabling;
-                            on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
-                        },
-                        Enabling => {
-                            log_debug!(APP_TAG, "Disabled -> Enabling");
+                            System::delay_with_to_tick(Duration::from_millis(2_500));
 
-                            log_info!(APP_TAG, "Try to enable WiFi in station mode");
-
-                            (WIFI_FN.enable_sta_mode)(null_mut());
-
-                            System::delay_with_to_tick(Duration::from_millis(500));
-
+                            count_error = 0;
                             FSM_STATUS_OLD = FSM_STATUS_CURRENT;
                             FSM_STATUS_CURRENT = Enabled;
                             on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
                         },
                         Enabled => {
-                            log_debug!(APP_TAG, "Enabling -> Enabled");
 
-                            let config = Config::new().get_wifi_config();
+                            (WIFI_FN.enable_sta_mode)(null_mut());
 
-                            let _ = (WIFI_FN.connect)(null_mut(), config.get_auth(), config.get_ssid().to_bytes(), config.get_password().to_bytes());
-
-
+                            count_error = 0;
                             FSM_STATUS_OLD = FSM_STATUS_CURRENT;
                             FSM_STATUS_CURRENT = Connecting;
                             on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
                         },
                         Connecting => {
-                            log_debug!(APP_TAG, "Enabled -> Connecting");
+                            
 
-// #define CYW43_LINK_JOIN         (1)     ///< Connected to wifi
-// #define CYW43_LINK_NOIP         (2)     ///< Connected to wifi, but no IP address
-// #define CYW43_LINK_UP           (3)     ///< Connected to wifi with an IP address
+                            let config = Config::new().get_wifi_config();
 
-                            match (WIFI_FN.link_status)(null_mut()) {
-                                i if i == 1 => log_info!(APP_TAG, "Connected to WiFi, but no IP address"),
-                                i if i == 2 => log_info!(APP_TAG, "Connected to WiFi, but no IP address"),
-                                i if i == 3 => {
-                                    log_info!(APP_TAG, "Connected to WiFi with IP address");
-                                    FSM_STATUS_OLD = FSM_STATUS_CURRENT;
-                                    FSM_STATUS_CURRENT = Connected;
-                                    on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
-                                },
-                                i => log_info!(APP_TAG, "status:{}", i),
+                                
+                            if !Self::handle_connection_result ((WIFI_FN.connect)(null_mut(), config.get_ssid().as_str(), config.get_password().as_str(), config.get_auth())) {
+                                log_error!(APP_TAG, "Error connecting to WiFi, count_error: {}", count_error);
+                                FSM_STATUS_OLD = FSM_STATUS_CURRENT;
+                                FSM_STATUS_CURRENT = Error;
+                                continue 'no_rtc;
                             }
 
-                            
+                            count_error = 0;
+                            FSM_STATUS_OLD = FSM_STATUS_CURRENT;
+                            FSM_STATUS_CURRENT = Connected;
+                            on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
                         },
                         Connected => {
-                            log_debug!(APP_TAG, "Connecting -> Connected");
-                            FSM_STATUS_OLD = FSM_STATUS_CURRENT;
+
+
+
+                            if (WIFI_FN.link_status)(null_mut(), CYW43Itf::STA as i32) != cyw43_status::CYW43_LINK_UP {
+                                FSM_STATUS_OLD = FSM_STATUS_CURRENT;
+                                FSM_STATUS_CURRENT = Error;
+                                continue 'no_rtc;
+                            }
+
+
                             //FSM_STATUS_CURRENT = Disconnecting;
                             if FSM_STATUS_OLD != FSM_STATUS_CURRENT {
                                 on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
                             }
                         },
                         Disconnecting => {
-                            log_debug!(APP_TAG, "Disconnecting -> Disabled");
                             FSM_STATUS_OLD = FSM_STATUS_CURRENT;
                             FSM_STATUS_CURRENT = Disabled;
                             on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
                             break;
                         },
                         Error => {
-                            log_debug!(APP_TAG, "Error -> Disabled");
-                            FSM_STATUS_OLD = FSM_STATUS_CURRENT;
-                            FSM_STATUS_CURRENT = Disabled;
-                            on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
+                            log_debug!(APP_TAG, "Error!!!");
+                            if count_error < MAX_ERROR {
+                                count_error += 1;
+                                log_debug!(APP_TAG, "Error {}/{} retry...", count_error, MAX_ERROR);
+                                FSM_STATUS_CURRENT = FSM_STATUS_OLD;
+                                FSM_STATUS_OLD = Resetting;
+                                System::delay_with_to_tick(Duration::from_millis(500));
+                            } else {
+                                FSM_STATUS_OLD = FSM_STATUS_CURRENT;
+                                FSM_STATUS_CURRENT = Connecting;
+                                on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
+                            }
+                        },
+                        Resetting => {
+                            panic!("Resetting WiFi..."); // TODO: implement reset logic
+                            // log_debug!(APP_TAG, "Resetting...");
+                            // FSM_STATUS_OLD = FSM_STATUS_CURRENT;
+                            // FSM_STATUS_CURRENT = Disabled;
+                            // on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
                         },
 
 
+                    }
+
+                    if FSM_STATUS_CURRENT != FSM_STATUS_OLD {
+                        log_debug!(APP_TAG, "FSM_STATUS_OLD: {} -> FSM_STATUS_CURRENT: {}", *&raw const FSM_STATUS_OLD, *&raw const FSM_STATUS_CURRENT);
                     }
 
                     System::delay_with_to_tick(Duration::from_millis(100));
@@ -226,7 +273,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
 impl Wifi {
     pub fn new() -> Self {
-        
+
         Self {
             handle: null_mut(),
             thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal),
@@ -235,7 +282,30 @@ impl Wifi {
 
     #[inline]
     pub fn get_link_status(&self) {
-        (WIFI_FN.link_status)(self.handle);
+        (WIFI_FN.link_status)(self.handle, CYW43Itf::STA as i32);
+    }
+
+
+    fn handle_connection_result(result: Result<i32>) -> bool {
+        use cyw43_status::*;
+        use osal_rs::utils::Error::ReturnWithCode;
+
+        match &result {
+            Err(ReturnWithCode(_code @ CYW43_LINK_FAIL))  => log_error!(APP_TAG, "Connection failed"),
+            Err(ReturnWithCode(_code @ CYW43_LINK_NONET)) => log_error!(APP_TAG, "No matching SSID found (could be out of range, or down)"),
+            Err(ReturnWithCode(_code @ CYW43_LINK_BADAUTH)) => log_error!(APP_TAG, "Authenticatation failure"),
+            Ok(_e @ CYW43_LINK_JOIN) => log_info!(APP_TAG, "Connected to WiFi"),
+            Ok(_e @ CYW43_LINK_NOIP) => log_info!(APP_TAG, "Connected to WiFi but no IP address"),
+            Ok(_e @ CYW43_LINK_UP) => log_info!(APP_TAG, "Connected to WiFi with IP address"),
+            Err(e) => log_error!(APP_TAG, "Error connecting to WiFi: {:?}", e),
+            _ => log_error!(APP_TAG, "Unknown error connecting to WiFi"),
+        }
+
+        if result.is_err() {
+            false
+        } else {
+            true
+        }
     }
 
 }
