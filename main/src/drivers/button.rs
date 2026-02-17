@@ -138,7 +138,7 @@ impl Button {
         Self {
             gpio_ref: GpioPeripheral::Btn,
             thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal),
-            // clickable: arcmux!(None),
+
         }
     }
     
