@@ -33,7 +33,7 @@ use osal_rs_serde::{Deserialize, Serialize};
 use crate::drivers::date_time::DateTime;
 use crate::drivers::filesystem::{open_flags, FileBytes, Filesystem};
 use crate::drivers::network::Network;
-use crate::drivers::wifi::Auth;
+use crate::drivers::wifi::{Auth, Wifi};
 use crate::drivers::platform::{FS_CONFIG_DIR, FS_SEPARATOR_DIR};
 use crate::traits::state::Initializable;
 
@@ -75,7 +75,6 @@ static mut CONFIG: Config = Config {
     wifi: WifiConfig {
         ssid: Bytes::new(),
         password: Bytes::new(),
-        hostname: Bytes::new(),
         auth: Auth::Wpa2,
         enabled: false
     },
@@ -83,7 +82,6 @@ static mut CONFIG: Config = Config {
         server: Bytes::new(),
         port: 123,
         msg_len: 48,
-        enabled: false
     }
 };
 
@@ -101,13 +99,13 @@ pub struct DaylightSavingTime {
 impl Default for DaylightSavingTime {
     fn default() -> Self {
         Self {
-            start_month: 2,
-            start_day: 31,
-            start_hour: 2,
-            end_month: 9,
-            end_day: 31,
-            end_hour: 3,
-            enabled: false
+            start_month: defaults::DEFAULT_DAYLIGHT_SAVING_START_MONTH,
+            start_day: defaults::DEFAULT_DAYLIGHT_SAVING_START_DAY,
+            start_hour: defaults::DEFAULT_DAYLIGHT_SAVING_START_HOUR,
+            end_month: defaults::DEFAULT_DAYLIGHT_SAVING_END_MONTH,
+            end_day: defaults::DEFAULT_DAYLIGHT_SAVING_END_DAY,
+            end_hour: defaults::DEFAULT_DAYLIGHT_SAVING_END_HOUR,
+            enabled: defaults::DEFAULT_DAYLIGHT_SAVING
         }
     }
 }
@@ -116,7 +114,6 @@ impl Default for DaylightSavingTime {
 pub struct WifiConfig {
     ssid: Bytes<32>,
     password: Bytes<32>,
-    hostname: Bytes<64>,
     auth: Auth,
     enabled: bool,
 }
@@ -124,11 +121,10 @@ pub struct WifiConfig {
 impl Default for WifiConfig {
     fn default() -> Self {
         Self {
-            ssid: Bytes::new(),
-            password: Bytes::new(),
-            hostname: Bytes::new(),
-            auth: Auth::Wpa2,
-            enabled: false,
+            ssid: Bytes::new_by_str(defaults::DEFAULT_WIFI_SSID),
+            password: Bytes::new_by_str(defaults::DEFAULT_WIFI_PASSWORD),
+            auth: defaults::DEFAULT_WIFI_AUTH.into(),
+            enabled: defaults::DEFAULT_WIFI_ENABLED,
         }
     }
 }
@@ -146,13 +142,6 @@ impl WifiConfig {
         let password = &self.password;
         mutex().unlock();
         password
-    }
-
-    pub fn get_hostname(&self) -> &Bytes<64> {
-        mutex().lock();
-        let hostname = &self.hostname;
-        mutex().unlock();
-        hostname
     }
 
     pub fn is_enabled(&self) -> bool {
@@ -181,12 +170,6 @@ impl WifiConfig {
         mutex().unlock();
     }
 
-    pub fn set_hostname(&mut self, hostname: Bytes<64>) {
-        mutex().lock();
-        self.hostname = hostname;
-        mutex().unlock();
-    }
-
     pub fn set_enabled(&mut self, enabled: bool) {
         mutex().lock();
         self.enabled = enabled;
@@ -205,16 +188,14 @@ pub struct NtpConfig {
     server: Bytes<64>,
     port: u16,
     msg_len: u16,
-    enabled: bool,
 }
 
 impl Default for NtpConfig {
     fn default() -> Self {
         Self {
-            server: Bytes::new(),
-            port: 123,
-            msg_len: 48,
-            enabled: false,
+            server: Bytes::new_by_str(defaults::DEFAULT_NTP_SERVER),
+            port: defaults::DEFAULT_NTP_PORT,
+            msg_len: defaults::DEFAULT_NTP_MSG_LEN,
         }
     }
 }
@@ -257,19 +238,6 @@ impl NtpConfig {
         mutex().lock();
         self.msg_len = msg_len;
         mutex().unlock();
-    }
-
-    pub fn set_enabled(&mut self, enabled: bool) {
-        mutex().lock();
-        self.enabled = enabled;
-        mutex().unlock();
-    }
-
-    pub fn is_enabled(&self) -> bool {
-        mutex().lock();
-        let enabled = self.enabled;
-        mutex().unlock();
-        enabled
     }
 }
 
@@ -371,25 +339,11 @@ impl Config {
         let mut config = Self::default();
         
         // Apply CMake defaults to WiFi config
-        config.wifi = WifiConfig {
-            ssid: Bytes::new(),
-            password: Bytes::new(),
-            hostname: Bytes::new(),
-            auth: defaults::DEFAULT_WIFI_AUTH.into(),
-            enabled: defaults::DEFAULT_WIFI_ENABLED,
-        };
-        
+        config.wifi = Default::default();
         // Apply CMake defaults to general config
         config.timezone = defaults::DEFAULT_TIMEZONE;
-        config.daylight_saving_time = DaylightSavingTime {
-            start_month: defaults::DEFAULT_DAYLIGHT_SAVING_START_MONTH,
-            start_day: defaults::DEFAULT_DAYLIGHT_SAVING_START_DAY,
-            start_hour: defaults::DEFAULT_DAYLIGHT_SAVING_START_HOUR,
-            end_month: defaults::DEFAULT_DAYLIGHT_SAVING_END_MONTH,
-            end_day: defaults::DEFAULT_DAYLIGHT_SAVING_END_DAY,
-            end_hour: defaults::DEFAULT_DAYLIGHT_SAVING_END_HOUR,
-            enabled: defaults::DEFAULT_DAYLIGHT_SAVING
-        };
+
+        config.daylight_saving_time = Default::default();
         
         config
     }
@@ -414,16 +368,14 @@ impl Config {
         Network::set_ntp(
             self.ntp.get_server().clone(),
             self.ntp.get_port(),
-            self.ntp.get_msg_len(),
-            self.ntp.is_enabled()
+            self.ntp.get_msg_len()
         );
     }
 
     pub fn apply_wifi(&self) {
-        Network::set_wifi(
+        Wifi::set_config(
             self.wifi.get_ssid().clone(),
             self.wifi.get_password().clone(),
-            self.wifi.get_hostname().clone(),
             self.wifi.get_auth(),
             self.wifi.is_enabled()
         );
