@@ -44,8 +44,8 @@ int hhg_cyw43_wifi_link_status(int itf) {
     return cyw43_wifi_link_status(&cyw43_state, CYW43_ITF_STA);
 }
 
-int hhg_cyw43_arch_wifi_connect_async(const char *ssid, const char *pw, uint32_t auth) {
-    return cyw43_arch_wifi_connect_async(ssid, pw, auth);
+int hhg_cyw43_arch_wifi_connect_blocking(const char *ssid, const char *pw, uint32_t auth) {
+    return cyw43_arch_wifi_connect_blocking(ssid, pw, auth);
 }
 
 void hhg_cyw43_arch_lwip_begin(void) {

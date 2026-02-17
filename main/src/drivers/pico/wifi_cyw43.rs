@@ -21,9 +21,8 @@ use alloc::format;
 use core::ffi::c_void;
 use core::ptr::null_mut;
 use osal_rs::utils::{Error, Result};
-use crate::drivers::pico::ffi::{hhg_cyw43_arch_disable_sta_mode, hhg_cyw43_arch_enable_sta_mode, hhg_cyw43_arch_init, hhg_cyw43_wifi_link_status};
+use crate::drivers::pico::ffi::{hhg_cyw43_arch_disable_sta_mode, hhg_cyw43_arch_enable_sta_mode, hhg_cyw43_arch_init, hhg_cyw43_arch_wifi_connect_blocking, hhg_cyw43_wifi_link_status, hhg_cyw43_arch_deinit};
 use crate::drivers::pico::ffi::cyw43_auth::{OPEN, WPA_TKIP_PSK, WPA2_AES_PSK, WPA2_MIXED_PSK, WPA3_SAE_AES_PSK, WPA3_WPA2_AES_PSK};
-use crate::drivers::plt::ffi::{hhg_cyw43_arch_deinit, hhg_cyw43_arch_wifi_connect_async};
 use crate::drivers::wifi::{Auth, WifiFn};
 
 pub const WIFI_FN: WifiFn = WifiFn {
@@ -71,7 +70,7 @@ fn  connect(_: *mut c_void, ssid: &str, password: &str, auth: Auth) -> Result<i3
     let ssid = CString::new(ssid).map_err(|e| Error::UnhandledOwned(format!("SSID contains null byte: {}", e)))?;
     let password = CString::new(password).map_err(|e| Error::UnhandledOwned(format!("Password contains null byte: {}", e)))?;
 
-    let ret = unsafe { hhg_cyw43_arch_wifi_connect_async(ssid.as_ptr(), password.as_ptr(), pico_auth) };
+    let ret = unsafe { hhg_cyw43_arch_wifi_connect_blocking(ssid.as_ptr(), password.as_ptr(), pico_auth) };
     if ret > 0 {
         Ok(ret)
     } else {
