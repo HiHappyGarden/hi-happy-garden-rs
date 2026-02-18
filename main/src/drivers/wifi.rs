@@ -18,7 +18,6 @@
  ***************************************************************************/
 #![allow(dead_code)]
 
-use alloc::boxed::Box;
 use alloc::sync::Arc;
 use core::ffi::c_void;
 use core::ptr::null_mut;
@@ -28,7 +27,9 @@ use osal_rs::os::{AsSyncStr, Mutex, MutexFn, MutexGuardFn, System, Thread, Threa
 use osal_rs::os::types::StackType;
 use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Serialize};
+use crate::cyw43_country;
 use crate::drivers::pico::ffi::CYW43Itf;
+use crate::drivers::pico::ffi::pico_error_codes::PICO_OK;
 use crate::traits::state::Initializable;
 use crate::drivers::platform::ThreadPriority;
 use crate::drivers::pico::wifi_cyw43::WIFI_FN;
@@ -56,7 +57,7 @@ mod cyw43_status {
 
 const APP_TAG: &str = "WIFI";
 const APP_THREAD_NAME: &str = "wifi_trd";
-const APP_STACK_SIZE: StackType = 512;
+const APP_STACK_SIZE: StackType = 1024;
 const MAX_ERROR: StackType = 5;
 
 static mut SSID: Bytes<32> = Bytes::new();
@@ -116,7 +117,7 @@ impl Deserialize for Auth {
 }
 
 pub struct WifiFn {
-    pub init: fn() -> Result<*mut c_void>,
+    pub init: fn(u32) -> Result<*mut c_void>,
     pub enable_sta_mode: fn(*mut c_void),
     pub disable_sta_mode: fn(*mut c_void),
     pub connect: fn(*mut c_void, ssid: &str, password: &str, auth: Auth) -> Result<i32>,
@@ -137,8 +138,9 @@ impl Initializable for Wifi {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init wifi");
 
-        (WIFI_FN.init)()?;
-        self.initialized.lock()?.update(&true);
+        (WIFI_FN.init)(cyw43_country!('I', 'T', 0))?;
+        (WIFI_FN.enable_sta_mode)(null_mut());
+        *self.initialized.lock()? = true;
 
         Ok(())
     }
@@ -163,27 +165,30 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
             use WifiStatus::*;
 
             let mut count_error = 0;
-            let mut attempts = 0;
 
-            let rtc = RTC::new();
+
+            log_debug!(APP_TAG, "Start WIFI FSM");
 
             unsafe {
                 'no_rtc: loop {
 
-                    if ENABLED {
-                        System::delay_with_to_tick(Duration::from_secs(1));
-                        continue 'no_rtc;
-                    }
-
-                    log_error!(APP_TAG, "Start WIFI FSM, attempt");
+                    log_warning!(APP_TAG, "---->4{}", *initialized.lock().unwrap());
 
                     match FSM_STATUS_CURRENT {
                         Disabled => {
 
-                            if *initialized.lock().unwrap() == false {
-                                let _ = (WIFI_FN.init)();
+                            if !*initialized.lock().unwrap() {
+                                log_info!(APP_TAG, "WIFI init");
+                                let _ = (WIFI_FN.init)(cyw43_country!('I', 'T', 0));
+                                (WIFI_FN.enable_sta_mode)(null_mut());
                                 *initialized.lock().unwrap() = true;
                             }
+
+                            // if !*initialized.lock().unwrap() {
+                            //     log_warning!(APP_TAG, "WIFI not initialized, wait 1 second...");
+                            //     System::delay_with_to_tick(Duration::from_secs(1));
+                            //     continue 'no_rtc;
+                            // }
 
                             System::delay_with_to_tick(Duration::from_millis(2_500));
 
@@ -203,9 +208,9 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                         },
                         Connecting => {
 
-                                
-                            if !Self::handle_connection_result ((WIFI_FN.connect)(null_mut(), (*&raw const SSID).as_str(), (*&raw const PASSWORD).as_str(), AUTH)) {
-                                log_error!(APP_TAG, "Error connecting to WiFi, count_error: {}", count_error);
+                            let ret = (WIFI_FN.connect)(null_mut(), (*&raw const SSID).as_str(), (*&raw const PASSWORD).as_str(), AUTH).unwrap_or(1);
+                            if ret != PICO_OK as i32{
+                                log_error!(APP_TAG, "Error connecting to WiFi, errno: {ret}");
                                 FSM_STATUS_OLD = FSM_STATUS_CURRENT;
                                 FSM_STATUS_CURRENT = Error;
                                 continue 'no_rtc;
@@ -217,11 +222,26 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                             on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
                         },
                         Connected => {
+                            use cyw43_status::*;
+                            match (WIFI_FN.link_status)(null_mut(), CYW43Itf::STA as i32) {
+                                CYW43_LINK_UP => {
+                                    // log_info!(APP_TAG, "WiFi link is up");
+                                },
+                                CYW43_LINK_JOIN | CYW43_LINK_NOIP => {
+                                    log_warning!(APP_TAG, "WiFi link is joining or no IP address yet");
+                                    FSM_STATUS_OLD = FSM_STATUS_CURRENT;
+                                    FSM_STATUS_CURRENT = Connecting;
+                                    on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
+                                    continue 'no_rtc;
+                                },
+                                _ => {
+                                    log_error!(APP_TAG, "WiFi link is down or failed");
+                                    FSM_STATUS_OLD = FSM_STATUS_CURRENT;
+                                    FSM_STATUS_CURRENT = Error;
+                                    on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
+                                    continue 'no_rtc;
+                                }
 
-                            if (WIFI_FN.link_status)(null_mut(), CYW43Itf::STA as i32) != cyw43_status::CYW43_LINK_UP {
-                                FSM_STATUS_OLD = FSM_STATUS_CURRENT;
-                                FSM_STATUS_CURRENT = Error;
-                                continue 'no_rtc;
                             }
 
                             
@@ -239,14 +259,14 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                             break;
                         },
                         Error => {
-                            log_debug!(APP_TAG, "Error!!!");
                             if count_error < MAX_ERROR {
                                 count_error += 1;
-                                log_debug!(APP_TAG, "Error {}/{} retry...", count_error, MAX_ERROR);
+                                log_error!(APP_TAG, "Error {}/{} retry...", count_error, MAX_ERROR);
                                 FSM_STATUS_CURRENT = FSM_STATUS_OLD;
                                 FSM_STATUS_OLD = Error;
-                                System::delay_with_to_tick(Duration::from_millis(500));
+                                System::delay_with_to_tick(Duration::from_millis(1_000));
                             } else {
+                                log_error!(APP_TAG, "Resetting WiFi after {} errors", MAX_ERROR);
                                 FSM_STATUS_OLD = Error;
                                 FSM_STATUS_CURRENT = Resetting;
                                 on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
@@ -254,21 +274,21 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                         },
                         Resetting => {
                             log_warning!(APP_TAG,"Resetting WiFi wait 5 seconds...");
-                            
+
+
+                            (WIFI_FN.disable_sta_mode)(null_mut());
                             let _ = (WIFI_FN.drop)(null_mut());
-                            
+
                             *initialized.lock().unwrap() = false;
 
                             System::delay_with_to_tick(Duration::from_millis(2_500));
 
+                            FSM_STATUS_OLD = FSM_STATUS_CURRENT;
+                            FSM_STATUS_CURRENT = Disabled;
                             on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
                         },
 
 
-                    }
-
-                    if FSM_STATUS_CURRENT != FSM_STATUS_OLD {
-                        log_debug!(APP_TAG, "FSM_STATUS_OLD: {} -> FSM_STATUS_CURRENT: {}", *&raw const FSM_STATUS_OLD, *&raw const FSM_STATUS_CURRENT);
                     }
 
                     System::delay_with_to_tick(Duration::from_millis(100));
@@ -311,27 +331,5 @@ impl Wifi {
         (WIFI_FN.link_status)(self.handle, CYW43Itf::STA as i32);
     }
 
-
-    fn handle_connection_result(result: Result<i32>) -> bool {
-        use cyw43_status::*;
-        use osal_rs::utils::Error::ReturnWithCode;
-
-        match &result {
-            Err(ReturnWithCode(_code @ CYW43_LINK_FAIL))  => log_error!(APP_TAG, "Connection failed"),
-            Err(ReturnWithCode(_code @ CYW43_LINK_NONET)) => log_error!(APP_TAG, "No matching SSID found (could be out of range, or down)"),
-            Err(ReturnWithCode(_code @ CYW43_LINK_BADAUTH)) => log_error!(APP_TAG, "Authenticatation failure"),
-            Ok(_e @ CYW43_LINK_JOIN) => log_info!(APP_TAG, "Connected to WiFi"),
-            Ok(_e @ CYW43_LINK_NOIP) => log_info!(APP_TAG, "Connected to WiFi but no IP address"),
-            Ok(_e @ CYW43_LINK_UP) => log_info!(APP_TAG, "Connected to WiFi with IP address"),
-            Err(e) => log_error!(APP_TAG, "Error connecting to WiFi: {:?}", e),
-            _ => log_error!(APP_TAG, "Unknown error connecting to WiFi"),
-        }
-
-        if result.is_err() {
-            false
-        } else {
-            true
-        }
-    }
 
 }

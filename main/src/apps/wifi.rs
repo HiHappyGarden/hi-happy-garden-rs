@@ -17,7 +17,7 @@
  *
  ***************************************************************************/
 
-use osal_rs::{log_info, utils::Result};
+use osal_rs::{log_debug, log_info, utils::Result};
 
 use crate::traits::{state::Initializable, wifi::OnWifiChangeStatus};
 
@@ -36,7 +36,7 @@ impl Initializable for WifiApp {
 
 impl OnWifiChangeStatus<'static> for WifiApp {
     fn on_status_change(&self, old_status: crate::traits::wifi::WifiStatus, status: crate::traits::wifi::WifiStatus) {
-        log_info!(APP_TAG, "Wifi status changed from {} to {}", old_status, status);
+        log_debug!(APP_TAG, "FSM_STATUS_OLD: {} -> FSM_STATUS_CURRENT: {}", old_status, status);
     }
 }
 

@@ -165,12 +165,12 @@ unsafe extern "C" {
     pub(super) fn hhg_adc_read() -> u16;
 
     pub(super) fn hhg_cyw43_arch_gpio_put(wl_gpio: u32, value: bool);
-    pub(super) fn hhg_cyw43_arch_init() -> c_int;
+    pub(super) fn hhg_cyw43_arch_init_with_country(country_code: c_uint) -> c_int;
     pub(super) fn hhg_cyw43_arch_deinit();
     pub(super) fn hhg_cyw43_arch_enable_sta_mode();
     pub(super) fn hhg_cyw43_arch_disable_sta_mode();
     pub(super) fn hhg_cyw43_wifi_link_status(itf: c_int) -> c_int;
-    pub(super) fn hhg_cyw43_arch_wifi_connect_blocking(ssid: *const c_char, pw: *const c_char, auth: c_uint) -> c_int;
+    pub(super) fn hhg_cyw43_arch_wifi_connect(ssid: *const c_char, pw: *const c_char, auth: c_uint) -> c_int;
     pub(super) fn hhg_cyw43_arch_lwip_begin();
     pub(super) fn hhg_cyw43_arch_lwip_end();
 
@@ -261,4 +261,11 @@ unsafe extern "C" {
 
     pub(super) fn hhg_powman_timer_set_ms(time_ms: c_ulonglong);
     pub(super) fn hhg_powman_timer_get_ms() -> c_ulonglong;
-}   
+}
+
+#[macro_export]
+macro_rules! cyw43_country {
+    ($a:expr, $b:expr, $rev:expr) => {
+        ($a as u32) | (($b as u32) << 8) | (($rev as u32) << 16)
+    };
+}
