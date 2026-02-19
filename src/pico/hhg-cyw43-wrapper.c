@@ -20,6 +20,7 @@
 #include <pico/cyw43_arch.h>
 #include <pico/types.h>
 
+
 int hhg_cyw43_arch_init_with_country(uint32_t country_code) {
     return cyw43_arch_init_with_country(country_code);
 }
@@ -41,7 +42,7 @@ void hhg_cyw43_arch_disable_sta_mode(void) {
 }
 
 int hhg_cyw43_wifi_link_status(int itf) {
-    return cyw43_wifi_link_status(&cyw43_state, itf);
+    return cyw43_tcpip_link_status(&cyw43_state, itf);
 }
 
 int hhg_cyw43_arch_wifi_connect(const char *ssid, const char *pw, uint32_t auth) {

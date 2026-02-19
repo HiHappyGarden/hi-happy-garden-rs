@@ -217,43 +217,24 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                         Connected => {
                             use cyw43_status::*;
 
-                            // Update FSM_STATUS_OLD on first entry to Connected to avoid repeated callbacks
-                            if FSM_STATUS_OLD != Connected {
-                                FSM_STATUS_OLD = Connected;
-                            }
+                            // if FSM_STATUS_OLD != Connected {
+                            //     FSM_STATUS_OLD = Connected;
+                            // }
 
-                            // Poll the network stack to process DHCP packets (helps in FreeRTOS mode)
-                           // hhg_cyw43_arch_poll();
+                            let link_status = (WIFI_FN.link_status)(null_mut(), CYW43Itf::STA as i32);
 
-                            // Check if DHCP has assigned an IP regardless of link status
-                            // Some APs (like iPhone hotspot) may report NOIP even when DHCP is working
-                            if Network::dhcp_supplied_address() {
-                                // DHCP complete! Log IP only once
-                                static mut IP_LOGGED: bool = false;
-                                if !IP_LOGGED {
-                                    let ip = Network::dhcp_get_ip_address();
-                                    let ip_str = ip.as_str();
-                                    log_info!(APP_TAG, "Connected to WiFi with IP: {}", ip_str);
-                                    IP_LOGGED = true;
-                                }
-                            } else {
-                                // No IP yet, check link status for more details
-                                let link_status = (WIFI_FN.link_status)(null_mut(), CYW43Itf::STA as i32);
-
-                                match link_status {
-                                    CYW43_LINK_UP | CYW43_LINK_JOIN | CYW43_LINK_NOIP => {
-                                        // Link is good, just waiting for DHCP
-                                        log_debug!(APP_TAG, "WiFi connected (status: {}), waiting for DHCP...", link_status);
-                                    },
-                                    _ => {
-                                        log_error!(APP_TAG, "WiFi link is down or failed (status: {})", link_status);
-                                        FSM_STATUS_OLD = FSM_STATUS_CURRENT;
-                                        FSM_STATUS_CURRENT = Error;
-                                        on_wifi_change_status.on_status_change(FSM_STATUS_CURRENT, Error);
-                                        continue 'no_rtc;
-                                    }
+                            match link_status {
+                                CYW43_LINK_UP => {},
+                                CYW43_LINK_JOIN | CYW43_LINK_NOIP => log_debug!(APP_TAG, "WiFi connected (status: {}), waiting for DHCP...", link_status),
+                                _ => {
+                                    log_error!(APP_TAG, "WiFi link is down or failed (status: {})", link_status);
+                                    FSM_STATUS_OLD = FSM_STATUS_CURRENT;
+                                    FSM_STATUS_CURRENT = Error;
+                                    on_wifi_change_status.on_status_change(FSM_STATUS_CURRENT, Error);
+                                    continue 'no_rtc;
                                 }
                             }
+                            
                         },
                         Disconnecting => {
                             FSM_STATUS_OLD = FSM_STATUS_CURRENT;
