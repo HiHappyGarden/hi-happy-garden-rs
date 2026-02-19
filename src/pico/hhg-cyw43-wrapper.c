@@ -48,6 +48,10 @@ int hhg_cyw43_arch_wifi_connect(const char *ssid, const char *pw, uint32_t auth)
     return cyw43_arch_wifi_connect_timeout_ms(ssid, pw, auth, 10000);
 }
 
+void hhg_cyw43_arch_poll(void) {
+    cyw43_arch_poll();
+}
+
 void hhg_cyw43_arch_lwip_begin(void) {
     cyw43_arch_lwip_begin();
 }

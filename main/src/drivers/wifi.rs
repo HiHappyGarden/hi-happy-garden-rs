@@ -23,17 +23,17 @@ use core::ffi::c_void;
 use core::ptr::null_mut;
 use core::time::Duration;
 use osal_rs::{log_debug, log_error, log_info, log_warning};
-use osal_rs::os::{AsSyncStr, Mutex, MutexFn, MutexGuardFn, System, Thread, ThreadFn};
+use osal_rs::os::{AsSyncStr, Mutex, MutexFn, System, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
 use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 use crate::cyw43_country;
+use crate::drivers::network::Network;
 use crate::drivers::pico::ffi::CYW43Itf;
 use crate::drivers::pico::ffi::pico_error_codes::PICO_OK;
 use crate::traits::state::Initializable;
 use crate::drivers::platform::ThreadPriority;
 use crate::drivers::pico::wifi_cyw43::WIFI_FN;
-use crate::drivers::rtc::RTC;
 use crate::traits::wifi::{OnWifiChangeStatus, SetOnWifiChangeStatus, WifiStatus};
 use crate::traits::wifi::WifiStatus::Disconnecting;
 
@@ -172,8 +172,6 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
             unsafe {
                 'no_rtc: loop {
 
-                    log_warning!(APP_TAG, "---->4{}", *initialized.lock().unwrap());
-
                     match FSM_STATUS_CURRENT {
                         Disabled => {
 
@@ -183,12 +181,6 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                                 (WIFI_FN.enable_sta_mode)(null_mut());
                                 *initialized.lock().unwrap() = true;
                             }
-
-                            // if !*initialized.lock().unwrap() {
-                            //     log_warning!(APP_TAG, "WIFI not initialized, wait 1 second...");
-                            //     System::delay_with_to_tick(Duration::from_secs(1));
-                            //     continue 'no_rtc;
-                            // }
 
                             System::delay_with_to_tick(Duration::from_millis(2_500));
 
@@ -220,36 +212,47 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                             FSM_STATUS_OLD = FSM_STATUS_CURRENT;
                             FSM_STATUS_CURRENT = Connected;
                             on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
+                            continue 'no_rtc;
                         },
                         Connected => {
                             use cyw43_status::*;
-                            match (WIFI_FN.link_status)(null_mut(), CYW43Itf::STA as i32) {
-                                CYW43_LINK_UP => {
-                                    // log_info!(APP_TAG, "WiFi link is up");
-                                },
-                                CYW43_LINK_JOIN | CYW43_LINK_NOIP => {
-                                    log_warning!(APP_TAG, "WiFi link is joining or no IP address yet");
-                                    FSM_STATUS_OLD = FSM_STATUS_CURRENT;
-                                    FSM_STATUS_CURRENT = Connecting;
-                                    on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
-                                    continue 'no_rtc;
-                                },
-                                _ => {
-                                    log_error!(APP_TAG, "WiFi link is down or failed");
-                                    FSM_STATUS_OLD = FSM_STATUS_CURRENT;
-                                    FSM_STATUS_CURRENT = Error;
-                                    on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
-                                    continue 'no_rtc;
-                                }
 
+                            // Update FSM_STATUS_OLD on first entry to Connected to avoid repeated callbacks
+                            if FSM_STATUS_OLD != Connected {
+                                FSM_STATUS_OLD = Connected;
                             }
 
-                            
-                            log_info!(APP_TAG, "Connected to WiFi");
+                            // Poll the network stack to process DHCP packets (helps in FreeRTOS mode)
+                           // hhg_cyw43_arch_poll();
 
-                            //FSM_STATUS_CURRENT = Disconnecting;
-                            if FSM_STATUS_OLD != FSM_STATUS_CURRENT {
-                                on_wifi_change_status.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
+                            // Check if DHCP has assigned an IP regardless of link status
+                            // Some APs (like iPhone hotspot) may report NOIP even when DHCP is working
+                            if Network::dhcp_supplied_address() {
+                                // DHCP complete! Log IP only once
+                                static mut IP_LOGGED: bool = false;
+                                if !IP_LOGGED {
+                                    let ip = Network::dhcp_get_ip_address();
+                                    let ip_str = ip.as_str();
+                                    log_info!(APP_TAG, "Connected to WiFi with IP: {}", ip_str);
+                                    IP_LOGGED = true;
+                                }
+                            } else {
+                                // No IP yet, check link status for more details
+                                let link_status = (WIFI_FN.link_status)(null_mut(), CYW43Itf::STA as i32);
+
+                                match link_status {
+                                    CYW43_LINK_UP | CYW43_LINK_JOIN | CYW43_LINK_NOIP => {
+                                        // Link is good, just waiting for DHCP
+                                        log_debug!(APP_TAG, "WiFi connected (status: {}), waiting for DHCP...", link_status);
+                                    },
+                                    _ => {
+                                        log_error!(APP_TAG, "WiFi link is down or failed (status: {})", link_status);
+                                        FSM_STATUS_OLD = FSM_STATUS_CURRENT;
+                                        FSM_STATUS_CURRENT = Error;
+                                        on_wifi_change_status.on_status_change(FSM_STATUS_CURRENT, Error);
+                                        continue 'no_rtc;
+                                    }
+                                }
                             }
                         },
                         Disconnecting => {

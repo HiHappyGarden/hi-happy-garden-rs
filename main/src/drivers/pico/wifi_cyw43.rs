@@ -71,7 +71,7 @@ fn  connect(_: *mut c_void, ssid: &str, password: &str, auth: Auth) -> Result<i3
     let password = CString::new(password).map_err(|e| Error::UnhandledOwned(format!("Password contains null byte: {}", e)))?;
 
     let ret = unsafe { hhg_cyw43_arch_wifi_connect(ssid.as_ptr(), password.as_ptr(), pico_auth) };
-    if ret != 0 {
+    if ret == 0 {
         Ok(0)
     } else {
         Err(Error::ReturnWithCode(ret))
