@@ -21,13 +21,15 @@
 #![allow(dead_code)]
 
 use core::fmt::{Debug, Display};
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum WifiStatus {
     Disabled,
     Enabled,
     Connecting,
+    WaitForIp,
     Connected,
-    Disconnecting,
+    Disconnected,
     Error,
     Resetting,
 }
@@ -39,8 +41,9 @@ impl Display for WifiStatus {
             Disabled => write!(f, "Disabled"),
             Enabled => write!(f, "Enabled"),
             Connecting => write!(f, "Connecting"),
+            WaitForIp => write!(f, "WaitForIp"),
             Connected => write!(f, "Connected"),
-            Disconnecting => write!(f, "Disconnecting"),
+            Disconnected => write!(f, "Disconnected"),
             Error => write!(f, "Error"),
             Resetting => write!(f, "Resetting"),
         }

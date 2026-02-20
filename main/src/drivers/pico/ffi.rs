@@ -99,7 +99,7 @@ pub type LfsSsize = i32;
 pub type LfsSoff = i32;
 pub type LfsOff = u32;
 
-pub mod cyw43_auth {
+pub(super) mod cyw43_auth {
     ///< No authorisation required (open)
     pub const OPEN: u32 = 0;
 
@@ -119,16 +119,24 @@ pub mod cyw43_auth {
     pub const WPA3_WPA2_AES_PSK: u32 = 0x01400004;
 }
 
-#[repr(i32)]
-pub enum CYW43Itf {
-    ///< Client interface STA mode
-    STA = 0,
-    ///< Access point (AP) interface mode
-    AP = 1,
-}
-
 type ip_addr = IP4Addr;
 
+pub(super) mod cyw43_status {
+    ///< link is down
+    pub const CYW43_LINK_DOWN   : i32 = 0;
+    ///< Connected to wifi
+    pub const CYW43_LINK_JOIN   : i32 = 1;
+    ///< Connected to wifi, but no IP address
+    pub const CYW43_LINK_NOIP   : i32 = 2;
+    ///< Connected to wifi with an IP address
+    pub const CYW43_LINK_UP     : i32 = 3;
+    ///< Connection failed
+    pub const CYW43_LINK_FAIL   : i32 = -1;
+    ///< No matching SSID found (could be out of range, or down)
+    pub const CYW43_LINK_NONET  : i32 = -2;
+    ///< Authenticatation failure
+    pub const CYW43_LINK_BADAUTH: i32 = -3;
+}
 
 unsafe extern "C" {
     pub(super) fn hhg_gpio_init(gpio: u32);
