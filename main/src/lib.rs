@@ -76,9 +76,12 @@ fn main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Resul
 
         print_systick_status();
     }
-    log_debug!(APP_TAG, "Initial tick count: {}", System::get_tick_count());
+
+    #[cfg(debug_assertions)]
+    log_debug!(APP_TAG, "OUT_DIR: {}", env!("OUT_DIR"));
     
-    log_debug!(APP_TAG, "Before start heap_free:{}", System::get_free_heap_size());
+
+    log_debug!(APP_TAG, "Initial tick count: {}", System::get_tick_count());
 
     unsafe {
         HARDWARE = Some(Hardware::new()); 

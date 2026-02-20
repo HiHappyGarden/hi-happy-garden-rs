@@ -3,14 +3,19 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
+fn parse_bool(s: &str) -> bool {
+    let cleaned = s.trim().trim_matches('"').to_lowercase();
+    matches!(cleaned.as_str(), "true" | "1" | "on" | "yes")
+}
+
 fn main() {
     // Read configuration from environment variables set by CMake
     let default_wifi_ssid = env::var("HHG_DEFAULT_WIFI_SSID").unwrap_or_else(|_| "\"\"".to_string());
     let default_wifi_password = env::var("HHG_DEFAULT_WIFI_PASSWORD").unwrap_or_else(|_| "\"\"".to_string());
     let default_wifi_auth = env::var("HHG_DEFAULT_WIFI_AUTH").unwrap_or_else(|_| "3".to_string()).parse::<u8>().unwrap_or(3);
-    let default_wifi_enabled = env::var("HHG_DEFAULT_WIFI_ENABLED").unwrap_or_else(|_| "false".to_string()).parse::<bool>().unwrap_or(false);
+    let default_wifi_enabled = parse_bool(&env::var("HHG_DEFAULT_WIFI_ENABLED").unwrap_or_else(|_| "false".to_string()));
     let default_timezone = env::var("HHG_DEFAULT_TIMEZONE").unwrap_or_else(|_| "0".to_string()).parse::<i16>().unwrap_or(60);
-    let default_daylight_saving = env::var("HHG_DEFAULT_DAYLIGHT_SAVING").unwrap_or_else(|_| "false".to_string()).parse::<bool>().unwrap_or(true);
+    let default_daylight_saving = parse_bool(&env::var("HHG_DEFAULT_DAYLIGHT_SAVING").unwrap_or_else(|_| "false".to_string()));
     let default_daylight_saving_start_month = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_MONTH").unwrap_or_else(|_| "2".to_string()).parse::<u8>().unwrap_or(2);
     let default_daylight_saving_start_day = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_DAY").unwrap_or_else(|_| "31".to_string()).parse::<u8>().unwrap_or(31);
     let default_daylight_saving_start_hour = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_HOUR").unwrap_or_else(|_| "2".to_string()).parse::<u8>().unwrap_or(2);
@@ -32,8 +37,8 @@ fn main() {
     writeln!(f, "").unwrap();
     writeln!(f, "pub const DEFAULT_WIFI_SSID: &str = {};", default_wifi_ssid).unwrap();
     writeln!(f, "pub const DEFAULT_WIFI_PASSWORD: &str = {};", default_wifi_password).unwrap();
-    writeln!(f, "pub const DEFAULT_WIFI_ENABLED: bool = {};", default_wifi_enabled).unwrap();
     writeln!(f, "pub const DEFAULT_WIFI_AUTH: u8 = {};", default_wifi_auth).unwrap();
+    writeln!(f, "pub const DEFAULT_WIFI_ENABLED: bool = {};", default_wifi_enabled).unwrap();
     writeln!(f, "pub const DEFAULT_TIMEZONE: i16 = {};", default_timezone).unwrap();
     writeln!(f, "pub const DEFAULT_DAYLIGHT_SAVING: bool = {};", default_daylight_saving).unwrap();
     writeln!(f, "pub const DEFAULT_DAYLIGHT_SAVING_START_MONTH: u8 = {};", default_daylight_saving_start_month).unwrap();
@@ -57,8 +62,8 @@ fn main() {
     
     println!("cargo:rerun-if-env-changed=HHG_DEFAULT_WIFI_SSID");
     println!("cargo:rerun-if-env-changed=HHG_DEFAULT_WIFI_PASSWORD");
-    println!("cargo:rerun-if-env-changed=HHG_DEFAULT_WIFI_ENABLED");
     println!("cargo:rerun-if-env-changed=HHG_DEFAULT_WIFI_AUTH");
+    println!("cargo:rerun-if-env-changed=HHG_DEFAULT_WIFI_ENABLED");
     println!("cargo:rerun-if-env-changed=HHG_DEFAULT_TIMEZONE");
     println!("cargo:rerun-if-env-changed=HHG_DEFAULT_DAYLIGHT_SAVING");
     println!("cargo:rerun-if-env-changed=HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_MONTH");
