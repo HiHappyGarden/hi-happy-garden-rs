@@ -105,7 +105,7 @@ impl Default for DaylightSavingTime {
             end_month: defaults::DEFAULT_DAYLIGHT_SAVING_END_MONTH,
             end_day: defaults::DEFAULT_DAYLIGHT_SAVING_END_DAY,
             end_hour: defaults::DEFAULT_DAYLIGHT_SAVING_END_HOUR,
-            enabled: defaults::DEFAULT_DAYLIGHT_SAVING
+            enabled: defaults::DEFAULT_DAYLIGHT_SAVING_ENABLED
         }
     }
 }

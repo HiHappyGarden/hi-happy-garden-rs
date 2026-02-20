@@ -17,7 +17,7 @@ You can configure the application's default values via CMake options. These valu
 - **HHG_DEFAULT_WIFI_SSID**: WiFi network SSID (default: "")
 - **HHG_DEFAULT_WIFI_PASSWORD**: WiFi network password (default: "")
 - **HHG_DEFAULT_WIFI_HOSTNAME**: Device hostname (default: "hi-happy-garden")
-- **HHG_DEFAULT_WIFI_ENABLED**: Enable WiFi at startup (default: OFF)
+- **HHG_DEFAULT_WIFI_ENABLED**: Enable WiFi at startup (default: ON)
 
 ### NTP Configuration
 
@@ -28,7 +28,7 @@ You can configure the application's default values via CMake options. These valu
 ### General Configuration
 
 - **HHG_DEFAULT_TIMEZONE**: Timezone offset in minutes (default: 0)
-- **HHG_DEFAULT_DAYLIGHT_SAVING**: Enable daylight saving time (default: OFF)
+- **HHG_DEFAULT_DAYLIGHT_SAVING_ENABLED**: Enable daylight saving time (default: OFF)
 
 ### AES Encryption Configuration
 
@@ -47,7 +47,7 @@ The filesystem uses AES encryption with keys derived from the hardware's unique 
 
 #### Daylight Saving Time Configuration
 
-When **HHG_DEFAULT_DAYLIGHT_SAVING** is enabled, you can configure the DST transition dates:
+When **HHG_DEFAULT_DAYLIGHT_SAVING_ENABLED** is enabled, you can configure the DST transition dates:
 
 - **HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_MONTH**: Month when DST starts (1-12, default: 2)
 - **HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_DAY**: Day when DST starts (1-31, default: 31)
