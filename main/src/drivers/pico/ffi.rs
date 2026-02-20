@@ -271,10 +271,3 @@ unsafe extern "C" {
     pub(super) fn hhg_powman_timer_set_ms(time_ms: c_ulonglong);
     pub(super) fn hhg_powman_timer_get_ms() -> c_ulonglong;
 }
-
-#[macro_export]
-macro_rules! cyw43_country {
-    ($a:expr, $b:expr, $rev:expr) => {
-        ($a as u32) | (($b as u32) << 8) | (($rev as u32) << 16)
-    };
-}

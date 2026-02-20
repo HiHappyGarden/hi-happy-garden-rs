@@ -27,7 +27,6 @@ use osal_rs::os::{AsSyncStr, Mutex, MutexFn, System, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
 use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Serialize};
-use crate::cyw43_country;
 use crate::drivers::pico::ffi::pico_error_codes::PICO_OK;
 use crate::traits::state::Initializable;
 use crate::drivers::platform::ThreadPriority;
@@ -44,7 +43,7 @@ const MAX_ERROR: StackType = 5;
 static mut SSID: Bytes<32> = Bytes::new();
 static mut PASSWORD: Bytes<32> = Bytes::new();
 static mut AUTH: Auth = Auth::Wpa2;
-static mut ENABLED: bool = false;
+static mut ENABLED: Option<Mutex<bool>> = None;
 
 static mut FSM_STATUS_CURRENT: WifiStatus = WifiStatus::Disabled;
 static mut FSM_STATUS_OLD: WifiStatus = WifiStatus::Disabled;
@@ -58,6 +57,12 @@ macro_rules! transition_wifi_status {
     };
 }
 
+#[macro_export]
+macro_rules! wifi_country {
+    ($a:expr, $b:expr, $rev:expr) => {
+        ($a as u32) | (($b as u32) << 8) | (($rev as u32) << 16)
+    };
+}
 
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
@@ -138,7 +143,7 @@ impl Initializable for Wifi {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init wifi");
 
-        (WIFI_FN.init)(cyw43_country!('I', 'T', 0))?;
+        (WIFI_FN.init)(wifi_country!('I', 'T', 0))?;
         (WIFI_FN.enable_sta_mode)(null_mut());
         *self.initialized.lock()? = true;
 
@@ -174,12 +179,26 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
             unsafe {
                 'no_rtc: loop {
 
+                    if let Some(ref enabled) = ENABLED {
+                        if !*enabled.lock().unwrap() {
+                            if FSM_STATUS_CURRENT != Disconnected && FSM_STATUS_CURRENT != Disabled {
+                                transition_wifi_status!(Disconnected, on_wifi_change_status);
+                            } else if FSM_STATUS_CURRENT == Disconnected {
+                                transition_wifi_status!(Disconnected, on_wifi_change_status);
+                                continue;
+                            } if FSM_STATUS_CURRENT == Disabled {
+                                System::delay_with_to_tick(Duration::from_millis(1_000));
+                                continue;
+                            }
+                        }
+                    }
+
                     match FSM_STATUS_CURRENT {
                         Disabled => {
 
                             if !*initialized.lock().unwrap() {
                                 log_info!(APP_TAG, "WIFI init");
-                                let _ = (WIFI_FN.init)(cyw43_country!('I', 'T', 0));
+                                let _ = (WIFI_FN.init)(wifi_country!('I', 'T', 0));
                                 (WIFI_FN.enable_sta_mode)(null_mut());
                                 *initialized.lock().unwrap() = true;
                             }
@@ -253,7 +272,6 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
                             System::delay_with_to_tick(Duration::from_secs(25));
 
-                            transition_wifi_status!(Disabled, on_wifi_change_status);
                             break;
                         },
                         Error => {
@@ -310,7 +328,7 @@ impl Wifi {
             SSID = ssid;
             PASSWORD = password;
             AUTH = auth;
-            ENABLED = enabled;
+            ENABLED = Some(Mutex::new(enabled));
         }
     }
 

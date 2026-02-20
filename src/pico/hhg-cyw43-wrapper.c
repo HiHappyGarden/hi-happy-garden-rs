@@ -19,18 +19,33 @@
 
 #include <pico/cyw43_arch.h>
 #include <pico/types.h>
+#include <stdatomic.h>
+#include <stdbool.h>
+
+static atomic_bool init = ATOMIC_VAR_INIT(false);
 
 
 int hhg_cyw43_arch_init_with_country(uint32_t country_code) {
-    return cyw43_arch_init_with_country(country_code);
+    int ret =  cyw43_arch_init_with_country(country_code);
+
+    if (ret == 0) {
+        atomic_store(&init, true);
+    }
+
+    return ret;
 }
 
 void hhg_cyw43_arch_gpio_put(uint wl_gpio, bool value) {
-    cyw43_arch_gpio_put(wl_gpio, value);
+    if (atomic_load(&init)) {
+        cyw43_arch_gpio_put(wl_gpio, value);
+    }
 }
 
 void hhg_cyw43_arch_deinit(void) {
-    cyw43_arch_deinit();
+    if (atomic_load(&init)) {
+        atomic_store(&init, false);
+        cyw43_arch_deinit();
+    }
 }
 
 void hhg_cyw43_arch_enable_sta_mode(void) {
