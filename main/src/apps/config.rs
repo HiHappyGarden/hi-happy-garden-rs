@@ -42,6 +42,8 @@ mod defaults {
     include!(concat!(env!("OUT_DIR"), "/defaults.rs"));
 }
 
+use defaults::*;
+
 const APP_TAG: &str = "AppConfig";
 
 static mut MUTEX: Option<RawMutex> = None;
@@ -99,13 +101,13 @@ pub struct DaylightSavingTime {
 impl Default for DaylightSavingTime {
     fn default() -> Self {
         Self {
-            start_month: defaults::DEFAULT_DAYLIGHT_SAVING_START_MONTH,
-            start_day: defaults::DEFAULT_DAYLIGHT_SAVING_START_DAY,
-            start_hour: defaults::DEFAULT_DAYLIGHT_SAVING_START_HOUR,
-            end_month: defaults::DEFAULT_DAYLIGHT_SAVING_END_MONTH,
-            end_day: defaults::DEFAULT_DAYLIGHT_SAVING_END_DAY,
-            end_hour: defaults::DEFAULT_DAYLIGHT_SAVING_END_HOUR,
-            enabled: defaults::DEFAULT_DAYLIGHT_SAVING_ENABLED
+            start_month: DEFAULT_DAYLIGHT_SAVING_START_MONTH,
+            start_day: DEFAULT_DAYLIGHT_SAVING_START_DAY,
+            start_hour: DEFAULT_DAYLIGHT_SAVING_START_HOUR,
+            end_month: DEFAULT_DAYLIGHT_SAVING_END_MONTH,
+            end_day: DEFAULT_DAYLIGHT_SAVING_END_DAY,
+            end_hour: DEFAULT_DAYLIGHT_SAVING_END_HOUR,
+            enabled: DEFAULT_DAYLIGHT_SAVING_ENABLED
         }
     }
 }
@@ -121,10 +123,10 @@ pub struct WifiConfig {
 impl Default for WifiConfig {
     fn default() -> Self {
         Self {
-            ssid: Bytes::new_by_str(defaults::DEFAULT_WIFI_SSID),
-            password: Bytes::new_by_str(defaults::DEFAULT_WIFI_PASSWORD),
-            auth: defaults::DEFAULT_WIFI_AUTH.into(),
-            enabled: defaults::DEFAULT_WIFI_ENABLED,
+            ssid: Bytes::new_by_str(DEFAULT_WIFI_SSID),
+            password: Bytes::new_by_str(DEFAULT_WIFI_PASSWORD),
+            auth: DEFAULT_WIFI_AUTH.into(),
+            enabled: DEFAULT_WIFI_ENABLED,
         }
     }
 }
@@ -193,9 +195,9 @@ pub struct NtpConfig {
 impl Default for NtpConfig {
     fn default() -> Self {
         Self {
-            server: Bytes::new_by_str(defaults::DEFAULT_NTP_SERVER),
-            port: defaults::DEFAULT_NTP_PORT,
-            msg_len: defaults::DEFAULT_NTP_MSG_LEN,
+            server: Bytes::new_by_str(DEFAULT_NTP_SERVER),
+            port: DEFAULT_NTP_PORT,
+            msg_len: DEFAULT_NTP_MSG_LEN,
         }
     }
 }
@@ -341,7 +343,7 @@ impl Config {
         // Apply CMake defaults to WiFi config
         config.wifi = Default::default();
         // Apply CMake defaults to general config
-        config.timezone = defaults::DEFAULT_TIMEZONE;
+        config.timezone = DEFAULT_TIMEZONE;
 
         config.daylight_saving_time = Default::default();
         
