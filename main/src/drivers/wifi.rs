@@ -16,7 +16,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
-#![allow(dead_code)]
 
 use alloc::sync::Arc;
 use core::ffi::c_void;
@@ -339,11 +338,5 @@ impl Wifi {
             initialized: Mutex::new_arc(false),
         }
     }
-
-    #[inline]
-    pub fn get_link_status(&self) {
-        (WIFI_FN.link_status)(self.handle);
-    }
-
 
 }

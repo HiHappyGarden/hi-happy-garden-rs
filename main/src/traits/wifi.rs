@@ -24,14 +24,31 @@ use core::fmt::{Debug, Display};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum WifiStatus {
-    Disabled,
-    Enabled,
-    Connecting,
-    WaitForIp,
-    Connected,
-    Disconnected,
-    Error,
-    Resetting,
+    Disabled = 0x00,
+    Enabled = 0x01,
+    Connecting = 0x02,
+    WaitForIp = 0x04,
+    Connected = 0x08,
+    Disconnected = 0x10,
+    Error = 0x20,
+    Resetting = 0x40,
+}
+
+impl From<u8> for WifiStatus {
+    fn from(value: u8) -> Self {
+        use WifiStatus::*;
+        match value {
+            0x00 => Disabled,
+            0x01 => Enabled,
+            0x02 => Connecting,
+            0x04 => WaitForIp,
+            0x08 => Connected,
+            0x10 => Disconnected,
+            0x20 => Error,
+            0x40 => Resetting,
+            _ => Disabled,
+        }
+    }
 }
 
 impl Display for WifiStatus {
