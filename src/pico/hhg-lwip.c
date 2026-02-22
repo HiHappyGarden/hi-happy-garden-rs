@@ -44,11 +44,11 @@ void* hhg_udp_new_ip_type(u8_t type) {
     return udp_new_ip_type(type);
 }
 
-u16_t hhg_pbuf_copy_partial(const void *buf, void *dataptr, u16_t len, u16_t offset) {
-    return pbuf_copy_partial((const struct pbuf *)buf, dataptr, len, offset);
+u16_t hhg_pbuf_copy_partial(struct pbuf *buf, void *dataptr, u16_t len, u16_t offset) {
+    return pbuf_copy_partial(buf, dataptr, len, offset);
 }
 
-void * hhg_pbuf_alloc(u16_t length) {
+err_t hhg_pbuf_alloc(u16_t length) {
     return pbuf_alloc(PBUF_TRANSPORT, length, PBUF_RAM);
 }
 
@@ -64,11 +64,13 @@ u8_t hhg_ip_addr_cmp(const ip_addr_t *addr, const ip_addr_t *addr2) {
     return ip_addr_cmp(addr, addr2);
 }
 
-
-s8_t hhg_dns_gethostbyname(const char *hostname, ip_addr_t *addr, dns_found_callback found, void *callback_arg) {
+err_t hhg_dns_gethostbyname(const char *hostname, ip_addr_t *addr, dns_found_callback found, void *callback_arg) {
     return dns_gethostbyname(hostname, addr, found, callback_arg);
 }
 
+err_t hhg_udp_sendto(void *buf, struct pbuf *p, const ip_addr_t *ipaddr, u16_t port) {
+    return udp_sendto((struct pbuf *)buf, p, ipaddr, port);
+}
 
 //-----------------test functions-----------------
 

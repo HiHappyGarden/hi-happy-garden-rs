@@ -119,7 +119,7 @@ pub(super) mod cyw43_auth {
     pub const WPA3_WPA2_AES_PSK: u32 = 0x01400004;
 }
 
-type ip_addr = IP4Addr;
+pub(super) type ip_addr = IP4Addr;
 
 pub(super) mod cyw43_status {
     ///< link is down
@@ -136,6 +136,128 @@ pub(super) mod cyw43_status {
     pub const CYW43_LINK_NONET  : i32 = -2;
     ///< Authenticatation failure
     pub const CYW43_LINK_BADAUTH: i32 = -3;
+}
+
+
+pub(super) mod lwip_ip_addr_type {
+  /** IPv4 */
+  pub const IPADDR_TYPE_V4: u8 = 0;
+  /** IPv6 */
+  pub const IPADDR_TYPE_V6: u8 = 6;
+  /** IPv4+IPv6 ("dual-stack") */
+  pub const IPADDR_TYPE_ANY: u8 = 46;
+}
+
+#[repr(i8)]
+pub(super) enum err_enum {
+/** No error, everything OK. */
+  ERR_OK         = 0,
+/** Out of memory error.     */
+  ERR_MEM        = -1,
+/** Buffer error.            */
+  ERR_BUF        = -2,
+/** Timeout.                 */
+  ERR_TIMEOUT    = -3,
+/** Routing problem.         */
+  ERR_RTE        = -4,
+/** Operation in progress    */
+  ERR_INPROGRESS = -5,
+/** Illegal value.           */
+  ERR_VAL        = -6,
+/** Operation would block.   */
+  ERR_WOULDBLOCK = -7,
+/** Address in use.          */
+  ERR_USE        = -8,
+/** Already connecting.      */
+  ERR_ALREADY    = -9,
+/** Conn already established.*/
+  ERR_ISCONN     = -10,
+/** Not connected.           */
+  ERR_CONN       = -11,
+/** Low-level netif error    */
+  ERR_IF         = -12,
+
+/** Connection aborted.      */
+  ERR_ABRT       = -13,
+/** Connection reset.        */
+  ERR_RST        = -14,
+/** Connection closed.       */
+  ERR_CLSD       = -15,
+/** Illegal argument.        */
+  ERR_ARG        = -16
+} 
+
+
+#[repr(C)]
+pub(super) struct pbuf {
+    /// next pbuf in singly linked pbuf chain
+    pub next: *mut pbuf,
+    
+    /// pointer to the actual data in the buffer
+    pub payload: *mut c_void,
+    
+    /// total length of this buffer and all next buffers in chain
+    /// belonging to the same packet.
+    ///
+    /// For non-queue packet chains this is the invariant:
+    /// p->tot_len == p->len + (p->next? p->next->tot_len: 0)
+    pub tot_len: u16,
+    
+    /// length of this buffer
+    pub len: u16,
+    
+    /// a bit field indicating pbuf type and allocation sources
+    /// (see PBUF_TYPE_FLAG_*, PBUF_ALLOC_FLAG_* and PBUF_TYPE_ALLOC_SRC_MASK)
+    pub type_internal: u8,
+    
+    /// misc flags
+    pub flags: u8,
+    
+    /// the reference count always equals the number of pointers
+    /// that refer to this pbuf. This can be pointers from an application,
+    /// the stack itself, or pbuf->next pointers from a chain.
+    pub ref_count: u8,  // 'ref' è una keyword in Rust, rinominato in 'ref_count'
+    
+    /// For incoming packets, this contains the input netif's index
+    pub if_idx: u8,
+    
+    // In case the user needs to store data custom data on a pbuf
+    // LWIP_PBUF_CUSTOM_DATA (se necessario, aggiungi qui i campi custom)
+}
+
+
+/// The UDP protocol control block
+#[repr(C)]
+pub(super) struct udp_pcb {
+    // Common members from IP_PCB macro
+    /// IP addresses in network byte order
+    pub local_ip: ip_addr,
+    pub remote_ip: ip_addr,
+    /// Bound netif index
+    pub netif_idx: u8,
+    /// Socket options
+    pub so_options: u8,
+    /// Type Of Service
+    pub tos: u8,
+    /// Time To Live
+    pub ttl: u8,
+    
+    // Protocol specific PCB members
+    pub next: *mut udp_pcb,
+    pub flags: u8,
+    /// Ports are in host byte order
+    pub local_port: u16,
+    pub remote_port: u16,
+    /// Receive callback function
+    pub recv: Option<unsafe extern "C" fn(
+                arg: *mut c_void,
+                pcb: *mut udp_pcb,
+                p: *mut pbuf,
+                addr: *const ip_addr,
+                port: u16,
+            )>,
+    /// User-supplied argument for the recv callback
+    pub recv_arg: *mut c_void,
 }
 
 unsafe extern "C" {
@@ -188,13 +310,13 @@ unsafe extern "C" {
     pub(super) fn hhg_dhcp_get_binary_ip_address() -> c_uint;
     pub(super) fn hhg_dhcp_supplied_address() -> bool;
     pub(super) fn hhg_udp_new_ip_type(_type: c_uchar) -> *mut c_void;
-    pub(super) fn hhg_pbuf_copy_partial(buf: *mut c_void, dataptr: *mut c_void, len: u16, offset: u16) -> u16;
-    pub(super) fn hhg_pbuf_alloc(length: c_ushort) -> *mut c_void;
-    pub(super) fn hhg_pbuf_free(p: *mut c_void) -> c_uchar;
+    pub(super) fn hhg_pbuf_copy_partial(buf: *mut pbuf, dataptr: *mut c_void, len: u16, offset: u16) -> u16;
+    pub(super) fn hhg_pbuf_alloc(length: c_ushort) -> *mut pbuf;
+    pub(super) fn hhg_pbuf_free(p: *mut pbuf) -> c_uchar;
     pub(super) fn hhg_netif_is_link_up() -> c_uchar;
     pub(super) fn hhg_ip_addr_cmp(addr: *const ip_addr, addr2: *const ip_addr) -> i32;
     pub(super) fn hhg_dns_gethostbyname(hostname: *const c_char, addr: *mut ip_addr, dns_found_callback: extern "C" fn(name: *const c_char, ipaddr: *const ip_addr, callback_arg: *mut c_void), callback_arg: *mut c_void) -> c_char;
-
+    pub(super) fn hhg_udp_sendto(buf: *mut c_void, p: *mut pbuf, ipaddr: *const ip_addr, port: u16) -> i8;
 
     pub(super) fn hhg_i2c_instance(i2c_num: u8) -> *mut c_void;
     pub(super) fn hhg_i2c_init(i2c: *mut c_void, baudrate: c_uint) -> c_uint;

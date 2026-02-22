@@ -133,7 +133,7 @@ pub struct NetworkFn<'a> {
     pub dhcp_get_binary_ip_address: fn() -> u32,
     pub dhcp_supplied_address: fn() -> bool,
     pub dns_resolve_addrress: fn(hostname: &Bytes<64>) -> Result<&'a dyn IpAddress>,
-    pub ntp_request: fn(ipaddr_dest: &'a dyn IpAddress, port: u16, msg_len: u16) -> Result<()>,
+    pub ntp_request: fn(ipaddr_dest: &'a dyn IpAddress, port: u16, msg_len: u16) -> Result<i32>,
     pub is_link_up: fn() -> bool,
 }
 
@@ -171,7 +171,7 @@ impl Network {
     }
 
     #[inline]
-    pub fn ntp_request(ipaddr_dest: &'static dyn IpAddress, port: u16, msg_len: u16) -> Result<()> {
+    pub fn ntp_request(ipaddr_dest: &'static dyn IpAddress, port: u16, msg_len: u16) -> Result<i32> {
         (NETWORK_FN.ntp_request)(ipaddr_dest, port, msg_len)
     }
 

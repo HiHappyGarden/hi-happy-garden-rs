@@ -18,13 +18,14 @@
  ***************************************************************************/
 
 use core::ffi::{c_char, c_void};
+use core::net::Ipv4Addr;
 use core::ptr::null_mut;
-use core::slice::from_raw_parts;
-use osal_rs::log_info;
+use core::slice::{from_raw_parts, from_raw_parts_mut};
 use osal_rs::os::{System, SystemFn};
 use osal_rs::utils::{Bytes, Error, Result};
 use crate::drivers::network::{IP4Addr, NetworkFn};
-use crate::drivers::pico::ffi::{hhg_cyw43_arch_lwip_begin, hhg_cyw43_arch_lwip_end, hhg_cyw43_arch_poll, hhg_dns_gethostbyname};
+use crate::drivers::pico::ffi::lwip_ip_addr_type::IPADDR_TYPE_V4;
+use crate::drivers::pico::ffi::{hhg_cyw43_arch_lwip_begin, hhg_cyw43_arch_lwip_end, hhg_cyw43_arch_poll, hhg_dns_gethostbyname, hhg_pbuf_alloc, hhg_pbuf_free, hhg_udp_new_ip_type, hhg_udp_sendto, ip_addr, pbuf, udp_pcb};
 use crate::drivers::plt::ffi::{hhg_dhcp_get_binary_ip_address, hhg_dhcp_get_ip_address, hhg_dhcp_supplied_address, hhg_netif_is_link_up};
 use crate::traits::network::{IPV6_ADDR_LEN, IpAddress};
 
@@ -140,9 +141,63 @@ fn dns_resolve_addrress<'a>(hostname: &Bytes<64>) -> Result<&'a dyn IpAddress> {
     }
 }
 
-fn ntp_request(_ipaddr_dest: &'static dyn IpAddress, _port: u16, _msg_len: u16) -> Result<()> {
-    //unsafe { hhg_ntp_request(server.as_ptr() as *const _, port as i16, msg_len as i16) };
-    Ok(())
+extern "C" fn ntp_recv(arg: *mut c_void, pcb: *mut udp_pcb, p: *mut pbuf, addr: *const ip_addr, port: u16) {
+
+}
+
+fn ntp_request(ipaddr_dest: &'static dyn IpAddress, port: u16, msg_len: u16) -> Result<i32> {
+    
+    unsafe {
+        hhg_cyw43_arch_lwip_begin();   
+    }
+
+
+    let pcb = unsafe { hhg_udp_new_ip_type(IPADDR_TYPE_V4) };
+    if pcb.is_null() {
+        unsafe {
+            hhg_cyw43_arch_lwip_end();   
+        }
+        return Err(Error::NullPtr);
+    }
+
+    let pbuf = unsafe { hhg_pbuf_alloc(msg_len) };
+    if pbuf.is_null() {
+        unsafe {
+            hhg_cyw43_arch_lwip_end();   
+        }
+        return Err(Error::NullPtr);
+    }
+
+    let req = unsafe {
+        from_raw_parts_mut(
+            (*pbuf).payload as *mut u8,
+            (*pbuf).len as usize
+        )
+    };
+
+    req.fill(0);
+    req[0] = 0x1b;
+
+
+    let ipaddr = unsafe { &*(ipaddr_dest as *const dyn IpAddress as *const IP4Addr) };
+
+    let ret = unsafe {
+        hhg_udp_sendto(pcb, pbuf, ipaddr, port)
+    };
+    if ret < 0 {
+        unsafe {
+            hhg_pbuf_free(pbuf);
+            hhg_cyw43_arch_lwip_end();   
+        }
+        return Err(Error::ReturnWithCode(ret as i32));
+    }
+
+    unsafe {
+        hhg_cyw43_arch_lwip_end();   
+    }
+
+
+    Ok(0)
 }
 
 fn is_link_up() -> bool {

@@ -59,7 +59,7 @@ impl Initializable for AppMain {
         self.wifi.init()?;
 
         // SAFETY: AppMain has 'static lifetime since it's created with 'static hardware
-        self.wifi.set_ntp_config(unsafe { & *&raw const *self.config.get_ntp_config() });
+        self.wifi.set_ntp_config(unsafe { & *&raw const *self.config });
 
         // SAFETY: AppMain has 'static lifetime since it's created with 'static hardware
         self.hardware.set_on_wifi_change_status(unsafe { &mut *&raw mut self.wifi });

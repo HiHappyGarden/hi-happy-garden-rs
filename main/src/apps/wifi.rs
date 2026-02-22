@@ -21,7 +21,7 @@
 use osal_rs::{log_info};
 use osal_rs::utils::Result;
 
-use crate::apps::config::NtpConfig;
+use crate::apps::config::Config;
 use crate::drivers::network::Network;
 use crate::traits::state::Initializable;
 use crate::traits::wifi::{OnWifiChangeStatus, WifiStatus, WifiStatus::*};
@@ -31,7 +31,39 @@ const APP_TAG: &str = "AppWifi";
 
 static mut STATUS: WifiStatus = Disabled;
 
-pub struct WifiApp<'a>(Option<&'a NtpConfig>);
+macro_rules! ntp_sync {
+    ($tag:expr, $config:expr) => {
+        {
+            log_info!($tag, "NTP Config: server={}, port={}, msg_len={}", 
+                $config.get_ntp_config().get_server(), 
+                $config.get_ntp_config().get_port(), 
+                $config.get_ntp_config().get_msg_len());
+            
+            match Network::dns_resolve_addrress(&$config.get_ntp_config().get_server()) {
+                Ok(ip) => {
+                    log_info!($tag, "NTP Server IP: {}", ip);
+
+                    match Network::ntp_request(ip, $config.get_ntp_config().get_port(), $config.get_ntp_config().get_msg_len()) {
+                        Ok(timestamp) => {
+                            log_info!($tag, "NTP request successful, timestamp: {}", timestamp);
+                            timestamp
+                        }
+                        Err(e) => {
+                            log_info!($tag, "NTP request failed: {}", e);
+                            0
+                        }
+                    }
+                },
+                Err(_) => {
+                    log_info!($tag, "Failed to resolve NTP server address");
+                    0
+                }
+            }
+        }
+    };
+}
+
+pub struct WifiApp<'a>(Option<&'a Config>);
 
 impl<'a> Initializable for WifiApp<'a> {
     fn init(&mut self) -> Result<()> {
@@ -56,29 +88,13 @@ impl<'a> OnWifiChangeStatus<'static> for WifiApp<'a> {
             Connected => {
                 log_info!(APP_TAG, "Connected ip: {}", Network::dhcp_get_ip_address());
 
-                self.0.map(|config| {
+                let timestamp = if let Some(config) = self.0 {
+                    ntp_sync!(APP_TAG, config)
+                } else {
+                    0
+                };
 
-                    log_info!(APP_TAG, "NTP Config: server={}, port={}, msg_len={}", config.get_server(), config.get_port(), config.get_msg_len());
-                    let ip = match Network::dns_resolve_addrress(&config.get_server()) {
-                        Ok(ip) => ip,
-                        Err(_) => {
-                            log_info!(APP_TAG, "Failed to resolve NTP server address");
-                            return;
-                        }
-                    };
-
-                    log_info!(APP_TAG, "NTP Server IP: {}", ip);
-
-
-                    match Network::ntp_request(ip, config.get_port(), config.get_msg_len()) {
-                        Ok(_) => log_info!(APP_TAG, "NTP request successful"),
-                        Err(e) => log_info!(APP_TAG, "NTP request failed: {e:?}"),
-                    };
-                });
-
-
-                //Network::ntp_request();
-
+                
             },
             Disconnected | Resetting => {
                 log_info!(APP_TAG, "Disconnected");
@@ -102,7 +118,7 @@ impl<'a> WifiApp<'a> {
     }
 
     #[inline]
-    pub fn set_ntp_config(&mut self, config: &'a NtpConfig) {
+    pub fn set_ntp_config(&mut self, config: &'a Config) {
         self.0 = Some(config);
     }
 }
