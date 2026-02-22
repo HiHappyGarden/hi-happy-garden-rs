@@ -18,6 +18,7 @@
  ***************************************************************************/
 
 use core::ffi::c_void;
+use core::fmt::Display;
 
 use osal_rs::utils::{Bytes, Error, Result};
 
@@ -45,6 +46,19 @@ pub struct IP4Addr {
     pub addr: u32,
 }
 
+impl Default for IP4Addr {
+    fn default() -> Self {
+        IP4Addr { addr: 0 }
+    }
+}
+
+impl Display for IP4Addr {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let bytes = self.addr.to_be_bytes();
+        write!(f, "{}.{}.{}.{}", bytes[0], bytes[1], bytes[2], bytes[3])
+    }
+}
+
 impl IpAddress for IP4Addr {}
 
 #[allow(dead_code)]
@@ -70,6 +84,24 @@ impl IP4Addr {
 #[repr(C)]
 pub struct IP6Addr {
     pub addr: u128,
+}
+
+impl Default for IP6Addr {
+    fn default() -> Self {
+        IP6Addr { addr: 0 }
+    }
+}
+
+impl Display for IP6Addr {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let bytes = self.addr.to_be_bytes();
+        write!(
+            f,
+            "{:02X}{:02X}:{:02X}{:02X}:{:02X}{:02X}:{:02X}{:02X}:{:02X}{:02X}:{:02X}{:02X}:{:02X}{:02X}:{:02X}{:02X}",
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
+        )
+    }
 }
 
 impl IpAddress for IP6Addr {}
@@ -133,10 +165,12 @@ impl Network {
         (NETWORK_FN.dhcp_supplied_address)()
     }
 
+    #[inline]
     pub fn dns_resolve_addrress<'a>(hostname: &Bytes<64>) -> Result<&'a dyn IpAddress> {
         (NETWORK_FN.dns_resolve_addrress)(hostname)
     }
 
+    #[inline]
     pub fn ntp_request(ipaddr_dest: &'static dyn IpAddress, port: u16, msg_len: u16) -> Result<()> {
         (NETWORK_FN.ntp_request)(ipaddr_dest, port, msg_len)
     }

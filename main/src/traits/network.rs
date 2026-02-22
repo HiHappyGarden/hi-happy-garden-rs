@@ -19,11 +19,13 @@
 
 #![allow(dead_code)]
 
+use core::fmt::Display;
+
 use osal_rs::utils::Bytes;
 
 pub(crate) const IPV6_ADDR_LEN: usize = 40;
 
-pub trait IpAddress {
+pub trait IpAddress : Display {
     
     fn is_ipv4(&self, bytes: Bytes<IPV6_ADDR_LEN>) -> bool {
         let mut counter = 0u8;
