@@ -17,11 +17,13 @@
  *
  ***************************************************************************/
 
- #[allow(dead_code)]
- pub trait RTC {
-    fn set_timestamp(&self, timestamp: u64);
+use osal_rs::utils::Result;
 
-    fn get_timestamp(&self) -> u64;
+ #[allow(dead_code)]
+ pub trait RTC: Send + Sync {
+    fn set_timestamp(&self, timestamp: i64) -> Result<()>;
+
+    fn get_timestamp(&self) -> Result<i64>;
 
     fn is_to_synch(&self) -> bool;
  }

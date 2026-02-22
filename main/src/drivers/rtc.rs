@@ -57,6 +57,24 @@ impl Initializable for RTC {
     }
 }
 
+impl crate::traits::rtc::RTC for RTC {
+    fn set_timestamp(&self, timestamp: i64) -> Result<()> {
+        self.set_rtc_timestamp(timestamp)?;
+        self.set_timestamp(timestamp as u64)
+    }
+
+    #[allow(unused)]
+    fn get_timestamp(&self) -> Result<i64> {
+        let ret = self.get_timestamp()?;
+        Ok(ret as i64)
+    }
+    
+    fn is_to_synch(&self) -> bool {
+        self.is_to_synch()
+    }
+}
+
+
 impl RTC {
     pub const MINIMUM_DATE: i64 = 1_577_836_800; // 2020-01-01T00:00:00Z
 

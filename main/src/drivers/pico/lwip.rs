@@ -18,17 +18,12 @@
  ***************************************************************************/
 
 use core::ffi::{c_char, c_void};
-use core::net::Ipv4Addr;
 use core::ptr::null_mut;
 use core::slice::{from_raw_parts, from_raw_parts_mut};
-use osal_rs::log_debug;
 use osal_rs::os::{System, SystemFn};
 use osal_rs::utils::{Bytes, Error, Result};
-use crate::APP_TAG;
 use crate::drivers::network::{IP4Addr, NetworkFn};
-use crate::drivers::pico::ffi::lwip_ip_addr_type::IPADDR_TYPE_V4;
-use crate::drivers::pico::ffi::{hhg_cyw43_arch_lwip_begin, hhg_cyw43_arch_lwip_end, hhg_cyw43_arch_poll, hhg_dns_gethostbyname, hhg_ip_addr_cmp, hhg_pbuf_alloc, hhg_pbuf_copy_partial, hhg_pbuf_free, hhg_pbuf_get_at, hhg_udp_new_ip_type, hhg_udp_recv, hhg_udp_sendto, ip_addr, pbuf, udp_pcb};
-use crate::drivers::plt::ffi::{hhg_dhcp_get_binary_ip_address, hhg_dhcp_get_ip_address, hhg_dhcp_supplied_address, hhg_netif_is_link_up};
+use crate::drivers::pico::ffi::{lwip_ip_addr_type::IPADDR_TYPE_V4, hhg_cyw43_arch_lwip_begin, hhg_cyw43_arch_lwip_end, hhg_cyw43_arch_poll, hhg_dns_gethostbyname, hhg_pbuf_alloc, hhg_pbuf_copy_partial, hhg_pbuf_free, hhg_pbuf_get_at, hhg_udp_new_ip_type, hhg_udp_recv, hhg_udp_sendto, ip_addr, pbuf, udp_pcb, hhg_dhcp_get_binary_ip_address, hhg_dhcp_get_ip_address, hhg_dhcp_supplied_address, hhg_netif_is_link_up};
 use crate::traits::network::{IPV6_ADDR_LEN, IpAddress};
 
 static mut IP_ADDRES_FOUND: Option<IP4Addr> = None;

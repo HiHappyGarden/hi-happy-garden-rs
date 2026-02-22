@@ -17,7 +17,7 @@
  *
  ***************************************************************************/
 
-use osal_rs::{log_error, log_info};
+use osal_rs::log_info;
 use osal_rs::os::types::UBaseType;
 use osal_rs::os::{System, SystemFn, ToPriority};
 use osal_rs::utils::{Error, OsalRsBool, Result};
@@ -178,6 +178,13 @@ impl RelaysFn for Hardware {
     }
 }
 
+impl SetOnWifiChangeStatus<'static> for Hardware {
+
+    fn set_on_wifi_change_status(&mut self, on_wifi_change_status: &'static dyn OnWifiChangeStatus) {
+        self.wifi.set_on_wifi_change_status(on_wifi_change_status);
+    }
+}
+
 impl HardwareFn<'static> for Hardware {
     #[inline]
     fn set_button_handler(&mut self, clickable: &'static dyn OnClickable) {
@@ -201,33 +208,19 @@ impl HardwareFn<'static> for Hardware {
         }
         sum 
     }
-}
 
-impl SetOnWifiChangeStatus<'static> for Hardware {
-
-    fn set_on_wifi_change_status(&mut self, on_wifi_change_status: &'static dyn OnWifiChangeStatus) {
-        self.wifi.set_on_wifi_change_status(on_wifi_change_status);
-    }
-}
-
-impl RTCFn for Hardware {
-    #[inline]
-    fn set_timestamp(&self, timestamp: u64) {
-        self.rtc.set_timestamp(timestamp).unwrap_or_else(|e| log_error!(APP_TAG, "Failed to set timestamp: {:?}", e));
+    fn get_unique_id() -> [u8; 8] {
+        let mut id_buffer = [0u8; 8];
+        unsafe {
+            hhg_get_unique_id(id_buffer.as_mut_ptr());
+        }
+        id_buffer
     }
 
-    #[inline]
-    fn get_timestamp(&self) -> u64 {
-        self.rtc.get_timestamp().unwrap_or_else(|e| {
-            log_error!(APP_TAG, "Failed to get timestamp: {:?}", e);
-            0
-        })
+    fn get_rtc(&self) -> &(dyn RTCFn + '_) {
+        &self.rtc
     }
 
-    #[inline]
-    fn is_to_synch(&self) -> bool {
-        self.rtc.is_to_synch()
-    }
 }
 
 impl Hardware {
@@ -244,10 +237,6 @@ impl Hardware {
             wifi: Wifi::new(),
             rtc: RTC::new(),
         }
-    }
-
-    pub fn set_internal_led(&self, state: bool) {
-        Gpio::new().write(&GpioPeripheral::InternalLed, if state {1} else {0});
     }
 
     pub fn get_lcd_display(&mut self) -> LCDDisplay {
@@ -319,15 +308,6 @@ impl Hardware {
 
         Ok(())
     }
-    
-
-    pub fn get_unique_id() -> [u8; 8] {
-        let mut id_buffer = [0u8; 8];
-        unsafe {
-            hhg_get_unique_id(id_buffer.as_mut_ptr());
-        }
-        id_buffer
-    }   
 
 }
 

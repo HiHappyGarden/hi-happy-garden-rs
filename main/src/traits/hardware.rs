@@ -22,6 +22,7 @@ use crate::traits::rgb_led::RgbLed as RgbLedFn;
 use crate::traits::relays::Relays as RelaysFn;
 use crate::traits::button::OnClickable;
 use crate::traits::encoder::OnRotatableAndClickable;
+use crate::traits::rtc::RTC;
 
 pub trait HardwareFn<'a> : RgbLedFn + RgbLedFn + RelaysFn {
 
@@ -39,5 +40,8 @@ pub trait HardwareFn<'a> : RgbLedFn + RgbLedFn + RelaysFn {
 
     fn get_temperature(&self) -> f32;
 
+    fn get_unique_id() -> [u8; 8];
+
+    fn get_rtc(&self) -> &(dyn RTC + '_);
 }
 

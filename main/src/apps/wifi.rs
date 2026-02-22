@@ -17,12 +17,13 @@
  *
  ***************************************************************************/
 
-
 use osal_rs::{log_info};
 use osal_rs::utils::Result;
 
 use crate::apps::config::Config;
+use crate::drivers::date_time::DateTime;
 use crate::drivers::network::Network;
+use crate::traits::rtc::RTC;
 use crate::traits::state::Initializable;
 use crate::traits::wifi::{OnWifiChangeStatus, WifiStatus, WifiStatus::*};
 
@@ -63,12 +64,11 @@ macro_rules! ntp_sync {
     };
 }
 
-pub struct WifiApp<'a>(Option<&'a Config>);
+pub struct WifiApp<'a>(Option<&'a Config>, Option<&'a (dyn RTC + 'a)>);
 
 impl<'a> Initializable for WifiApp<'a> {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init app wifi");
-
 
         Ok(())
     }
@@ -94,6 +94,18 @@ impl<'a> OnWifiChangeStatus<'static> for WifiApp<'a> {
                     0
                 };
 
+                if timestamp > 0 {
+                    self.1.map(|rtc| {
+                        DateTime::from_timestamp_locale(timestamp, true).map(|dt| {
+                            log_info!(APP_TAG, "NTP time: {}", dt);
+                        }).unwrap_or_else(|e| {
+                            log_info!(APP_TAG, "Failed to convert NTP timestamp: {}", e);
+                        });
+                        rtc.set_timestamp(timestamp).unwrap_or_else(|e| {
+                            log_info!(APP_TAG, "Failed to set RTC timestamp: {}", e);
+                        });
+                    });
+                }
                 
             },
             Disconnected | Resetting => {
@@ -108,7 +120,7 @@ impl<'a> OnWifiChangeStatus<'static> for WifiApp<'a> {
 
 impl<'a> WifiApp<'a> {
     pub fn new() -> Self {
-        Self(None)
+        Self(None, None)
     }
 
     #[allow(dead_code)]
@@ -120,5 +132,9 @@ impl<'a> WifiApp<'a> {
     #[inline]
     pub fn set_ntp_config(&mut self, config: &'a Config) {
         self.0 = Some(config);
+    }
+
+    pub fn set_rtc(&mut self, rtc: &'a (dyn RTC + 'a)) {
+        self.1 = Some(rtc);
     }
 }

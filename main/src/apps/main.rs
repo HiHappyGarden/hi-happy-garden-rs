@@ -46,6 +46,11 @@ impl Initializable for AppMain {
         log_info!(APP_TAG, "Init app main");
 
         self.config.init()?;
+
+        self.wifi.init()?;
+
+        // SAFETY: AppMain has 'static lifetime since it's created with 'static hardware
+        self.wifi.set_rtc(unsafe { &mut *&raw mut self.hardware }.get_rtc() );
         
         self.display.init()?;
                 
@@ -56,7 +61,7 @@ impl Initializable for AppMain {
         
         self.hardware.set_encoder_handler(display_ref);
     
-        self.wifi.init()?;
+        
 
         // SAFETY: AppMain has 'static lifetime since it's created with 'static hardware
         self.wifi.set_ntp_config(unsafe { & *&raw const *self.config });
@@ -69,8 +74,6 @@ impl Initializable for AppMain {
         self.hardware.set_color(0, 0, 255); // Blue
 
         self.hardware.set_relay_state(GpioPeripheral::Relay1, true);
-
-        self.hardware.set_internal_led(true);
 
         self.display.draw()?;
 
