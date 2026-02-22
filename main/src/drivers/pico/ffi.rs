@@ -225,6 +225,7 @@ pub(super) struct pbuf {
     // LWIP_PBUF_CUSTOM_DATA (se necessario, aggiungi qui i campi custom)
 }
 
+type udp_recv_fn = unsafe extern "C" fn( arg: *mut c_void, pcb: *mut udp_pcb, p: *mut pbuf, addr: *const ip_addr, port: u16);
 
 /// The UDP protocol control block
 #[repr(C)]
@@ -249,13 +250,7 @@ pub(super) struct udp_pcb {
     pub local_port: u16,
     pub remote_port: u16,
     /// Receive callback function
-    pub recv: Option<unsafe extern "C" fn(
-                arg: *mut c_void,
-                pcb: *mut udp_pcb,
-                p: *mut pbuf,
-                addr: *const ip_addr,
-                port: u16,
-            )>,
+    pub recv: Option<udp_recv_fn>,
     /// User-supplied argument for the recv callback
     pub recv_arg: *mut c_void,
 }
@@ -309,14 +304,16 @@ unsafe extern "C" {
     pub(super) fn hhg_dhcp_get_ip_address() -> *const c_char;
     pub(super) fn hhg_dhcp_get_binary_ip_address() -> c_uint;
     pub(super) fn hhg_dhcp_supplied_address() -> bool;
-    pub(super) fn hhg_udp_new_ip_type(_type: c_uchar) -> *mut c_void;
+    pub(super) fn hhg_udp_new_ip_type(_type: c_uchar) -> *mut udp_pcb;
     pub(super) fn hhg_pbuf_copy_partial(buf: *mut pbuf, dataptr: *mut c_void, len: u16, offset: u16) -> u16;
     pub(super) fn hhg_pbuf_alloc(length: c_ushort) -> *mut pbuf;
     pub(super) fn hhg_pbuf_free(p: *mut pbuf) -> c_uchar;
+    pub(super) fn hhg_pbuf_get_at(p: * const pbuf, offset: u16) -> u8;
     pub(super) fn hhg_netif_is_link_up() -> c_uchar;
     pub(super) fn hhg_ip_addr_cmp(addr: *const ip_addr, addr2: *const ip_addr) -> i32;
     pub(super) fn hhg_dns_gethostbyname(hostname: *const c_char, addr: *mut ip_addr, dns_found_callback: extern "C" fn(name: *const c_char, ipaddr: *const ip_addr, callback_arg: *mut c_void), callback_arg: *mut c_void) -> c_char;
-    pub(super) fn hhg_udp_sendto(buf: *mut c_void, p: *mut pbuf, ipaddr: *const ip_addr, port: u16) -> i8;
+    pub(super) fn hhg_udp_sendto(buf: *mut udp_pcb, p: *mut pbuf, ipaddr: *const ip_addr, port: u16) -> i8;
+    pub(super) fn hhg_udp_recv(pcb: *mut udp_pcb, recv: udp_recv_fn ,  recv_arg: *mut c_void);
 
     pub(super) fn hhg_i2c_instance(i2c_num: u8) -> *mut c_void;
     pub(super) fn hhg_i2c_init(i2c: *mut c_void, baudrate: c_uint) -> c_uint;

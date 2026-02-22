@@ -21,15 +21,18 @@ use core::ffi::{c_char, c_void};
 use core::net::Ipv4Addr;
 use core::ptr::null_mut;
 use core::slice::{from_raw_parts, from_raw_parts_mut};
+use osal_rs::log_debug;
 use osal_rs::os::{System, SystemFn};
 use osal_rs::utils::{Bytes, Error, Result};
+use crate::APP_TAG;
 use crate::drivers::network::{IP4Addr, NetworkFn};
 use crate::drivers::pico::ffi::lwip_ip_addr_type::IPADDR_TYPE_V4;
-use crate::drivers::pico::ffi::{hhg_cyw43_arch_lwip_begin, hhg_cyw43_arch_lwip_end, hhg_cyw43_arch_poll, hhg_dns_gethostbyname, hhg_pbuf_alloc, hhg_pbuf_free, hhg_udp_new_ip_type, hhg_udp_sendto, ip_addr, pbuf, udp_pcb};
+use crate::drivers::pico::ffi::{hhg_cyw43_arch_lwip_begin, hhg_cyw43_arch_lwip_end, hhg_cyw43_arch_poll, hhg_dns_gethostbyname, hhg_ip_addr_cmp, hhg_pbuf_alloc, hhg_pbuf_copy_partial, hhg_pbuf_free, hhg_pbuf_get_at, hhg_udp_new_ip_type, hhg_udp_recv, hhg_udp_sendto, ip_addr, pbuf, udp_pcb};
 use crate::drivers::plt::ffi::{hhg_dhcp_get_binary_ip_address, hhg_dhcp_get_ip_address, hhg_dhcp_supplied_address, hhg_netif_is_link_up};
 use crate::traits::network::{IPV6_ADDR_LEN, IpAddress};
 
 static mut IP_ADDRES_FOUND: Option<IP4Addr> = None;
+static mut TIMESTAMP: i64 = 0;
 
 pub static NETWORK_FN: NetworkFn = NetworkFn {
     dhcp_get_ip_address,
@@ -141,12 +144,46 @@ fn dns_resolve_addrress<'a>(hostname: &Bytes<64>) -> Result<&'a dyn IpAddress> {
     }
 }
 
-extern "C" fn ntp_recv(arg: *mut c_void, pcb: *mut udp_pcb, p: *mut pbuf, addr: *const ip_addr, port: u16) {
+extern "C" fn ntp_recv(_: *mut c_void, _: *mut udp_pcb, p: *mut pbuf, _: *const ip_addr, _: u16) {
 
+    let  mode  = unsafe {
+        hhg_pbuf_get_at(p, 0) & 0x7
+    };
+    let  stratum  = unsafe {
+        hhg_pbuf_get_at(p, 1)
+    };
+
+    
+    if mode == 0x4 && stratum != 0 {
+        const NTP_DELTA: u32 = 2_208_988_800; // Seconds between 1900 and 1970
+        
+        let mut seconds_buf: [u8; 4] = [0, 0, 0, 0];
+        unsafe {
+            hhg_pbuf_copy_partial(p, seconds_buf.as_mut_ptr() as *mut c_void, seconds_buf.len() as u16, 40);   
+        }
+        let seconds_since_1900: u32 = (seconds_buf[0] as u32) << 24 
+            | (seconds_buf[1] as u32) << 16 
+            | (seconds_buf[2] as u32) << 8 
+            | (seconds_buf[3] as u32);
+        let seconds_since_1970: u32 = seconds_since_1900 - NTP_DELTA;
+        let epoch: i64 = seconds_since_1970 as i64;
+        
+        unsafe {
+            TIMESTAMP = epoch;
+            hhg_pbuf_free(p);
+        }
+
+        
+    }
 }
 
-fn ntp_request(ipaddr_dest: &'static dyn IpAddress, port: u16, msg_len: u16) -> Result<i32> {
+fn ntp_request(ipaddr_dest: &'static dyn IpAddress, port: u16, msg_len: u16) -> Result<i64> {
     
+
+    unsafe {
+        TIMESTAMP = 0;
+    }
+
     unsafe {
         hhg_cyw43_arch_lwip_begin();   
     }
@@ -194,10 +231,28 @@ fn ntp_request(ipaddr_dest: &'static dyn IpAddress, port: u16, msg_len: u16) -> 
 
     unsafe {
         hhg_cyw43_arch_lwip_end();   
+        hhg_udp_recv(pcb, ntp_recv, null_mut());
     }
 
+    const TIMEOUT_MS: u32 = 5000;
+    const POLL_INTERVAL_MS: u32 = 10;
+    let max_attempts = TIMEOUT_MS / POLL_INTERVAL_MS;
+    
+    for _ in 0..max_attempts {
+        unsafe { hhg_cyw43_arch_poll(); }
+        
+        if unsafe { TIMESTAMP != 0 } {
+            break;
+        }
+        
+        System::delay(POLL_INTERVAL_MS);
+    }
 
-    Ok(0)
+    if unsafe {TIMESTAMP == 0} {
+        Err(Error::Empty)
+    } else {
+        Ok(unsafe { TIMESTAMP })
+    }
 }
 
 fn is_link_up() -> bool {
