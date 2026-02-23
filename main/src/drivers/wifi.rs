@@ -288,7 +288,6 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                             let _ = (WIFI_FN.drop)(null_mut());
 
                             INITIALIZED.store(false, Ordering::Release);
-                            internal_del_blink_enable = true;
 
                             System::delay_with_to_tick(Duration::from_secs(25));
 
