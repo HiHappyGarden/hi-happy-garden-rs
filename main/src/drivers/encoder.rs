@@ -17,9 +17,9 @@
  *
  ***************************************************************************/
  
-use core::sync::atomic::{AtomicI32, AtomicU32, Ordering};
+use core::sync::atomic::{AtomicI32, AtomicU32, AtomicBool, Ordering};
 
-use osal_rs::{log_error, log_info};
+use osal_rs::{log_error, log_info, log_warning};
 use osal_rs::os::types::{StackType, TickType};
 use osal_rs::os::{EventGroup, EventGroupFn, RawMutexFn, System, SystemFn, Thread, ThreadFn};
 use osal_rs::utils::{Error, OsalRsBool, Result};
@@ -68,6 +68,7 @@ pub struct Encoder {
     gpio_cw_ref: GpioPeripheral,
     gpio_btn_ref: GpioPeripheral,
     thread: Thread,
+    thread_started: AtomicBool,
 }
 
 extern "C" fn encoder_button_isr() {
@@ -135,7 +136,8 @@ impl Encoder {
             gpio_ccw_ref: GpioPeripheral::EncoderCCW,
             gpio_cw_ref: GpioPeripheral::EncoderCW,
             gpio_btn_ref: GpioPeripheral::EncoderBtn,
-            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal)
+            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal),
+            thread_started: AtomicBool::new(false),
         }
     }
 
@@ -177,8 +179,15 @@ impl Encoder {
 
 
 impl SetRotatableAndClickable<'static> for Encoder {
-    fn set_on_rotate_and_click(&mut self, rotable_and_clickable:&'static dyn OnRotatableAndClickable) {
-        
+    fn set_on_rotate_and_click(&mut self, rotable_and_clickable: &'static dyn OnRotatableAndClickable) {
+        // Check if thread is already running
+        if self.thread_started.load(Ordering::Acquire) {
+            log_warning!(APP_TAG, "Encoder thread already started, ignoring new callback");
+            return;
+        }
+
+        // Mark thread as started
+        self.thread_started.store(true, Ordering::Release);
 
         let gpio_ccw_ref = self.gpio_ccw_ref;
         let gpio_cw_ref = self.gpio_cw_ref;
@@ -270,6 +279,7 @@ impl SetRotatableAndClickable<'static> for Encoder {
 
         if let Err(e) = ret {
             log_error!(APP_TAG, "Error spawning encoder thread: {:?}", e);
+            self.thread_started.store(false, Ordering::Release);
         }
 
     }

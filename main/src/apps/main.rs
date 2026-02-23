@@ -46,28 +46,28 @@ impl Initializable for AppMain {
         log_info!(APP_TAG, "Init app main");
 
         self.config.init()?;
-
         self.wifi.init()?;
-
-        // SAFETY: AppMain has 'static lifetime since it's created with 'static hardware
-        self.wifi.set_rtc(unsafe { &mut *&raw mut self.hardware }.get_rtc() );
-        
         self.display.init()?;
-                
-        // SAFETY: AppMain has 'static lifetime since it's created with 'static hardware
-        let display_ref: &'static Display<LCDDisplay>  = unsafe { &*(&self.display as *const _) };
-        
-        self.hardware.set_button_handler(display_ref);
-        
-        self.hardware.set_encoder_handler(display_ref);
-    
-        
 
-        // SAFETY: AppMain has 'static lifetime since it's created with 'static hardware
-        self.wifi.set_ntp_config(unsafe { & *&raw const *self.config });
-
-        // SAFETY: AppMain has 'static lifetime since it's created with 'static hardware
-        self.hardware.set_on_wifi_change_status(unsafe { &mut *&raw mut self.wifi });
+        // SAFETY: AppMain lives in static mut APP_MAIN, initialized once at startup.
+        // We use raw pointers to avoid borrow checker issues, then convert to 'static refs.
+        unsafe {
+            let display_ptr = &raw const self.display;
+            let wifi_ptr = &raw mut self.wifi;
+            let config_ptr = &*&raw const self.config;
+            let hardware_ptr = &raw mut self.hardware;
+            
+            // Set RTC for wifi
+            (*wifi_ptr).set_rtc((*hardware_ptr).get_rtc());
+            
+            // Set hardware callbacks - convert raw pointers to 'static references
+            (*hardware_ptr).set_button_handler(&*display_ptr);
+            (*hardware_ptr).set_encoder_handler(&*display_ptr);
+            
+            // Set wifi configuration
+            (*wifi_ptr).set_ntp_config(&*config_ptr);
+            (*hardware_ptr).set_on_wifi_change_status(&mut *wifi_ptr);
+        }
 
 //test funzionalità
 

@@ -18,6 +18,10 @@
  ***************************************************************************/
 
 
+/// Trait for receiving data callbacks
+/// 
+/// The `source` parameter accepts any string reference with lifetime 'a,
+/// making the trait more flexible while maintaining safety
 pub trait OnReceive : Send + Sync {
-    fn on_receive(&self, source: &'static str, data: &[u8]);
+    fn on_receive(&self, source: &str, data: &[u8]);
 }

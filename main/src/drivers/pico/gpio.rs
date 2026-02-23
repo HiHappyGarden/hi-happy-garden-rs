@@ -72,7 +72,7 @@ impl AsSyncStr for GpioPeripheral {
 }
 
 impl FromStr for GpioPeripheral {
-    type Err = Error;
+    type Err = Error<'static>;
 
     fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
         match s {
