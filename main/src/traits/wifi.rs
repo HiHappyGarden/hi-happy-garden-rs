@@ -68,10 +68,10 @@ impl Display for WifiStatus {
 }
 
  pub trait SetOnWifiChangeStatus<'a> {
-     fn set_on_wifi_change_status(&mut self, on_wifi_change_status: &'a dyn OnWifiChangeStatus<'a>);
+     fn set_on_wifi_change_status(&mut self, on_wifi_change_status: &'a dyn OnWifiChangeStatus);
  }
 
-pub trait OnWifiChangeStatus<'a>: Send + Sync {
+pub trait OnWifiChangeStatus: Send + Sync {
 
     fn on_status_change(&self, old_status: WifiStatus, status: WifiStatus);
     

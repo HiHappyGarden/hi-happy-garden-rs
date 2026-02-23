@@ -74,7 +74,7 @@ impl<'a> Initializable for WifiApp<'a> {
     }
 }
 
-impl<'a> OnWifiChangeStatus<'static> for WifiApp<'a> {
+impl<'a> OnWifiChangeStatus for WifiApp<'a> {
     fn on_status_change(&self, _: WifiStatus, status: WifiStatus) {
 
         unsafe {

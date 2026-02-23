@@ -177,7 +177,7 @@ impl Encoder {
 
 
 impl SetRotatableAndClickable<'static> for Encoder {
-    fn set_on_rotate_and_click(&mut self, rotable_and_clickable:&'static dyn OnRotatableAndClickable) {
+    fn set_on_rotate_and_click(&mut self, rotable_and_clickable: &'static dyn OnRotatableAndClickable) {
         
 
         let gpio_ccw_ref = self.gpio_ccw_ref;
