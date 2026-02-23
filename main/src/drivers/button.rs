@@ -20,12 +20,12 @@
 #![allow(dead_code)]
 
 use core::str;
-use core::sync::atomic::{AtomicU32, Ordering};
+use core::sync::atomic::{AtomicU32, AtomicBool, Ordering};
 
 use osal_rs::os::types::{StackType, TickType};
 use osal_rs::os::{EventGroup, EventGroupFn, RawMutexFn, System, SystemFn, Thread, ThreadFn};
 use osal_rs::utils::{Error, OsalRsBool, Result};
-use osal_rs::{log_error, log_info};
+use osal_rs::{log_error, log_info, log_warning};
 
 use crate::drivers::gpio::{Gpio, InterruptType};
 use crate::drivers::platform::{GpioPeripheral, ThreadPriority};
@@ -63,6 +63,7 @@ const fn event_handler() -> &'static EventGroup {
 pub struct Button {
     gpio_ref: GpioPeripheral,
     thread: Thread,
+    thread_started: AtomicBool,
 }
 
 
@@ -84,6 +85,14 @@ extern "C" fn button_isr() {
 
 impl SetClickable<'static> for Button {
     fn set_on_click(&mut self, clickable: &'static dyn OnClickable) {
+        // Check if thread is already running
+        if self.thread_started.load(Ordering::Acquire) {
+            log_warning!(APP_TAG, "Button thread already started, ignoring new callback");
+            return;
+        }
+
+        // Mark thread as started
+        self.thread_started.store(true, Ordering::Release);
 
         let ret = self.thread.spawn_simple( move || {
             let event_handler = event_handler();
@@ -93,7 +102,6 @@ impl SetClickable<'static> for Button {
                 
                 let bits = event_handler.wait(BUTTON_PRESSED | BUTTON_RELEASED, TickType::MAX);
                 event_handler.clear(bits);
-
 
                 if debounce != 0 && System::get_tick_count() - debounce < APP_DEBOUNCE_TIME {
                     continue;
@@ -111,14 +119,12 @@ impl SetClickable<'static> for Button {
 
                 debounce = System::get_tick_count();
             }
-                    
-
         });
 
         if let Err(e) = ret {
             log_error!(APP_TAG, "Error spawning button thread: {:?}", e);
+            self.thread_started.store(false, Ordering::Release);
         }
-
     }
 
     fn get_state(&self) -> ButtonState {
@@ -138,7 +144,7 @@ impl Button {
         Self {
             gpio_ref: GpioPeripheral::Btn,
             thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal),
-
+            thread_started: AtomicBool::new(false),
         }
     }
     

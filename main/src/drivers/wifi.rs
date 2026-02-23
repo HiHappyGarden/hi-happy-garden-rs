@@ -17,9 +17,9 @@
  *
  ***************************************************************************/
 
-use alloc::sync::Arc;
 use core::ffi::c_void;
 use core::ptr::null_mut;
+use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::Duration;
 use osal_rs::{log_debug, log_error, log_info, log_warning};
 use osal_rs::os::{AsSyncStr, Mutex, MutexFn, System, Thread, ThreadFn};
@@ -44,6 +44,7 @@ static mut SSID: Bytes<32> = Bytes::new();
 static mut PASSWORD: Bytes<32> = Bytes::new();
 static mut AUTH: Auth = Auth::Wpa2;
 static mut ENABLED: Option<Mutex<bool>> = None;
+static INITIALIZED: AtomicBool = AtomicBool::new(false);
 
 static mut FSM_STATUS_CURRENT: WifiStatus = WifiStatus::Disabled;
 static mut FSM_STATUS_OLD: WifiStatus = WifiStatus::Disabled;
@@ -133,7 +134,7 @@ pub struct WifiFn {
 pub struct Wifi {
     handle: *mut c_void,
     thread: Thread,
-    initialized: Arc<Mutex<bool>>,
+    thread_started: AtomicBool,
 }
 
  unsafe impl Send for Wifi {}
@@ -145,7 +146,7 @@ impl Initializable for Wifi {
 
         (WIFI_FN.init)(wifi_country!('I', 'T', 0))?;
         (WIFI_FN.enable_sta_mode)(null_mut());
-        *self.initialized.lock()? = true;
+        INITIALIZED.store(true, Ordering::Release);
 
         Ok(())
     }
@@ -161,9 +162,14 @@ impl Drop for Wifi {
 
 impl SetOnWifiChangeStatus<'static> for Wifi {
     fn set_on_wifi_change_status(&mut self, on_wifi_change_status: &'static dyn OnWifiChangeStatus) {
+        // Check if thread is already running
+        if self.thread_started.load(Ordering::Acquire) {
+            log_warning!(APP_TAG, "Wifi thread already started, ignoring new callback");
+            return;
+        }
 
-
-        let initialized = Arc::clone(&self.initialized);
+        // Mark thread as started
+        self.thread_started.store(true, Ordering::Release);
 
         let ret = self.thread.spawn_simple(move || {
 
@@ -204,11 +210,11 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
                             internal_del_blink_enable = true;
 
-                            if !*initialized.lock().unwrap() {
+                            if !INITIALIZED.load(Ordering::Acquire) {
                                 log_info!(APP_TAG, "WIFI init");
                                 let _ = (WIFI_FN.init)(wifi_country!('I', 'T', 0));
                                 (WIFI_FN.enable_sta_mode)(null_mut());
-                                *initialized.lock().unwrap() = true;
+                                INITIALIZED.store(true, Ordering::Release);
                             }
 
                             System::delay_with_to_tick(Duration::from_millis(2_500));
@@ -281,7 +287,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                             (WIFI_FN.disable_sta_mode)(null_mut());
                             let _ = (WIFI_FN.drop)(null_mut());
 
-                            *initialized.lock().unwrap() = false;
+                            INITIALIZED.store(false, Ordering::Release);
                             internal_del_blink_enable = true;
 
                             System::delay_with_to_tick(Duration::from_secs(25));
@@ -310,7 +316,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                             (WIFI_FN.disable_sta_mode)(null_mut());
                             let _ = (WIFI_FN.drop)(null_mut());
 
-                            *initialized.lock().unwrap() = false;
+                            INITIALIZED.store(false, Ordering::Release);
 
                             System::delay_with_to_tick(Duration::from_millis(2_500));
 
@@ -330,6 +336,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
         if let Err(e) = ret {
             log_error!(APP_TAG, "Error spawning wifi thread: {:?}", e);
+            self.thread_started.store(false, Ordering::Release);
         }
     }
 }
@@ -354,7 +361,7 @@ impl Wifi {
         Self {
             handle: null_mut(),
             thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal),
-            initialized: Mutex::new_arc(false)
+            thread_started: AtomicBool::new(false),
         }
     }
 
