@@ -361,13 +361,15 @@ impl Wifi {
     fn blink_internal(gpio: &Gpio<{GPIO_CONFIG_SIZE}>, internal_del_blink_enable: bool, internal_del_blink: &mut u8) -> Result<()> {
 
         if internal_del_blink_enable {
-            if *internal_del_blink < 5 {
-                *internal_del_blink -= 1;
+            if *internal_del_blink < 2 {
+                *internal_del_blink += 1;
             } else {
                 let state = gpio.read(&GpioPeripheral::InternalLed)?;
                 gpio.write(&GpioPeripheral::InternalLed, if state == 1 {0} else {1});
                 *internal_del_blink = 5;
             }
+        } else {
+            gpio.write(&GpioPeripheral::InternalLed, 1);
         }
         Ok(())
     }
