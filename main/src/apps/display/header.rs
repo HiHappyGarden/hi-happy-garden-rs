@@ -16,13 +16,5 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
- 
-mod main;
-mod config;
-mod display;
-mod signals;
-mod wifi;
-
-
-pub use main::AppMain;
-
+#![allow(dead_code)]
+pub(super) struct Header;

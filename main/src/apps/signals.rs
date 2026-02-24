@@ -16,13 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
- 
-mod main;
-mod config;
-mod display;
-mod signals;
-mod wifi;
+
+pub(super) mod display;
 
 
-pub use main::AppMain;
 

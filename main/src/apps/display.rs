@@ -16,10 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
- 
+
+mod header;
+
 use osal_rs::log_info;
 use osal_rs::utils::Result;
 
+use crate::apps::signals::display::DisplaySignal;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::assets::ic_wifi_off::IC_WIFI_OFF;
 use crate::traits::button::{ButtonState, OnClickable};
@@ -45,6 +48,8 @@ where LC: LCDDisplayFn
     }
 
     pub fn draw(&mut self) -> Result<()> {
+
+        DisplaySignal::init()?;
 
         self.lcd.invert_orientation()?;
 
