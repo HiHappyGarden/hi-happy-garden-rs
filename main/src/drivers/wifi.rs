@@ -22,7 +22,7 @@ use core::ptr::null_mut;
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::Duration;
 use osal_rs::{log_debug, log_error, log_info, log_warning};
-use osal_rs::os::{AsSyncStr, Mutex, MutexFn, System, Thread, ThreadFn};
+use osal_rs::os::{AsSyncStr, System, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
 use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Serialize};
@@ -43,7 +43,7 @@ const MAX_ERROR: StackType = 5;
 static mut SSID: Bytes<32> = Bytes::new();
 static mut PASSWORD: Bytes<32> = Bytes::new();
 static mut AUTH: Auth = Auth::Wpa2;
-static mut ENABLED: Option<Mutex<bool>> = None;
+static ENABLED: AtomicBool = AtomicBool::new(false);
 static INITIALIZED: AtomicBool = AtomicBool::new(false);
 
 static mut FSM_STATUS_CURRENT: WifiStatus = WifiStatus::Disabled;
@@ -192,8 +192,8 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
             unsafe {
                 'no_rtc: loop {
 
-                    if let Some(ref enabled) = ENABLED {
-                        if !*enabled.lock().unwrap() {
+                    
+                        if !ENABLED.load(Ordering::Acquire) {
                             if FSM_STATUS_CURRENT != Disconnected && FSM_STATUS_CURRENT != Disabled {
                                 transition_wifi_status!(Disconnected, on_wifi_change_status);
                             } else if FSM_STATUS_CURRENT == Disconnected {
@@ -204,7 +204,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                                 continue;
                             }
                         }
-                    }
+                    
 
                     match FSM_STATUS_CURRENT {
                         Disabled => {
@@ -353,7 +353,7 @@ impl Wifi {
             SSID = ssid;
             PASSWORD = password;
             AUTH = auth;
-            ENABLED = Some(Mutex::new(enabled));
+            ENABLED.store(enabled, Ordering::Release);
         }
     }
 

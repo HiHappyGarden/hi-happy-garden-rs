@@ -19,7 +19,7 @@
  
 use core::sync::atomic::{AtomicI32, AtomicU32, AtomicBool, Ordering};
 
-use osal_rs::{log_error, log_info, log_warning};
+use osal_rs::{access_static_option, log_error, log_info, log_warning};
 use osal_rs::os::types::{StackType, TickType};
 use osal_rs::os::{EventGroup, EventGroupFn, RawMutexFn, System, SystemFn, Thread, ThreadFn};
 use osal_rs::utils::{Error, OsalRsBool, Result};
@@ -56,15 +56,6 @@ static LAST_CCW_INTERRUPT_TIME: AtomicU32 = AtomicU32::new(0);
 static LAST_CW_INTERRUPT_TIME: AtomicU32 = AtomicU32::new(0);
 static mut EVENT_HANDLER: Option<EventGroup> = None;
 
-const fn event_handler() -> &'static EventGroup {
-    unsafe {
-        match &*&raw const EVENT_HANDLER {
-            Some(event_handler) => event_handler,
-            None => panic!("EVENT_HANDLER is not initialized"),    
-        }
-    }
-}
-
 #[allow(dead_code)]
 pub struct Encoder {
     gpio_ccw_ref: GpioPeripheral,
@@ -75,7 +66,7 @@ pub struct Encoder {
 }
 
 extern "C" fn encoder_button_isr() {
-    let encoder_events = event_handler();
+    let encoder_events = access_static_option!(EVENT_HANDLER);
     
     let current_time = System::get_tick_count();
     let last_time = LAST_BUTTON_INTERRUPT_TIME.load(Ordering::Relaxed);
@@ -104,7 +95,7 @@ extern "C" fn encoder_button_isr() {
 }
 
 extern "C" fn encoder_ccw_isr() {
-    let encoder_events = event_handler();
+    let encoder_events = access_static_option!(EVENT_HANDLER);
     
     let current_time = System::get_tick_count();
     let last_time = LAST_CCW_INTERRUPT_TIME.load(Ordering::Relaxed);
@@ -133,7 +124,7 @@ extern "C" fn encoder_ccw_isr() {
 }
 
 extern "C" fn encoder_cw_isr() {
-    let encoder_events = event_handler();
+    let encoder_events = access_static_option!(EVENT_HANDLER);
     
     let current_time = System::get_tick_count();
     let last_time = LAST_CW_INTERRUPT_TIME.load(Ordering::Relaxed);
@@ -227,7 +218,7 @@ impl SetRotatableAndClickable<'static> for Encoder {
 
         let ret = self.thread.spawn_simple( move || {
 
-            let event_handler = event_handler();
+            let event_handler = access_static_option!(EVENT_HANDLER);
 
             let gpio = Gpio::new();
 

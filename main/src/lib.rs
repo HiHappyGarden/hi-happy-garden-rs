@@ -41,8 +41,6 @@ mod ffi {
 
 use alloc::boxed::Box;
 
-use core::ptr::addr_of_mut;
-
 use osal_rs::os::types::{StackType, TickType};
 use osal_rs::os::{System, SystemFn, Thread, ThreadFn, ThreadParam};
 use osal_rs::log::set_enable_color;
@@ -86,7 +84,7 @@ fn main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Resul
     unsafe {
         HARDWARE = Some(Hardware::new()); 
 
-        let hardware = &mut *addr_of_mut!(HARDWARE);
+        let hardware = &mut *&raw mut HARDWARE;
 
         let hardware = match hardware {
             Some(hardware) => hardware,
@@ -100,7 +98,7 @@ fn main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Resul
 
         APP_MAIN = Some(AppMain::new(hardware));
 
-        let app = &mut *addr_of_mut!(APP_MAIN);
+        let app = &mut *&raw mut APP_MAIN;
 
         let app = match app {
             Some(app) => app,

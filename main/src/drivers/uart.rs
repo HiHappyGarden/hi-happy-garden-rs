@@ -18,7 +18,7 @@
  ***************************************************************************/
 #![allow(dead_code)]
 
-use osal_rs::{log_error, log_info, minimal_stack_size};
+use osal_rs::{access_static_option, log_error, log_info, minimal_stack_size};
 use osal_rs::os::{Queue, QueueFn, Thread, ThreadFn};
 use osal_rs::os::types::{TickType, UBaseType};
 use osal_rs::utils::{Error, Ptr, Result};
@@ -65,14 +65,6 @@ pub enum UartFlowControl {
 const UART_QUEUE_SIZE: UBaseType = 64;
 static mut UART_QUEUE: Option<Queue> = None;
 
-const fn uart_queue() -> &'static Queue {
-    unsafe {
-        match &*&raw const UART_QUEUE {
-            Some(queue) => queue,
-            None => panic!("UART_QUEUE is not initialized"),    
-        }
-    }
-}
 
 #[derive(Clone, Copy)]
 pub struct UartConfig {
@@ -125,7 +117,7 @@ impl Initializable for Uart {
         }
 
         unsafe {
-            UART_FN.receive = Some(uart_queue());
+            UART_FN.receive = Some(access_static_option!(UART_QUEUE));
         };
 
         Ok(())
@@ -160,7 +152,7 @@ impl Uart {
             
             loop {
                 let mut bytes = [0u8; UART_QUEUE_SIZE as usize];
-                uart_queue().fetch(&mut bytes, TickType::MAX).unwrap();
+                access_static_option!(UART_QUEUE).fetch(&mut bytes, TickType::MAX).unwrap();
 
                 listener.on_receive(SOURCE, &bytes);
             }
