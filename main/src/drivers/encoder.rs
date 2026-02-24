@@ -51,6 +51,9 @@ pub mod encoder_events {
 
 static ENCODER_STATE: AtomicU32 = AtomicU32::new(0);
 static ENCODER_POSITION: AtomicI32 = AtomicI32::new(0);
+static LAST_BUTTON_INTERRUPT_TIME: AtomicU32 = AtomicU32::new(0);
+static LAST_CCW_INTERRUPT_TIME: AtomicU32 = AtomicU32::new(0);
+static LAST_CW_INTERRUPT_TIME: AtomicU32 = AtomicU32::new(0);
 static mut EVENT_HANDLER: Option<EventGroup> = None;
 
 const fn event_handler() -> &'static EventGroup {
@@ -73,6 +76,16 @@ pub struct Encoder {
 
 extern "C" fn encoder_button_isr() {
     let encoder_events = event_handler();
+    
+    let current_time = System::get_tick_count();
+    let last_time = LAST_BUTTON_INTERRUPT_TIME.load(Ordering::Relaxed);
+    
+    // Debounce
+    if current_time.saturating_sub(last_time) < APP_DEBOUNCE_TIME {
+        return;
+    }
+    
+    LAST_BUTTON_INTERRUPT_TIME.store(current_time, Ordering::Relaxed);
 
     let state = ENCODER_STATE.load(Ordering::Relaxed);
     
@@ -92,6 +105,16 @@ extern "C" fn encoder_button_isr() {
 
 extern "C" fn encoder_ccw_isr() {
     let encoder_events = event_handler();
+    
+    let current_time = System::get_tick_count();
+    let last_time = LAST_CCW_INTERRUPT_TIME.load(Ordering::Relaxed);
+    
+    // Debounce
+    if current_time.saturating_sub(last_time) < APP_DEBOUNCE_TIME {
+        return;
+    }
+    
+    LAST_CCW_INTERRUPT_TIME.store(current_time, Ordering::Relaxed);
 
     let state = ENCODER_STATE.load(Ordering::Relaxed);
     
@@ -111,6 +134,16 @@ extern "C" fn encoder_ccw_isr() {
 
 extern "C" fn encoder_cw_isr() {
     let encoder_events = event_handler();
+    
+    let current_time = System::get_tick_count();
+    let last_time = LAST_CW_INTERRUPT_TIME.load(Ordering::Relaxed);
+    
+    // Debounce
+    if current_time.saturating_sub(last_time) < APP_DEBOUNCE_TIME {
+        return;
+    }
+    
+    LAST_CW_INTERRUPT_TIME.store(current_time, Ordering::Relaxed);
 
     let state = ENCODER_STATE.load(Ordering::Relaxed);
     
@@ -198,7 +231,6 @@ impl SetRotatableAndClickable<'static> for Encoder {
 
             let gpio = Gpio::new();
 
-            let mut debounce: TickType = 0;
             // State tracking: use 2-bit encoding where bit1=CCW, bit0=CW
             let mut last_state: u8 = 0;
             
@@ -211,10 +243,6 @@ impl SetRotatableAndClickable<'static> for Encoder {
                     TickType::MAX
                 );
                 event_handler.clear(bits);
-
-                if debounce != 0 && System::get_tick_count() - debounce < APP_DEBOUNCE_TIME {
-                    continue;
-                }
                 
                 // Handle button press/release
                 let mut encoder_pressed = ButtonState::None; 
@@ -271,8 +299,6 @@ impl SetRotatableAndClickable<'static> for Encoder {
                         rotable_and_clickable.on_rotable(dir, position);
                     }
                 }
-
-                debounce = System::get_tick_count();
             }
 
         });

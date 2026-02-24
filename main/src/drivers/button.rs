@@ -49,6 +49,7 @@ pub mod button_events {
 }
 
 static BUTTON_STATE: AtomicU32 = AtomicU32::new(0);
+static LAST_INTERRUPT_TIME: AtomicU32 = AtomicU32::new(0);
 static mut EVENT_HANDLER: Option<EventGroup> = None;
 
 const fn event_handler() -> &'static EventGroup {
@@ -71,6 +72,16 @@ pub struct Button {
 
 extern "C" fn button_isr() {
     let event_handler = event_handler();
+    
+    let current_time = System::get_tick_count();
+    let last_time = LAST_INTERRUPT_TIME.load(Ordering::Relaxed);
+    
+    // Debounce
+    if current_time.saturating_sub(last_time) < APP_DEBOUNCE_TIME {
+        return;
+    }
+    
+    LAST_INTERRUPT_TIME.store(current_time, Ordering::Relaxed);
 
     let state = BUTTON_STATE.load(Ordering::Relaxed);
 
@@ -97,15 +108,10 @@ impl SetClickable<'static> for Button {
         let ret = self.thread.spawn_simple( move || {
             let event_handler = event_handler();
 
-            let mut debounce: TickType = 0;
             loop {
                 
                 let bits = event_handler.wait(BUTTON_PRESSED | BUTTON_RELEASED, TickType::MAX);
                 event_handler.clear(bits);
-
-                if debounce != 0 && System::get_tick_count() - debounce < APP_DEBOUNCE_TIME {
-                    continue;
-                }
                 
                 let state = if bits & BUTTON_PRESSED == BUTTON_PRESSED {
                     ButtonState::Pressed
@@ -116,8 +122,6 @@ impl SetClickable<'static> for Button {
                 };
 
                 clickable.on_click(state);
-
-                debounce = System::get_tick_count();
             }
         });
 
