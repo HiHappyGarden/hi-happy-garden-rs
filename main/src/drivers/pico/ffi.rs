@@ -290,6 +290,7 @@ unsafe extern "C" {
     pub(super) fn hhg_adc_read() -> u16;
 
     pub(super) fn hhg_cyw43_arch_gpio_put(wl_gpio: u32, value: bool);
+    pub(super) fn hhg_cyw43_arch_gpio_get(wl_gpio: u32) -> bool;
     pub(super) fn hhg_cyw43_arch_init_with_country(country_code: c_uint) -> c_int;
     pub(super) fn hhg_cyw43_arch_deinit();
     pub(super) fn hhg_cyw43_arch_enable_sta_mode();

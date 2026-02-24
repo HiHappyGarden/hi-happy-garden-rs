@@ -187,6 +187,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
             #[allow(unused_assignments)]
             let mut internal_del_blink_enable = true;
             let mut internal_del_blink = 0u8;
+            let mut led_state = 0u32;
 
             unsafe {
                 'no_rtc: loop {
@@ -325,7 +326,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
                     }
 
-                    Self::blink_internal(&gpio, internal_del_blink_enable, &mut internal_del_blink).unwrap_or_else(|e| {
+                    Self::blink_internal(&gpio, internal_del_blink_enable, &mut internal_del_blink, &mut led_state).unwrap_or_else(|e| {
                         log_error!(APP_TAG, "Failed to blink internal LED: {}", e);
                     });
                     System::delay_with_to_tick(Duration::from_millis(100));
@@ -364,18 +365,19 @@ impl Wifi {
         }
     }
 
-    fn blink_internal(gpio: &Gpio<{GPIO_CONFIG_SIZE}>, internal_del_blink_enable: bool, internal_del_blink: &mut u8) -> Result<()> {
+    fn blink_internal(gpio: &Gpio<{GPIO_CONFIG_SIZE}>, internal_del_blink_enable: bool, internal_del_blink: &mut u8, led_state: &mut u32) -> Result<()> {
 
         if internal_del_blink_enable {
             if *internal_del_blink < 2 {
                 *internal_del_blink += 1;
             } else {
-                let state = gpio.read(&GpioPeripheral::InternalLed)?;
-                gpio.write(&GpioPeripheral::InternalLed, if state == 1 {0} else {1});
+                *led_state = if *led_state == 1 { 0 } else { 1 };
+                gpio.write(&GpioPeripheral::InternalLed, *led_state);
                 *internal_del_blink = 5;
             }
         } else {
             gpio.write(&GpioPeripheral::InternalLed, 1);
+            *led_state = 1;
         }
         Ok(())
     }

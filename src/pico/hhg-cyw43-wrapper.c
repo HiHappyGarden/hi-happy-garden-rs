@@ -41,6 +41,13 @@ void hhg_cyw43_arch_gpio_put(uint wl_gpio, bool value) {
     }
 }
 
+bool hhg_cyw43_arch_gpio_get(uint wl_gpio) {
+    if (atomic_load(&init)) {
+        return cyw43_arch_gpio_get(wl_gpio);
+    }
+    return false;
+}
+
 void hhg_cyw43_arch_deinit(void) {
     if (atomic_load(&init)) {
         atomic_store(&init, false);
