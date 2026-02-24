@@ -54,7 +54,7 @@ impl Initializable for AppMain {
         unsafe {
             let display_ptr = &raw const self.display;
             let wifi_ptr = &raw mut self.wifi;
-            let config_ptr = &*&raw const self.config;
+            let config_ptr = &raw const self.config;
             let hardware_ptr = &raw mut self.hardware;
             
             // Set RTC for wifi
