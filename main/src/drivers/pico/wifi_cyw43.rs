@@ -23,7 +23,7 @@ use core::ptr::null_mut;
 use osal_rs::utils::{Error, Result};
 use crate::drivers::pico::ffi::{hhg_cyw43_arch_disable_sta_mode, hhg_cyw43_arch_enable_sta_mode, hhg_cyw43_arch_wifi_connect, hhg_cyw43_wifi_link_status, hhg_cyw43_arch_deinit, hhg_cyw43_arch_init_with_country};
 use crate::drivers::pico::ffi::cyw43_auth::{OPEN, WPA_TKIP_PSK, WPA2_AES_PSK, WPA2_MIXED_PSK, WPA3_SAE_AES_PSK, WPA3_WPA2_AES_PSK};
-use crate::drivers::wifi::{Auth, LinkStatus, WifiFn};
+use crate::drivers::wifi::{Auth, LinkStatus::{self, *}, WifiFn};
 
 pub const WIFI_FN: WifiFn = WifiFn {
     init,
@@ -81,7 +81,6 @@ fn  connect(_: *mut c_void, ssid: &str, password: &str, auth: Auth) -> Result<i3
 #[inline]
 fn link_status(_: *mut c_void) -> LinkStatus {
     use crate::drivers::pico::ffi::cyw43_status::*;
-    use LinkStatus::*;
     
     match unsafe { hhg_cyw43_wifi_link_status(0) } {
         CYW43_LINK_UP => Up,
