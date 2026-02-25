@@ -17,8 +17,8 @@
  *
  ***************************************************************************/
 
-pub(super) mod display;
-pub(super) mod error;
-pub(super) mod status;
+#![allow(dead_code)]
 
+use crate::define_signal;
 
+define_signal!(ErrorSignal, ERROR_SIGNAL);

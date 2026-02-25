@@ -19,50 +19,6 @@
 
 #![allow(dead_code)]
 
-use osal_rs::access_static_option;
-use osal_rs::os::types::{self, EventBits};
-use osal_rs::os::{EventGroup, EventGroupFn};
-use osal_rs::utils::Result;
+use crate::define_signal;
 
-static mut DISPLAY_SIGNAL: Option<EventGroup> = None;
-
-pub struct DisplaySignal;
-
-
-impl DisplaySignal {
-    pub fn init() -> Result<()> {
-        unsafe {
-            DISPLAY_SIGNAL = Some(EventGroup::new()?)
-        }
-        Ok(())
-    }
-
-    pub fn get() -> EventBits {
-        access_static_option!(DISPLAY_SIGNAL).get()
-    }
-
-    pub fn get_form_isr() -> EventBits {
-        access_static_option!(DISPLAY_SIGNAL).get_from_isr()
-    }
-    
-    fn set(bits: EventBits) -> EventBits {
-        access_static_option!(DISPLAY_SIGNAL).set(bits)
-    }
-    
-    fn set_from_isr(bits: EventBits) -> Result<()> {
-        access_static_option!(DISPLAY_SIGNAL).set_from_isr(bits)
-    }
-    
-    fn clear(bits: EventBits) -> EventBits {
-        access_static_option!(DISPLAY_SIGNAL).clear(bits)
-    }
-    
-    fn clear_from_isr(bits: EventBits) -> Result<()> {
-        access_static_option!(DISPLAY_SIGNAL).clear_from_isr(bits)
-    }
-    
-    fn wait(mask: EventBits, timeout_ticks: types::TickType) -> EventBits {
-        access_static_option!(DISPLAY_SIGNAL).wait(mask, timeout_ticks)
-    }
-
-}
+define_signal!(DisplaySignal, DISPLAY_SIGNAL);

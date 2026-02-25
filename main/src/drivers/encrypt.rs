@@ -19,11 +19,11 @@
 
 #![allow(dead_code)]
 
-use core::{ffi::c_void, ptr::null_mut};
-
+use core::ffi::c_void;
+use core::ptr::null_mut;
 use alloc::{str, vec::Vec};
-use osal_rs::{log_info, utils::{Error, Result}};
-use osal_rs::utils::Bytes;
+use osal_rs::log_info;
+use osal_rs::utils::{Error, Result, Bytes};
 use crate::traits::state::Initializable;
 use crate::drivers::pico::mbedtls::ENCRYPT_FN;
 
