@@ -25,6 +25,7 @@ use osal_rs::utils::{Error, OsalRsBool, Result};
 use crate::drivers::button::Button;
 use crate::drivers::date_time::DateTime;
 use crate::drivers::encoder::Encoder;
+use crate::drivers::error::{HardwareErrorSignal, HardwareErrorFlag};
 use crate::drivers::filesystem::{Filesystem, FsStat};
 use crate::drivers::i2c::I2C;
 use crate::drivers::pico::ffi::{hhg_get_unique_id};
@@ -38,6 +39,7 @@ use crate::drivers::plt::flash::{FS_CONFIG_DIR, FS_DATA_DIR, FS_LOG_DIR};
 use crate::drivers::plt::flash::lfs_errors::LFS_ERR_EXIST;
 use crate::drivers::wifi::Wifi;
 
+use crate::set_hardware_error;
 use crate::traits::rgb_led::RgbLed as RgbLedFn;
 use crate::traits::relays::Relays as RelaysFn;
 use crate::traits::button::{OnClickable, SetClickable as ButtonOnClickable};
@@ -109,31 +111,33 @@ impl Initializable for Hardware {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init hardware");
 
-        self.wifi.init()?;
+        HardwareErrorSignal::init()?;
 
-        Gpio::new().init()?;
+        set_hardware_error!(self.wifi.init(), HardwareErrorFlag::Wifi);
 
-        self.uart.init()?;
+        set_hardware_error!(Gpio::new().init(), HardwareErrorFlag::Gpio);
+
+        set_hardware_error!(self.uart.init(), HardwareErrorFlag::Uart);
         
-        self.relays.init()?;
+        set_hardware_error!(self.relays.init(), HardwareErrorFlag::Relays);
 
-        self.encoder.init()?;
+        set_hardware_error!(self.encoder.init(), HardwareErrorFlag::Encoder);
 
-        self.button.init()?;
+        set_hardware_error!(self.button.init(), HardwareErrorFlag::Button);
 
-        self.rgb_led.init()?;
+        set_hardware_error!(self.rgb_led.init(), HardwareErrorFlag::Leds);
 
-        self.i2c0.init()?;
+        set_hardware_error!(self.i2c0.init(), HardwareErrorFlag::I2C);
         
-        self.i2c1.init()?;
+        set_hardware_error!(self.i2c1.init(), HardwareErrorFlag::I2C);
         
         self.rtc.set_i2c(self.i2c0.clone());
-        self.rtc.init()?;
+        set_hardware_error!(self.rtc.init(), HardwareErrorFlag::Rtc);
 
         self.display.set_i2c(self.i2c1.clone());
-        self.display.init()?;
+        set_hardware_error!(self.display.init(), HardwareErrorFlag::Display);
         
-        self.init_fs()?;
+        set_hardware_error!(self.init_fs(), HardwareErrorFlag::Filesystem);
 
         if self.rtc.is_to_synch() {
             let timestamp = self.rtc.get_rtc_timestamp()?;

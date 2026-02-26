@@ -2,7 +2,7 @@ mod button;
 pub mod date_time;
 mod encoder;
 mod encrypt;
-mod error_signal;
+mod error;
 pub mod filesystem;
 pub mod gpio;
 mod i2c;
