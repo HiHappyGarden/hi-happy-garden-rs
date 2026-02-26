@@ -62,12 +62,14 @@ pub(super) mod sh1106_commands {
     pub(super) const MULTIPLEX: u8 = 0x3F;
 }
 
+
 #[derive(Clone)]
 pub struct LCDSH1106 {
-    i2c: I2C<{I2C1_INSTANCE}, {I2C_BAUDRATE}>,
+    i2c: Option<I2C<{I2C1_INSTANCE}, {I2C_BAUDRATE}>>,
     buffer: [u8; (LCDSH1106::WIDTH as usize) * (LCDSH1106::HEIGHT as usize)],
+    #[allow(dead_code)]
     orientation: bool,
-    #[allow(unused)]
+    #[allow(dead_code)]
     turned_on: bool,
 }
 
@@ -92,8 +94,8 @@ impl Initializable  for LCDSH1106 {
             0x14,                       // Enable charge pump
             MEMORY_MODE,                // Set memory addressing mode (command)
             MEMORY_MODE_HORIZONTAL,     // Use horizontal addressing mode
-            COLUMN_REMAP_OFF,           // No column remap - origin at top-left
-            VERTICAL_FLIP_OFF,          // No vertical flip - origin at top-left
+            COLUMN_REMAP_ON,            // Yes column remap - origin at top-left
+            VERTICAL_FLIP_ON,           // Yes vertical flip - origin at top-left
             COM_PADS,                   // Set COM pins hardware configuration (command)
             0x12,                       // Alternative COM pin configuration
             CONTRAST,                   // Set contrast control (command)
@@ -168,12 +170,14 @@ impl LCDDisplayFn for LCDSH1106 {
 
         for h in 0..height {
             for w in 0..width {
-                let x = x + w;
-                let y = y + (height - 1 - h);
+                // let x = x + w;
+                // let y = y + (height - 1 - h);
                 if image[idx] != 0 {
-                    let _ = self.draw_pixel(x, y, LCDWriteMode::ADD);
+                    // let _ = self.draw_pixel(x, y, LCDWriteMode::ADD);
+                    self.draw_pixel(x + w, y + h, LCDWriteMode::ADD)?;
                 } else {
-                    let _ = self.draw_pixel(x, y, LCDWriteMode::REMOVE);
+                    // let _ = self.draw_pixel(x, y, LCDWriteMode::REMOVE);
+                    self.draw_pixel(x + w, y + h, LCDWriteMode::REMOVE)?;
                 }
                 idx += 1;
             }
@@ -220,12 +224,10 @@ impl LCDDisplayFn for LCDSH1106 {
 
             if w < width {
                 for bit in 0..8 {
-                    let x = x + w;
-                    let y = y + (h * 8) + (7 - bit);
                     if font[c_offset as usize + idx] & (1 << bit) > 0 {
-                        self.draw_pixel(x, y, LCDWriteMode::ADD)?;
+                        self.draw_pixel(x + w, y + (h * 8) + bit, LCDWriteMode::ADD)?;
                     } else {
-                        self.draw_pixel(x, y, LCDWriteMode::REMOVE)?;
+                        self.draw_pixel(x + w, y + (h * 8) + bit, LCDWriteMode::REMOVE)?;
                     }
                 }
                 w += 1;
@@ -292,18 +294,26 @@ impl LCDSH1106 {
     pub const HEIGHT: u8 = 8; // in pages (8 pixels each)
 
 
-    pub fn new(i2c: I2C<{I2C1_INSTANCE}, {I2C_BAUDRATE}>) -> Self {
+    pub fn new() -> Self {
         Self { 
-            i2c,
+            i2c: None,
             buffer: [0u8; (LCDSH1106::WIDTH as usize) * (LCDSH1106::HEIGHT as usize)],
             orientation: true,
             turned_on: true,
         }
     }
 
+    pub fn set_i2c(&mut self, i2c: I2C<{I2C1_INSTANCE}, {I2C_BAUDRATE}>) {
+        self.i2c = Some(i2c);
+    }
+
     fn send_cmd(&self, cmd: u8) -> Result<()>{
         let data = [0x00, cmd]; // Control byte 0x00 for commands
-        self.i2c.write(&data)
+        if let Some(i2c) = &self.i2c {
+            i2c.write(&data)
+        } else {
+            Err(Error::InvalidType)
+        }
     }
 
     fn send_cmd_with_data(&self, cmd: u8, data: u8) -> Result<()> {
@@ -324,6 +334,10 @@ impl LCDSH1106 {
         let len = data.len().min(LCDSH1106::WIDTH as usize);
         buffer[1..=len].copy_from_slice(&data[..len]);
         
-        self.i2c.write(&buffer)
+        if let Some(i2c) = &self.i2c {
+            i2c.write(&buffer[..=len])
+        } else {
+            Err(Error::InvalidType)
+        }
     }
 }

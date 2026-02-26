@@ -32,16 +32,16 @@ use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "AppDisplay";
 
-pub struct Display<LC>
-where LC: LCDDisplayFn
+pub struct Display<T>
+where T: LCDDisplayFn
 {
-    lcd: LC
+    lcd: T
 }
 
-impl<LC> Display<LC> 
-where LC: LCDDisplayFn
+impl<T> Display<T> 
+where T: LCDDisplayFn
 {
-    pub const fn new(lcd: LC) -> Self{
+    pub const fn new(lcd: T) -> Self{
         Self {
             lcd,
         }
@@ -49,9 +49,7 @@ where LC: LCDDisplayFn
 
     pub fn draw(&mut self) -> Result<()> {
 
-        DisplaySignal::init()?;
-
-        self.lcd.invert_orientation()?;
+        //self.lcd.invert_orientation()?;
 
         self.lcd.draw_pixel(1, 1, LCDWriteMode::ADD)?;
         self.lcd.draw_pixel(1, 2, LCDWriteMode::ADD)?;
@@ -68,18 +66,20 @@ where LC: LCDDisplayFn
     }
 }
 
-impl<LC> Initializable for Display<LC>
-where LC: LCDDisplayFn
+impl<T> Initializable for Display<T>
+where T: LCDDisplayFn
 {
     fn init(&mut self) -> osal_rs::utils::Result<()> {
         log_info!(APP_TAG, "Init LCD");
+
+        DisplaySignal::init()?;
 
         Ok(())
     }
 }
 
-impl<LC> OnClickable for Display<LC>
-where LC: LCDDisplayFn
+impl<T> OnClickable for Display<T>
+where T: LCDDisplayFn
 {
     fn on_click(&self, state: ButtonState) {
         match state {
@@ -90,8 +90,8 @@ where LC: LCDDisplayFn
     }
 }
 
-impl<LC> OnRotatableAndClickable for Display<LC>
-where LC: LCDDisplayFn
+impl<T> OnRotatableAndClickable for Display<T>
+where T: LCDDisplayFn
 {
     fn on_rotable(&self, direction: EncoderDirection, position: i32) {
         match direction {

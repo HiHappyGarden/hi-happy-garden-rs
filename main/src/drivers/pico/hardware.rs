@@ -98,6 +98,7 @@ pub struct Hardware {
     button: Button,
     rgb_led: RgbLed,
     relays: Relays,
+    display: LCDDisplay,
     i2c0: I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>,
     i2c1: I2C<{I2C1_INSTANCE}, {I2C_BAUDRATE}>,
     wifi: Wifi,
@@ -129,8 +130,10 @@ impl Initializable for Hardware {
         self.rtc.set_i2c(self.i2c0.clone());
         self.rtc.init()?;
 
+        self.display.set_i2c(self.i2c1.clone());
+        self.display.init()?;
+        
         self.init_fs()?;
-
 
         if self.rtc.is_to_synch() {
             let timestamp = self.rtc.get_rtc_timestamp()?;
@@ -226,23 +229,25 @@ impl HardwareFn<'static> for Hardware {
 impl Hardware {
     pub fn new() -> Self {        
 
+        let i2c1 =  I2C::new_with_address(LCDDisplay::I2C_ADDRESS);
+
         Self { 
             uart: Uart::new(),
             encoder: Encoder::new(),
             button: Button::new(),
             rgb_led: RgbLed::new(),
             relays: Relays::new(),
+            display: LCDDisplay::new(),
             i2c0: I2C::new(),
-            i2c1: I2C::new_with_address(LCDDisplay::I2C_ADDRESS),
+            i2c1: i2c1,
             wifi: Wifi::new(),
             rtc: RTC::new(),
+            
         }
     }
 
     pub fn get_lcd_display(&mut self) -> LCDDisplay {
-        let mut ret = LCDDisplay::new(self.i2c1.clone());
-        ret.init().unwrap();
-        ret
+        self.display.clone()
     }
 
     pub fn init_fs(&self) -> Result<()> {
@@ -273,24 +278,6 @@ impl Hardware {
         } else {
             log_info!(APP_TAG, "Created {FS_LOG_DIR} directory");
         }
-
-        //test wtrite/read
-        // let data = b"Hello, Hi Happy Garden!";
-        // let mut file = Filesystem::open("text.txt", open_flags::WRONLY | open_flags::CREAT)?;
-        // let bytes_written = file.write(data, true)?;
-        // log_info!(APP_TAG, "Wrote {} bytes to text.txt", bytes_written);
-        // file.close()?;
-        //
-        //
-        // let mut file = Filesystem::open("text.txt", open_flags::RDONLY)?;
-        // let read_buffer = file.read(true)?;
-        // log_info!(APP_TAG, "Read from text.txt: {}", core::str::from_utf8(&read_buffer).unwrap_or("Invalid UTF-8"));
-        // file.close()?;
-        //
-        // //ls /
-        // for (name, type_) in Filesystem::ls("/")? {
-        //     log_info!(APP_TAG, "{} - {}", name, type_);
-        // }
 
         let FsStat{block_size, block_count, blocks_used} = Filesystem::stat_fs()?;
 
