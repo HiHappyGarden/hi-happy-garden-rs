@@ -67,6 +67,43 @@ impl Display for WifiStatus {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum RSSIStatus {
+    Unknown = 0,
+    Excellent = -50,
+    Good = -60,
+    Fair = -70,
+    Weak = -80,
+    NoSignal = -90,
+}
+
+impl From<i8> for RSSIStatus {
+    fn from(rssi: i8) -> Self {
+        use RSSIStatus::*;
+        match rssi {
+            r if r >= -50 => Excellent,
+            r if r >= -60 => Good,
+            r if r >= -70 => Fair,
+            r if r >= -80 => Weak,
+            _ => NoSignal,
+        }
+    }
+}
+
+impl From<RSSIStatus> for i8 {
+    fn from(status: RSSIStatus) -> Self {
+        use RSSIStatus::*;
+        match status {
+            Unknown => 0,
+            Excellent => -50,
+            Good => -60,
+            Fair => -70,
+            Weak => -80,
+            NoSignal => -90,
+        }
+    }
+}
+
  pub trait SetOnWifiChangeStatus<'a> {
      fn set_on_wifi_change_status(&mut self, on_wifi_change_status: &'a dyn OnWifiChangeStatus);
  }
@@ -74,5 +111,7 @@ impl Display for WifiStatus {
 pub trait OnWifiChangeStatus: Send + Sync {
 
     fn on_status_change(&self, old_status: WifiStatus, status: WifiStatus);
+
+    fn on_rssi_change(&self, rssi: RSSIStatus);
     
 }

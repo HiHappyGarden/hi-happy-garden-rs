@@ -21,7 +21,7 @@ use alloc::format;
 use core::ffi::c_void;
 use core::ptr::null_mut;
 use osal_rs::utils::{Error, Result};
-use crate::drivers::pico::ffi::{hhg_cyw43_arch_disable_sta_mode, hhg_cyw43_arch_enable_sta_mode, hhg_cyw43_arch_wifi_connect, hhg_cyw43_wifi_link_status, hhg_cyw43_arch_deinit, hhg_cyw43_arch_init_with_country};
+use crate::drivers::pico::ffi::{hhg_cyw43_arch_deinit, hhg_cyw43_arch_disable_sta_mode, hhg_cyw43_arch_enable_sta_mode, hhg_cyw43_arch_init_with_country, hhg_cyw43_arch_wifi_connect, hhg_cyw43_wifi_get_rssi, hhg_cyw43_wifi_link_status};
 use crate::drivers::pico::ffi::cyw43_auth::{OPEN, WPA_TKIP_PSK, WPA2_AES_PSK, WPA2_MIXED_PSK, WPA3_SAE_AES_PSK, WPA3_WPA2_AES_PSK};
 use crate::drivers::wifi::{Auth, LinkStatus::{self, *}, WifiFn};
 
@@ -31,6 +31,7 @@ pub const WIFI_FN: WifiFn = WifiFn {
     disable_sta_mode,
     connect,
     link_status,
+    get_rssi,
     drop,
 };
 
@@ -88,6 +89,16 @@ fn link_status(_: *mut c_void) -> LinkStatus {
         CYW43_LINK_FAIL | CYW43_LINK_NONET => Down,
         CYW43_LINK_BADAUTH => BadAuth,
         _ => Down, // Default to Down for unknown statuses
+    }
+}
+
+fn get_rssi(_: *mut c_void) -> Result<i32> {
+    let mut rssi: i32 = 0;
+    let ret = unsafe { hhg_cyw43_wifi_get_rssi(&mut rssi) };
+    if ret == 0 {
+        Ok(rssi)
+    } else {
+        Err(Error::ReturnWithCode(ret))
     }
 }
 

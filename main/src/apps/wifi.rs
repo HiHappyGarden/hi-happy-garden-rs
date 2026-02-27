@@ -17,20 +17,25 @@
  *
  ***************************************************************************/
 
+use core::sync::atomic::{AtomicI8, Ordering};
+
 use osal_rs::{log_info};
 use osal_rs::utils::Result;
 
 use crate::apps::config::Config;
+use crate::apps::signals::display::{DisplayFlag, DisplaySignal};
 use crate::drivers::date_time::DateTime;
 use crate::drivers::network::Network;
 use crate::traits::rtc::RTC;
+use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
-use crate::traits::wifi::{OnWifiChangeStatus, WifiStatus, WifiStatus::*};
+use crate::traits::wifi::{OnWifiChangeStatus, RSSIStatus, WifiStatus::{self, *}};
 
 
 const APP_TAG: &str = "AppWifi";
 
 static mut STATUS: WifiStatus = Disabled;
+static mut RSSI: AtomicI8 = AtomicI8::new(0);
 
 macro_rules! ntp_sync {
     ($tag:expr, $config:expr) => {
@@ -115,6 +120,13 @@ impl<'a> OnWifiChangeStatus for WifiApp<'a> {
                 log_info!(APP_TAG, "Error");
             },
         };
+    }
+
+    fn on_rssi_change(&self, rssi: RSSIStatus) {
+        unsafe {
+            (*(&raw mut RSSI)).store(rssi.into(), Ordering::Relaxed);
+            DisplaySignal::set(DisplayFlag::WifiStatusChange.into());
+        }
     }
 }
 

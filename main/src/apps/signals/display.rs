@@ -21,4 +21,38 @@
 
 use crate::define_signal;
 
+pub enum DisplayFlag {
+    None = 0x00,
+    ButtonPressed = 0x01,
+    ButtonReleased = 0x02,
+    EncoderPressed = 0x04,
+    EncoderReleased = 0x08,
+    EncoderRotatedClockwise = 0x10,
+    EncoderRotatedCounterClockwise = 0x20,
+    WifiStatusChange = 0x40,
+}
+
+impl From<u32> for DisplayFlag {
+    fn from(value: u32) -> Self {
+        use DisplayFlag::*;
+        match value {
+            0x01 => ButtonPressed,
+            0x02 => ButtonReleased,
+            0x04 => EncoderPressed,
+            0x08 => EncoderReleased,
+            0x10 => EncoderRotatedClockwise,
+            0x20 => EncoderRotatedCounterClockwise,
+            0x40 => WifiStatusChange,
+            _ => None, // Default case, can be adjusted as needed
+        }
+    }
+}
+
+impl From<DisplayFlag> for u32 {
+    fn from(flag: DisplayFlag) -> Self {
+        flag as u32
+    }
+}
+
 define_signal!(DisplaySignal, DISPLAY_SIGNAL);
+

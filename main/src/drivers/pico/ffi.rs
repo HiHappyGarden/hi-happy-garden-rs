@@ -300,7 +300,7 @@ unsafe extern "C" {
     pub(super) fn hhg_cyw43_arch_poll();
     pub(super) fn hhg_cyw43_arch_lwip_begin();
     pub(super) fn hhg_cyw43_arch_lwip_end();
-
+    pub(super) fn hhg_cyw43_wifi_get_rssi(rssi: *mut i32) -> i32;
 
     pub(super) fn hhg_dhcp_get_ip_address() -> *const c_char;
     pub(super) fn hhg_dhcp_get_binary_ip_address() -> c_uint;

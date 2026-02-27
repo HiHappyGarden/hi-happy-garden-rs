@@ -82,3 +82,7 @@ void hhg_cyw43_arch_lwip_begin(void) {
 void hhg_cyw43_arch_lwip_end(void) {
     cyw43_arch_lwip_end();
 }
+
+int hhg_cyw43_wifi_get_rssi(int32_t *rssi) {
+    return cyw43_wifi_get_rssi(&cyw43_state, rssi);
+}

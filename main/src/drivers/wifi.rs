@@ -31,7 +31,7 @@ use crate::drivers::pico::ffi::pico_error_codes::PICO_OK;
 use crate::traits::state::Initializable;
 use crate::drivers::platform::{GPIO_CONFIG_SIZE, GpioPeripheral, ThreadPriority};
 use crate::drivers::pico::wifi_cyw43::WIFI_FN;
-use crate::traits::wifi::{OnWifiChangeStatus, SetOnWifiChangeStatus, WifiStatus};
+use crate::traits::wifi::{OnWifiChangeStatus, RSSIStatus::*, SetOnWifiChangeStatus, WifiStatus};
 use crate::traits::wifi::WifiStatus::Disconnected;
 
 
@@ -128,6 +128,7 @@ pub struct WifiFn {
     pub disable_sta_mode: fn(*mut c_void),
     pub connect: fn(*mut c_void, ssid: &str, password: &str, auth: Auth) -> Result<i32>,
     pub link_status: fn(*mut c_void) -> LinkStatus,
+    pub get_rssi: fn(*mut c_void) -> Result<i32>,
     pub drop: fn(*mut c_void),
 }
 
@@ -188,6 +189,8 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
             let mut internal_del_blink_enable = true;
             let mut internal_del_blink = 0u8;
             let mut led_state = 0u32;
+
+            let rssi_old : i8 = Unknown.into();
 
             unsafe {
                 'no_rtc: loop {
@@ -270,6 +273,24 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                             match link_status {
                                 LinkStatus::Up => {
                                     internal_del_blink_enable = false;
+
+                                    let rssi =  if let Ok(rssi) = (WIFI_FN.get_rssi)(null_mut()) {
+                                        match rssi {
+                                            rssi if rssi >= -50 => Excellent,
+                                            rssi if rssi >= -60 => Good,
+                                            rssi if rssi >= -70 => Fair,
+                                            rssi if rssi >= -80 => Weak,
+                                            _ => NoSignal,
+                                        }
+                                    } else {
+                                        Unknown.into()
+                                    };
+
+                                    if rssi_old != rssi.into() {
+                                        on_wifi_change_status.on_rssi_change(rssi);
+                                    }
+
+                                    System::delay_with_to_tick(Duration::from_millis(500));
                                 }
                                 LinkStatus::WaitForIp => {
                                     transition_wifi_status!(WaitForIp, on_wifi_change_status);
