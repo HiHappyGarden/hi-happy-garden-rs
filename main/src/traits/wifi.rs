@@ -104,6 +104,33 @@ impl From<RSSIStatus> for i8 {
     }
 }
 
+impl RSSIStatus {
+    pub fn to_bites(&self) -> u8 {
+        use RSSIStatus::*;
+        match self {
+            Unknown => 0x01,
+            Excellent => 0x02,
+            Good => 0x03,
+            Fair => 0x04,
+            Weak => 0x05,
+            NoSignal => 0x06,
+        }
+    }
+
+    pub fn from_bites(value: u8) -> Self {
+        use RSSIStatus::*;
+        match value {
+            0x01 => Unknown,
+            0x02 => Excellent,
+            0x03 => Good,
+            0x04 => Fair,
+            0x05 => Weak,
+            0x06 => NoSignal,
+            _ => Unknown,
+        }
+    }
+}
+
  pub trait SetOnWifiChangeStatus<'a> {
      fn set_on_wifi_change_status(&mut self, on_wifi_change_status: &'a dyn OnWifiChangeStatus);
  }

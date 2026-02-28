@@ -190,7 +190,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
             let mut internal_del_blink = 0u8;
             let mut led_state = 0u32;
 
-            let rssi_old : i8 = Unknown.into();
+            let mut rssi_old : i8 = Unknown.into();
 
             unsafe {
                 'no_rtc: loop {
@@ -288,6 +288,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
                                     if rssi_old != rssi.into() {
                                         on_wifi_change_status.on_rssi_change(rssi);
+                                        rssi_old = rssi.into();
                                     }
 
                                     System::delay_with_to_tick(Duration::from_millis(500));

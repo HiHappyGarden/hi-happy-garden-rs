@@ -17,8 +17,30 @@
  *
  ***************************************************************************/
 
-#![allow(dead_code)]
 
 use crate::define_signal;
 
+
 define_signal!(ErrorSignal, ERROR_SIGNAL);
+
+pub enum DisplayFlag {
+    None = 0x00,
+    DisplayError = 0x01,
+
+}
+
+impl From<u32> for DisplayFlag {
+    fn from(value: u32) -> Self {
+        use DisplayFlag::*;
+        match value {
+            0x01 => DisplayError,
+            _ => None, // Default case, can be adjusted as needed
+        }
+    }
+}
+
+impl From<DisplayFlag> for u32 {
+    fn from(flag: DisplayFlag) -> Self {
+        flag as u32
+    }
+}

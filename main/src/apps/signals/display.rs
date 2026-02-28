@@ -25,11 +25,16 @@ pub enum DisplayFlag {
     None = 0x00,
     ButtonPressed = 0x01,
     ButtonReleased = 0x02,
-    EncoderPressed = 0x04,
-    EncoderReleased = 0x08,
+    EncoderButtonPressed = 0x04,
+    EncoderButtonReleased = 0x08,
     EncoderRotatedClockwise = 0x10,
     EncoderRotatedCounterClockwise = 0x20,
-    WifiStatusChange = 0x40,
+    WifiStatusUnknown = 0x40,
+    WifiStatusExcellent = 0x80,
+    WifiStatusGood = 0xC0,
+    WifiStatusFair = 0x100,
+    WifiStatusWeak = 0x140,
+    WifiStatusNoSignal = 0x180,
 }
 
 impl From<u32> for DisplayFlag {
@@ -38,11 +43,16 @@ impl From<u32> for DisplayFlag {
         match value {
             0x01 => ButtonPressed,
             0x02 => ButtonReleased,
-            0x04 => EncoderPressed,
-            0x08 => EncoderReleased,
+            0x04 => EncoderButtonPressed,
+            0x08 => EncoderButtonReleased,
             0x10 => EncoderRotatedClockwise,
             0x20 => EncoderRotatedCounterClockwise,
-            0x40 => WifiStatusChange,
+            0x40 => WifiStatusUnknown,
+            0x80 => WifiStatusExcellent,
+            0xC0 => WifiStatusGood,
+            0x100 => WifiStatusFair,
+            0x140 => WifiStatusWeak,
+            0x180 => WifiStatusNoSignal,
             _ => None, // Default case, can be adjusted as needed
         }
     }

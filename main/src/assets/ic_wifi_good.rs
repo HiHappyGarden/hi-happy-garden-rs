@@ -1,7 +1,7 @@
 /***************************************************************************
  *
  * Hi Happy Garden
- * Copyright (C) 2023/2026 Antonio Salsi <passy.linux@zresa.it>
+ * Copyright (C) 2023-2026  Antonio Salsi <passy.linux@zresa.it>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,27 +16,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
-#![allow(dead_code)]
 
-use alloc::sync::Arc;
-use osal_rs::{os::Mutex, utils::Result};
+#[allow(dead_code)]
 
-use crate::traits::wifi::RSSIStatus;
-
-pub(super) struct Header<T> {
-    lcd: Arc<Mutex<T>>,
-}
-
-impl<T> Header<T> {
-    pub(super) const fn new(lcd: Arc<Mutex<T>>) -> Self {
-        Self {
-            lcd,
-        }
-    }
-
-    pub(super) fn draw(&mut self, rssi: RSSIStatus) -> Result<()> {
-
-
-        Ok(())
-    }
-}
+//width, height, data
+pub const IC_WIFI_GOOD: (u8, u8, [u8; 120]) = (12, 10, [
+	0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,1,1,1,1,1,1,0,0,0,
+	0,0,1,1,0,0,0,0,1,1,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,1,1,0,0,0,0,0,
+	0,0,0,0,0,1,1,0,0,0,0,0,
+	0,0,0,0,0,1,1,0,0,0,0,0
+]);

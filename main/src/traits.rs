@@ -18,7 +18,6 @@
  ***************************************************************************/
  
 pub mod button;
-pub mod draw;
 pub mod encoder;
 pub mod hardware;
 pub mod lcd_display;

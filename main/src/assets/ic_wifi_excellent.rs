@@ -1,7 +1,7 @@
 /***************************************************************************
  *
  * Hi Happy Garden
- * Copyright (C) 2023/2026 Antonio Salsi <passy.linux@zresa.it>
+ * Copyright (C) 2023-2026  Antonio Salsi <passy.linux@zresa.it>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,4 +17,18 @@
  *
  ***************************************************************************/
 
- 
+#[allow(dead_code)]
+
+//width, height, data
+pub const IC_WIFI_EXCELLENT: (u8, u8, [u8; 120]) = (12, 10, [
+        0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+        0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 0,
+        1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+        0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0
+]);
