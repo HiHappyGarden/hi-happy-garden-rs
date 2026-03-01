@@ -120,6 +120,11 @@ impl Initializable  for LCDSH1106 {
 }
 
 impl LCDDisplayFn for LCDSH1106 {
+
+    fn get_size(&self) -> (u8, u8) {
+        (LCDSH1106::WIDTH, LCDSH1106::HEIGHT * 8)
+    }
+
     fn draw(&mut self) -> Result<()> {
         let _ = self.send_cmd(LOW_COLUMN);
         let _ = self.send_cmd(HIGH_COLUMN);
@@ -290,8 +295,8 @@ impl LCDDisplayFn for LCDSH1106 {
 impl LCDSH1106 {
 
     pub const I2C_ADDRESS: u8 = 0x3C;
-    pub const WIDTH: u8 = 132;
-    pub const HEIGHT: u8 = 8; // in pages (8 pixels each)
+    const WIDTH: u8 = 132;
+    const HEIGHT: u8 = 8; // in pages (8 pixels each)
 
 
     pub fn new() -> Self {

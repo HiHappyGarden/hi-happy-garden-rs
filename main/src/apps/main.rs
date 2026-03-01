@@ -17,12 +17,14 @@
  *
  ***************************************************************************/
 
+use alloc::sync::Arc;
 use osal_rs::log_info;
 use osal_rs::os::{System, SystemFn};
 use osal_rs::utils::Result;
 
 use crate::apps::config::Config;
 use crate::apps::display::{Display};
+use crate::apps::signals::error::ErrorSignal;
 use crate::apps::wifi::WifiApp;
 use crate::drivers::platform::{GpioPeripheral, Hardware, LCDDisplay};
 use crate::traits::hardware::HardwareFn;
@@ -33,7 +35,7 @@ use crate::traits::wifi::SetOnWifiChangeStatus;
 
 const APP_TAG: &str = "AppMain";
 
-pub struct AppMain{
+pub struct AppMain {
     hardware: &'static mut Hardware,
     config: &'static mut Config,
     display: Display<LCDDisplay>,
@@ -41,9 +43,12 @@ pub struct AppMain{
 }
 
 
-impl Initializable for AppMain {
+impl Initializable for AppMain{
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init app main");
+
+        ErrorSignal::init()?;
+
 
         self.config.init()?;
         self.wifi.init()?;
@@ -75,8 +80,6 @@ impl Initializable for AppMain {
 
         self.hardware.set_relay_state(GpioPeripheral::Relay1, true);
 
-        self.display.draw()?;
-
         let unique_id = Hardware::get_unique_id();
         log_info!(APP_TAG, "Device Unique ID: {:02X?}", unique_id);
 
@@ -88,7 +91,14 @@ impl Initializable for AppMain {
 
 impl AppMain {
     pub fn new(hardware: &'static mut Hardware) -> Self {
-        let display = Display::new(hardware.get_lcd_display());
+        // SAFETY: We create a shared static reference from the mutable static reference.
+        // This is safe because: 1) hardware is guaranteed to live for 'static
+        // 2) we only use it to get rtc before moving hardware into Self
+        let hardware_ref = unsafe { &*&raw const hardware };
+        let rtc = Arc::new(hardware_ref.get_rtc());
+        let lcd = hardware.get_lcd_display();
+        let display = Display::new(rtc, lcd);
+        
         Self {
             hardware,
             config: Config::new(),

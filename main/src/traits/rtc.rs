@@ -19,11 +19,19 @@
 
 use osal_rs::utils::Result;
 
+use crate::drivers::date_time::DateTime;
+
  #[allow(dead_code)]
  pub trait RTC: Send + Sync {
-    fn set_timestamp(&self, timestamp: i64) -> Result<()>;
+   fn set_timestamp(&self, timestamp: i64) -> Result<()>;
 
-    fn get_timestamp(&self) -> Result<i64>;
+   fn get_timestamp(&self) -> Result<i64>;
 
-    fn is_to_synch(&self) -> bool;
+   fn is_to_synch(&self) -> bool;
+
+   fn timestamp_to_datetime(&self, locale: bool) -> Result<DateTime>  {
+         let timestamp = self.get_timestamp().unwrap_or(0);
+         DateTime::from_timestamp_locale(timestamp, locale)
+   }
+   
  }

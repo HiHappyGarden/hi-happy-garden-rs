@@ -37,6 +37,10 @@ pub enum LCDWriteMode
 
 /// Trait for LCD display operations
 pub trait LCDDisplayFn : Sync + Send {
+
+    /// Get the display size (width, height)
+    fn get_size(&self) -> (u8, u8);
+
     /// Draw the buffer to the display
     fn draw(&mut self) -> Result<()>;
     

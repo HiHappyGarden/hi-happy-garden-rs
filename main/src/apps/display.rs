@@ -21,9 +21,8 @@ mod header;
 
 use alloc::sync::Arc;
 use osal_rs::log_info;
-use osal_rs::os::{Mutex, Thread, ThreadFn};
+use osal_rs::os::{Mutex, MutexFn, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
-use osal_rs::utils::Result;
 
 use crate::apps::signals::display::{DisplayFlag::{self, *}, DisplaySignal};
 use crate::apps::signals::error::{ErrorSignal, DisplayFlag::DisplayError};
@@ -34,51 +33,35 @@ use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
 use crate::traits::wifi::RSSIStatus;
- 
+use crate::traits::rtc::RTC;
+
 
 const APP_TAG: &str = "AppDisplay";
 const APP_THREAD_NAME: &str = "display_trd";
 const APP_STACK_SIZE: StackType = 1024;
 
 pub struct Display<T>
-where T: LCDDisplayFn + Clone + 'static
+where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
+    rtc: Arc<&'static dyn RTC>,
     lcd: Arc<Mutex<T>>,
-    thread: Thread,
-
+    thread: Thread
 }
 
 impl<T> Display<T> 
-where T: LCDDisplayFn + Clone + 'static
+where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
-    pub fn new(lcd: T) -> Self{
+    pub fn new(rtc: Arc<&'static dyn RTC>, lcd: T) -> Self{
         Self {
+            rtc,
             lcd: Mutex::new_arc(lcd),
             thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal),
         }
     }
-
-    pub fn draw(&mut self) -> Result<()> {
-
-        //self.lcd.invert_orientation()?;
-
-        // self.lcd.draw_pixel(1, 1, LCDWriteMode::ADD)?;
-        // self.lcd.draw_pixel(1, 2, LCDWriteMode::ADD)?;
-        // self.lcd.draw_pixel(1, 3, LCDWriteMode::ADD)?;
-        // self.lcd.draw_pixel(2, 4, LCDWriteMode::ADD)?;
-        // self.lcd.draw_pixel(2, 5, LCDWriteMode::ADD)?;
-        
-
-        // self.lcd.draw_bitmap_image(30, 20, IC_WIFI_NO_SIGNAL.0, IC_WIFI_NO_SIGNAL.1, &IC_WIFI_NO_SIGNAL.2, LCDWriteMode::ADD)?;
-
-        // self.lcd.draw_str("ciao", 80, 50, &FONT_8X8)?;
-        // self.lcd.draw()?;
-        Ok(())
-    }
 }
 
 impl<T> Initializable for Display<T>
-where T: LCDDisplayFn + Clone + 'static
+where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
     fn init(&mut self) -> osal_rs::utils::Result<()> {
         log_info!(APP_TAG, "Init LCD");
@@ -86,19 +69,26 @@ where T: LCDDisplayFn + Clone + 'static
 
         DisplaySignal::init()?;
         let lcd = Arc::clone(&self.lcd);
+        let rtc = Arc::clone(&self.rtc);
 
+
+        
         self.thread.spawn_simple(move || {
 
 
+
+            
             //lcd.lock().unwrap().draw_str("Hello, World!", 10, 10, &FONT_8X8);
 
-            let mut header = header::Header::new(Arc::clone(&lcd));
+            let mut header = header::Header::new(Arc::clone(&rtc), Arc::clone(&lcd));
 
             loop {
                 let signals = DisplaySignal::wait(0x00FFFFFF, 100);
                 DisplaySignal::clear(signals);
 
                 if signals > 0 {
+                    lcd.lock().unwrap().clear();
+
                     match DisplayFlag::from(signals) {
                         ButtonPressed => log_info!(APP_TAG, "Button Pressed"),
                         ButtonReleased => log_info!(APP_TAG, "Button Released"),
@@ -117,6 +107,10 @@ where T: LCDDisplayFn + Clone + 'static
                     }
 
                     
+                    lcd.lock().unwrap().draw().unwrap_or_else(|e| {
+                        ErrorSignal::set(DisplayError.into());
+                        log_info!(APP_TAG, "Error drawing on LCD: {:?}", e);
+                    });
                 }
             }
 
@@ -128,7 +122,7 @@ where T: LCDDisplayFn + Clone + 'static
 }
 
 impl<T> OnClickable for Display<T>
-where T: LCDDisplayFn + Clone + 'static
+where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
     fn on_click(&self, state: ButtonState) {
         match state {
@@ -144,7 +138,7 @@ where T: LCDDisplayFn + Clone + 'static
 }
 
 impl<T> OnRotatableAndClickable for Display<T>
-where T: LCDDisplayFn + Clone + 'static
+where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
     fn on_rotable(&self, direction: EncoderDirection, _: i32) {
         match direction {
