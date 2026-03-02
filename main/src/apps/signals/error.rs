@@ -18,29 +18,61 @@
  ***************************************************************************/
 
 
+use core::fmt::Display;
+
 use crate::define_signal;
 
 
 define_signal!(ErrorSignal, ERROR_SIGNAL);
 
-pub enum DisplayFlag {
+pub enum ErrorFlag {
     None = 0x00,
-    DisplayError = 0x01,
+    NTP = 0x01,
+    DateTime = 0x02,
+    Display = 0x04,
+    DisplayHeader = 0x08,
 
 }
 
-impl From<u32> for DisplayFlag {
+impl From<u32> for ErrorFlag {
     fn from(value: u32) -> Self {
-        use DisplayFlag::*;
+        use ErrorFlag::*;
         match value {
-            0x01 => DisplayError,
+            0x01 => NTP,
+            0x02 => DateTime,
+            0x04 => Display,
             _ => None, // Default case, can be adjusted as needed
         }
     }
 }
 
-impl From<DisplayFlag> for u32 {
-    fn from(flag: DisplayFlag) -> Self {
+impl From<ErrorFlag> for u32 {
+    fn from(flag: ErrorFlag) -> Self {
         flag as u32
     }
+}
+
+impl Display for ErrorFlag {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        use ErrorFlag::*;
+        let s = match self {
+            None => "None",
+            NTP => "NTP",
+            DateTime => "DateTime",
+            Display => "Display",
+            DisplayHeader => "DisplayHeader",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+#[macro_export]
+macro_rules! set_app_error {
+    ($result:expr, $flag:expr) => {
+        if let Err(e) = $result {
+            use crate::traits::signal::Signal;
+            osal_rs::log_error!("AppErrorSignal", "App error: {}: {}", $flag, e);
+            $crate::apps::signals::error::ErrorSignal::set($flag.into());
+        }
+    };
 }

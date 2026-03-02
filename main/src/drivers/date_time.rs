@@ -321,6 +321,10 @@ impl DateTime {
         self.is_apply_daylight_saving_time
     }
 
+    pub fn is_valid(&self) -> bool {
+        *self != Self::default()
+    }
+
 }
 
 impl Default for DateTime {

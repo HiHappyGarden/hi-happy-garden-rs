@@ -23,6 +23,7 @@ use alloc::sync::Arc;
 use osal_rs::{log_error};
 use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::utils::Result;
+use crate::apps::signals::error::{ErrorFlag, ErrorSignal};
 use crate::assets::font_5x8::FONT_5X8;
 use crate::assets::ic_wifi_excellent::IC_WIFI_EXCELLENT;
 use crate::assets::ic_wifi_fair::IC_WIFI_FAIR;
@@ -31,13 +32,12 @@ use crate::assets::ic_wifi_no_signal::IC_WIFI_NO_SIGNAL;
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 
-use crate::traits::rtc::RTC;
+use crate::traits::signal::Signal;
 use crate::traits::wifi::RSSIStatus::{self, *};
 
 pub(super) struct Header<T> 
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
-    rtc: Arc<&'static dyn RTC>,
     lcd: Arc<Mutex<T>>,
 }
 
@@ -47,14 +47,13 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
     const HEIGHT: u8 = 10;
 
-    pub(super) fn new(rtc: Arc<&'static dyn RTC>, lcd: Arc<Mutex<T>>) -> Self {
+    pub(super) fn new(lcd: Arc<Mutex<T>>) -> Self {
         Self {
-            rtc,
             lcd,
         }
     }
 
-    pub(super) fn draw(&mut self, rssi: RSSIStatus) -> Result<()> {
+    pub(super) fn draw(&mut self, date_time: DateTime, rssi: RSSIStatus) -> Result<()> {
         
 
         let mut lcd = self.lcd.lock().unwrap();
@@ -74,21 +73,11 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         lcd.draw_rect(0, Self::HEIGHT + 1, display_width, 1, LCDWriteMode::ADD)?;
 
 
-        if self.rtc.is_to_synch() {
-            self.rtc.get_timestamp().map(|timestamp| {
-                let datetime = if let Ok(dt) = DateTime::from_timestamp_locale(timestamp, true) {
-                    dt
-                } else {
-                    log_error!("Header", "Failed to convert RTC timestamp to datetime");
-                    return;
-                };
-
-                let now = format!("{:02}/{:02}/{:02} {:02}:{:02}:{:02}", datetime.mday, datetime.month, datetime.year, datetime.hour, datetime.minute, datetime.second);
-                lcd.draw_str(&now, display_width - (now.len() as u8 * 5) - 5, 1, &FONT_5X8).unwrap_or_else(|e| {
-                    log_error!("Header", "Failed to draw time on LCD: {}", e);
-                });
-            }).unwrap_or_else(|e| {
-                log_error!("Header", "Failed to get timestamp from RTC: {}", e);
+        if date_time.is_valid() {
+            let now = format!("{:02}:{:02}:{:02}", date_time.hour, date_time.minute, date_time.second);
+            lcd.draw_str(&now, display_width - (now.len() as u8 * 5) - 5, 1, &FONT_5X8).unwrap_or_else(|e| {
+                log_error!("Header", "Failed to draw time on LCD: {}", e);
+                ErrorSignal::set(ErrorFlag::Display.into());
             });
         }
 

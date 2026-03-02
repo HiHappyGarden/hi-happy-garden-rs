@@ -54,7 +54,7 @@ macro_rules! transition_wifi_status {
     ($new_status:expr, $callback:expr) => {
         FSM_STATUS_OLD = FSM_STATUS_CURRENT;
         FSM_STATUS_CURRENT = $new_status;
-        $callback.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
+        let _ = $callback.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
     };
 }
 
@@ -327,7 +327,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                                 log_error!(APP_TAG, "Resetting WiFi after {} errors", MAX_ERROR);
                                 FSM_STATUS_OLD = Error;
                                 FSM_STATUS_CURRENT = if link_status == LinkStatus::BadAuth { Disconnected } else { Resetting };
-                                on_wifi_change_status.on_status_change(Error, FSM_STATUS_CURRENT);
+                                let _ = on_wifi_change_status.on_status_change(Error, FSM_STATUS_CURRENT);
                             }
                         },
                         Resetting => {

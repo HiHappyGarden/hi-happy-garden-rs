@@ -24,9 +24,13 @@ use osal_rs::log_info;
 use osal_rs::os::{Mutex, MutexFn, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
 
+use crate::apps::display::header::Header;
 use crate::apps::signals::display::{DisplayFlag::{self, *}, DisplaySignal};
-use crate::apps::signals::error::{ErrorSignal, DisplayFlag::DisplayError};
+use crate::apps::signals::error::ErrorFlag;
+use crate::apps::signals::error::{ErrorSignal};
+use crate::drivers::date_time;
 use crate::drivers::platform::ThreadPriority;
+
 use crate::traits::button::{ButtonState::{self, *}, OnClickable};
 use crate::traits::encoder::{EncoderDirection::{self, *}, OnRotatableAndClickable};
 use crate::traits::lcd_display::LCDDisplayFn;
@@ -43,7 +47,7 @@ const APP_STACK_SIZE: StackType = 1024;
 pub struct Display<T>
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
-    rtc: Arc<&'static dyn RTC>,
+    rtc: Arc<Mutex<dyn RTC>>,
     lcd: Arc<Mutex<T>>,
     thread: Thread
 }
@@ -51,7 +55,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 impl<T> Display<T> 
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
-    pub fn new(rtc: Arc<&'static dyn RTC>, lcd: T) -> Self{
+    pub fn new(rtc: Arc<Mutex<dyn RTC>>, lcd: T) -> Self{
         Self {
             rtc,
             lcd: Mutex::new_arc(lcd),
@@ -76,15 +80,13 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         self.thread.spawn_simple(move || {
 
 
-
-            
-            //lcd.lock().unwrap().draw_str("Hello, World!", 10, 10, &FONT_8X8);
-
-            let mut header = header::Header::new(Arc::clone(&rtc), Arc::clone(&lcd));
+            let mut header = Header::new( Arc::clone(&lcd));
 
             loop {
                 let signals = DisplaySignal::wait(0x00FFFFFF, 100);
                 DisplaySignal::clear(signals);
+
+
 
                 if signals > 0 {
                     lcd.lock().unwrap().clear();
@@ -96,19 +98,14 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                         EncoderRotatedCounterClockwise => log_info!(APP_TAG, "Encoder Rotated Counter Clockwise"),
                         EncoderButtonPressed => log_info!(APP_TAG, "Encoder Button Pressed"),
                         EncoderButtonReleased => log_info!(APP_TAG, "Encoder Button Released"),
-                        WifiStatusUnknown | WifiStatusExcellent | WifiStatusGood | WifiStatusFair | WifiStatusWeak | WifiStatusNoSignal => {
-                            if let Err(e) =  header.draw(RSSIStatus::from_bites( (signals >> 6) as u8 )) {
-                                ErrorSignal::set(DisplayError.into());
-                                log_info!(APP_TAG, "Error drawing header: {:?}", e);
-                            }
-                        }
+                        WifiStatusUnknown | WifiStatusExcellent | WifiStatusGood | WifiStatusFair | WifiStatusWeak | WifiStatusNoSignal => Self::draw_header(&mut header, &rtc, signals),
                         
                         _ => {}
                     }
 
                     
                     lcd.lock().unwrap().draw().unwrap_or_else(|e| {
-                        ErrorSignal::set(DisplayError.into());
+                        ErrorSignal::set(ErrorFlag::Display.into());
                         log_info!(APP_TAG, "Error drawing on LCD: {:?}", e);
                     });
                 }
@@ -162,4 +159,28 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
             ButtonState::None => {}
         }
     }
+}
+
+impl<T> Display<T>
+where T: LCDDisplayFn + Sync + Send + Clone + 'static 
+{
+    fn draw_header(header: &mut Header<T>, rtc: &Arc<Mutex<dyn RTC>>, signals: u32) {
+            let date_time = rtc.lock().unwrap().get_timestamp().unwrap_or_else(|e| {
+                log_info!(APP_TAG, "Error getting date time: {:?}", e);
+                ErrorSignal::set(ErrorFlag::DateTime.into());
+                0
+            });
+
+            let date_time = date_time::DateTime::from_timestamp_locale(date_time, true).unwrap_or_else(|e| {
+                log_info!(APP_TAG, "Error converting timestamp to datetime: {:?}", e);
+                ErrorSignal::set(ErrorFlag::DateTime.into());
+                date_time::DateTime::default()
+            });
+
+            if let Err(e) =  header.draw(date_time, RSSIStatus::from_bites( (signals >> 6) as u8 )) {
+                log_info!(APP_TAG, "Error drawing header: {:?}", e);
+                ErrorSignal::set(ErrorFlag::Display.into());
+            }
+    }
+
 }

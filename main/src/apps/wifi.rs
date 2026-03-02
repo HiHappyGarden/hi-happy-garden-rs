@@ -17,13 +17,17 @@
  *
  ***************************************************************************/
 
+use alloc::sync::Arc;
+use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::{log_info};
 use osal_rs::utils::Result;
 
 use crate::apps::config::Config;
 use crate::apps::signals::display::DisplaySignal;
+use crate::apps::signals::error::{ErrorFlag, ErrorSignal};
 use crate::drivers::date_time::DateTime;
 use crate::drivers::network::Network;
+use crate::set_app_error;
 use crate::traits::rtc::RTC;
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
@@ -66,7 +70,7 @@ macro_rules! ntp_sync {
     };
 }
 
-pub struct WifiApp<'a>(Option<&'a Config>, Option<&'a (dyn RTC + 'a)>);
+pub struct WifiApp<'a>(Option<&'a Config>, Option<Arc<Mutex<dyn RTC + 'static>>>);
 
 impl<'a> Initializable for WifiApp<'a> {
     fn init(&mut self) -> Result<()> {
@@ -77,7 +81,7 @@ impl<'a> Initializable for WifiApp<'a> {
 }
 
 impl<'a> OnWifiChangeStatus for WifiApp<'a> {
-    fn on_status_change(&self, _: WifiStatus, status: WifiStatus) {
+    fn on_status_change(&self, _: WifiStatus, status: WifiStatus) -> Result<()>  {
 
         unsafe {
             STATUS = status;
@@ -97,16 +101,20 @@ impl<'a> OnWifiChangeStatus for WifiApp<'a> {
                 };
 
                 if timestamp > 0 {
-                    self.1.map(|rtc| {
-                        DateTime::from_timestamp_locale(timestamp, true).map(|dt| {
-                            log_info!(APP_TAG, "NTP time: {}", dt);
-                        }).unwrap_or_else(|e| {
-                            log_info!(APP_TAG, "Failed to convert NTP timestamp: {}", e);
-                        });
-                        rtc.set_timestamp(timestamp).unwrap_or_else(|e| {
-                            log_info!(APP_TAG, "Failed to set RTC timestamp: {}", e);
-                        });
-                    });
+
+                    match &self.1 {
+                        Some(rtc) => {
+                            let dt = DateTime::from_timestamp_locale(timestamp, true);
+                            set_app_error!(dt.clone(), ErrorFlag::NTP);
+                            set_app_error!(rtc.lock().unwrap().set_timestamp(timestamp), ErrorFlag::NTP);
+                            log_info!(APP_TAG, "NTP time: {}", dt.unwrap());
+                        },
+                        None => {
+                            log_info!(APP_TAG, "RTC not set for WifiApp");
+                            ErrorSignal::set(ErrorFlag::NTP.into());
+                        }
+                        
+                    }
                 }
                 
             },
@@ -117,6 +125,7 @@ impl<'a> OnWifiChangeStatus for WifiApp<'a> {
                 log_info!(APP_TAG, "Error");
             },
         };
+        Ok(())
     }
 
     fn on_rssi_change(&self, rssi: RSSIStatus) {
@@ -140,7 +149,7 @@ impl<'a> WifiApp<'a> {
         self.0 = Some(config);
     }
 
-    pub fn set_rtc(&mut self, rtc: &'a (dyn RTC + 'a)) {
+    pub fn set_rtc(&mut self, rtc: Arc<Mutex<dyn RTC + 'static>>) {
         self.1 = Some(rtc);
     }
 }

@@ -17,9 +17,10 @@
  *
  ***************************************************************************/
 
+use alloc::sync::Arc;
 use osal_rs::log_info;
 use osal_rs::os::types::UBaseType;
-use osal_rs::os::{System, SystemFn, ToPriority};
+use osal_rs::os::{Mutex, MutexFn, System, SystemFn, ToPriority};
 use osal_rs::utils::{Error, OsalRsBool, Result};
 
 use crate::drivers::button::Button;
@@ -104,7 +105,7 @@ pub struct Hardware {
     i2c0: I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>,
     i2c1: I2C<{I2C1_INSTANCE}, {I2C_BAUDRATE}>,
     wifi: Wifi,
-    rtc: RTC,
+    rtc: Arc<Mutex<RTC>>,
 }
 
 impl Initializable for Hardware {
@@ -131,24 +132,26 @@ impl Initializable for Hardware {
         
         set_hardware_error!(self.i2c1.init(), HardwareErrorFlag::I2C);
         
-        self.rtc.set_i2c(self.i2c0.clone());
-        set_hardware_error!(self.rtc.init(), HardwareErrorFlag::Rtc);
+        let mut rtc = self.rtc.lock()?;
+        rtc.set_i2c(self.i2c0.clone());
+        set_hardware_error!(rtc.init(), HardwareErrorFlag::Rtc);
+        
+        if rtc.is_to_synch() {
+            let timestamp = rtc.get_rtc_timestamp()?;
+
+            let now = DateTime::from_timestamp(timestamp)?;
+            log_info!(APP_TAG, "Sync RTC with POWMAN ({})", now);
+
+            set_hardware_error!(rtc.set_timestamp(timestamp as u64), HardwareErrorFlag::Rtc);
+        } else {
+            log_info!(APP_TAG, "RTC is not ready to synch, skipping POWMAN synchronization");
+        }
+
 
         self.display.set_i2c(self.i2c1.clone());
         set_hardware_error!(self.display.init(), HardwareErrorFlag::Display);
         
         set_hardware_error!(self.init_fs(), HardwareErrorFlag::Filesystem);
-
-        if self.rtc.is_to_synch() {
-            let timestamp = self.rtc.get_rtc_timestamp()?;
-
-            let now = DateTime::from_timestamp(timestamp)?;
-            log_info!(APP_TAG, "Sync RTC with POWMAN ({})", now);
-
-            self.rtc.set_timestamp(timestamp as u64)?;
-        } else {
-            log_info!(APP_TAG, "RTC is not ready to synch, skipping POWMAN synchronization");
-        }
 
         log_info!(APP_TAG, "Hardware initialized successfully heap_free:{}", System::get_free_heap_size());
         Ok(())
@@ -224,8 +227,8 @@ impl HardwareFn<'static> for Hardware {
         id_buffer
     }
 
-    fn get_rtc(&self) -> &(dyn RTCFn + '_) {
-        &self.rtc
+    fn get_rtc(&self) -> Arc<Mutex<dyn RTCFn + 'static>> {
+        self.rtc.clone()
     }
 
 }
@@ -245,7 +248,7 @@ impl Hardware {
             i2c0: I2C::new(),
             i2c1: i2c1,
             wifi: Wifi::new(),
-            rtc: RTC::new(),
+            rtc: Mutex::new_arc(RTC::new()),
             
         }
     }

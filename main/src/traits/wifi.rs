@@ -22,6 +22,8 @@
 
 use core::fmt::{Debug, Display};
 
+use osal_rs::utils::Result;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum WifiStatus {
     Disabled = 0x00,
@@ -137,7 +139,7 @@ impl RSSIStatus {
 
 pub trait OnWifiChangeStatus: Send + Sync {
 
-    fn on_status_change(&self, old_status: WifiStatus, status: WifiStatus);
+    fn on_status_change(&self, old_status: WifiStatus, status: WifiStatus) -> Result<()>;
 
     fn on_rssi_change(&self, rssi: RSSIStatus);
     

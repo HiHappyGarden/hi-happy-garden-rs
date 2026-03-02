@@ -18,13 +18,17 @@
  ***************************************************************************/
 
 #![allow(dead_code)]
+use alloc::sync::Arc;
+use osal_rs::os::Mutex;
+
 use crate::traits::rgb_led::RgbLed as RgbLedFn;
 use crate::traits::relays::Relays as RelaysFn;
 use crate::traits::button::OnClickable;
 use crate::traits::encoder::OnRotatableAndClickable;
 use crate::traits::rtc::RTC;
+use crate::traits::wifi::SetOnWifiChangeStatus;
 
-pub trait HardwareFn<'a> : RgbLedFn + RgbLedFn + RelaysFn {
+pub trait HardwareFn<'a> : RgbLedFn + RgbLedFn + RelaysFn + SetOnWifiChangeStatus<'a> {
 
     const SAMPLES: u8 = 20;
 
@@ -42,6 +46,6 @@ pub trait HardwareFn<'a> : RgbLedFn + RgbLedFn + RelaysFn {
 
     fn get_unique_id() -> [u8; 8];
 
-    fn get_rtc(&self) -> &(dyn RTC + '_);
+    fn get_rtc(&self) -> Arc<Mutex<dyn RTC + 'a>>;
 }
 

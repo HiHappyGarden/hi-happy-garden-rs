@@ -17,7 +17,6 @@
  *
  ***************************************************************************/
 
-use alloc::sync::Arc;
 use osal_rs::log_info;
 use osal_rs::os::{System, SystemFn};
 use osal_rs::utils::Result;
@@ -91,13 +90,8 @@ impl Initializable for AppMain{
 
 impl AppMain {
     pub fn new(hardware: &'static mut Hardware) -> Self {
-        // SAFETY: We create a shared static reference from the mutable static reference.
-        // This is safe because: 1) hardware is guaranteed to live for 'static
-        // 2) we only use it to get rtc before moving hardware into Self
-        let hardware_ref = unsafe { &*&raw const hardware };
-        let rtc = Arc::new(hardware_ref.get_rtc());
-        let lcd = hardware.get_lcd_display();
-        let display = Display::new(rtc, lcd);
+
+        let display = Display::new(hardware.get_rtc(), hardware.get_lcd_display());
         
         Self {
             hardware,
