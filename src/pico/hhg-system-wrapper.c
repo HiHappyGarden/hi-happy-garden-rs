@@ -52,6 +52,10 @@ void hhg_pico_sha256_finish(void *state, uint8_t out[SHA256_RESULT_BYTES]) {
 
 void hhg_powman_timer_set_ms (uint64_t time_ms) {
     powman_timer_set_ms(time_ms);
+    // Ensure the timer is running after setting the time
+    if (!powman_timer_is_running()) {
+        powman_timer_start();
+    }
 }
 
 uint64_t hhg_powman_timer_get_ms(void) {
