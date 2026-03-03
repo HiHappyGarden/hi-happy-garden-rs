@@ -16,11 +16,11 @@ fn main() {
     let default_wifi_enabled = parse_bool(&env::var("HHG_DEFAULT_WIFI_ENABLED").unwrap_or_else(|_| "false".to_string()));
     let default_timezone = env::var("HHG_DEFAULT_TIMEZONE").unwrap_or_else(|_| "0".to_string()).parse::<i16>().unwrap_or(60);
     let default_daylight_saving_enabled = parse_bool(&env::var("HHG_DEFAULT_DAYLIGHT_SAVING_ENABLED").unwrap_or_else(|_| "false".to_string()));
-    let default_daylight_saving_start_month = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_MONTH").unwrap_or_else(|_| "2".to_string()).parse::<u8>().unwrap_or(2);
-    let default_daylight_saving_start_day = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_DAY").unwrap_or_else(|_| "31".to_string()).parse::<u8>().unwrap_or(31);
+    let default_daylight_saving_start_month = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_MONTH").unwrap_or_else(|_| "3".to_string()).parse::<u8>().unwrap_or(3);
+    let default_daylight_saving_start_day = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_DAY").unwrap_or_else(|_| "255".to_string()).parse::<u8>().unwrap_or(255);
     let default_daylight_saving_start_hour = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_HOUR").unwrap_or_else(|_| "2".to_string()).parse::<u8>().unwrap_or(2);
-    let default_daylight_saving_end_month = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_END_MONTH").unwrap_or_else(|_| "9".to_string()).parse::<u8>().unwrap_or(9);
-    let default_daylight_saving_end_day = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_END_DAY").unwrap_or_else(|_| "31".to_string()).parse::<u8>().unwrap_or(31);
+    let default_daylight_saving_end_month = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_END_MONTH").unwrap_or_else(|_| "10".to_string()).parse::<u8>().unwrap_or(10);
+    let default_daylight_saving_end_day = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_END_DAY").unwrap_or_else(|_| "255".to_string()).parse::<u8>().unwrap_or(255);
     let default_daylight_saving_end_hour = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_END_HOUR").unwrap_or_else(|_| "3".to_string()).parse::<u8>().unwrap_or(3);
     let default_ntp_msg_len = env::var("HHG_DEFAULT_NTP_MSG_LEN").unwrap_or_else(|_| "48".to_string()).parse::<u16>().unwrap_or(48);
     let default_ntp_port = env::var("HHG_DEFAULT_NTP_PORT").unwrap_or_else(|_| "123".to_string()).parse::<u16>().unwrap_or(123);

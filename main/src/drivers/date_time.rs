@@ -136,11 +136,14 @@ impl DateTime {
         
         // Start from the last day of the month and work backwards
         for day in (1..=days_in_month).rev() {
-            // Create a timestamp for this date
-            if let Ok(dt) = DateTime::new(year, month, 0, day, 0, 0, 0) {
-                if dt.wday == weekday {
-                    return day;
-                }
+            // Calculate wday for this date
+            let ts = Self::new(year, month, 0, day, 0, 0, 0)
+                .map(|dt| dt.to_timestamp_locale())
+                .unwrap_or(0);
+            let calculated_wday = ((ts / Self::SECONDS_PER_DAY + 4) % 7) as u8;
+            
+            if calculated_wday == weekday {
+                return day;
             }
         }
         
@@ -171,11 +174,6 @@ impl DateTime {
         } else {
             start_day.min(Self::days_in_month(start_month, self.year))
         };
-        
-        let start_timestamp = DateTime::new(self.year, start_month, 0, start_mday, start_hour, 0, 0)
-            .ok()
-            .and_then(|dt| Some(dt.to_timestamp_locale()))
-            .unwrap_or(0);
 
         // Calculate DST end date for current year
         let end_mday = if end_day == 0xFF {
@@ -184,21 +182,22 @@ impl DateTime {
         } else {
             end_day.min(Self::days_in_month(end_month, self.year))
         };
-        
-        let end_timestamp = DateTime::new(self.year, end_month, 0, end_mday, end_hour, 0, 0)
-            .ok()
-            .and_then(|dt| Some(dt.to_timestamp_locale()))
-            .unwrap_or(0);
 
-        let now_timestamp = self.to_timestamp_locale();
+        // Compare dates directly instead of using timestamps
+        // This avoids issues with timezone/DST already applied to self
+        
+        // Create comparison values as (month, day, hour)
+        let now = (self.month, self.mday, self.hour);
+        let start = (start_month, start_mday, start_hour);
+        let end = (end_month, end_mday, end_hour);
 
         // Handle both Northern and Southern hemisphere cases
-        if start_timestamp < end_timestamp {
+        if start < end {
             // Northern hemisphere: DST starts in spring, ends in autumn
-            now_timestamp >= start_timestamp && now_timestamp < end_timestamp
+            now >= start && now < end
         } else {
             // Southern hemisphere: DST starts in autumn (year Y), ends in spring (year Y+1)
-            now_timestamp >= start_timestamp || now_timestamp < end_timestamp
+            now >= start || now < end
         }
     }
 
@@ -208,34 +207,11 @@ impl DateTime {
         Self::from_timestamp_locale(timestamp, false)
     }
 
-    /// Creates a Time from a Unix timestamp (UTC)
-    /// Input: Unix timestamp (seconds since 1970-01-01 00:00:00 UTC)
-    /// Output: Result<Time>
-    pub fn from_timestamp_locale(timestamp: i64, locale: bool) -> Result<Self> {
-        let mut adjusted_timestamp = timestamp;
-        let mut is_apply_timezone = false;
-        let mut is_apply_daylight_saving_time = false;
-
-        if locale {
-            // First apply timezone offset (convert from UTC to local time)
-            if unsafe { TIMEZONE != 0 } {
-                let tz_offset_seconds = unsafe { TIMEZONE as i64 } * Self::SECONDS_PER_MINUTE;
-                adjusted_timestamp += tz_offset_seconds;
-                is_apply_timezone = true;
-            }
-
-            // Check if DST is active (need to convert first to check the date)
-            let temp = Self::from_timestamp(adjusted_timestamp)?;
-            if temp.is_daylight_saving_time() {
-                let dst_offset_seconds = 60 * Self::SECONDS_PER_MINUTE; // 1 hour DST offset
-                adjusted_timestamp += dst_offset_seconds;
-                is_apply_daylight_saving_time = true;
-            }
-        }
-
+    /// Internal: Creates a DateTime from timestamp without any timezone/DST conversion
+    fn from_timestamp_raw(timestamp: i64) -> Result<Self> {
         // Split days and seconds in day
-        let mut days = adjusted_timestamp.div_euclid(Self::SECONDS_PER_DAY);
-        let day_seconds = adjusted_timestamp.rem_euclid(Self::SECONDS_PER_DAY);
+        let mut days = timestamp.div_euclid(Self::SECONDS_PER_DAY);
+        let day_seconds = timestamp.rem_euclid(Self::SECONDS_PER_DAY);
 
         let hour = (day_seconds / Self::SECONDS_PER_HOUR) as u8;
         let minute = ((day_seconds % Self::SECONDS_PER_HOUR) / Self::SECONDS_PER_MINUTE) as u8;
@@ -276,7 +252,7 @@ impl DateTime {
         }
 
         let mday = (days + 1) as u8;
-        let wday = ((adjusted_timestamp / Self::SECONDS_PER_DAY + 4) % 7) as u8;
+        let wday = ((timestamp / Self::SECONDS_PER_DAY + 4).rem_euclid(7)) as u8;
 
         Ok(Self {
             year,
@@ -286,9 +262,43 @@ impl DateTime {
             hour,
             minute,
             second,
-            is_apply_timezone,
-            is_apply_daylight_saving_time,
+            is_apply_timezone: false,
+            is_apply_daylight_saving_time: false,
         })
+    }
+
+    /// Creates a Time from a Unix timestamp (UTC)
+    /// Input: Unix timestamp (seconds since 1970-01-01 00:00:00 UTC)
+    /// Output: Result<Time>
+    pub fn from_timestamp_locale(timestamp: i64, locale: bool) -> Result<Self> {
+        let mut adjusted_timestamp = timestamp;
+        let mut is_apply_timezone = false;
+        let mut is_apply_daylight_saving_time = false;
+
+        if locale {
+            // First apply timezone offset (convert from UTC to local time)
+            if unsafe { TIMEZONE != 0 } {
+                let tz_offset_seconds = unsafe { TIMEZONE as i64 } * Self::SECONDS_PER_MINUTE;
+                adjusted_timestamp += tz_offset_seconds;
+                is_apply_timezone = true;
+            }
+
+            // Check if DST is active by verifying on the UTC timestamp
+            // We need to check the LOCAL date (after timezone) to see if DST applies
+            let temp = Self::from_timestamp_raw(adjusted_timestamp)?;
+            if temp.is_daylight_saving_time() {
+                let dst_offset_seconds = 60 * Self::SECONDS_PER_MINUTE; // 1 hour DST offset
+                adjusted_timestamp += dst_offset_seconds;
+                is_apply_daylight_saving_time = true;
+            }
+        }
+
+        // Use the raw conversion and update flags
+        let mut result = Self::from_timestamp_raw(adjusted_timestamp)?;
+        result.is_apply_timezone = is_apply_timezone;
+        result.is_apply_daylight_saving_time = is_apply_daylight_saving_time;
+        
+        Ok(result)
     }
 
 
