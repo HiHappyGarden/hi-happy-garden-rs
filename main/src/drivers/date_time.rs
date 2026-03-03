@@ -129,8 +129,28 @@ impl DateTime {
         }
     }
 
+    /// Helper function to find the last occurrence of a specific weekday in a month
+    /// weekday: 0=Sunday, 1=Monday, ..., 6=Saturday
+    fn find_last_weekday_of_month(year: i32, month: u8, weekday: u8) -> u8 {
+        let days_in_month = Self::days_in_month(month, year);
+        
+        // Start from the last day of the month and work backwards
+        for day in (1..=days_in_month).rev() {
+            // Create a timestamp for this date
+            if let Ok(dt) = DateTime::new(year, month, 0, day, 0, 0, 0) {
+                if dt.wday == weekday {
+                    return day;
+                }
+            }
+        }
+        
+        // Fallback (should never happen)
+        days_in_month
+    }
+
     /// Checks if the current date/time is within the daylight saving time period based on the configured start and end dates/times
     /// START_DAY and END_DAY should be in range 1-31 (not 0-based)
+    /// Special value: 0xFF means "last Sunday of the month" (for EU DST rules)
     /// If START_DAY or END_DAY is greater than the number of days in the month, it will use the last day of that month
     fn is_daylight_saving_time(&self) -> bool {
         if !unsafe {DAYLIGHT_SAVING_TIME_ENABLED} {
@@ -145,14 +165,26 @@ impl DateTime {
         let end_hour = unsafe {END_HOUR};
 
         // Calculate DST start date for current year
-        let start_mday = start_day.min(Self::days_in_month(start_month, self.year));
+        let start_mday = if start_day == 0xFF {
+            // Special case: last Sunday of the month
+            Self::find_last_weekday_of_month(self.year, start_month, 0)
+        } else {
+            start_day.min(Self::days_in_month(start_month, self.year))
+        };
+        
         let start_timestamp = DateTime::new(self.year, start_month, 0, start_mday, start_hour, 0, 0)
             .ok()
             .and_then(|dt| Some(dt.to_timestamp_locale()))
             .unwrap_or(0);
 
         // Calculate DST end date for current year
-        let end_mday = end_day.min(Self::days_in_month(end_month, self.year));
+        let end_mday = if end_day == 0xFF {
+            // Special case: last Sunday of the month
+            Self::find_last_weekday_of_month(self.year, end_month, 0)
+        } else {
+            end_day.min(Self::days_in_month(end_month, self.year))
+        };
+        
         let end_timestamp = DateTime::new(self.year, end_month, 0, end_mday, end_hour, 0, 0)
             .ok()
             .and_then(|dt| Some(dt.to_timestamp_locale()))

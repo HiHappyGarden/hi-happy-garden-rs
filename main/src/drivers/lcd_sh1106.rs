@@ -26,6 +26,7 @@ use osal_rs::utils::{Error, Result};
 use sh1106_commands::*;
 
 const APP_TAG: &str = "LCDSH1106";
+#[allow(dead_code)]
 const ASCII_TABLE_START_AT_IDX: u8 = 32;
 
 #[allow(unused)]
