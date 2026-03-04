@@ -53,7 +53,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         }
     }
 
-    pub(super) fn draw(&mut self, date_time: DateTime, rssi: RSSIStatus) -> Result<()> {
+    pub(super) fn draw(&mut self, date_time: &DateTime, rssi: RSSIStatus) -> Result<()> {
         
 
         let mut lcd = self.lcd.lock().unwrap();
@@ -74,7 +74,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
 
         if date_time.is_valid() {
-            let now = format!("{:02}:{:02}:{:02}", date_time.hour, date_time.minute, date_time.second);
+            let now = format!("{:02}:{:02}", date_time.hour, date_time.minute);
             lcd.draw_str(&now, display_width - (now.len() as u8 * 5) - 5, 1, &FONT_5X8).unwrap_or_else(|e| {
                 log_error!("Header", "Failed to draw time on LCD: {}", e);
                 ErrorSignal::set(ErrorFlag::Display.into());

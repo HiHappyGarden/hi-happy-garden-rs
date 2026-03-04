@@ -28,7 +28,7 @@ use crate::apps::display::header::Header;
 use crate::apps::signals::display::{DisplayFlag::{self, *}, DisplaySignal};
 use crate::apps::signals::error::ErrorFlag;
 use crate::apps::signals::error::{ErrorSignal};
-use crate::drivers::date_time;
+use crate::drivers::date_time::DateTime;
 use crate::drivers::platform::ThreadPriority;
 
 use crate::traits::button::{ButtonState::{self, *}, OnClickable};
@@ -79,16 +79,30 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         
         self.thread.spawn_simple(move || {
 
+            let mut date_time_old = DateTime::default();
 
             let mut header = Header::new( Arc::clone(&lcd));
 
+            
             loop {
                 let signals = DisplaySignal::wait(0x00FFFFFF, 100);
                 DisplaySignal::clear(signals);
 
+                let date_time = rtc.lock().unwrap().get_timestamp().unwrap_or_else(|e| {
+                    log_info!(APP_TAG, "Error getting date time: {:?}", e);
+                    ErrorSignal::set(ErrorFlag::DateTime.into());
+                    0
+                });
 
 
-                if signals > 0 {
+                let date_time = DateTime::from_timestamp_locale(date_time, true).unwrap_or_else(|e| {
+                    log_info!(APP_TAG, "Error converting timestamp to datetime: {:?}", e);
+                    ErrorSignal::set(ErrorFlag::DateTime.into());
+                    DateTime::default()
+                });
+
+
+                if signals > 0 || date_time.minute != date_time_old.minute {
                     lcd.lock().unwrap().clear();
 
                     match DisplayFlag::from(signals) {
@@ -98,7 +112,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                         EncoderRotatedCounterClockwise => log_info!(APP_TAG, "Encoder Rotated Counter Clockwise"),
                         EncoderButtonPressed => log_info!(APP_TAG, "Encoder Button Pressed"),
                         EncoderButtonReleased => log_info!(APP_TAG, "Encoder Button Released"),
-                        WifiStatusUnknown | WifiStatusExcellent | WifiStatusGood | WifiStatusFair | WifiStatusWeak | WifiStatusNoSignal => Self::draw_header(&mut header, &rtc, signals),
+                        WifiStatusUnknown | WifiStatusExcellent | WifiStatusGood | WifiStatusFair | WifiStatusWeak | WifiStatusNoSignal => Self::draw_header(&mut header, &date_time, signals),
                         
                         _ => {}
                     }
@@ -108,6 +122,8 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                         ErrorSignal::set(ErrorFlag::Display.into());
                         log_info!(APP_TAG, "Error drawing on LCD: {:?}", e);
                     });
+
+                    date_time_old = date_time;
                 }
             }
 
@@ -164,19 +180,8 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 impl<T> Display<T>
 where T: LCDDisplayFn + Sync + Send + Clone + 'static 
 {
-    fn draw_header(header: &mut Header<T>, rtc: &Arc<Mutex<dyn RTC>>, signals: u32) {
-            let date_time = rtc.lock().unwrap().get_timestamp().unwrap_or_else(|e| {
-                log_info!(APP_TAG, "Error getting date time: {:?}", e);
-                ErrorSignal::set(ErrorFlag::DateTime.into());
-                0
-            });
-
-            let date_time = date_time::DateTime::from_timestamp_locale(date_time, true).unwrap_or_else(|e| {
-                log_info!(APP_TAG, "Error converting timestamp to datetime: {:?}", e);
-                ErrorSignal::set(ErrorFlag::DateTime.into());
-                date_time::DateTime::default()
-            });
-
+    fn draw_header(header: &mut Header<T>, date_time: &DateTime, signals: u32) {
+            
             if let Err(e) =  header.draw(date_time, RSSIStatus::from_bites( (signals >> 6) as u8 )) {
                 log_info!(APP_TAG, "Error drawing header: {:?}", e);
                 ErrorSignal::set(ErrorFlag::Display.into());
