@@ -18,6 +18,7 @@
  ***************************************************************************/
 
 mod header;
+mod check;
 
 use alloc::sync::Arc;
 use osal_rs::log_info;

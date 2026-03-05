@@ -29,7 +29,7 @@ use osal_rs_serde::{Deserialize, Serialize};
 use crate::drivers::gpio::Gpio;
 use crate::drivers::pico::ffi::pico_error_codes::PICO_OK;
 use crate::traits::state::Initializable;
-use crate::drivers::platform::{GPIO_CONFIG_SIZE, GpioPeripheral, ThreadPriority};
+use crate::drivers::platform::{GpioPeripheral, ThreadPriority};
 use crate::drivers::pico::wifi_cyw43::WIFI_FN;
 use crate::traits::wifi::{OnWifiChangeStatus, RSSIStatus::*, SetOnWifiChangeStatus, WifiStatus};
 use crate::traits::wifi::WifiStatus::Disconnected;
@@ -185,11 +185,6 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
             let gpio = Gpio::new();
 
-            #[allow(unused_assignments)]
-            let mut internal_del_blink_enable = true;
-            let mut internal_del_blink = 0u8;
-            let mut led_state = 0u32;
-
             let mut rssi_old : i8 = Unknown.into();
 
             unsafe {
@@ -212,7 +207,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                     match FSM_STATUS_CURRENT {
                         Disabled => {
 
-                            internal_del_blink_enable = true;
+                            gpio.write(&GpioPeripheral::InternalLed, 0);
 
                             if !INITIALIZED.load(Ordering::Acquire) {
                                 log_info!(APP_TAG, "WIFI init");
@@ -227,7 +222,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                             transition_wifi_status!(Enabled, on_wifi_change_status);
                         },
                         Enabled => {
-                            internal_del_blink_enable = true;
+                            gpio.write(&GpioPeripheral::InternalLed, 0);
 
                             (WIFI_FN.enable_sta_mode)(null_mut());
 
@@ -235,7 +230,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                             transition_wifi_status!(Connecting, on_wifi_change_status);
                         },
                         Connecting => {
-                            internal_del_blink_enable = true;
+                            gpio.write(&GpioPeripheral::InternalLed, 0);
 
                             let ret = (WIFI_FN.connect)(null_mut(), (*&raw const SSID).as_str(), (*&raw const PASSWORD).as_str(), AUTH).unwrap_or(1);
                             if ret != PICO_OK as i32{
@@ -249,7 +244,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                             continue 'no_rtc;
                         },
                         WaitForIp => {  
-                            internal_del_blink_enable = true;
+                            gpio.write(&GpioPeripheral::InternalLed, 0);
 
                             link_status = (WIFI_FN.link_status)(null_mut());
                             match link_status {
@@ -272,7 +267,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                             link_status = (WIFI_FN.link_status)(null_mut());
                             match link_status {
                                 LinkStatus::Up => {
-                                    internal_del_blink_enable = false;
+                                    gpio.write(&GpioPeripheral::InternalLed, 1);
 
                                     let rssi =  if let Ok(rssi) = (WIFI_FN.get_rssi)(null_mut()) {
                                         match rssi {
@@ -314,6 +309,8 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
                             System::delay_with_to_tick(Duration::from_secs(25));
 
+                            gpio.write(&GpioPeripheral::InternalLed, 0);
+
                             break;
                         },
                         Error => {
@@ -333,7 +330,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                         Resetting => {
                             log_warning!(APP_TAG,"Resetting WiFi wait 5 seconds...");
 
-                            internal_del_blink_enable = true;
+                            gpio.write(&GpioPeripheral::InternalLed, 0);
 
                             (WIFI_FN.disable_sta_mode)(null_mut());
                             let _ = (WIFI_FN.drop)(null_mut());
@@ -348,9 +345,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
                     }
 
-                    Self::blink_internal(&gpio, internal_del_blink_enable, &mut internal_del_blink, &mut led_state).unwrap_or_else(|e| {
-                        log_error!(APP_TAG, "Failed to blink internal LED: {}", e);
-                    });
+
                     System::delay_with_to_tick(Duration::from_millis(100));
                 }
             }
@@ -387,20 +382,4 @@ impl Wifi {
         }
     }
 
-    fn blink_internal(gpio: &Gpio<{GPIO_CONFIG_SIZE}>, internal_del_blink_enable: bool, internal_del_blink: &mut u8, led_state: &mut u32) -> Result<()> {
-
-        if internal_del_blink_enable {
-            if *internal_del_blink < 2 {
-                *internal_del_blink += 1;
-            } else {
-                *led_state = if *led_state == 1 { 0 } else { 1 };
-                gpio.write(&GpioPeripheral::InternalLed, *led_state);
-                *internal_del_blink = 5;
-            }
-        } else {
-            gpio.write(&GpioPeripheral::InternalLed, 1);
-            *led_state = 1;
-        }
-        Ok(())
-    }
 }
