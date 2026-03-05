@@ -49,19 +49,8 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
     rtc: Arc<Mutex<dyn RTC>>,
     lcd: Arc<Mutex<T>>,
+    wifi_enabled: Arc<bool>,
     thread: Thread
-}
-
-impl<T> Display<T> 
-where T: LCDDisplayFn + Sync + Send + Clone + 'static
-{
-    pub fn new(rtc: Arc<Mutex<dyn RTC>>, lcd: T) -> Self{
-        Self {
-            rtc,
-            lcd: Mutex::new_arc(lcd),
-            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal),
-        }
-    }
 }
 
 impl<T> Initializable for Display<T>
@@ -75,13 +64,13 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         let lcd = Arc::clone(&self.lcd);
         let rtc = Arc::clone(&self.rtc);
 
-
+        let wifi_enabled = Arc::clone(&self.wifi_enabled);
         
         self.thread.spawn_simple(move || {
 
             let mut date_time_old = DateTime::default();
 
-            let mut header = Header::new( Arc::clone(&lcd));
+            let mut header = Header::new( Arc::clone(&lcd));            
 
             
             loop {
@@ -112,12 +101,16 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                         EncoderRotatedCounterClockwise => log_info!(APP_TAG, "Encoder Rotated Counter Clockwise"),
                         EncoderButtonPressed => log_info!(APP_TAG, "Encoder Button Pressed"),
                         EncoderButtonReleased => log_info!(APP_TAG, "Encoder Button Released"),
-                        WifiStatusUnknown | WifiStatusExcellent | WifiStatusGood | WifiStatusFair | WifiStatusWeak | WifiStatusNoSignal => Self::draw_header(&mut header, &date_time, signals),
                         
                         _ => {}
                     }
 
-                    
+
+                    if let Err(e) =  header.draw(&date_time, RSSIStatus::from_bites( (signals >> 6) as u8 ), *wifi_enabled) {
+                        log_info!(APP_TAG, "Error drawing header: {:?}", e);
+                        ErrorSignal::set(ErrorFlag::Display.into());
+                    }
+
                     lcd.lock().unwrap().draw().unwrap_or_else(|e| {
                         ErrorSignal::set(ErrorFlag::Display.into());
                         log_info!(APP_TAG, "Error drawing on LCD: {:?}", e);
@@ -177,15 +170,22 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
     }
 }
 
-impl<T> Display<T>
-where T: LCDDisplayFn + Sync + Send + Clone + 'static 
+impl<T> Display<T> 
+where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
-    fn draw_header(header: &mut Header<T>, date_time: &DateTime, signals: u32) {
-            
-            if let Err(e) =  header.draw(date_time, RSSIStatus::from_bites( (signals >> 6) as u8 )) {
-                log_info!(APP_TAG, "Error drawing header: {:?}", e);
-                ErrorSignal::set(ErrorFlag::Display.into());
-            }
+    pub fn new(rtc: Arc<Mutex<dyn RTC>>, lcd: T) -> Self{
+        Self {
+            rtc,
+            lcd: Mutex::new_arc(lcd),
+            wifi_enabled: Arc::new(true),
+            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal),
+        }
     }
 
+    pub fn set_enabled_wifi(&mut self, enabled: bool) {
+        match Arc::get_mut(&mut self.wifi_enabled) {
+            Some(wifi_enabled) => *wifi_enabled = enabled,
+            core::option::Option::None => Arc::make_mut(&mut self.wifi_enabled).clone_from(&Arc::new(enabled)),    
+        }
+    }
 }

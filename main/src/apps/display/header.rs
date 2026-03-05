@@ -53,7 +53,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         }
     }
 
-    pub(super) fn draw(&mut self, date_time: &DateTime, rssi: RSSIStatus) -> Result<()> {
+    pub(super) fn draw(&mut self, date_time: &DateTime, rssi: RSSIStatus, wifi_enabled: bool) -> Result<()> {
         
 
         let mut lcd = self.lcd.lock().unwrap();
@@ -63,7 +63,9 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         lcd.draw_rect(0, 0, display_width, Self::HEIGHT, LCDWriteMode::REMOVE)?;
 
         match rssi {
-            Unknown => {},
+            Unknown => if wifi_enabled {
+                lcd.draw_bitmap_image(3, 0, IC_WIFI_NO_SIGNAL.0, IC_WIFI_NO_SIGNAL.1, &IC_WIFI_NO_SIGNAL.2, LCDWriteMode::ADD)?;
+            }
             Excellent => lcd.draw_bitmap_image(3, 0, IC_WIFI_EXCELLENT.0, IC_WIFI_EXCELLENT.1, &IC_WIFI_EXCELLENT.2, LCDWriteMode::ADD)?,
             Good => lcd.draw_bitmap_image(3, 0, IC_WIFI_GOOD.0, IC_WIFI_GOOD.1, &IC_WIFI_GOOD.2, LCDWriteMode::ADD)?,
             Fair | Weak => lcd.draw_bitmap_image(3, 0, IC_WIFI_FAIR.0, IC_WIFI_FAIR.1, &IC_WIFI_FAIR.2, LCDWriteMode::ADD)?,

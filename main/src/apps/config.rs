@@ -543,4 +543,10 @@ impl Config {
         ntp
     }
 
+    pub fn get_wifi_config(&self) -> &WifiConfig {
+        mutex().lock();
+        let wifi = &self.wifi;
+        mutex().unlock();
+        wifi
+    }
 }

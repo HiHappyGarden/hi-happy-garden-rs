@@ -52,6 +52,7 @@ impl Initializable for AppMain{
         self.config.init()?;
         self.wifi.init()?;
         self.display.init()?;
+        self.display.set_enabled_wifi(self.config.get_wifi_config().is_enabled());
 
         // SAFETY: AppMain lives in static mut APP_MAIN, initialized once at startup.
         // We use raw pointers to avoid borrow checker issues, then convert to 'static refs.

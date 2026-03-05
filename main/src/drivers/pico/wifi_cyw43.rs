@@ -57,7 +57,7 @@ fn disable_sta_mode(_: *mut c_void) {
     unsafe { hhg_cyw43_arch_disable_sta_mode(); }
 }
 
-fn  connect(_: *mut c_void, ssid: &str, password: &str, auth: Auth) -> Result<i32> {
+fn connect(_: *mut c_void, ssid: &str, password: &str, auth: Auth) -> Result<i32> {
     let pico_auth = match auth {
         Auth::Open => OPEN,
         Auth::Wpa => WPA_TKIP_PSK,
