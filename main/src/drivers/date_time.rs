@@ -287,7 +287,7 @@ impl DateTime {
             // We need to check the LOCAL date (after timezone) to see if DST applies
             let temp = Self::from_timestamp_raw(adjusted_timestamp)?;
             if temp.is_daylight_saving_time() {
-                let dst_offset_seconds = 60 * Self::SECONDS_PER_MINUTE; // 1 hour DST offset
+                let dst_offset_seconds = Self::SECONDS_PER_HOUR; // 1 hour DST offset
                 adjusted_timestamp += dst_offset_seconds;
                 is_apply_daylight_saving_time = true;
             }
@@ -306,7 +306,7 @@ impl DateTime {
         let mut sum = self.to_timestamp_locale();
 
         if self.is_apply_daylight_saving_time {
-            let dst_offset_seconds = 60 * Self::SECONDS_PER_MINUTE; // we assume a fixed 1 hour DST offset, this can be made configurable if needed
+            let dst_offset_seconds = Self::SECONDS_PER_HOUR; // we assume a fixed 1 hour DST offset, this can be made configurable if needed
             sum -= dst_offset_seconds;
         }
 
@@ -325,8 +325,8 @@ impl DateTime {
 
         // Add seconds, minutes, hours
         total_seconds += self.second as i64;
-        total_seconds += (self.minute as i64) * 60;
-        total_seconds += (self.hour as i64) * 3600;
+        total_seconds += (self.minute as i64) * Self::SECONDS_PER_MINUTE;
+        total_seconds += (self.hour as i64) * Self::SECONDS_PER_HOUR;
 
         // Add days from start of year to current day
         let mut days_in_current_year: i64 = 0;
