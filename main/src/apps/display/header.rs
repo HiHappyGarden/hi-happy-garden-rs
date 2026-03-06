@@ -19,9 +19,11 @@
 
 use alloc::format;
 use alloc::sync::Arc;
+use osal_rs::os::types::EventBits;
 use osal_rs::{log_error};
 use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::utils::Result;
+use crate::apps::signals::display::DisplayFlag;
 use crate::apps::signals::error::{ErrorFlag, ErrorSignal};
 use crate::assets::font_5x8::FONT_5X8;
 use crate::assets::ic_wifi_excellent::IC_WIFI_EXCELLENT;
@@ -38,28 +40,38 @@ pub(super) struct Header<T>
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
     lcd: Arc<Mutex<T>>,
+    date_time: DateTime
 }
 
 impl<T> Header<T> 
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
 
-    const HEIGHT: u8 = 10;
 
     pub(super) fn new(lcd: Arc<Mutex<T>>) -> Self {
         Self {
             lcd,
+            date_time: DateTime::default()
         }
     }
 
-    pub(super) fn draw(&mut self, date_time: &DateTime, rssi: RSSIStatus, wifi_enabled: bool) -> Result<()> {
+    pub(super) fn draw(&mut self, signals: &mut EventBits, date_time: &DateTime, wifi_enabled: bool) -> Result<()> {
         
+        let rssi = RSSIStatus::from_bites( (*signals >> 6) as u8 )?;
+
+        if date_time.minute != self.date_time.minute {
+            return Ok(()); // No need to redraw the header if only the minute has changed, as it will be updated in the next iteration
+        }
+
+        self.date_time = date_time.clone();
 
         let mut lcd = self.lcd.lock().unwrap();
 
         let (display_width, _) = lcd.get_size();
 
-        lcd.draw_rect(0, 0, display_width, Self::HEIGHT, LCDWriteMode::REMOVE)?;
+        let header_height = lcd.get_header_height() - 1;
+
+        lcd.draw_rect(0, 0, display_width, header_height, LCDWriteMode::REMOVE)?;
 
         match rssi {
             Unknown => if wifi_enabled {
@@ -71,7 +83,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
             NoSignal => lcd.draw_bitmap_image(3, 0, IC_WIFI_NO_SIGNAL.0, IC_WIFI_NO_SIGNAL.1, &IC_WIFI_NO_SIGNAL.2, LCDWriteMode::ADD)?,
         }
         
-        lcd.draw_rect(0, Self::HEIGHT + 1, display_width, 1, LCDWriteMode::ADD)?;
+        lcd.draw_rect(0, header_height, display_width, 1, LCDWriteMode::ADD)?;
 
 
         if date_time.is_valid() {
@@ -82,6 +94,8 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
             });
         }
 
+        *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+        
         Ok(())
     }
 }

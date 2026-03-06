@@ -22,7 +22,7 @@
 
 use core::fmt::{Debug, Display};
 
-use osal_rs::utils::Result;
+use osal_rs::utils::{Error, Result};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum WifiStatus {
@@ -119,16 +119,16 @@ impl RSSIStatus {
         }
     }
 
-    pub fn from_bites(value: u8) -> Self {
+    pub fn from_bites(value: u8) -> Result<Self> {
         use RSSIStatus::*;
         match value {
-            0x01 => Unknown,
-            0x02 => Excellent,
-            0x03 => Good,
-            0x04 => Fair,
-            0x05 => Weak,
-            0x06 => NoSignal,
-            _ => Unknown,
+            0x01 => Ok(Unknown),
+            0x02 => Ok(Excellent),
+            0x03 => Ok(Good),
+            0x04 => Ok(Fair),
+            0x05 => Ok(Weak),
+            0x06 => Ok(NoSignal),
+            _ => Err(Error::ReturnWithCode(value as i32)),
         }
     }
 }

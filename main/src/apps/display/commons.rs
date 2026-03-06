@@ -18,37 +18,17 @@
  ***************************************************************************/
 
 use alloc::sync::Arc;
-use osal_rs::os::types::EventBits;
-use osal_rs::os::Mutex;
-use osal_rs::utils::{Bytes, Result};
+use osal_rs::os::{Mutex, MutexFn};
+use osal_rs::utils::Result;
 
-use crate::apps::display::commons::clean_context;
-use crate::apps::signals::display::DisplayFlag;
-use crate::traits::lcd_display::LCDDisplayFn;
+use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 
-pub(super) struct Check<T> 
+
+pub fn clean_context<T>(lcd: &mut Arc<Mutex<T>>) -> Result<()> 
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
-    lcd: Arc<Mutex<T>>,
+    let mut lcd = lcd.lock().unwrap();
+    let (display_width, display_height) = lcd.get_size();
+    let y_start = lcd.get_header_height();
+    lcd.draw_rect(0, y_start, display_width, display_height - y_start, LCDWriteMode::REMOVE)
 }
-
-impl<T> Check<T> 
-where T: LCDDisplayFn + Sync + Send + Clone + 'static
-{
-
-
-    pub(super) fn new(lcd: Arc<Mutex<T>>) -> Self {
-        Self {
-            lcd,
-        }
-    }
-
-    pub(super) fn draw(&mut self, signals: &mut EventBits, _text: Bytes<16>, _check: bool) -> Result<()> {
-        clean_context(&mut self.lcd)?;
-        
-
-        *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
-        Ok(())
-    }
-}
-

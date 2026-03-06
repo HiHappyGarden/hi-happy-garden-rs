@@ -17,16 +17,20 @@
  *
  ***************************************************************************/
 
-mod header;
 mod check;
+mod commons;
+mod header;
+
 
 use alloc::sync::Arc;
 use osal_rs::log_info;
 use osal_rs::os::{Mutex, MutexFn, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
+use osal_rs::utils::Error;
 
+use crate::apps::display::check::Check;
 use crate::apps::display::header::Header;
-use crate::apps::signals::display::{DisplayFlag::{self, *}, DisplaySignal};
+use crate::apps::signals::display::{DisplayFlag::{*}, DisplaySignal};
 use crate::apps::signals::error::ErrorFlag;
 use crate::apps::signals::error::{ErrorSignal};
 use crate::drivers::date_time::DateTime;
@@ -37,7 +41,6 @@ use crate::traits::encoder::{EncoderDirection::{self, *}, OnRotatableAndClickabl
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
-use crate::traits::wifi::RSSIStatus;
 use crate::traits::rtc::RTC;
 
 
@@ -69,13 +72,12 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         
         self.thread.spawn_simple(move || {
 
-            let mut date_time_old = DateTime::default();
-
-            let mut header = Header::new( Arc::clone(&lcd));            
+            let mut header = Header::new( Arc::clone(&lcd));   
+            let mut check = Check::new( Arc::clone(&lcd));
 
             
             loop {
-                let signals = DisplaySignal::wait(0x00FFFFFF, 100);
+                let mut signals = DisplaySignal::wait(0x00FFFFFF, 100);
                 DisplaySignal::clear(signals);
 
                 let date_time = rtc.lock().unwrap().get_timestamp().unwrap_or_else(|e| {
@@ -91,34 +93,38 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                     DateTime::default()
                 });
 
-
-                if signals > 0 || date_time.minute != date_time_old.minute {
-                    lcd.lock().unwrap().clear();
-
-                    match DisplayFlag::from(signals) {
-                        ButtonPressed => log_info!(APP_TAG, "Button Pressed"),
-                        ButtonReleased => log_info!(APP_TAG, "Button Released"),
-                        EncoderRotatedClockwise => log_info!(APP_TAG, "Encoder Rotated Clockwise"),
-                        EncoderRotatedCounterClockwise => log_info!(APP_TAG, "Encoder Rotated Counter Clockwise"),
-                        EncoderButtonPressed => log_info!(APP_TAG, "Encoder Button Pressed"),
-                        EncoderButtonReleased => log_info!(APP_TAG, "Encoder Button Released"),
-                        
-                        _ => {}
-                    }
+                // match DisplayFlag::from(signals) {
+                //     ButtonPressed => log_info!(APP_TAG, "Button Pressed"),
+                //     ButtonReleased => log_info!(APP_TAG, "Button Released"),
+                //     EncoderRotatedClockwise => log_info!(APP_TAG, "Encoder Rotated Clockwise"),
+                //     EncoderRotatedCounterClockwise => log_info!(APP_TAG, "Encoder Rotated Counter Clockwise"),
+                //     EncoderButtonPressed => log_info!(APP_TAG, "Encoder Button Pressed"),
+                //     EncoderButtonReleased => log_info!(APP_TAG, "Encoder Button Released"),
+                    
+                //     _ => {}
+                // }
 
 
-                    if let Err(e) =  header.draw(&date_time, RSSIStatus::from_bites( (signals >> 6) as u8 ), *wifi_enabled) {
+                if let Err(e) =  header.draw(&mut signals, &date_time, *wifi_enabled) {
+                    if let Error::ReturnWithCode(_) = e {} else {
                         log_info!(APP_TAG, "Error drawing header: {:?}", e);
                         ErrorSignal::set(ErrorFlag::Display.into());
                     }
+                }
 
+                if let Err(e) =  check.draw(&mut signals, "Test".into(), false) {
+                    log_info!(APP_TAG, "Error drawing check: {:?}", e);
+                    ErrorSignal::set(ErrorFlag::Display.into());
+                }
+
+                if signals & Draw as u32 != 0 {
                     lcd.lock().unwrap().draw().unwrap_or_else(|e| {
                         ErrorSignal::set(ErrorFlag::Display.into());
                         log_info!(APP_TAG, "Error drawing on LCD: {:?}", e);
                     });
-
-                    date_time_old = date_time;
                 }
+
+
             }
 
 
