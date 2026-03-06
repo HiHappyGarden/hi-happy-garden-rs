@@ -123,8 +123,8 @@ pub struct WifiConfig {
 impl Default for WifiConfig {
     fn default() -> Self {
         Self {
-            ssid: Bytes::new_by_str(DEFAULT_WIFI_SSID),
-            password: Bytes::new_by_str(DEFAULT_WIFI_PASSWORD),
+            ssid: Bytes::from_str(DEFAULT_WIFI_SSID),
+            password: Bytes::from_str(DEFAULT_WIFI_PASSWORD),
             auth: DEFAULT_WIFI_AUTH.into(),
             enabled: DEFAULT_WIFI_ENABLED,
         }
@@ -195,7 +195,7 @@ pub struct NtpConfig {
 impl Default for NtpConfig {
     fn default() -> Self {
         Self {
-            server: Bytes::new_by_str(DEFAULT_NTP_SERVER),
+            server: Bytes::from_str(DEFAULT_NTP_SERVER),
             port: DEFAULT_NTP_PORT,
             msg_len: DEFAULT_NTP_MSG_LEN,
         }
@@ -384,7 +384,7 @@ impl Config {
     }
 
     pub fn load() -> Result<&'static mut Self> {
-        let mut file_name = FileBytes::new_by_str(FS_CONFIG_DIR);
+        let mut file_name = FileBytes::from_str(FS_CONFIG_DIR);
         file_name.append_str(FS_SEPARATOR_DIR);
         file_name.append_str(Config::FILE_NAME);
 
@@ -448,7 +448,7 @@ impl Config {
     }
 
     pub fn save() -> Result<&'static mut Self> {
-        let mut file_name = FileBytes::new_by_str(FS_CONFIG_DIR);
+        let mut file_name = FileBytes::from_str(FS_CONFIG_DIR);
         file_name.append_str(FS_SEPARATOR_DIR);
         file_name.append_str(Config::FILE_NAME);
 

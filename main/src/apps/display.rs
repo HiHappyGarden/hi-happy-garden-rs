@@ -26,7 +26,7 @@ use alloc::sync::Arc;
 use osal_rs::log_info;
 use osal_rs::os::{Mutex, MutexFn, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
-use osal_rs::utils::Error;
+use osal_rs::utils::{Bytes, Error};
 
 use crate::apps::display::check::Check;
 use crate::apps::display::header::Header;
@@ -112,7 +112,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                     }
                 }
 
-                if let Err(e) =  check.draw(&mut signals, "Test".into(), false) {
+                if let Err(e) =  check.draw(&mut signals, &date_time, &Bytes::<16>::from_str("Test"), false) {
                     log_info!(APP_TAG, "Error drawing check: {:?}", e);
                     ErrorSignal::set(ErrorFlag::Display.into());
                 }

@@ -24,8 +24,7 @@ use alloc::format;
 use alloc::vec::Vec;
 
 use osal_rs::log_info;
-use osal_rs::utils::{Bytes, Error, Result};
-use osal_rs::os::AsSyncStr;
+use osal_rs::utils::{AsSyncStr, Bytes, Error, Result};
 
 use core::ffi::c_int;
 use core::ffi::c_void;
@@ -575,7 +574,7 @@ impl Filesystem {
         let handler = (FILESYSTEM_FN.open)(path, flags)?;
         Ok(File {
             handler,
-            name: FileBytes::new_by_str(path),
+            name: FileBytes::from_str(path),
             size: 0,
         })
     }
@@ -682,7 +681,7 @@ impl Filesystem {
         let handler = (FILESYSTEM_FN.open_dir)(path)?;
         Ok(Dir {
             handler,
-            name: FileBytes::new_by_str(path),
+            name: FileBytes::from_str(path),
             type_: EntryType::Dir,
         })
     }
