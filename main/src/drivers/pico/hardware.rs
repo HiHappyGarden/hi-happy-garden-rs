@@ -295,9 +295,9 @@ impl Hardware {
         log_info!(
             APP_TAG, 
             "Filesystem total:{} bytes ({} KB), used:{} bytes ({} KB), free:{} bytes ({} KB)",
-            total_size, total_size / 1024,
-            used_size, used_size / 1024,
-            free_size, free_size / 1024
+            total_size, total_size / 1_024,
+            used_size, used_size / 1_024,
+            free_size, free_size / 1_024
         );
 
         Ok(())
