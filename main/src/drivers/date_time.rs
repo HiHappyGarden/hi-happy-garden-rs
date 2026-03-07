@@ -1,7 +1,7 @@
 /***************************************************************************
  *
  * Hi Happy Garden
- * Copyright (C) 2023/2026 Antonio Salsi <passy.linux@zresa.it>
+ * Copyright (C) 2026 Antonio Salsi <passy.linux@zresa.it>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -45,6 +45,7 @@ pub struct DateTime {
     pub hour: u8,      // 0-23
     pub minute: u8,    // 0-59
     pub second: u8,     // 0-59
+    pub millis: u16,      // 0-999 (not used in timestamp conversion, but can be useful for display or RTC purposes)
     is_apply_timezone: bool,
     is_apply_daylight_saving_time: bool
     
@@ -101,6 +102,7 @@ impl DateTime {
             hour,
             minute,
             second,
+            millis: 0,
             is_apply_timezone: false,
             is_apply_daylight_saving_time: false
             
@@ -262,6 +264,7 @@ impl DateTime {
             hour,
             minute,
             second,
+            millis: 0,
             is_apply_timezone: false,
             is_apply_daylight_saving_time: false,
         })
@@ -379,6 +382,7 @@ impl Default for DateTime {
             hour: 0,
             minute: 0,
             second: 0,
+            millis: 0,
             is_apply_timezone: false,
             is_apply_daylight_saving_time: false,
         }
@@ -429,7 +433,7 @@ impl Debug for DateTime {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
-            "Time {{ year: {}, month: {}, wday: {}, mday: {}, hour: {}, minute: {}, second: {}, timezone: {}, daylight_saving_time: {} }}",
+            "Time {{ year: {}, month: {}, wday: {}, mday: {}, hour: {}, minute: {}, second: {}, millis: {}, timezone: {}, daylight_saving_time: {} }}",
             self.year,
             self.month,
             self.wday,
@@ -437,6 +441,7 @@ impl Debug for DateTime {
             self.hour,
             self.minute,
             self.second,
+            self.millis,
             self.is_apply_timezone,
             self.is_apply_daylight_saving_time
         )

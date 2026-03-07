@@ -69,7 +69,7 @@ impl Display for WifiStatus {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RSSIStatus {
     Unknown = 0,
     Excellent = -50,

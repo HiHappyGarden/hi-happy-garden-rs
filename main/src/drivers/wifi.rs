@@ -31,7 +31,7 @@ use crate::drivers::pico::ffi::pico_error_codes::PICO_OK;
 use crate::traits::state::Initializable;
 use crate::drivers::platform::{GpioPeripheral, ThreadPriority};
 use crate::drivers::pico::wifi_cyw43::WIFI_FN;
-use crate::traits::wifi::{OnWifiChangeStatus, RSSIStatus::*, SetOnWifiChangeStatus, WifiStatus};
+use crate::traits::wifi::{OnWifiChangeStatus, RSSIStatus::{self, *}, SetOnWifiChangeStatus, WifiStatus};
 use crate::traits::wifi::WifiStatus::Disconnected;
 
 
@@ -198,6 +198,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                                 transition_wifi_status!(Disconnected, on_wifi_change_status);
                                 continue;
                             } if FSM_STATUS_CURRENT == Disabled {
+                                on_wifi_change_status.on_rssi_change(RSSIStatus::Unknown);
                                 System::delay_with_to_tick(Duration::from_millis(1_000));
                                 continue;
                             }
@@ -220,6 +221,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
                             count_error = 0;
                             transition_wifi_status!(Enabled, on_wifi_change_status);
+                            on_wifi_change_status.on_rssi_change(RSSIStatus::Unknown);
                         },
                         Enabled => {
                             gpio.write(&GpioPeripheral::InternalLed, 0);
@@ -228,6 +230,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
                             count_error = 0;
                             transition_wifi_status!(Connecting, on_wifi_change_status);
+                            on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
                         },
                         Connecting => {
                             gpio.write(&GpioPeripheral::InternalLed, 0);
@@ -241,6 +244,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
                             count_error = 0;
                             transition_wifi_status!(WaitForIp, on_wifi_change_status);
+                            on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
                             continue 'no_rtc;
                         },
                         WaitForIp => {  
@@ -250,6 +254,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                             match link_status {
                                 LinkStatus::Up => {
                                     transition_wifi_status!(Connected, on_wifi_change_status);
+                                    on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
                                 }
                                 LinkStatus::WaitForIp => log_debug!(APP_TAG, "WiFi connected, waiting for DHCP..."),
                                 LinkStatus::Down => {
@@ -308,6 +313,8 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                             INITIALIZED.store(false, Ordering::Release);
 
                             System::delay_with_to_tick(Duration::from_secs(25));
+
+                            on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
 
                             gpio.write(&GpioPeripheral::InternalLed, 0);
 

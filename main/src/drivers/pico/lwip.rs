@@ -88,7 +88,7 @@ fn dns_resolve_addrress<'a>(hostname: &Bytes<64>) -> Result<&'a dyn IpAddress> {
     let mut addr = IP4Addr::default();
     let dns_result = unsafe { 
         hhg_dns_gethostbyname(
-            hostname.as_cstring().as_ptr(), 
+            hostname.as_cstr().as_ptr(), 
             &mut addr, 
             dns_found_callback, 
             null_mut()

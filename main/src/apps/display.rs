@@ -1,7 +1,7 @@
 /***************************************************************************
  *
  * Hi Happy Garden
- * Copyright (C) 2023/2026 Antonio Salsi <passy.linux@zresa.it>
+ * Copyright (C) 2026 Antonio Salsi <passy.linux@zresa.it>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@ mod header;
 
 use alloc::sync::Arc;
 use osal_rs::log_info;
-use osal_rs::os::{Mutex, MutexFn, Thread, ThreadFn};
+use osal_rs::os::{EventGroup, Mutex, MutexFn, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
 use osal_rs::utils::{Bytes, Error};
 
@@ -46,7 +46,8 @@ use crate::traits::rtc::RTC;
 
 const APP_TAG: &str = "AppDisplay";
 const APP_THREAD_NAME: &str = "display_trd";
-const APP_STACK_SIZE: StackType = 1024;
+const APP_STACK_SIZE: StackType = 2_048; // 2KB stack size, adjust as needed
+const TICK_INTERVAL_MS: u16 = 100;
 
 pub struct Display<T>
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
@@ -74,10 +75,9 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
             let mut header = Header::new( Arc::clone(&lcd));   
             let mut check = Check::new( Arc::clone(&lcd));
-
             
             loop {
-                let mut signals = DisplaySignal::wait(0x00FFFFFF, 100);
+                let mut signals = DisplaySignal::wait(EventGroup::MAX_MASK, TICK_INTERVAL_MS as u32);
                 DisplaySignal::clear(signals);
 
                 let date_time = rtc.lock().unwrap().get_timestamp().unwrap_or_else(|e| {
@@ -87,7 +87,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 });
 
 
-                let date_time = DateTime::from_timestamp_locale(date_time, true).unwrap_or_else(|e| {
+                let mut date_time = DateTime::from_timestamp_locale(date_time, true).unwrap_or_else(|e| {
                     log_info!(APP_TAG, "Error converting timestamp to datetime: {:?}", e);
                     ErrorSignal::set(ErrorFlag::DateTime.into());
                     DateTime::default()
@@ -112,7 +112,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                     }
                 }
 
-                if let Err(e) =  check.draw(&mut signals, &date_time, &Bytes::<16>::from_str("Test"), false) {
+                if let Err(e) =  check.draw(&mut signals, &date_time, &Bytes::<64>::from_str("ciao mi chiamo antonio salsi e faccio il programmatore"), false) {
                     log_info!(APP_TAG, "Error drawing check: {:?}", e);
                     ErrorSignal::set(ErrorFlag::Display.into());
                 }
@@ -125,6 +125,12 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 }
 
 
+                if date_time.millis >= 1000 {
+                    date_time.millis = 0;
+                } else {
+                    date_time.millis += TICK_INTERVAL_MS;    
+                }
+                
             }
 
 

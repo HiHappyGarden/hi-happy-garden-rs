@@ -40,7 +40,8 @@ pub(super) struct Header<T>
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
     lcd: Arc<Mutex<T>>,
-    date_time: DateTime
+    date_time: DateTime,
+    rssi_status: RSSIStatus,
 }
 
 impl<T> Header<T> 
@@ -51,16 +52,32 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
     pub(super) fn new(lcd: Arc<Mutex<T>>) -> Self {
         Self {
             lcd,
-            date_time: DateTime::default()
+            date_time: DateTime::default(),
+            rssi_status: RSSIStatus::Unknown,
         }
     }
 
     pub(super) fn draw(&mut self, signals: &mut EventBits, date_time: &DateTime, wifi_enabled: bool) -> Result<()> {
         
-        let rssi = RSSIStatus::from_bites( (*signals >> 6) as u8 )?;
+        let rssi = match RSSIStatus::from_bites( (*signals >> 6) as u8 ) {
+            Ok(status) => status,
+            Err(_) => RSSIStatus::Unknown,
+        };
+
+
+        let mut redraw_needed = false;
 
         if date_time.minute != self.date_time.minute {
-            return Ok(()); // No need to redraw the header if only the minute has changed, as it will be updated in the next iteration
+            redraw_needed = true;
+        }
+
+        if rssi != RSSIStatus::Unknown && self.rssi_status != rssi {
+            self.rssi_status = rssi;
+            redraw_needed = true;
+        }
+
+        if !redraw_needed {
+            return Ok(()); // No need to redraw if nothing has changed
         }
 
         self.date_time = date_time.clone();
@@ -75,7 +92,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
         match rssi {
             Unknown => if wifi_enabled {
-                lcd.draw_bitmap_image(3, 0, IC_WIFI_NO_SIGNAL.0, IC_WIFI_NO_SIGNAL.1, &IC_WIFI_NO_SIGNAL.2, LCDWriteMode::ADD)?;
+                //lcd.draw_bitmap_image(3, 0, IC_WIFI_NO_SIGNAL.0, IC_WIFI_NO_SIGNAL.1, &IC_WIFI_NO_SIGNAL.2, LCDWriteMode::ADD)?;
             }
             Excellent => lcd.draw_bitmap_image(3, 0, IC_WIFI_EXCELLENT.0, IC_WIFI_EXCELLENT.1, &IC_WIFI_EXCELLENT.2, LCDWriteMode::ADD)?,
             Good => lcd.draw_bitmap_image(3, 0, IC_WIFI_GOOD.0, IC_WIFI_GOOD.1, &IC_WIFI_GOOD.2, LCDWriteMode::ADD)?,
@@ -87,7 +104,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
 
         if date_time.is_valid() {
-            let now = format!("{:04}-{:02}-{:02} {:02}:{:02}", date_time.year, date_time.month, date_time.mday, date_time.hour, date_time.minute);
+            let now = format!("{:04}-{:02}-{:02}  {:02}:{:02}", date_time.year, date_time.month, date_time.mday, date_time.hour, date_time.minute);
             lcd.draw_str(&now, display_width - (now.len() as u8 * 5) - 5, 1, &FONT_5X8).unwrap_or_else(|e| {
                 log_error!("Header", "Failed to draw time on LCD: {}", e);
                 ErrorSignal::set(ErrorFlag::Display.into());
