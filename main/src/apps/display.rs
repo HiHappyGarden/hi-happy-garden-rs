@@ -112,7 +112,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                     }
                 }
 
-                if let Err(e) =  check.draw(&mut signals, &date_time, &Bytes::<64>::from_str("ciao mi chiamo antonio salsi e faccio il programmatore"), false) {
+                if let Err(e) =  check.draw(&mut signals, &date_time, &Bytes::<64>::from_str("ciao sono antonio e programmo molto"), false) {
                     log_info!(APP_TAG, "Error drawing check: {:?}", e);
                     ErrorSignal::set(ErrorFlag::Display.into());
                 }

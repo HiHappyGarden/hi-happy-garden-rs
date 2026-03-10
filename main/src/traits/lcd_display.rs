@@ -41,6 +41,8 @@ pub trait LCDDisplayFn : Sync + Send {
     /// Get the display size (width, height)
     fn get_size(&self) -> (u8, u8);
 
+    fn get_visible_size(&self) -> (u8, u8);
+
     fn get_header_height(&self) -> u8 {
         let (_, height) = self.get_size();
         (height as f32 * 0.175) as u8

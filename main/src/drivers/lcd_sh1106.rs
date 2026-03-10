@@ -126,6 +126,11 @@ impl LCDDisplayFn for LCDSH1106 {
         (LCDSH1106::WIDTH, LCDSH1106::HEIGHT * 8)
     }
 
+    fn get_visible_size(&self) -> (u8, u8) {
+        let (width, height) = self.get_size();
+        (width, height - 4)
+    }
+
     fn draw(&mut self) -> Result<()> {
         let _ = self.send_cmd(LOW_COLUMN);
         let _ = self.send_cmd(HIGH_COLUMN);
