@@ -32,10 +32,10 @@ pub enum DisplayFlag {
     WifiStatusUnknown = 0x40,
     WifiStatusExcellent = 0x80,
     WifiStatusGood = 0xC0,
-    WifiStatusFair = 0x100,
-    WifiStatusWeak = 0x140,
-    WifiStatusNoSignal = 0x180,
-    Draw = 0x00FFFFFF, // Special flag to indicate that the display should be redrawn
+    WifiStatusFair = 0x01_00,
+    WifiStatusWeak = 0x01_40,
+    WifiStatusNoSignal = 0x01_80,
+    Draw = 0x00_80_00_00, // Special flag to indicate that the display should be redrawn
 }
 
 impl From<u32> for DisplayFlag {
@@ -51,10 +51,10 @@ impl From<u32> for DisplayFlag {
             0x40 => WifiStatusUnknown,
             0x80 => WifiStatusExcellent,
             0xC0 => WifiStatusGood,
-            0x100 => WifiStatusFair,
-            0x140 => WifiStatusWeak,
-            0x180 => WifiStatusNoSignal,
-            0x00FFFFFF => Draw,
+            0x01_00 => WifiStatusFair,
+            0x01_40 => WifiStatusWeak,
+            0x01_80 => WifiStatusNoSignal,
+            0x00_80_00_00 => Draw,
             _ => None, // Default case, can be adjusted as needed
         }
     }

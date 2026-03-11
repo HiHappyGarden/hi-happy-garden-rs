@@ -19,20 +19,24 @@
 
 use alloc::format;
 use alloc::sync::Arc;
+
 use osal_rs::os::types::EventBits;
 use osal_rs::{log_error};
 use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::utils::Result;
+
 use crate::apps::signals::display::DisplayFlag;
 use crate::apps::signals::error::{ErrorFlag, ErrorSignal};
+
 use crate::assets::font_5x8::FONT_5X8;
 use crate::assets::ic_wifi_excellent::IC_WIFI_EXCELLENT;
 use crate::assets::ic_wifi_fair::IC_WIFI_FAIR;
 use crate::assets::ic_wifi_good::IC_WIFI_GOOD;
 use crate::assets::ic_wifi_no_signal::IC_WIFI_NO_SIGNAL;
-use crate::drivers::date_time::DateTime;
-use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 
+use crate::drivers::date_time::DateTime;
+
+use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use crate::traits::signal::Signal;
 use crate::traits::wifi::RSSIStatus::{self, *};
 
@@ -67,7 +71,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
         let mut redraw_needed = false;
 
-        if date_time.minute != self.date_time.minute {
+        if date_time.hour != self.date_time.hour || date_time.minute != self.date_time.minute {
             redraw_needed = true;
         }
 

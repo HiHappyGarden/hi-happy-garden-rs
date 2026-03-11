@@ -26,6 +26,8 @@ use crate::apps::display::commons::{clean_context, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::assets::ic_check_off::IC_CHECK_OFF;
+use crate::assets::ic_check_on::IC_CHECK_ON;
+use crate::assets::types::Icon;
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 
@@ -33,22 +35,45 @@ pub(super) struct Check<T>
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
     lcd: Arc<Mutex<T>>,
+    icon: Icon<120>,
 }
 
 impl<T> Check<T> 
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
 
-
     pub(super) fn new(lcd: Arc<Mutex<T>>) -> Self {
         Self {
             lcd,
+            icon: IC_CHECK_OFF,
         }
     }
 
-    pub(super) fn draw(&mut self, signals: &mut EventBits, date_time: &DateTime, text: &impl AsSyncStr, _check: bool) -> Result<()> {
+    fn update_icon(&mut self, signals: &mut EventBits, check: Option<bool>) {
+        if let Some(check) = check {
+            if check {
+                self.icon = IC_CHECK_ON; // Update with the appropriate icon based on the check state
+            } else {
+                self.icon = IC_CHECK_OFF; // Update with the appropriate icon based on the check state
+            }
+            *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that
+        }
+        else if *signals & DisplayFlag::EncoderRotatedClockwise as u32 != 0 || *signals & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+
+            self.icon = if self.icon.2 == IC_CHECK_OFF.2 {
+                IC_CHECK_ON
+            } else {
+                IC_CHECK_OFF
+            };
+            *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
+        }
+    }
+
+    pub(super) fn draw(&mut self, signals: &mut EventBits, date_time: &DateTime, text: &impl AsSyncStr, check: Option<bool>) -> Result<()> {
         clean_context(&mut self.lcd)?;
-        
+
+        self.update_icon(signals, check);
+
         let mut lcd = self.lcd.lock()?;
 
         let (width, _) = lcd.get_size(); 
@@ -59,7 +84,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
         lcd.draw_str(&display_text, x_position, 30, &FONT_8X8)?;
 
-        lcd.draw_bitmap_image((width  / 2 ) - (IC_CHECK_OFF.0 / 2), 45, IC_CHECK_OFF.0, IC_CHECK_OFF.1, &IC_CHECK_OFF.2, LCDWriteMode::ADD)?;
+        lcd.draw_bitmap_image((width  / 2 ) - (self.icon.0 / 2), 45, self.icon.0, self.icon.1, &self.icon.2, LCDWriteMode::ADD)?;
 
         *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
         Ok(())
