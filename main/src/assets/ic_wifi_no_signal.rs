@@ -17,10 +17,9 @@
  *
  ***************************************************************************/
 
-#[allow(dead_code)]
+use crate::assets::types::Icon;
 
-//width, height, data
-pub const IC_WIFI_NO_SIGNAL: (u8, u8, [u8; 120])= (12, 10, [
+pub const IC_WIFI_NO_SIGNAL: Icon<120> = (12, 10, [
         0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0,
         0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0,
         1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1,

@@ -17,8 +17,6 @@
  *
  ***************************************************************************/
 
-#[allow(dead_code)]
-
 pub const FONT_8X8: [u8; 1794] =
 [
     0x8, 0x8, // first 2 bytes for width and height
