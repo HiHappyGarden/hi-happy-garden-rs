@@ -25,6 +25,8 @@ use osal_rs::utils::Result;
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 
+pub const FIRST_ROW_Y: u8 = 25;
+pub const SECOND_ROW_Y: u8 = 45;
 
 pub fn clean_context<T>(lcd: &mut Arc<Mutex<T>>) -> Result<()> 
 where T: LCDDisplayFn + Sync + Send + Clone + 'static

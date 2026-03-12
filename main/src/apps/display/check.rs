@@ -22,7 +22,7 @@ use osal_rs::os::types::EventBits;
 use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::utils::{AsSyncStr, Result};
 
-use crate::apps::display::commons::{clean_context, scroll_text};
+use crate::apps::display::commons::{FIRST_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::assets::ic_check_off::IC_CHECK_OFF;
@@ -85,9 +85,9 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
         let (display_text, x_position) = scroll_text(text.as_str(), date_time, (width - visible_width) / 2, visible_width, FONT_8X8[0], 100);
 
-        lcd.draw_str(&display_text, x_position, 25, &FONT_8X8)?;
+        lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
 
-        lcd.draw_bitmap_image((width  / 2 ) - (self.icon.0 / 2), 45, self.icon.0, self.icon.1, &self.icon.2, LCDWriteMode::ADD)?;
+        lcd.draw_bitmap_image((width  / 2 ) - (self.icon.0 / 2), SECOND_ROW_Y, self.icon.0, self.icon.1, &self.icon.2, LCDWriteMode::ADD)?;
 
         if *signals & DisplayFlag::EncoderButtonReleased as u32 != 0 {
             if self.icon.2 == IC_CHECK_ON.2 {
