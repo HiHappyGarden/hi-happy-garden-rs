@@ -48,8 +48,6 @@ pub struct DateTime {
     pub millis: u16,      // 0-999 (not used in timestamp conversion, but can be useful for display or RTC purposes)
     is_apply_timezone: bool,
     is_apply_daylight_saving_time: bool
-    
-
 }
 
 impl DateTime {
@@ -75,7 +73,7 @@ impl DateTime {
         }
     }
 
-    /// New Input: year, month (1-12), day (1-31), hour (0-23), minute (0-59), second (0-59)
+    /// New Input: year, month (1-12), wday (0-6), mday (1-31), hour (0-23), minute (0-59), second (0-59)
     pub fn new(year: i32, month: u8, wday: u8, mday: u8, hour: u8, minute: u8, second: u8) -> Result<Self> {
         // Validate input
         if month < 1 || month > 12 {
@@ -108,6 +106,60 @@ impl DateTime {
             
         })
     }
+
+    /// New Input: year, month (1-12), day (1-31), hour (0-23), minute (0-59), second (0-59)
+    pub fn new_date(year: i32, month: u8, mday: u8) -> Result<Self> {
+        // Validate input
+        if month < 1 || month > 12 {
+            return Err(Error::Unhandled("Invalid month"));
+        }
+        if mday < 1 || mday > Self::days_in_month(month, year) {
+            return Err(Error::Unhandled("Invalid day for given month/year"));
+        }
+
+        Ok(Self {
+            year,
+            month,
+            wday: 0, // wday can be calculated if needed using the to_timestamp_locale() method
+            mday,
+            hour: 0,
+            minute: 0,
+            second: 0,
+            millis: 0,
+            is_apply_timezone: false,
+            is_apply_daylight_saving_time: false
+            
+        })
+    }
+
+
+    /// New Input: hour (0-23), minute (0-59), second (0-59)
+    pub fn new_time(hour: u8, minute: u8, second: u8) -> Result<Self> {
+        // Validate input
+        if hour > 23 {
+            return Err(Error::Unhandled("Invalid hour"));
+        }
+        if minute > 59 {
+            return Err(Error::Unhandled("Invalid minute"));
+        }
+        if second > 59 {
+            return Err(Error::Unhandled("Invalid second"));
+        }
+
+        Ok(Self {
+            year: 0,
+            month: 0,
+            wday: 0,
+            mday: 0,
+            hour,
+            minute,
+            second,
+            millis: 0,
+            is_apply_timezone: false,
+            is_apply_daylight_saving_time: false
+        })
+    }
+
 
     /// Returns true if the year is a leap year
     #[inline]
