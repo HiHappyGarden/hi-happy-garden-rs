@@ -35,9 +35,9 @@ use crate::traits::button::{ButtonState, OnClickable, SetClickable};
 use button_events::*;
 
 const APP_TAG: &str = "Button";
-const APP_THREAD_NAME: &str = "button_trd";
-const APP_STACK_SIZE: StackType = 512;
-const APP_DEBOUNCE_TIME: TickType = 50;
+const THREAD_NAME: &str = "button_trd";
+const STACK_SIZE: StackType = 512;
+const DEBOUNCE_TIME: TickType = 50;
 
 
 pub mod button_events {
@@ -68,7 +68,7 @@ extern "C" fn button_isr() {
     let last_time = LAST_INTERRUPT_TIME.load(Ordering::Relaxed);
     
     // Debounce
-    if current_time.saturating_sub(last_time) < APP_DEBOUNCE_TIME {
+    if current_time.saturating_sub(last_time) < DEBOUNCE_TIME {
         return;
     }
     
@@ -138,7 +138,7 @@ impl Button {
         
         Self {
             gpio_ref: GpioPeripheral::Btn,
-            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal),
+            thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),
             thread_started: AtomicBool::new(false),
         }
     }
