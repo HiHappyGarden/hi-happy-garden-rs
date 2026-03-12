@@ -32,9 +32,9 @@ use crate::traits::encoder::{EncoderDirection, OnRotatableAndClickable, SetRotat
 use encoder_events::*;
 
 const APP_TAG: &str = "Encoder";
-const APP_THREAD_NAME: &str = "encoder_trd";
-const APP_STACK_SIZE: StackType = 512;
-const APP_DEBOUNCE_TIME: TickType = 3;
+const THREAD_NAME: &str = "encoder_trd";
+const STACK_SIZE: StackType = 512;
+const DEBOUNCE_TIME: TickType = 3;
 
 pub mod encoder_events {
     use osal_rs::os::types::EventBits;
@@ -72,7 +72,7 @@ extern "C" fn encoder_button_isr() {
     let last_time = LAST_BUTTON_INTERRUPT_TIME.load(Ordering::Relaxed);
     
     // Debounce
-    if current_time.saturating_sub(last_time) < APP_DEBOUNCE_TIME {
+    if current_time.saturating_sub(last_time) < DEBOUNCE_TIME {
         return;
     }
     
@@ -101,7 +101,7 @@ extern "C" fn encoder_ccw_isr() {
     let last_time = LAST_CCW_INTERRUPT_TIME.load(Ordering::Relaxed);
     
     // Debounce
-    if current_time.saturating_sub(last_time) < APP_DEBOUNCE_TIME {
+    if current_time.saturating_sub(last_time) < DEBOUNCE_TIME {
         return;
     }
     
@@ -130,7 +130,7 @@ extern "C" fn encoder_cw_isr() {
     let last_time = LAST_CW_INTERRUPT_TIME.load(Ordering::Relaxed);
     
     // Debounce
-    if current_time.saturating_sub(last_time) < APP_DEBOUNCE_TIME {
+    if current_time.saturating_sub(last_time) < DEBOUNCE_TIME {
         return;
     }
     
@@ -160,7 +160,7 @@ impl Encoder {
             gpio_ccw_ref: GpioPeripheral::EncoderCCW,
             gpio_cw_ref: GpioPeripheral::EncoderCW,
             gpio_btn_ref: GpioPeripheral::EncoderBtn,
-            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal),
+            thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),
             thread_started: AtomicBool::new(false),
         }
     }
@@ -224,6 +224,8 @@ impl SetRotatableAndClickable<'static> for Encoder {
 
             // State tracking: use 2-bit encoding where bit1=CCW, bit0=CW
             let mut last_state: u8 = 0;
+            // Each valid quadrature edge is a two-step. Emit only on full detent.
+            let mut step_accumulator: i8 = 0;
             
             loop {
                 
@@ -261,32 +263,33 @@ impl SetRotatableAndClickable<'static> for Encoder {
                     // Decode direction using state transition table
                     // Clockwise sequence:  00 -> 01 -> 11 -> 10 -> 00
                     // Counter-clockwise:   00 -> 10 -> 11 -> 01 -> 00
-                    let direction: Option<EncoderDirection> = match (last_state, current_state as u8) {
+                    let transition_delta: i8 = match (last_state, current_state as u8) {
                         // Clockwise transitions
-                        (0b00, 0b01) | (0b01, 0b11) | (0b11, 0b10) | (0b10, 0b00) => {
-                            Some(EncoderDirection::Clockwise)
-                        }
+                        (0b00, 0b01) | (0b01, 0b11) | (0b11, 0b10) | (0b10, 0b00) => 1,
                         // Counter-clockwise transitions
-                        (0b00, 0b10) | (0b10, 0b11) | (0b11, 0b01) | (0b01, 0b00) => {
-                            Some(EncoderDirection::CounterClockwise)
-                        }
+                        (0b00, 0b10) | (0b10, 0b11) | (0b11, 0b01) | (0b01, 0b00) => -1,
                         // Invalid or no change
-                        _ => None
+                        _ => 0,
                     };
-                    
+
                     last_state = current_state as u8;
-                    
-                    // If we detected a rotation, update position and call callback
-                    if let Some(dir) = direction {
-                        let position = match dir {
-                            EncoderDirection::Clockwise => {
-                                ENCODER_POSITION.fetch_add(1, Ordering::Relaxed) + 1
-                            }
-                            EncoderDirection::CounterClockwise => {
-                                ENCODER_POSITION.fetch_sub(1, Ordering::Relaxed) - 1
-                            }
-                        };
-                        
+
+                    if transition_delta != 0 {
+                        step_accumulator = step_accumulator.saturating_add(transition_delta);
+                    }
+
+                    // Emit one logical step only after a complete 2-edge quadrature cycle.
+                    while step_accumulator >= 2 {
+                        step_accumulator -= 2;
+                        let position = ENCODER_POSITION.fetch_add(1, Ordering::Relaxed) + 1;
+                        let dir = EncoderDirection::Clockwise;
+                        rotable_and_clickable.on_rotable(dir, position);
+                    }
+
+                    while step_accumulator <= -2 {
+                        step_accumulator += 2;
+                        let position = ENCODER_POSITION.fetch_sub(1, Ordering::Relaxed) - 1;
+                        let dir = EncoderDirection::CounterClockwise;
                         rotable_and_clickable.on_rotable(dir, position);
                     }
                 }
