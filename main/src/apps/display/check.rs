@@ -36,6 +36,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
     lcd: Arc<Mutex<T>>,
     icon: Icon<120>,
+    checked: Option<bool>,
 }
 
 impl<T> Check<T> 
@@ -46,20 +47,12 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         Self {
             lcd,
             icon: IC_CHECK_OFF,
+            checked: None,
         }
     }
 
-    fn update_icon(&mut self, signals: &mut EventBits, check: Option<bool>) {
-        if let Some(check) = check {
-            if check {
-                self.icon = IC_CHECK_ON; // Update with the appropriate icon based on the check state
-            } else {
-                self.icon = IC_CHECK_OFF; // Update with the appropriate icon based on the check state
-            }
-            *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that
-        }
-        else if *signals & DisplayFlag::EncoderRotatedClockwise as u32 != 0 || *signals & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
-
+    fn update_icon(&mut self, signals: &mut EventBits) {
+        if *signals & DisplayFlag::EncoderRotatedClockwise as u32 != 0 || *signals & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
             self.icon = if self.icon.2 == IC_CHECK_OFF.2 {
                 IC_CHECK_ON
             } else {
@@ -69,10 +62,20 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         }
     }
 
-    pub(super) fn draw(&mut self, signals: &mut EventBits, date_time: &DateTime, text: &impl AsSyncStr, check: Option<bool>) -> Result<()> {
+    pub(super) fn draw(&mut self, signals: &mut EventBits, date_time: &DateTime, text: &impl AsSyncStr, check: bool, callback: Option<fn(bool)>) -> Result<()> {
         clean_context(&mut self.lcd)?;
 
-        self.update_icon(signals, check);
+        if self.checked.is_none() {
+            if check { 
+                self.icon = IC_CHECK_ON;
+                self.checked = Some(true);
+            } else {
+                self.icon = IC_CHECK_OFF;
+                self.checked = Some(false);
+            }
+        }
+
+        self.update_icon(signals);
 
         let mut lcd = self.lcd.lock()?;
 
@@ -82,12 +85,32 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
         let (display_text, x_position) = scroll_text(text.as_str(), date_time, (width - visible_width) / 2, visible_width, FONT_8X8[0], 100);
 
-        lcd.draw_str(&display_text, x_position, 30, &FONT_8X8)?;
+        lcd.draw_str(&display_text, x_position, 25, &FONT_8X8)?;
 
         lcd.draw_bitmap_image((width  / 2 ) - (self.icon.0 / 2), 45, self.icon.0, self.icon.1, &self.icon.2, LCDWriteMode::ADD)?;
 
+        if *signals & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+            if self.icon.2 == IC_CHECK_ON.2 {
+                self.checked = Some(true);
+                if let Some(cb) = callback {
+                    cb(true);
+                }
+            } else {
+                self.checked = Some(true);
+                if let Some(cb) = callback {
+                    cb(false);
+                }
+            };
+        }
+
         *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
         Ok(())
+    }
+
+    #[allow(unused)]
+    #[inline]
+    pub fn is_checked(&self) -> bool {
+        self.checked.unwrap_or(false)
     }
 }
 

@@ -51,10 +51,11 @@ pub fn scroll_text(text: &str, date_time: &DateTime, margin_left: u8, visible_wi
         let x_pos = margin_left + (visible_width - text_width) / 2;
         (String::from(text), x_pos)
     } else {
-        let total_millis = (date_time.second as u64 * 1000) + date_time.millis as u64;
+        let total_millis = (date_time.minute as u64 * 60 * 1000)
+            + (date_time.second as u64 * 1000)
+            + date_time.millis as u64;
 
-        // Append 4 spaces as separator between end and beginning of the circular scroll
-        let loop_text = ::alloc::format!("{}{}", text, "    ");
+        let loop_text = ::alloc::format!("{}{}", text, "  "); // Add spaces for separation
         let loop_len = loop_text.chars().count();
 
         let scroll_index = ((total_millis / scroll_delay_ms) % (loop_len as u64)) as usize;
