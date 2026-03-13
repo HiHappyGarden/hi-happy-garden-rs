@@ -62,7 +62,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         }
     }
 
-    pub(super) fn draw(&mut self, signals: &mut EventBits, date_time: &DateTime, text: &impl AsSyncStr, check: bool, callback: Option<fn(bool)>) -> Result<()> {
+    pub(super) fn draw(&mut self, signals: &mut EventBits, date_time: &DateTime, text: &impl AsSyncStr, check: bool, callback: Option<fn(Option<bool>)>) -> Result<()> {
         clean_context(&mut self.lcd)?;
 
         if self.checked.is_none() {
@@ -93,14 +93,20 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
             if self.icon.2 == IC_CHECK_ON.2 {
                 self.checked = Some(true);
                 if let Some(cb) = callback {
-                    cb(true);
+                    cb(Some(true));
                 }
             } else {
                 self.checked = Some(true);
                 if let Some(cb) = callback {
-                    cb(false);
+                    cb(Some(false));
                 }
             };
+        }
+
+        if *signals & DisplayFlag::ButtonReleased as u32 != 0 {
+            if let Some(cb) = callback {
+                cb(None);
+            }
         }
 
         *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
