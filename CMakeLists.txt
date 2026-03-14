@@ -340,12 +340,10 @@ add_custom_command(
 add_custom_target(main ALL DEPENDS ${RUST_PATH})
 
 
-file(GLOB_RECURSE INCLUDES CONFIGURE_DEPENDS "inc/*.hpp" "inc/*.h" "osal-rs/osal-rs-build/osal-rs-ffi-freertos/inc/*.h" "osal-rs/osal-rs-porting/freeretos/inc/*.h")
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.c" "src/pico/*.cpp" "src/pico/*.c"  "osal-rs/osal-rs-build/osal-rs-ffi-freertos/src/*.c" "osal-rs/osal-rs-porting/freeretos/src/*.c")
 
 add_executable(hi-happy-garden-rs 
         ${SOURCES}
-        ${INCLUDES}
 )
 
 # Add dependency on Rust build
@@ -360,7 +358,7 @@ pico_enable_stdio_usb(${PROJECT_NAME} 0)
 
 # Add the standard include files to the build
 target_include_directories(${PROJECT_NAME} PRIVATE
-        ${CMAKE_CURRENT_LIST_DIR}
+        ${CMAKE_CURRENT_LIST_DIR}/inc
         ${CMAKE_CURRENT_LIST_DIR}/inc/hhg-config/pico
         ${CMAKE_CURRENT_LIST_DIR}/inc/hhg-ffi/pico
         ${CMAKE_CURRENT_LIST_DIR}/osal-rs/osal-rs-build/osal-rs-ffi-freertos/inc
