@@ -119,7 +119,10 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 //     ErrorSignal::set(ErrorFlag::Display.into());
                 // }
 
-                if let Err(e) =  date.draw(&mut signals, &date_time, &Bytes::<64>::from_str("Insert date"), Option::None, Some(|date| log_info!(APP_TAG, "Date: {:?}", date))) {
+                let mut test = date_time.clone();
+                        test.year += 1;
+                        test.month += 1;        
+                if let Err(e) =  date.draw(&mut signals, &date_time, &Bytes::<64>::from_str("Insert date"), Option::Some(test), Some(|date| log_info!(APP_TAG, "Date: {:?}", date))) {
                     log_info!(APP_TAG, "Error drawing date: {:?}", e);
                     ErrorSignal::set(ErrorFlag::Display.into());
                 }
