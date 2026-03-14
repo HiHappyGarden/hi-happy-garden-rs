@@ -257,7 +257,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
             match &config.get_io_type() {
                 GpioType::Output(base, pin, _) => 
                     
-                    match &&GPIO_FN.write {
+                    match &GPIO_FN.write {
                         Some(write) => write(&config, *base, *pin, state),
                         None => OsalRsBool::False,
                     }

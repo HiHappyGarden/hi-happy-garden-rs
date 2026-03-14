@@ -29,7 +29,7 @@ use osal_rs::os::{EventGroup, Mutex, MutexFn, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
 use osal_rs::utils::{Bytes, Error};
 
-use crate::apps::display::check::Check;
+use crate::apps::display::date::Date;
 use crate::apps::display::header::Header;
 use crate::apps::signals::display::{DisplayFlag::{*}, DisplaySignal};
 use crate::apps::signals::error::ErrorFlag;
@@ -47,7 +47,7 @@ use crate::traits::rtc::RTC;
 
 const APP_TAG: &str = "AppDisplay";
 const APP_THREAD_NAME: &str = "display_trd";
-const APP_STACK_SIZE: StackType = 2_048; // 2KB stack size, adjust as needed
+const APP_STACK_SIZE: StackType = 1_536;
 const TICK_INTERVAL_MS: u16 = 100;
 
 pub struct Display<T>
@@ -75,7 +75,8 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         self.thread.spawn_simple(move || {
 
             let mut header = Header::new( Arc::clone(&lcd));   
-            let mut check = Check::new( Arc::clone(&lcd));
+            //let mut check = Check::new( Arc::clone(&lcd));
+            let mut date = Date::new( Arc::clone(&lcd));
             
             loop {
                 let mut signals = DisplaySignal::wait(EventGroup::MAX_MASK, TICK_INTERVAL_MS as u32);
@@ -113,8 +114,13 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                     }
                 }
 
-                if let Err(e) =  check.draw(&mut signals, &date_time, &Bytes::<64>::from_str("ciao sono antonio e programmo molto"), true, Some(|state| log_info!(APP_TAG, "Check state changed: {}", state))) {
-                    log_info!(APP_TAG, "Error drawing check: {:?}", e);
+                // if let Err(e) =  check.draw(&mut signals, &date_time, &Bytes::<64>::from_str("ciao sono antonio e programmo molto"), true, Some(|state| log_info!(APP_TAG, "Check state changed: {:?}", state))) {
+                //     log_info!(APP_TAG, "Error drawing check: {:?}", e);
+                //     ErrorSignal::set(ErrorFlag::Display.into());
+                // }
+
+                if let Err(e) =  date.draw(&mut signals, &date_time, &Bytes::<64>::from_str("Insert date"), Option::None, Some(|date| log_info!(APP_TAG, "Date: {:?}", state))) {
+                    log_info!(APP_TAG, "Error drawing date: {:?}", e);
                     ErrorSignal::set(ErrorFlag::Display.into());
                 }
 

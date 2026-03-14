@@ -17,6 +17,8 @@
  *
  ***************************************************************************/
 
+
+use alloc::format;
 #[allow(unused)]
 
 use alloc::sync::Arc;
@@ -24,7 +26,7 @@ use osal_rs::os::types::EventBits;
 use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::utils::{AsSyncStr, Result};
 
-use crate::apps::display::commons::{FIRST_ROW_Y, clean_context, scroll_text};
+use crate::apps::display::commons::{FIRST_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::drivers::date_time::DateTime;
@@ -32,9 +34,11 @@ use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use Step::*;
 
 enum Step {
+    Exit,
     Year,
     Month,
     Day,
+    End
 }
 
 pub(super) struct Date<T> 
@@ -63,9 +67,55 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         }
     }
 
+    fn update_field(&mut self, signals: &mut EventBits) {
+        match self.step {
+            Exit => {},
+            Year => {
+                if *signals & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
+                    if let Some(year) = self.year {
+                        self.year = Some(year + 1);
+                        *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+                    }
+                } else if *signals & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+                    if let Some(year) = self.year {
+                        self.year = Some(year - 1);
+                        *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+                    }
+                }
+            },
+            Month => {
+                if *signals & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
+                    if let Some(month) = self.month {
+                        self.month = Some(if month == 12 { 1 } else { month + 1 });
+                        *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+                    }
+                } else if *signals & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+                    if let Some(month) = self.month {
+                        self.month = Some(if month == 1 { 12 } else { month - 1 });
+                        *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+                    }
+                }
+            },
+            Day => {
+                if *signals & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
+                    if let Some(mday) = self.mday {
+                        self.mday = Some(if mday == 31 { 1 } else { mday + 1 });
+                        *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+                    }
+                } else if *signals & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+                    if let Some(mday) = self.mday {
+                        self.mday = Some(if mday == 1 { 31 } else { mday - 1 });
+                        *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+                    }
+                }
+            },
+            End => {},
+        }
+
+    }
 
 
-    pub(super) fn draw(&mut self, signals: &mut EventBits, current_date_time: &DateTime, text: &impl AsSyncStr, _date_time: Option<DateTime>, _callback: Option<fn(DateTime)>) -> Result<()> {
+    pub(super) fn draw(&mut self, signals: &mut EventBits, current_date_time: &DateTime, text: &impl AsSyncStr, _date_time: Option<DateTime>, callback: Option<fn(Option<DateTime>)>) -> Result<()> {
         clean_context(&mut self.lcd)?;
 
         if self.year.is_none() || self.month.is_none() || self.mday.is_none() {
@@ -73,6 +123,41 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
             self.month = Some(current_date_time.month);
             self.mday = Some(current_date_time.mday);
         }
+
+
+        if *signals & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+            match self.step {
+                Exit => {}
+                Year => self.step = Month,
+                Month => self.step = Day,
+                Day => self.step = End,
+                End => {
+                    self.date = DateTime::new_date( 
+                        self.year.unwrap_or(current_date_time.year),
+                        self.month.unwrap_or(current_date_time.month),
+                        self.mday.unwrap_or(current_date_time.mday)
+                            ).ok();
+                    if let Some(cb) = callback {
+                        cb(self.date);
+                    }
+                },
+            }
+        }
+
+        if *signals & DisplayFlag::ButtonReleased as u32 != 0 {
+                        match self.step {
+                Exit => if let Some(cb) = callback {
+                        cb(None);
+                },
+                Year => self.step = Exit,
+                Month => self.step = Year,
+                Day => self.step = Month,
+                End => self.step = Day,
+            }
+        } 
+
+        self.update_field(signals);
+
 
         let mut lcd = self.lcd.lock()?;
 
@@ -85,15 +170,29 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
 
 
-        if *signals & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        
+        let date_str = format!(
+            "{:04}-{:02}-{:02}",
+            self.year.unwrap_or(current_date_time.year),
+            self.month.unwrap_or(current_date_time.month),
+            self.mday.unwrap_or(current_date_time.mday)
+        );
 
-        }
+        let date_width = date_str.chars().count() as u8 * FONT_8X8[0];
+        let x_position = (width - date_width) / 2;
 
-        if *signals & DisplayFlag::ButtonReleased as u32 != 0 {
+        lcd.draw_str(&date_str, x_position, SECOND_ROW_Y, &FONT_8X8)?;
 
-        } 
 
-        *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+        let (field_offset, field_width): (u16, u16) = match self.step {
+            Year  => (0,                  4 * FONT_8X8[0] as u16),
+            Month => (5 * FONT_8X8[0] as u16,    2 * FONT_8X8[0] as u16),
+            Day   => (8 * FONT_8X8[0] as u16,    2 * FONT_8X8[0] as u16),
+            _     => (0, 0),
+        };
+        //lcd.draw_rect(x_position + field_offset, SECOND_ROW_Y + (FONT_8X8[1]), field_width, 2, LCDWriteMode::ADD)?;
+
+        
         Ok(())
     }
 

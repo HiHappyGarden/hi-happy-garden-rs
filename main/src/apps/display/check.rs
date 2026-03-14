@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
+#![allow(unused)]
 
 use alloc::sync::Arc;
 use osal_rs::os::types::EventBits;

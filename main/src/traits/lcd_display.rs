@@ -45,7 +45,8 @@ pub trait LCDDisplayFn : Sync + Send {
 
     fn get_header_height(&self) -> u8 {
         let (_, height) = self.get_size();
-        (height as f32 * 0.175) as u8
+        // ~17.5% of height, computed with integer arithmetic to avoid FPU usage
+        ((height as u16 * 7) / 40) as u8
     }
 
     /// Draw the buffer to the display
