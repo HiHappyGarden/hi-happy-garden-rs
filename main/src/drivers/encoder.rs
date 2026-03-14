@@ -34,7 +34,8 @@ use encoder_events::*;
 const APP_TAG: &str = "Encoder";
 const THREAD_NAME: &str = "encoder_trd";
 const STACK_SIZE: StackType = 512;
-const DEBOUNCE_TIME: TickType = 3;
+const DEBOUNCE_TIME: TickType = 6;
+const BUTTON_DEBOUNCE_TIME: TickType = 50;
 
 pub mod encoder_events {
     use osal_rs::os::types::EventBits;
@@ -51,6 +52,7 @@ pub mod encoder_events {
 
 static ENCODER_STATE: AtomicU32 = AtomicU32::new(0);
 static ENCODER_POSITION: AtomicI32 = AtomicI32::new(0);
+static BUTTON_IS_PRESSED: AtomicBool = AtomicBool::new(false);
 static LAST_BUTTON_INTERRUPT_TIME: AtomicU32 = AtomicU32::new(0);
 static LAST_CCW_INTERRUPT_TIME: AtomicU32 = AtomicU32::new(0);
 static LAST_CW_INTERRUPT_TIME: AtomicU32 = AtomicU32::new(0);
@@ -71,8 +73,8 @@ extern "C" fn encoder_button_isr() {
     let current_time = System::get_tick_count();
     let last_time = LAST_BUTTON_INTERRUPT_TIME.load(Ordering::Relaxed);
     
-    // Debounce
-    if current_time.saturating_sub(last_time) < DEBOUNCE_TIME {
+    // Debounce - longer window for mechanical button contacts
+    if current_time.saturating_sub(last_time) < BUTTON_DEBOUNCE_TIME {
         return;
     }
     
@@ -83,12 +85,16 @@ extern "C" fn encoder_button_isr() {
     // Clear button bits and preserve encoder rotation bits
     let rotation_bits = state & (ENCODER_CCW_RISE | ENCODER_CCW_FALL | ENCODER_CW_RISE | ENCODER_CW_FALL);
 
-    if state & ENCODER_PRESSED != ENCODER_PRESSED {
-        // Button not pressed, so this is a press event
+    // Use a dedicated bool to track button state: avoids the bug where ENCODER_RELEASED
+    // does not have the ENCODER_PRESSED bit set, causing a bounce past debounce to be
+    // misinterpreted as a new press event and firing a spurious release afterwards.
+    let pressed = BUTTON_IS_PRESSED.load(Ordering::Relaxed);
+    if !pressed {
+        BUTTON_IS_PRESSED.store(true, Ordering::Relaxed);
         ENCODER_STATE.store(rotation_bits | ENCODER_PRESSED, Ordering::Relaxed);
         let _ = encoder_events.set_from_isr(ENCODER_PRESSED);
     } else {
-        // Button was pressed, so this is a release event
+        BUTTON_IS_PRESSED.store(false, Ordering::Relaxed);
         ENCODER_STATE.store(rotation_bits | ENCODER_RELEASED, Ordering::Relaxed);
         let _ = encoder_events.set_from_isr(ENCODER_RELEASED);
     }
