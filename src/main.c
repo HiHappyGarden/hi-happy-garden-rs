@@ -17,6 +17,7 @@
  *
  ***************************************************************************/
 
+#include "main.h" 
 #include "hhg-config.h"
 
 #include <stdio.h>
@@ -28,8 +29,6 @@
 #include <portmacro.h>
 
 #include <string.h>
-
-extern void start(void);
 
 int main() {
     stdio_init_all();
