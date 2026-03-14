@@ -47,7 +47,7 @@ use crate::traits::rtc::RTC;
 
 const APP_TAG: &str = "AppDisplay";
 const APP_THREAD_NAME: &str = "display_trd";
-const APP_STACK_SIZE: StackType = 1_536;
+const APP_STACK_SIZE: StackType = 2_048;
 const TICK_INTERVAL_MS: u16 = 100;
 
 pub struct Display<T>
@@ -119,7 +119,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 //     ErrorSignal::set(ErrorFlag::Display.into());
                 // }
 
-                if let Err(e) =  date.draw(&mut signals, &date_time, &Bytes::<64>::from_str("Insert date"), Option::None, Some(|date| log_info!(APP_TAG, "Date: {:?}", state))) {
+                if let Err(e) =  date.draw(&mut signals, &date_time, &Bytes::<64>::from_str("Insert date"), Option::None, Some(|date| log_info!(APP_TAG, "Date: {:?}", date))) {
                     log_info!(APP_TAG, "Error drawing date: {:?}", e);
                     ErrorSignal::set(ErrorFlag::Display.into());
                 }

@@ -122,6 +122,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
             self.year = Some(current_date_time.year);
             self.month = Some(current_date_time.month);
             self.mday = Some(current_date_time.mday);
+            *signals |= DisplayFlag::Draw as u32;
         }
 
 
@@ -142,6 +143,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                     }
                 },
             }
+            *signals |= DisplayFlag::Draw as u32;
         }
 
         if *signals & DisplayFlag::ButtonReleased as u32 != 0 {
@@ -154,10 +156,14 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 Day => self.step = Month,
                 End => self.step = Day,
             }
+            *signals |= DisplayFlag::Draw as u32;
         } 
 
         self.update_field(signals);
 
+        if *signals & DisplayFlag::Draw as u32 == 0 {
+            return Ok(())
+        }
 
         let mut lcd = self.lcd.lock()?;
 
@@ -184,13 +190,18 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         lcd.draw_str(&date_str, x_position, SECOND_ROW_Y, &FONT_8X8)?;
 
 
-        let (field_offset, field_width): (u16, u16) = match self.step {
-            Year  => (0,                  4 * FONT_8X8[0] as u16),
-            Month => (5 * FONT_8X8[0] as u16,    2 * FONT_8X8[0] as u16),
-            Day   => (8 * FONT_8X8[0] as u16,    2 * FONT_8X8[0] as u16),
+        let (field_offset, field_width): (u8, u8) = match self.step {
+            Year  => (0, 32),
+            Month => (40, 16),
+            Day   => (64, 16),
             _     => (0, 0),
         };
-        //lcd.draw_rect(x_position + field_offset, SECOND_ROW_Y + (FONT_8X8[1]), field_width, 2, LCDWriteMode::ADD)?;
+        if field_offset > 0 || field_width > 0 {
+            lcd.draw_rect(x_position + field_offset, SECOND_ROW_Y + FONT_8X8[1], field_width, 2, LCDWriteMode::ADD)?;
+        }
+
+
+        
 
         
         Ok(())
