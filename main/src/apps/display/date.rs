@@ -97,14 +97,17 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 }
             },
             Day => {
+
+                let days_in_month = DateTime::days_in_month(self.month.unwrap_or(1), self.year.unwrap_or(1970));
+
                 if *signals & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
                     if let Some(mday) = self.mday {
-                        self.mday = Some(if mday == 31 { 1 } else { mday + 1 });
+                        self.mday = Some(if mday == days_in_month { 1 } else { mday + 1 });
                         *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
                     }
                 } else if *signals & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
                     if let Some(mday) = self.mday {
-                        self.mday = Some(if mday == 1 { 31 } else { mday - 1 });
+                        self.mday = Some(if mday == 1 { days_in_month } else { mday - 1 });
                         *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
                     }
                 }
@@ -115,8 +118,24 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
     }
 
 
-    pub(super) fn draw(&mut self, signals: &mut EventBits, current_date_time: &DateTime, text: &impl AsSyncStr, _date_time: Option<DateTime>, callback: Option<fn(Option<DateTime>)>) -> Result<()> {
+    pub(super) fn draw(&mut self, signals: &mut EventBits, current_date_time: &DateTime, text: &impl AsSyncStr, date_time: Option<DateTime>, callback: Option<fn(Option<DateTime>)>) -> Result<()> {
         clean_context(&mut self.lcd)?;
+
+
+        if self.date.is_none() {
+            if let Some(dt) = date_time {
+                self.year = Some(dt.year);
+                self.month = Some(dt.month);
+                self.mday = Some(dt.mday);
+                self.date = Some(dt);
+            } else {
+                self.year = Some(current_date_time.year);
+                self.month = Some(current_date_time.month);
+                self.mday = Some(current_date_time.mday);
+                self.date = Some(*current_date_time);
+            }
+        }
+
 
         if self.year.is_none() || self.month.is_none() || self.mday.is_none() {
             self.year = Some(current_date_time.year);
@@ -199,9 +218,6 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         if field_offset > 0 || field_width > 0 {
             lcd.draw_rect(x_position + field_offset, SECOND_ROW_Y + FONT_8X8[1], field_width, 2, LCDWriteMode::ADD)?;
         }
-
-
-        
 
         
         Ok(())
