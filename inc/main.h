@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-void start(void);
+void start(void); // Implementation in lib.rs to be called from main.c
 
 #if defined __cplusplus
 }
