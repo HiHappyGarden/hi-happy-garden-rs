@@ -1,0 +1,131 @@
+/***************************************************************************
+ *
+ * Hi Happy Garden
+ * Copyright (C) 2026 Antonio Salsi <passy.linux@zresa.it>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***************************************************************************/
+
+use alloc::format;
+use alloc::sync::Arc;
+use osal_rs::os::{Mutex, MutexFn}; 
+use osal_rs::os::types::EventBits;
+use osal_rs::utils::{AsSyncStr, Result};
+
+use crate::apps::display::commons::{FIRST_ROW_Y, Integer, SECOND_ROW_Y, clean_context, scroll_text};
+use crate::apps::signals::display::DisplayFlag;
+use crate::assets::font_8x8::FONT_8X8;
+use crate::drivers::date_time::DateTime;
+use crate::traits::lcd_display::LCDDisplayFn;
+
+pub struct Number<T, N>
+where
+    T: LCDDisplayFn + Sync + Send + Clone + 'static,
+    N: Integer,
+{
+    lcd: Arc<Mutex<T>>,
+    number: Option<N>,
+    min: N,
+    max: N,
+    result: Option<N>,
+}
+
+impl<T, N> Number<T, N>
+where
+    T: LCDDisplayFn + Sync + Send + Clone + 'static,
+    N: Integer,
+{
+    pub(super) fn new(lcd: Arc<Mutex<T>>, min: N, max: N) -> Self {
+        Self { 
+            lcd, 
+            number: None,
+            min,
+            max,
+            result: None,
+        }
+    }
+
+    fn update_number(&mut self, signals: &mut EventBits) {
+        if *signals & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
+            if let Some(current) = self.number {
+                let new_value = current + N::one();
+                self.number = Some(if new_value > self.max { self.min } else { new_value });
+            } else {
+                self.number = Some(self.min);
+            }  
+            *signals |= DisplayFlag::Draw as u32;
+        } else if *signals & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+            if let Some(current) = self.number {
+                let new_value = current - N::one();
+                self.number = Some(if new_value < self.min { self.max } else { new_value });
+            } else {
+                self.number = Some(self.max);
+            }
+            *signals |= DisplayFlag::Draw as u32;
+        } 
+    }
+
+    pub(super) fn draw(
+        &mut self,
+        signals: &mut EventBits,
+        date_time: &DateTime, 
+        text: &impl AsSyncStr,
+        number: N,
+        callback: Option<fn(N)>,
+    ) -> Result<()> {
+        clean_context(&mut self.lcd)?;
+
+
+        if self.number.is_none() {
+            self.number = Some(number);
+        } 
+
+        self.update_number(signals);
+
+        let mut lcd = self.lcd.lock().unwrap();
+
+        let (width, _) = lcd.get_size(); 
+
+        let (visible_width, _) = lcd.get_visible_size(); 
+
+        let (display_text, x_position) = scroll_text(text.as_str(), date_time, (width - visible_width) / 2, visible_width, FONT_8X8[0], 100);
+
+        lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
+
+        let to_show = format!("{}", self.number.unwrap_or(number));
+
+        let x_position = width - visible_width + (visible_width - (to_show.chars().count() as u8 * FONT_8X8[0])) / 2;
+
+        lcd.draw_str(&to_show, x_position, SECOND_ROW_Y, &FONT_8X8)?;
+
+        if *signals & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+            self.result = self.number;
+            if let Some(cb) = callback {
+                cb(self.result.unwrap_or(number));
+            }
+        }
+
+        if *signals & DisplayFlag::ButtonReleased as u32 != 0 {
+            if let Some(cb) = callback {
+                cb(self.number.unwrap_or(number));
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn get_number(&self) -> Option<N> {
+        self.result
+    }
+}

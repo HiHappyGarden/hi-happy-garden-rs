@@ -63,7 +63,13 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         }
     }
 
-    pub(super) fn draw(&mut self, signals: &mut EventBits, date_time: &DateTime, text: &impl AsSyncStr, check: bool, callback: Option<fn(Option<bool>)>) -> Result<()> {
+    pub(super) fn draw(&mut self, 
+        signals: &mut EventBits, 
+        date_time: &DateTime, 
+        text: &impl AsSyncStr, 
+        check: bool, 
+        callback: Option<fn(Option<bool>)>
+    ) -> Result<()> {
         clean_context(&mut self.lcd)?;
 
         if self.checked.is_none() {

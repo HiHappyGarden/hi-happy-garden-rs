@@ -21,8 +21,8 @@ mod check;
 mod commons;
 mod date_time_editor;
 mod date;
-mod field_editor;
 mod header;
+mod number;
 mod time;
 
 
@@ -34,10 +34,10 @@ use osal_rs::utils::{Bytes, Error};
 
 use crate::apps::display::date::Date;
 use crate::apps::display::header::Header;
+use crate::apps::display::number::Number;
 use crate::apps::display::time::Time;
 use crate::apps::signals::display::{DisplayFlag::{*}, DisplaySignal};
-use crate::apps::signals::error::ErrorFlag;
-use crate::apps::signals::error::{ErrorSignal};
+use crate::apps::signals::error::{ErrorSignal, ErrorFlag};
 use crate::drivers::date_time::DateTime;
 use crate::drivers::platform::ThreadPriority;
 
@@ -80,7 +80,8 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
             let mut header = Header::new( Arc::clone(&lcd));   
             //let mut check = Check::new( Arc::clone(&lcd));
-            let mut time = Time::new( Arc::clone(&lcd));
+            // let mut time = Time::new( Arc::clone(&lcd));
+            let mut number = Number::new( Arc::clone(&lcd), 0, 100);
             
             loop {
                 let mut signals = DisplaySignal::wait(EventGroup::MAX_MASK, TICK_INTERVAL_MS as u32);
@@ -126,8 +127,12 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 // let mut test = date_time.clone();
                 //         test.year += 1;
                 //         test.month += 1;        
-                if let Err(e) =  time.draw(&mut signals, &date_time, &Bytes::<64>::from_str("Insert time"), Option::None, Some(|time| log_info!(APP_TAG, "Time: {:?}", time))) {
-                    log_info!(APP_TAG, "Error drawing time: {:?}", e);
+                // if let Err(e) =  time.draw(&mut signals, &date_time, &Bytes::<64>::from_str("Insert time"), Option::None, Some(|time| log_info!(APP_TAG, "Time: {:?}", time))) {
+                //     log_info!(APP_TAG, "Error drawing time: {:?}", e);
+                //     ErrorSignal::set(ErrorFlag::Display.into());
+                // }
+                if let Err(e) =  number.draw(&mut signals, &date_time, &Bytes::<64>::from_str("Insert number"), 3, Some(|number| log_info!(APP_TAG, "Number: {:?}", number))) {
+                    log_info!(APP_TAG, "Error drawing number: {:?}", e);
                     ErrorSignal::set(ErrorFlag::Display.into());
                 }
 
