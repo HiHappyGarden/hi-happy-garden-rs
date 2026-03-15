@@ -19,6 +19,7 @@
 
 mod check;
 mod commons;
+mod date_time_editor;
 mod date;
 mod field_editor;
 mod header;

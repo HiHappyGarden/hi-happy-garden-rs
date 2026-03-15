@@ -23,7 +23,7 @@ use osal_rs::os::types::EventBits;
 use osal_rs::os::Mutex;
 use osal_rs::utils::{AsSyncStr, Result};
 
-use crate::apps::display::field_editor::{FieldEditor, FieldEditorConfig};
+use crate::apps::display::date_time_editor::{FieldEditor, FieldEditorConfig};
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::LCDDisplayFn;
 
