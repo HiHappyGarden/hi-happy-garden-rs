@@ -21,6 +21,7 @@ mod check;
 mod commons;
 mod date;
 mod header;
+mod time;
 
 
 use alloc::sync::Arc;
@@ -31,6 +32,7 @@ use osal_rs::utils::{Bytes, Error};
 
 use crate::apps::display::date::Date;
 use crate::apps::display::header::Header;
+use crate::apps::display::time::Time;
 use crate::apps::signals::display::{DisplayFlag::{*}, DisplaySignal};
 use crate::apps::signals::error::ErrorFlag;
 use crate::apps::signals::error::{ErrorSignal};
@@ -76,7 +78,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
             let mut header = Header::new( Arc::clone(&lcd));   
             //let mut check = Check::new( Arc::clone(&lcd));
-            let mut date = Date::new( Arc::clone(&lcd));
+            let mut time = Time::new( Arc::clone(&lcd));
             
             loop {
                 let mut signals = DisplaySignal::wait(EventGroup::MAX_MASK, TICK_INTERVAL_MS as u32);
@@ -119,11 +121,11 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 //     ErrorSignal::set(ErrorFlag::Display.into());
                 // }
 
-                let mut test = date_time.clone();
-                        test.year += 1;
-                        test.month += 1;        
-                if let Err(e) =  date.draw(&mut signals, &date_time, &Bytes::<64>::from_str("Insert date"), Option::Some(test), Some(|date| log_info!(APP_TAG, "Date: {:?}", date))) {
-                    log_info!(APP_TAG, "Error drawing date: {:?}", e);
+                // let mut test = date_time.clone();
+                //         test.year += 1;
+                //         test.month += 1;        
+                if let Err(e) =  time.draw(&mut signals, &date_time, &Bytes::<64>::from_str("Insert time"), Option::None, Some(|time| log_info!(APP_TAG, "Time: {:?}", time))) {
+                    log_info!(APP_TAG, "Error drawing time: {:?}", e);
                     ErrorSignal::set(ErrorFlag::Display.into());
                 }
 

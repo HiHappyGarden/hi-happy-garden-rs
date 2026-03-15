@@ -36,79 +36,77 @@ use Step::*;
 #[derive(PartialEq, Eq)]
 enum Step {
     Exit,
-    Year,
-    Month,
-    Day,
+    Hour,
+    Minute,
+    Second,
     End
 }
 
-pub(super) struct Date<T> 
+pub(super) struct Time<T> 
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
     lcd: Arc<Mutex<T>>,
-    year: Option<i32>, 
-    month: Option<u8>, // 1-12
-    mday: Option<u8>, // 1-31
+    hour: Option<u8>, // 0-23
+    minute: Option<u8>, // 0-59
+    second: Option<u8>, // 0-59
     step: Step,
-    date: Option<DateTime>,
+    time: Option<DateTime>,
 }
 
-impl<T> Date<T> 
+impl<T> Time<T> 
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
 
     pub(super) fn new(lcd: Arc<Mutex<T>>) -> Self {
         Self {
             lcd,
-            year: None,
-            month: None,
-            mday: None,
-            step: Year,
-            date: None,
+            hour: None,
+            minute: None,
+            second: None,
+            step: Hour,
+            time: None,
         }
     }
 
     fn update_field(&mut self, signals: &mut EventBits) {
         match self.step {
             Exit => {},
-            Year => {
+            Hour => {
                 if *signals & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
-                    if let Some(year) = self.year {
-                        self.year = Some(year + 1);
+                    if let Some(hour) = self.hour {
+                        self.hour = Some(if hour == 23 { 0 } else { hour + 1 });
                         *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
                     }
                 } else if *signals & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
-                    if let Some(year) = self.year {
-                        self.year = Some(year - 1);
+                    if let Some(hour) = self.hour {
+                        self.hour = Some(if hour == 0 { 23 } else { hour - 1 });
                         *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
                     }
                 }
             },
-            Month => {
+            Minute => {
                 if *signals & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
-                    if let Some(month) = self.month {
-                        self.month = Some(if month == 12 { 1 } else { month + 1 });
+                    if let Some(minute) = self.minute {
+                        self.minute = Some(if minute == 59 { 0 } else { minute + 1 });
                         *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
                     }
                 } else if *signals & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
-                    if let Some(month) = self.month {
-                        self.month = Some(if month == 1 { 12 } else { month - 1 });
+                    if let Some(minute) = self.minute {
+                        self.minute = Some(if minute == 0 { 59 } else { minute - 1 });
                         *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
                     }
                 }
             },
-            Day => {
-
-                let days_in_month = DateTime::days_in_month(self.month.unwrap_or(1), self.year.unwrap_or(1970));
+            Second => {
 
                 if *signals & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
-                    if let Some(mday) = self.mday {
-                        self.mday = Some(if mday == days_in_month { 1 } else { mday + 1 });
+                    if let Some(second) = self.second {
+                        self.second = Some(if second == 59 { 0 } else { second + 1 });
                         *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
                     }
                 } else if *signals & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
-                    if let Some(mday) = self.mday {
-                        self.mday = Some(if mday == 1 { days_in_month } else { mday - 1 });
+                    if let Some(second) = self.second {
+                        self.second = Some(if second == 0 { 59 } else { second - 1 });
                         *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
                     }
                 }
@@ -123,31 +121,40 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         clean_context(&mut self.lcd)?;
 
 
-        if self.date.is_none() {
+        if self.time.is_none() {
             if let Some(dt) = date_time {
-                self.year = Some(dt.year);
-                self.month = Some(dt.month);
-                self.mday = Some(dt.mday);
-                self.date = Some(dt);
+                self.hour = Some(dt.hour);
+                self.minute = Some(dt.minute);
+                self.second = Some(dt.second);
+                self.time = Some(dt);
             }
         }
 
 
-        if self.year.is_none() || self.month.is_none() || self.mday.is_none() {
-            self.year = Some(current_date_time.year);
-            self.month = Some(current_date_time.month);
-            self.mday = Some(current_date_time.mday);
+        if self.hour.is_none() || self.minute.is_none() || self.second.is_none() {
+            self.hour = Some(current_date_time.hour);
+            self.minute = Some(current_date_time.minute);
+            self.second = Some(0);
             *signals |= DisplayFlag::Draw as u32;
         }
 
 
         if *signals & DisplayFlag::EncoderButtonReleased as u32 != 0 {
             match self.step {
-                Exit => self.step = Year,
-                Year => self.step = Month,
-                Month => self.step = Day,
-                Day => self.step = End,
-                End => {}
+                Exit => self.step = Hour,
+                Hour => self.step = Minute,
+                Minute => self.step = Second,
+                Second => self.step = End,
+                End => {
+                    self.time = DateTime::new_time( 
+                        self.hour.unwrap_or(current_date_time.hour),
+                        self.minute.unwrap_or(current_date_time.minute),
+                        self.second.unwrap_or(current_date_time.second)
+                            ).ok();
+                    if let Some(cb) = callback {
+                        cb(self.time);
+                    }
+                },
             }
             *signals |= DisplayFlag::Draw as u32;
         }
@@ -155,10 +162,10 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         if *signals & DisplayFlag::ButtonReleased as u32 != 0 {
             match self.step {
                 Exit => {},
-                Year => self.step = Exit,
-                Month => self.step = Year,
-                Day => self.step = Month,
-                End => self.step = Day,
+                Hour => self.step = Exit,
+                Minute => self.step = Hour,
+                Second => self.step = Minute,
+                End => self.step = Second,
             }
             *signals |= DisplayFlag::Draw as u32;
         } 
@@ -182,10 +189,10 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
         
         let date_str = format!(
-            "{:04}-{:02}-{:02}",
-            self.year.unwrap_or(current_date_time.year),
-            self.month.unwrap_or(current_date_time.month),
-            self.mday.unwrap_or(current_date_time.mday)
+            "{:02}:{:02}:{:02}",
+            self.hour.unwrap_or(current_date_time.hour),
+            self.minute.unwrap_or(current_date_time.minute),
+            self.second.unwrap_or(current_date_time.second)
         );
 
         let date_width = date_str.chars().count() as u8 * FONT_8X8[0];
@@ -195,9 +202,9 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
 
         let (field_offset, field_width): (u8, u8) = match self.step {
-            Year  => (0, 32),
-            Month => (40, 16),
-            Day   => (64, 16),
+            Hour  => (0, 16),
+            Minute => (24, 16),
+            Second   => (48, 16),
             _     => (0, 0),
         };
         if field_offset > 0 || field_width > 0 {
@@ -206,32 +213,32 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
         if *signals & DisplayFlag::EncoderButtonReleased as u32 != 0 {
             if self.step == End {
-                self.date = DateTime::new_date( 
-                    self.year.unwrap_or(current_date_time.year),
-                    self.month.unwrap_or(current_date_time.month),
-                    self.mday.unwrap_or(current_date_time.mday)
-                        ).ok();
-                if let Some(cb) = callback {
-                    cb(self.date);
-                }
-            } 
+                    self.time = DateTime::new_time( 
+                        self.hour.unwrap_or(current_date_time.hour),
+                        self.minute.unwrap_or(current_date_time.minute),
+                        self.second.unwrap_or(current_date_time.second)
+                            ).ok();
+                    if let Some(cb) = callback {
+                        cb(self.time);
+                    }
+            }
         } 
-        
+
         if *signals & DisplayFlag::ButtonReleased as u32 != 0 {
             if self.step == Exit {
                 if let Some(cb) = callback {
-                    cb(self.date);
+                    cb(self.time);
                 }
             }
         }
-
+        
         Ok(())
     }
 
     #[allow(unused)]
     #[inline]
     pub fn get_date(&self) -> Option<DateTime> {
-        self.date
+        self.time
     }
 }
 
