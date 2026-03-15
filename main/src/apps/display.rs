@@ -20,6 +20,7 @@
 mod check;
 mod commons;
 mod date;
+mod field_editor;
 mod header;
 mod time;
 
