@@ -17,6 +17,8 @@
  *
  ***************************************************************************/
 
+#[allow(unused)]
+
 use core::fmt::Display;
 use core::ops::{Add, Sub};
 use alloc::string::String;
@@ -26,6 +28,11 @@ use osal_rs::utils::Result;
 
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
+
+pub const ONLY_ONE_ROW_Y: u8 = 27;
+
+pub const FIRST_ROW_Y: u8 = 25;
+pub const SECOND_ROW_Y: u8 = 45;
 
 mod sealed {
     pub trait Sealed {}
@@ -58,9 +65,6 @@ impl Integer for i128  { fn one() -> Self { 1 } }
 impl Integer for u128  { fn one() -> Self { 1 } }
 impl Integer for isize { fn one() -> Self { 1 } }
 impl Integer for usize { fn one() -> Self { 1 } }
-
-pub const FIRST_ROW_Y: u8 = 25;
-pub const SECOND_ROW_Y: u8 = 45;
 
 pub fn clean_context<T>(lcd: &mut Arc<Mutex<T>>) -> Result<()> 
 where T: LCDDisplayFn + Sync + Send + Clone + 'static

@@ -23,6 +23,7 @@ mod date_time_editor;
 mod date;
 mod header;
 mod number;
+mod text;
 mod time;
 
 
@@ -32,10 +33,8 @@ use osal_rs::os::{EventGroup, Mutex, MutexFn, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
 use osal_rs::utils::{Bytes, Error};
 
-use crate::apps::display::date::Date;
 use crate::apps::display::header::Header;
-use crate::apps::display::number::Number;
-use crate::apps::display::time::Time;
+use crate::apps::display::text::Text;
 use crate::apps::signals::display::{DisplayFlag::{*}, DisplaySignal};
 use crate::apps::signals::error::{ErrorSignal, ErrorFlag};
 use crate::drivers::date_time::DateTime;
@@ -81,7 +80,8 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
             let mut header = Header::new( Arc::clone(&lcd));   
             //let mut check = Check::new( Arc::clone(&lcd));
             // let mut time = Time::new( Arc::clone(&lcd));
-            let mut number = Number::new( Arc::clone(&lcd), 0, 100);
+            //let mut number = Number::new( Arc::clone(&lcd), 0, 100);
+            let mut text = Text::new( Arc::clone(&lcd));
             
             loop {
                 let mut signals = DisplaySignal::wait(EventGroup::MAX_MASK, TICK_INTERVAL_MS as u32);
@@ -131,8 +131,13 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 //     log_info!(APP_TAG, "Error drawing time: {:?}", e);
                 //     ErrorSignal::set(ErrorFlag::Display.into());
                 // }
-                if let Err(e) =  number.draw(&mut signals, &date_time, &Bytes::<64>::from_str("Insert number"), 3, Some(|number| log_info!(APP_TAG, "Number: {:?}", number))) {
-                    log_info!(APP_TAG, "Error drawing number: {:?}", e);
+                // if let Err(e) =  number.draw(&mut signals, &date_time, &Bytes::<64>::from_str("Insert number"), 3, Some(|number| log_info!(APP_TAG, "Number: {:?}", number))) {
+                //     log_info!(APP_TAG, "Error drawing number: {:?}", e);
+                //     ErrorSignal::set(ErrorFlag::Display.into());
+                // }
+
+                if let Err(e) =  text.draw(&date_time, &Bytes::<64>::from_str("Insert text|questa è una stringa molto lunga che scorre")) {
+                    log_info!(APP_TAG, "Error drawing text: {:?}", e);
                     ErrorSignal::set(ErrorFlag::Display.into());
                 }
 

@@ -17,6 +17,8 @@
  *
  ***************************************************************************/
 
+#[allow(unused)]
+
 use alloc::string::String;
 use alloc::sync::Arc;
 use osal_rs::os::types::EventBits;

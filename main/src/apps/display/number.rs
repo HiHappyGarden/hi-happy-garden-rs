@@ -17,6 +17,8 @@
  *
  ***************************************************************************/
 
+#[allow(unused)]
+
 use alloc::format;
 use alloc::sync::Arc;
 use osal_rs::os::{Mutex, MutexFn}; 
