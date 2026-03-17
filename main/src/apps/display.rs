@@ -22,6 +22,7 @@ mod commons;
 mod date_time_editor;
 mod date;
 mod header;
+mod input;
 mod number;
 mod text;
 mod time;
