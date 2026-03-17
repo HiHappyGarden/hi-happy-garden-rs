@@ -21,7 +21,7 @@ use alloc::sync::Arc;
 use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::utils::{AsSyncStr, Error, Result};
 
-use crate::apps::display::commons::{FIRST_ROW_Y, ONLY_ONE_ROW_Y, SECOND_ROW_Y, scroll_text};
+use crate::apps::display::commons::{FIRST_ROW_Y, ONLY_ONE_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
 use crate::assets::font_8x8::FONT_8X8;
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::LCDDisplayFn;
@@ -45,9 +45,10 @@ where
     }
 
     pub fn draw(&mut self, date_time: &DateTime, text: &impl AsSyncStr) -> Result<()> {
-        let mut lcd = self.lcd.lock()?;
-        lcd.clear();
+        clean_context(&mut self.lcd)?;
 
+        let mut lcd = self.lcd.lock()?;
+        
         let splitted_text = text.as_str().split("|");
 
 
@@ -70,8 +71,14 @@ where
                 let first_line = iter.next().unwrap_or_default();
                 let second_line = iter.next().unwrap_or_default();
 
-                lcd.draw_str(first_line, 0, FIRST_ROW_Y, &FONT_8X8)?;
-                lcd.draw_str(second_line, 0, SECOND_ROW_Y, &FONT_8X8)?;
+                let (display_text, x_position) = scroll_text(first_line, date_time, (width - visible_width) / 2, visible_width, FONT_8X8[0], 100);
+
+
+                lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
+
+                let (display_text, x_position) = scroll_text(second_line, date_time, (width - visible_width) / 2, visible_width, FONT_8X8[0], 100);
+
+                lcd.draw_str(&display_text, x_position, SECOND_ROW_Y, &FONT_8X8)?;
             },
             _ => return Err(Error::Unhandled("Text must contain at most one '|' character")),
             

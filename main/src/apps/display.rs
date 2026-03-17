@@ -50,7 +50,7 @@ use crate::traits::rtc::RTC;
 
 const APP_TAG: &str = "AppDisplay";
 const APP_THREAD_NAME: &str = "display_trd";
-const APP_STACK_SIZE: StackType = 2_048;
+const APP_STACK_SIZE: StackType = 2_560;
 const TICK_INTERVAL_MS: u16 = 100;
 
 pub struct Display<T>
