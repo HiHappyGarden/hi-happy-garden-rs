@@ -17,3 +17,34 @@
  *
  ***************************************************************************/
 
+use alloc::sync::Arc;
+use osal_rs::os::Mutex;
+
+use crate::traits::lcd_display::LCDDisplayFn;
+
+pub struct Input<T>
+where
+    T: LCDDisplayFn + Sync + Send + Clone + 'static,
+{
+    lcd: Arc<Mutex<T>>,
+}
+
+impl<T> Input<T>
+where
+    T: LCDDisplayFn + Sync + Send + Clone + 'static,
+{
+    pub(super) fn new(lcd: Arc<Mutex<T>>) -> Self {
+        Self { lcd }
+    }
+
+    pub(super) fn draw(
+        &mut self,
+        signals: &mut EventBits,
+        current_date_time: &DateTime,
+        text: &impl AsSyncStr,
+        date_time: Option<DateTime>,
+        callback: Option<fn(Option<DateTime>)>,
+    ) -> Result<()> {
+        self.0.draw(signals, current_date_time, text, date_time, callback)
+    }
+}
