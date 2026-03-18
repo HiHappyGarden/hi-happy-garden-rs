@@ -66,7 +66,7 @@ where
 
     #[allow(unused)]
     #[inline]
-    pub fn get_date(&self) -> Option<DateTime> {
+    pub(super) fn get_date(&self) -> Option<DateTime> {
         self.0.get_result()
     }
 }
