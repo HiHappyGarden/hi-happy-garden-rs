@@ -122,7 +122,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
     #[allow(unused)]
     #[inline]
-    pub fn is_checked(&self) -> bool {
+    pub(super) fn is_checked(&self) -> bool {
         self.checked.unwrap_or(false)
     }
 }

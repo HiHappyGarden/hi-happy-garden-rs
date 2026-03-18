@@ -44,7 +44,7 @@ where
         Self { lcd }
     }
 
-    pub fn draw(&mut self, date_time: &DateTime, text: &impl AsSyncStr) -> Result<()> {
+    pub(super) fn draw(&mut self, date_time: &DateTime, text: &impl AsSyncStr) -> Result<()> {
         clean_context(&mut self.lcd)?;
 
         let mut lcd = self.lcd.lock()?;

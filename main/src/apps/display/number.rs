@@ -127,7 +127,9 @@ where
         Ok(())
     }
 
-    pub fn get_number(&self) -> Option<N> {
+    #[allow(unused)]
+    #[inline]
+    pub(super) fn get_number(&self) -> Option<N> {
         self.result
     }
 }
