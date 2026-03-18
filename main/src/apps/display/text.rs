@@ -28,12 +28,10 @@ use crate::traits::lcd_display::LCDDisplayFn;
 
 
 
-pub struct Text<T>
+pub struct Text<T>(Arc<Mutex<T>>)
 where
-    T: LCDDisplayFn + Sync + Send + Clone + 'static,
-{
-    lcd: Arc<Mutex<T>>,
-}
+    T: LCDDisplayFn + Sync + Send + Clone + 'static;
+
 
 
 impl<T> Text<T>
@@ -41,13 +39,13 @@ where
     T: LCDDisplayFn + Sync + Send + Clone + 'static,
 {
     pub(super) fn new(lcd: Arc<Mutex<T>>) -> Self {
-        Self { lcd }
+        Self(lcd)
     }
 
     pub(super) fn draw(&mut self, date_time: &DateTime, text: &impl AsSyncStr) -> Result<()> {
-        clean_context(&mut self.lcd)?;
+        clean_context(&mut self.0)?;
 
-        let mut lcd = self.lcd.lock()?;
+        let mut lcd = self.0.lock()?;
         
         let splitted_text = text.as_str().split("|");
 
