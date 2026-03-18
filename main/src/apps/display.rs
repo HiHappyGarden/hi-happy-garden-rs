@@ -17,8 +17,9 @@
  *
  ***************************************************************************/
 
-mod check;
+#[macro_use]
 mod commons;
+mod check;
 mod date_time_editor;
 mod date;
 mod header;

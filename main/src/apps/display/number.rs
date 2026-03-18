@@ -95,7 +95,7 @@ where
 
         self.update_number(signals);
 
-        let mut lcd = self.lcd.lock().unwrap();
+        let mut lcd = self.lcd.lock()?;
 
         let (width, _) = lcd.get_size(); 
 
