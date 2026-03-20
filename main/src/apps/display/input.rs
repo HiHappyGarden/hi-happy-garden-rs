@@ -24,7 +24,7 @@ use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Bytes, Result};
 
-use crate::apps::display::commons::{FIRST_ROW_Y, clean_context, scroll_text};
+use crate::apps::display::commons::{FIRST_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::drivers::date_time::DateTime;
@@ -53,17 +53,17 @@ where
         }
     }
 
-    fn update_input(&mut self, signals: &mut EventBits) {
+    fn update_input(&mut self, signals: &mut EventBits){
         if *signals & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
-            if let Some(current) = self.input.as_ref().get(self.idx) {
-                let next_char = if *current == b'z' {
+            if let Some(current) = self.input.as_ref() {
+                let next_char = if current[self.idx] == b'z' {
                     b'a'
-                } else if *current == b'Z' {
+                } else if current[self.idx] == b'Z' {
                     b'A'
-                } else if *current == b'9' {
+                } else if current[self.idx] == b'9' {
                     b'0'
                 } else {
-                    current + 1
+                    current[self.idx] + 1
                 };
                 self.input.as_mut().unwrap()[self.idx] = next_char;
             } else {
@@ -71,15 +71,15 @@ where
             }
             *signals |= DisplayFlag::Draw as u32;
         } else if *signals & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
-            if let Some(current) = self.input.as_ref().get(self.idx) {
-                let prev_char = if *current == b'a' {
+            if let Some(current) = self.input.as_ref() {
+                let prev_char = if current[self.idx] == b'a' {
                     b'z'
-                } else if *current == b'A' {
+                } else if current[self.idx] == b'A' {
                     b'Z'
-                } else if *current == b'0' {
+                } else if current[self.idx] == b'0' {
                     b'9'
                 } else {
-                    current - 1
+                    current[self.idx] - 1 
                 };
                 self.input.as_mut().unwrap()[self.idx] = prev_char;
             } else {
@@ -87,27 +87,28 @@ where
             }
             *signals |= DisplayFlag::Draw as u32;
         }
-
+         
         if *signals & DisplayFlag::EncoderButtonPressed as u32 != 0 {
-            if let Some(input) = self.input.as_ref() {
-                if self.idx < input.len() - 1 {
+            if let Some(mut input) = self.input {
+                if self.idx < input.size() - 1 {
                     self.idx += 1;
-                } else {
-                    self.result = Some(input.clone());
+                    let _ = input.push_char('a');
+                    self.input = Some(input);
                 }
             }
             *signals |= DisplayFlag::Draw as u32;
         } else if *signals & DisplayFlag::ButtonReleased as u32 != 0 {
-            if let Some(input) = self.input.as_ref() {
+            if let Some(mut input) = self.input {
                 if self.idx > 0 {
                     self.idx -= 1;
-                    self.input.unwrap_or_default();
-                } else {
-                    self.result = Some(input.clone());
+                    let _ = input.pop();
+                    self.input = Some(input);
                 }
             }
+            *signals |= DisplayFlag::Draw as u32;
         }
-         
+
+
     }
 
     pub(super) fn draw(
@@ -116,12 +117,14 @@ where
         date_time: &DateTime,
         text: &impl AsSyncStr,
         input: &dyn AsSyncStr,
-        _callback: Option<fn(Option<Bytes<64>>)>,
+        callback: Option<fn(Option<Bytes<64>>)>,
     ) -> Result<()> {
         clean_context(&mut self.lcd)?;
 
         if self.input.is_none() {
-            self.input = Some(Bytes::from_str(input.as_str()));
+            let input_str = input.as_str();
+            self.input = Some(Bytes::from_str(input_str));
+            self.idx = input_str.len() - 1;
         } 
 
         self.update_input(signals);
@@ -135,6 +138,35 @@ where
         let (display_text, x_position) = scroll_text(text.as_str(), date_time, (width - visible_width) / 2, visible_width, FONT_8X8[0], 100);
 
         lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
+
+        if let Some(input) = &self.input {
+            if self.idx > 0 {
+                lcd.draw_str(input.as_str(), 3, SECOND_ROW_Y, &FONT_8X8)?;
+            }
+        }
+
+        if *signals & DisplayFlag::EncoderButtonPressed as u32 != 0 {
+            if let Some(input) = self.input {
+                if self.idx == input.size() - 1 {
+                    if let Some(c) = callback {
+                        c(Some(input.clone()));
+                    }
+                }
+                self.input = Some(input);
+            }
+            *signals |= DisplayFlag::Draw as u32;
+        } else if *signals & DisplayFlag::ButtonReleased as u32 != 0 {
+            if let Some(mut input) = self.input {
+                if self.idx == 0 {
+                    //input.clear();
+                    if let Some(c) = callback {
+                        c(Some(input.clone()));
+                    }
+                }
+                self.input = Some(input);
+            }
+            *signals |= DisplayFlag::Draw as u32;
+        }
 
 
 

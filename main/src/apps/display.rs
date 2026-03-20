@@ -36,6 +36,7 @@ use osal_rs::os::types::StackType;
 use osal_rs::utils::{Bytes, Error};
 
 use crate::apps::display::header::Header;
+use crate::apps::display::input::Input;
 use crate::apps::display::text::Text;
 use crate::apps::signals::display::{DisplayFlag::{*}, DisplaySignal};
 use crate::apps::signals::error::{ErrorSignal, ErrorFlag};
@@ -83,7 +84,8 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
             //let mut check = Check::new( Arc::clone(&lcd));
             // let mut time = Time::new( Arc::clone(&lcd));
             //let mut number = Number::new( Arc::clone(&lcd), 0, 100);
-            let mut text = Text::new( Arc::clone(&lcd));
+            // let mut text = Text::new( Arc::clone(&lcd));
+            let mut input = Input::new( Arc::clone(&lcd));
             
             loop {
                 let mut signals = DisplaySignal::wait(EventGroup::MAX_MASK, TICK_INTERVAL_MS as u32);
@@ -138,10 +140,16 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 //     ErrorSignal::set(ErrorFlag::Display.into());
                 // }
 
-                if let Err(e) =  text.draw(&date_time, &Bytes::<64>::from_str("Insert text|questa è una stringa molto lunga che scorre")) {
+                // if let Err(e) =  text.draw(&date_time, &Bytes::<64>::from_str("Insert text|questa è una stringa molto lunga che scorre")) {
+                //     log_info!(APP_TAG, "Error drawing text: {:?}", e);
+                //     ErrorSignal::set(ErrorFlag::Display.into());
+                // }
+                if let Err(e) =  input.draw(&mut signals, &date_time, &Bytes::<64>::from_str("Insert text"), &Bytes::<64>::from_str("ciao"), Some(|txt| log_info!(APP_TAG, "Input: {:?}", txt))) {
                     log_info!(APP_TAG, "Error drawing text: {:?}", e);
                     ErrorSignal::set(ErrorFlag::Display.into());
                 }
+                
+
 
                 if signals & Draw as u32 != 0 {
                     lcd.lock().unwrap().draw().unwrap_or_else(|e| {
