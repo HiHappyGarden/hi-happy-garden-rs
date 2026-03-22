@@ -22,6 +22,7 @@
 use alloc::sync::Arc;
 use osal_rs::os::{Mutex, MutexFn, System, SystemFn};
 use osal_rs::os::types::EventBits;
+use osal_rs::print;
 use osal_rs::utils::{AsSyncStr, Bytes, Result};
 
 use crate::apps::display::commons::{FIRST_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
@@ -66,8 +67,8 @@ where
         }
         if *signals & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
             if let Some(current) = self.input.as_ref() {
-                let next_char = if current[self.idx] >= b'~' {
-                    b' ' // wrap from 126 (~) back to 32 (space)
+                let next_char = if current[self.idx] >= 0xFF {
+                    b' ' // wrap from 255 back to 32 (space)
                 } else {
                     current[self.idx] + 1
                 };
@@ -79,7 +80,7 @@ where
         } else if *signals & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
             if let Some(current) = self.input.as_ref() {
                 let prev_char = if current[self.idx] <= b' ' {
-                    b'~' // wrap from 32 (space) back to 126 (~)
+                    0xFF // wrap from 32 (space) back to 255
                 } else {
                     current[self.idx] - 1
                 };
@@ -153,18 +154,19 @@ where
         lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
 
         if let Some(input) = &self.input {
-            if !input.is_empty() {
-                let s = input.as_str();
-                if s.len() >= 16 {
-                    // Input overflows display: show '<' + last 15 chars starting at x=0
-                    let offset = s.len() - 15;
-                    let mut display_buf = Bytes::<64>::from_str("<");
-                    for ch in s[offset..].chars() {
-                        let _ = display_buf.push_char(ch);
-                    }
-                    lcd.draw_str(display_buf.as_str(), 0, SECOND_ROW_Y, &FONT_8X8)?;
+            let raw = input.as_raw_bytes();
+            if !raw.is_empty() {
+                if raw.len() >= 16 {
+                    // Input overflows display: show '<' + last 15 bytes starting at x=0
+                    let offset = raw.len() - 15;
+                    let mut display_buf = [0u8; 16];
+                    display_buf[0] = b'<';
+                    let src = &raw[offset..];
+                    let copy_len = src.len().min(15);
+                    display_buf[1..1 + copy_len].copy_from_slice(&src[..copy_len]);
+                    lcd.draw_bytes(&display_buf[..1 + copy_len], 0, SECOND_ROW_Y, &FONT_8X8)?;
                 } else {
-                    lcd.draw_str(s, 3, SECOND_ROW_Y, &FONT_8X8)?;
+                    lcd.draw_bytes(raw, 3, SECOND_ROW_Y, &FONT_8X8)?;
                 }
             }
         }

@@ -69,7 +69,20 @@ pub trait LCDDisplayFn : Sync + Send {
     
     /// Draw a string
     fn draw_str(&mut self, str: &str, x: u8, y: u8, font: &[u8]) -> Result<()>;
-    
+
+    /// Draw a raw byte slice using each byte value directly as the font index.
+    /// Supports the full 32–255 range without UTF-8 restrictions.
+    fn draw_bytes(&mut self, bytes: &[u8], x: u8, y: u8, font: &[u8]) -> Result<()> {
+        if font.is_empty() {
+            return Ok(());
+        }
+        let width = font[0];
+        for (i, &b) in bytes.iter().enumerate() {
+            self.draw_char(char::from(b), x + (width * i as u8), y, font)?;
+        }
+        Ok(())
+    }
+
     /// Invert the display orientation
     fn invert_orientation(&mut self) -> Result<()>;
     
