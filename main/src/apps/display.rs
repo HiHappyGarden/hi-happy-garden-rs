@@ -18,7 +18,7 @@
  ***************************************************************************/
 
 #[macro_use]
-mod commons;
+pub mod commons;
 mod check;
 mod date_time_editor;
 mod date;
@@ -37,7 +37,7 @@ use osal_rs::utils::{Bytes, Error};
 
 use crate::apps::display::header::Header;
 use crate::apps::display::input::Input;
-use crate::apps::display::text::Text;
+
 use crate::apps::signals::display::{DisplayFlag::{*}, DisplaySignal};
 use crate::apps::signals::error::{ErrorSignal, ErrorFlag};
 use crate::drivers::date_time::DateTime;
@@ -50,11 +50,13 @@ use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
 use crate::traits::rtc::RTC;
 
-
 const APP_TAG: &str = "AppDisplay";
 const APP_THREAD_NAME: &str = "display_trd";
 const APP_STACK_SIZE: StackType = 2_560;
 const TICK_INTERVAL_MS: u16 = 100;
+
+#[allow(dead_code)]
+pub const DISPLAY_INPUT_MAX_SIZE: usize = crate::apps::display::input::MAX_SIZE;
 
 pub struct Display<T>
 where T: LCDDisplayFn + Sync + Send + Clone + 'static

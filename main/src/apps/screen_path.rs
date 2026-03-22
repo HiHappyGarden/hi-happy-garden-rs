@@ -17,13 +17,6 @@
  *
  ***************************************************************************/
 
-mod config;
-mod display;
-mod main;
-mod screen_path;
-mod signals;
-mod wifi;
 
-pub use display::DISPLAY_INPUT_MAX_SIZE;
-pub use main::AppMain;
+
 

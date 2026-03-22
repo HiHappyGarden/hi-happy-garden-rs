@@ -20,6 +20,7 @@
 pub mod button;
 pub mod encoder;
 pub mod hardware;
+pub mod integer;
 pub mod lcd_display;
 pub mod network;
 pub mod relays;
@@ -27,6 +28,7 @@ pub mod rgb_led;
 pub mod rtc;
 pub mod signal;
 pub mod rx_tx;
+pub mod screen;
 pub mod state;
 pub mod wifi;
 

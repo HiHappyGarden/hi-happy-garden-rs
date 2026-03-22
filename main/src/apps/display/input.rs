@@ -17,12 +17,11 @@
  *
  ***************************************************************************/
 
-#[allow(unused)]
+#![allow(dead_code)]
 
 use alloc::sync::Arc;
 use osal_rs::os::{Mutex, MutexFn, System, SystemFn};
 use osal_rs::os::types::EventBits;
-use osal_rs::print;
 use osal_rs::utils::{AsSyncStr, Bytes, Result};
 
 use crate::apps::display::commons::{FIRST_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
@@ -32,14 +31,15 @@ use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::LCDDisplayFn;
 
 const LONG_PRESS_MS: u32 = 500;
+pub const MAX_SIZE: usize = 64;
 
-pub struct Input<T>
+pub(super) struct Input<T>
 where
     T: LCDDisplayFn + Sync + Send + Clone + 'static,
 {
     lcd: Arc<Mutex<T>>,
-    input: Option<Bytes<64>>,
-    original_input: Option<Bytes<64>>,
+    input: Option<Bytes<MAX_SIZE>>,
+    original_input: Option<Bytes<MAX_SIZE>>,
     idx: usize,
     button_pressed_tick: u32,
     encoder_button_pressed_tick: u32,
@@ -130,7 +130,7 @@ where
         date_time: &DateTime,
         text: &impl AsSyncStr,
         input: &dyn AsSyncStr,
-        callback: Option<fn(Option<Bytes<64>>)>,
+        callback: Option<fn(Option<Bytes<MAX_SIZE>>)>,
     ) -> Result<()> {
         clean_context(&mut self.lcd)?;
 
@@ -219,7 +219,7 @@ where
 
     #[allow(unused)]
     #[inline]
-    pub(super) fn get_input(&self) -> Option<Bytes<64>> {
+    pub(super) fn get_input(&self) -> Option<Bytes<MAX_SIZE>> {
         self.input.clone()
     }
 }

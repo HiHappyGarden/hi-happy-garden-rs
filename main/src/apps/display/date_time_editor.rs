@@ -17,7 +17,7 @@
  *
  ***************************************************************************/
 
-#[allow(unused)]
+#![allow(dead_code)]
 
 use alloc::string::String;
 use alloc::sync::Arc;

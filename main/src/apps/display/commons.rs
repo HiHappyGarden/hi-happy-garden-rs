@@ -17,10 +17,7 @@
  *
  ***************************************************************************/
 
-#[allow(unused)]
 
-use core::fmt::Display;
-use core::ops::{Add, Sub};
 use alloc::string::String;
 use alloc::sync::Arc;
 use osal_rs::os::{Mutex, MutexFn};
@@ -29,44 +26,13 @@ use osal_rs::utils::Result;
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 
+#[allow(dead_code)]
 pub const ONLY_ONE_ROW_Y: u8 = 27;
 
 pub const FIRST_ROW_Y: u8 = 25;
 pub const SECOND_ROW_Y: u8 = 45;
 
-mod sealed {
-    pub trait Sealed {}
-    impl Sealed for i8 {}
-    impl Sealed for u8 {}
-    impl Sealed for i16 {}
-    impl Sealed for u16 {}
-    impl Sealed for i32 {}
-    impl Sealed for u32 {}
-    impl Sealed for i64 {}
-    impl Sealed for u64 {}
-    impl Sealed for i128 {}
-    impl Sealed for u128 {}
-    impl Sealed for isize {}
-    impl Sealed for usize {}
-}
-
-pub trait Integer: sealed::Sealed + Copy + PartialOrd + Add<Output = Self> + Sub<Output = Self> + Display{
-    fn one() -> Self;
-}
-impl Integer for i8    { fn one() -> Self { 1 } }
-impl Integer for u8    { fn one() -> Self { 1 } }
-impl Integer for i16   { fn one() -> Self { 1 } }
-impl Integer for u16   { fn one() -> Self { 1 } }
-impl Integer for i32   { fn one() -> Self { 1 } }
-impl Integer for u32   { fn one() -> Self { 1 } }
-impl Integer for i64   { fn one() -> Self { 1 } }
-impl Integer for u64   { fn one() -> Self { 1 } }
-impl Integer for i128  { fn one() -> Self { 1 } }
-impl Integer for u128  { fn one() -> Self { 1 } }
-impl Integer for isize { fn one() -> Self { 1 } }
-impl Integer for usize { fn one() -> Self { 1 } }
-
-pub fn clean_context<T>(lcd: &mut Arc<Mutex<T>>) -> Result<()> 
+pub(super) fn clean_context<T>(lcd: &mut Arc<Mutex<T>>) -> Result<()> 
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
     let mut lcd = lcd.lock()?;
@@ -84,7 +50,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 // Maximum displayable characters: 16 (128px / 8px)
 /// Returns the text to display and the x position for the LCD.
 /// If the text fits, it is centred; otherwise it scrolls circularly with 4-space separator.
-pub fn scroll_text(
+pub(super) fn scroll_text(
     text: &str, 
     date_time: &DateTime, 
     margin_left: u8, 

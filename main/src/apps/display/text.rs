@@ -17,6 +17,8 @@
  *
  ***************************************************************************/
 
+#![allow(dead_code)]
+
 use alloc::sync::Arc;
 use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::utils::{AsSyncStr, Error, Result};

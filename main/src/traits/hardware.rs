@@ -17,7 +17,7 @@
  *
  ***************************************************************************/
 
-#![allow(dead_code)]
+
 use alloc::sync::Arc;
 use osal_rs::os::Mutex;
 
@@ -30,6 +30,7 @@ use crate::traits::wifi::SetOnWifiChangeStatus;
 
 pub trait HardwareFn<'a> : RgbLedFn + RgbLedFn + RelaysFn + SetOnWifiChangeStatus<'a> {
 
+    #![allow(dead_code)]
     const SAMPLES: u8 = 20;
 
     #[inline(always)]

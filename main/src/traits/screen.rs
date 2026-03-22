@@ -17,13 +17,37 @@
  *
  ***************************************************************************/
 
-mod config;
-mod display;
-mod main;
-mod screen_path;
-mod signals;
-mod wifi;
+use osal_rs::utils::Bytes;
 
-pub use display::DISPLAY_INPUT_MAX_SIZE;
-pub use main::AppMain;
+use crate::apps::DISPLAY_INPUT_MAX_SIZE;
+use crate::drivers::date_time::DateTime;
+use crate::traits::integer::Integer;
 
+#[derive(Debug, Clone)]
+pub(super) struct PathParam<N> 
+where N: Integer
+{
+    pub check: Option<bool>,
+    pub input: Bytes<{DISPLAY_INPUT_MAX_SIZE}>,
+    pub number: Option<N>,
+    pub date_time: Option<DateTime>,
+}
+
+impl<N> Default for PathParam<N>
+where N: Integer
+{
+    fn default() -> Self {
+        Self {
+            check: None,
+            input: Bytes::<{DISPLAY_INPUT_MAX_SIZE}>::default(),
+            number: None,
+            date_time: None,
+        }
+    }
+}
+
+
+
+ pub trait Screen {
+     
+ }
