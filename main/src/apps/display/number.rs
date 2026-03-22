@@ -25,7 +25,7 @@ use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Result};
 
-use crate::apps::display::commons::{FIRST_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
+use crate::apps::display::commons::{DisplayCallback, FIRST_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::drivers::date_time::DateTime;
@@ -85,7 +85,7 @@ where
         date_time: &DateTime, 
         text: &impl AsSyncStr,
         number: N,
-        callback: Option<fn(N)>,
+        callback: DisplayCallback<N>,
     ) -> Result<()> {
         clean_context(&mut self.lcd)?;
 
@@ -115,13 +115,13 @@ where
         if *signals & DisplayFlag::EncoderButtonReleased as u32 != 0 {
             self.result = self.number;
             if let Some(cb) = callback {
-                cb(self.result.unwrap_or(number));
+                cb(self.result, true);
             }
         }
 
         if *signals & DisplayFlag::ButtonReleased as u32 != 0 {
             if let Some(cb) = callback {
-                cb(self.number.unwrap_or(number));
+                cb(self.number, false);
             }
         }
 

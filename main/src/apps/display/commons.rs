@@ -32,6 +32,8 @@ pub const ONLY_ONE_ROW_Y: u8 = 27;
 pub const FIRST_ROW_Y: u8 = 25;
 pub const SECOND_ROW_Y: u8 = 45;
 
+pub(super) type DisplayCallback<T> = Option<fn(Option<T>, confirmed: bool)>;
+
 pub(super) fn clean_context<T>(lcd: &mut Arc<Mutex<T>>) -> Result<()> 
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {

@@ -25,6 +25,7 @@ use osal_rs::os::types::EventBits;
 use osal_rs::os::Mutex;
 use osal_rs::utils::{AsSyncStr, Result};
 
+use crate::apps::display::commons::DisplayCallback;
 use crate::apps::display::date_time_editor::{FieldEditor, FieldEditorConfig};
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::LCDDisplayFn;
@@ -59,7 +60,7 @@ where
         current_date_time: &DateTime,
         text: &impl AsSyncStr,
         date_time: Option<DateTime>,
-        callback: Option<fn(Option<DateTime>)>,
+        callback: DisplayCallback<DateTime>,
     ) -> Result<()> {
         self.0.draw(signals, current_date_time, text, date_time, callback)
     }

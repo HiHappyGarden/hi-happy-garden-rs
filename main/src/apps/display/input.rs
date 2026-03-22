@@ -24,7 +24,7 @@ use osal_rs::os::{Mutex, MutexFn, System, SystemFn};
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Bytes, Result};
 
-use crate::apps::display::commons::{FIRST_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
+use crate::apps::display::commons::{DisplayCallback, FIRST_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::drivers::date_time::DateTime;
@@ -130,7 +130,7 @@ where
         date_time: &DateTime,
         text: &impl AsSyncStr,
         input: &dyn AsSyncStr,
-        callback: Option<fn(Option<Bytes<MAX_SIZE>>)>,
+        callback: DisplayCallback<Bytes<MAX_SIZE>>,
     ) -> Result<()> {
         clean_context(&mut self.lcd)?;
 
@@ -177,7 +177,7 @@ where
                 // Long press on encoder button: call callback with current input
                 if let Some(input) = self.input {
                     if let Some(c) = callback {
-                        c(Some(input.clone()));
+                        c(Some(input.clone()), true);
                     }
                     self.input = Some(input);
                 }
@@ -188,7 +188,7 @@ where
             if let Some(input) = self.input {
                 if self.idx == input.size() - 1 {
                     if let Some(c) = callback {
-                        c(Some(input.clone()));
+                        c(Some(input.clone()), true);
                     }
                 }
                 self.input = Some(input);
@@ -199,12 +199,12 @@ where
                 if input.is_empty() {
                     // Short press on empty input: cancel
                     if let Some(c) = callback {
-                        c(None);
+                        c(None, false);
                     }
                 } else {
                     // Long press: call back with the original unmodified text
                     if let Some(c) = callback {
-                        c(self.original_input.clone());
+                        c(self.original_input.clone(), false);
                     }
                 }
                 self.input = Some(input);

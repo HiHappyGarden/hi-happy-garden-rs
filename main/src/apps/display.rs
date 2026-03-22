@@ -146,7 +146,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 //     log_info!(APP_TAG, "Error drawing text: {:?}", e);
                 //     ErrorSignal::set(ErrorFlag::Display.into());
                 // }
-                if let Err(e) =  input.draw(&mut signals, &date_time, &Bytes::<64>::from_str("Insert text"), &Bytes::<64>::from_str("ciao"), Some(|txt| log_info!(APP_TAG, "Input: {:?}", txt))) {
+                if let Err(e) =  input.draw(&mut signals, &date_time, &Bytes::<64>::from_str("Insert text"), &Bytes::<64>::from_str("ciao"), Some(|txt, confirmed| log_info!(APP_TAG, "Input: {:?}, Confirmed: {:?}", txt, confirmed))) {
                     log_info!(APP_TAG, "Error drawing text: {:?}", e);
                     ErrorSignal::set(ErrorFlag::Display.into());
                 }

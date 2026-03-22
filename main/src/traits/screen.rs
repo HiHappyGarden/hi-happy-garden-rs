@@ -17,14 +17,17 @@
  *
  ***************************************************************************/
 
-use osal_rs::utils::Bytes;
+use osal_rs::os::types::EventBits;
+use osal_rs::utils::{AsSyncStr, Bytes, Result};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::drivers::date_time::DateTime;
 use crate::traits::integer::Integer;
 
+pub type ScreenCallback<N = u8> = Option<fn(Option<ScreenParam<N>>, confirmed: bool)>;
+
 #[derive(Debug, Clone)]
-pub(super) struct PathParam<N> 
+pub struct ScreenParam<N = u8> 
 where N: Integer
 {
     pub check: Option<bool>,
@@ -33,7 +36,8 @@ where N: Integer
     pub date_time: Option<DateTime>,
 }
 
-impl<N> Default for PathParam<N>
+
+impl<N> Default for ScreenParam<N>
 where N: Integer
 {
     fn default() -> Self {
@@ -48,6 +52,14 @@ where N: Integer
 
 
 
- pub trait Screen {
-     
- }
+pub trait Screen<N = u8>
+where N: Integer
+{
+     fn draw(&mut self, 
+        signals: &mut EventBits, 
+        date_time: &DateTime, 
+        text: &impl AsSyncStr, 
+        param: ScreenParam<N>, 
+        callback: ScreenCallback<N>
+    ) -> Result<()>;
+}

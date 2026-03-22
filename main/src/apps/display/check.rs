@@ -31,6 +31,7 @@ use crate::assets::ic_check_on::IC_CHECK_ON;
 use crate::assets::types::Icon;
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
+use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
 pub(super) struct Check<T> 
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
@@ -38,6 +39,36 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
     lcd: Arc<Mutex<T>>,
     icon: Icon<120>,
     checked: Option<bool>,
+}
+
+impl<T> Screen for Check<T> 
+where T: LCDDisplayFn + Sync + Send + Clone + 'static
+{
+    fn draw(&mut self, 
+        signals: &mut EventBits, 
+        date_time: &DateTime, 
+        text: &impl AsSyncStr, 
+        param: ScreenParam, 
+        callback: ScreenCallback
+    ) -> Result<()> {
+
+        Check::draw(self, 
+            signals, 
+            date_time, 
+            text, 
+            param.check.unwrap_or(false), 
+            Some(|check, confirmed| {
+                
+                let mut param = ScreenParam::<u8>::default();
+                param.check = check;
+
+                if let Some(cb) = callback {
+                    cb(Some(param), confirmed);
+                }
+                
+            })
+        )
+    }
 }
 
 impl<T> Check<T> 
@@ -63,13 +94,15 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         }
     }
 
-    pub(super) fn draw(&mut self, 
+    pub(super) fn draw<F>(&mut self, 
         signals: &mut EventBits, 
         date_time: &DateTime, 
         text: &impl AsSyncStr, 
         check: bool, 
-        callback: Option<fn(Option<bool>)>
-    ) -> Result<()> {
+        callback: Option<F>
+    ) -> Result<()>
+    where F: Fn(Option<bool>, bool)
+    {
         clean_context(&mut self.lcd)?;
 
         if self.checked.is_none() {
@@ -99,20 +132,20 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         if *signals & DisplayFlag::EncoderButtonReleased as u32 != 0 {
             if self.icon.2 == IC_CHECK_ON.2 {
                 self.checked = Some(true);
-                if let Some(cb) = callback {
-                    cb(Some(true));
+                if let Some(ref cb) = callback {
+                    cb(self.checked, true);
                 }
             } else {
-                self.checked = Some(true);
-                if let Some(cb) = callback {
-                    cb(Some(false));
+                self.checked = Some(false);
+                if let Some(ref cb) = callback {
+                    cb(self.checked, true);
                 }
             };
         }
 
         if *signals & DisplayFlag::ButtonReleased as u32 != 0 {
-            if let Some(cb) = callback {
-                cb(None);
+            if let Some(ref cb) = callback {
+                cb(None, false);
             }
         }
 
