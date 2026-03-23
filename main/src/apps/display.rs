@@ -35,9 +35,13 @@ use osal_rs::os::{EventGroup, Mutex, MutexFn, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
 use osal_rs::utils::{Bytes, Error};
 
+use crate::apps::display::check::Check;
 use crate::apps::display::header::Header;
 use crate::apps::display::input::Input;
 
+use crate::apps::display::number::Number;
+use crate::apps::display::text::Text;
+use crate::apps::display::time::Time;
 use crate::apps::signals::display::{DisplayFlag::{*}, DisplaySignal};
 use crate::apps::signals::error::{ErrorSignal, ErrorFlag};
 use crate::drivers::date_time::DateTime;
@@ -46,9 +50,11 @@ use crate::drivers::platform::ThreadPriority;
 use crate::traits::button::{ButtonState::{self, *}, OnClickable};
 use crate::traits::encoder::{EncoderDirection::{self, *}, OnRotatableAndClickable};
 use crate::traits::lcd_display::LCDDisplayFn;
+use crate::traits::screen::{ScreenParam, Screen};
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
 use crate::traits::rtc::RTC;
+
 
 const APP_TAG: &str = "AppDisplay";
 const APP_THREAD_NAME: &str = "display_trd";
@@ -83,10 +89,10 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         self.thread.spawn_simple(move || {
 
             let mut header = Header::new( Arc::clone(&lcd));   
-            //let mut check = Check::new( Arc::clone(&lcd));
-            // let mut time = Time::new( Arc::clone(&lcd));
-            //let mut number = Number::new( Arc::clone(&lcd), 0, 100);
-            // let mut text = Text::new( Arc::clone(&lcd));
+            let mut _check = Check::new( Arc::clone(&lcd));
+            let mut _time = Time::new( Arc::clone(&lcd));
+            let mut _number = Number::new( Arc::clone(&lcd), 0, 100);
+            let mut _text = Text::new( Arc::clone(&lcd));
             let mut input = Input::new( Arc::clone(&lcd));
             
             loop {
@@ -146,7 +152,11 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 //     log_info!(APP_TAG, "Error drawing text: {:?}", e);
                 //     ErrorSignal::set(ErrorFlag::Display.into());
                 // }
-                if let Err(e) =  input.draw(&mut signals, &date_time, &Bytes::<64>::from_str("Insert text"), &Bytes::<64>::from_str("ciao"), Some(|txt, confirmed| log_info!(APP_TAG, "Input: {:?}, Confirmed: {:?}", txt, confirmed))) {
+
+                let mut p = ScreenParam::default();
+                p.input = Some(Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Initial text"));
+
+                if let Err(e) =  input.draw(&mut signals, &date_time, &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert text"),p , Some(|txt, confirmed| log_info!(APP_TAG, "Input: {:?}, Confirmed: {:?}", txt, confirmed))) {
                     log_info!(APP_TAG, "Error drawing text: {:?}", e);
                     ErrorSignal::set(ErrorFlag::Display.into());
                 }
