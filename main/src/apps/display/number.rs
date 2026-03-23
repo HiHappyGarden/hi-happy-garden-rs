@@ -25,12 +25,13 @@ use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Result};
 
-use crate::apps::display::commons::{DisplayCallback, FIRST_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
+use crate::apps::display::commons::{FIRST_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::drivers::date_time::DateTime;
 use crate::traits::integer::Integer;
 use crate::traits::lcd_display::LCDDisplayFn;
+use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
 pub struct Number<T, N>
 where
@@ -43,6 +44,64 @@ where
     max: N,
     result: Option<N>,
 }
+
+impl<T, N> Screen<N> for Number<T, N>
+where
+    T: LCDDisplayFn + Sync + Send + Clone + 'static,
+    N: Integer,
+{
+    fn draw(&mut self, 
+        signals: &mut EventBits, 
+        date_time: &DateTime, 
+        text: &impl AsSyncStr, 
+        param: ScreenParam<N>, 
+        callback: ScreenCallback<N>
+    ) -> Result<()> {
+
+                clean_context(&mut self.lcd)?;
+
+
+        if self.number.is_none() {
+            self.number = param.number;
+        } 
+
+        self.update_number(signals);
+
+        let mut lcd = self.lcd.lock()?;
+
+        let (width, _) = lcd.get_size(); 
+
+        let (visible_width, _) = lcd.get_visible_size(); 
+
+        let (display_text, x_position) = scroll_text(text.as_str(), date_time, (width - visible_width) / 2, visible_width, FONT_8X8[0], 100);
+
+        lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
+
+        let to_show = format!("{}", self.number.unwrap_or(self.min));
+
+        let x_position = width - visible_width + (visible_width - (to_show.chars().count() as u8 * FONT_8X8[0])) / 2;
+
+        lcd.draw_str(&to_show, x_position, SECOND_ROW_Y, &FONT_8X8)?;
+
+        if *signals & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+            self.result = self.number;
+            if let Some(cb) = callback {
+                let param = self.result.map(|n| { let mut p = ScreenParam::default(); p.number = Some(n); p });
+                cb(param, true);
+            }
+        }
+
+        if *signals & DisplayFlag::ButtonReleased as u32 != 0 {
+            if let Some(cb) = callback {
+                let param = self.number.map(|n| { let mut p = ScreenParam::default(); p.number = Some(n); p });
+                cb(param, false);
+            }
+        }
+
+        Ok(())
+    }
+}
+
 
 impl<T, N> Number<T, N>
 where
@@ -79,54 +138,54 @@ where
         } 
     }
 
-    pub(super) fn draw(
-        &mut self,
-        signals: &mut EventBits,
-        date_time: &DateTime, 
-        text: &impl AsSyncStr,
-        number: N,
-        callback: DisplayCallback<N>,
-    ) -> Result<()> {
-        clean_context(&mut self.lcd)?;
+    // pub(super) fn draw(
+    //     &mut self,
+    //     signals: &mut EventBits,
+    //     date_time: &DateTime, 
+    //     text: &impl AsSyncStr,
+    //     number: N,
+    //     callback: DisplayCallback<N>,
+    // ) -> Result<()> {
+    //     clean_context(&mut self.lcd)?;
 
 
-        if self.number.is_none() {
-            self.number = Some(number);
-        } 
+    //     if self.number.is_none() {
+    //         self.number = Some(number);
+    //     } 
 
-        self.update_number(signals);
+    //     self.update_number(signals);
 
-        let mut lcd = self.lcd.lock()?;
+    //     let mut lcd = self.lcd.lock()?;
 
-        let (width, _) = lcd.get_size(); 
+    //     let (width, _) = lcd.get_size(); 
 
-        let (visible_width, _) = lcd.get_visible_size(); 
+    //     let (visible_width, _) = lcd.get_visible_size(); 
 
-        let (display_text, x_position) = scroll_text(text.as_str(), date_time, (width - visible_width) / 2, visible_width, FONT_8X8[0], 100);
+    //     let (display_text, x_position) = scroll_text(text.as_str(), date_time, (width - visible_width) / 2, visible_width, FONT_8X8[0], 100);
 
-        lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
+    //     lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
 
-        let to_show = format!("{}", self.number.unwrap_or(number));
+    //     let to_show = format!("{}", self.number.unwrap_or(number));
 
-        let x_position = width - visible_width + (visible_width - (to_show.chars().count() as u8 * FONT_8X8[0])) / 2;
+    //     let x_position = width - visible_width + (visible_width - (to_show.chars().count() as u8 * FONT_8X8[0])) / 2;
 
-        lcd.draw_str(&to_show, x_position, SECOND_ROW_Y, &FONT_8X8)?;
+    //     lcd.draw_str(&to_show, x_position, SECOND_ROW_Y, &FONT_8X8)?;
 
-        if *signals & DisplayFlag::EncoderButtonReleased as u32 != 0 {
-            self.result = self.number;
-            if let Some(cb) = callback {
-                cb(self.result, true);
-            }
-        }
+    //     if *signals & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+    //         self.result = self.number;
+    //         if let Some(cb) = callback {
+    //             cb(self.result, true);
+    //         }
+    //     }
 
-        if *signals & DisplayFlag::ButtonReleased as u32 != 0 {
-            if let Some(cb) = callback {
-                cb(self.number, false);
-            }
-        }
+    //     if *signals & DisplayFlag::ButtonReleased as u32 != 0 {
+    //         if let Some(cb) = callback {
+    //             cb(self.number, false);
+    //         }
+    //     }
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     #[allow(unused)]
     #[inline]

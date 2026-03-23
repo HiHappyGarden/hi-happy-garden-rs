@@ -29,10 +29,29 @@ use crate::apps::display::commons::DisplayCallback;
 use crate::apps::display::date_time_editor::{FieldEditor, FieldEditorConfig};
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::LCDDisplayFn;
+use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
 pub(super) struct Time<T>(FieldEditor<T>)
 where
     T: LCDDisplayFn + Sync + Send + Clone + 'static;
+
+impl<T> Screen for Time<T> 
+where T: LCDDisplayFn + Sync + Send + Clone + 'static
+{
+    fn draw(&mut self, 
+        signals: &mut EventBits, 
+        date_time: &DateTime, 
+        text: &impl AsSyncStr, 
+        param: ScreenParam, 
+        callback: ScreenCallback
+    ) -> Result<()> {
+
+        self.0.draw(signals, date_time, text, param, callback)?;
+
+        Ok(())
+    }
+}
+  
 
 impl<T> Time<T>
 where
@@ -54,20 +73,9 @@ where
         }))
     }
 
-    pub(super) fn draw(
-        &mut self,
-        signals: &mut EventBits,
-        current_date_time: &DateTime,
-        text: &impl AsSyncStr,
-        date_time: Option<DateTime>,
-        callback: DisplayCallback<DateTime>,
-    ) -> Result<()> {
-        self.0.draw(signals, current_date_time, text, date_time, callback)
-    }
-
     #[allow(unused)]
     #[inline]
-    pub(super) fn get_date(&self) -> Option<DateTime> {
+    pub(super) fn get_time(&self) -> Option<DateTime> {
         self.0.get_result()
     }
 }

@@ -52,61 +52,10 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         callback: ScreenCallback
     ) -> Result<()> {
 
-        Check::draw(self, 
-            signals, 
-            date_time, 
-            text, 
-            param.check.unwrap_or(false), 
-            Some(|check, confirmed| {
-                
-                let mut param = ScreenParam::<u8>::default();
-                param.check = check;
-
-                if let Some(cb) = callback {
-                    cb(Some(param), confirmed);
-                }
-                
-            })
-        )
-    }
-}
-
-impl<T> Check<T> 
-where T: LCDDisplayFn + Sync + Send + Clone + 'static
-{
-
-    pub(super) fn new(lcd: Arc<Mutex<T>>) -> Self {
-        Self {
-            lcd,
-            icon: IC_CHECK_OFF,
-            checked: None,
-        }
-    }
-
-    fn update_icon(&mut self, signals: &mut EventBits) {
-        if *signals & DisplayFlag::EncoderRotatedClockwise as u32 != 0 || *signals & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
-            self.icon = if self.icon.2 == IC_CHECK_OFF.2 {
-                IC_CHECK_ON
-            } else {
-                IC_CHECK_OFF
-            };
-            *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
-        }
-    }
-
-    pub(super) fn draw<F>(&mut self, 
-        signals: &mut EventBits, 
-        date_time: &DateTime, 
-        text: &impl AsSyncStr, 
-        check: bool, 
-        callback: Option<F>
-    ) -> Result<()>
-    where F: Fn(Option<bool>, bool)
-    {
         clean_context(&mut self.lcd)?;
 
         if self.checked.is_none() {
-            if check { 
+            if param.check.unwrap_or(false) { 
                 self.icon = IC_CHECK_ON;
                 self.checked = Some(true);
             } else {
@@ -133,12 +82,16 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
             if self.icon.2 == IC_CHECK_ON.2 {
                 self.checked = Some(true);
                 if let Some(ref cb) = callback {
-                    cb(self.checked, true);
+                    let mut p = ScreenParam::default();
+                    p.check = self.checked;
+                    cb(Some(p), true);
                 }
             } else {
                 self.checked = Some(false);
                 if let Some(ref cb) = callback {
-                    cb(self.checked, true);
+                    let mut p = ScreenParam::default();
+                    p.check = self.checked;
+                    cb(Some(p), true);
                 }
             };
         }
@@ -151,6 +104,31 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
         *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
         Ok(())
+        
+    }
+}
+
+impl<T> Check<T> 
+where T: LCDDisplayFn + Sync + Send + Clone + 'static
+{
+
+    pub(super) fn new(lcd: Arc<Mutex<T>>) -> Self {
+        Self {
+            lcd,
+            icon: IC_CHECK_OFF,
+            checked: None,
+        }
+    }
+
+    fn update_icon(&mut self, signals: &mut EventBits) {
+        if *signals & DisplayFlag::EncoderRotatedClockwise as u32 != 0 || *signals & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+            self.icon = if self.icon.2 == IC_CHECK_OFF.2 {
+                IC_CHECK_ON
+            } else {
+                IC_CHECK_OFF
+            };
+            *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
+        }
     }
 
     #[allow(unused)]

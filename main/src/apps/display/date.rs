@@ -25,16 +25,31 @@ use osal_rs::os::types::EventBits;
 use osal_rs::os::Mutex;
 use osal_rs::utils::{AsSyncStr, Result};
 
-use crate::apps::display::commons::DisplayCallback;
 use crate::apps::display::date_time_editor::{FieldEditor, FieldEditorConfig};
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::LCDDisplayFn;
+use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
 pub(super) struct Date<T>(FieldEditor<T>)
 where
     T: LCDDisplayFn + Sync + Send + Clone + 'static;
 
+impl<T> Screen for Date<T> 
+where T: LCDDisplayFn + Sync + Send + Clone + 'static
+{
+    fn draw(&mut self, 
+        signals: &mut EventBits, 
+        date_time: &DateTime, 
+        text: &impl AsSyncStr, 
+        param: ScreenParam, 
+        callback: ScreenCallback
+    ) -> Result<()> {
 
+        self.0.draw(signals, date_time, text, param, callback)?;
+
+        Ok(())
+    }
+}
     
 impl<T> Date<T>
 where
@@ -54,17 +69,6 @@ where
             extractor:    |dt| (dt.year, dt.month as i32, dt.mday as i32),
             builder:      |y, m, d| DateTime::new_date(y, m as u8, d as u8),
         }))
-    }
-
-    pub(super) fn draw(
-        &mut self,
-        signals: &mut EventBits,
-        current_date_time: &DateTime,
-        text: &impl AsSyncStr,
-        date_time: Option<DateTime>,
-        callback: DisplayCallback<DateTime>,
-    ) -> Result<()> {
-        self.0.draw(signals, current_date_time, text, date_time, callback)
     }
 
     #[allow(unused)]

@@ -31,7 +31,7 @@ pub struct ScreenParam<N = u8>
 where N: Integer
 {
     pub check: Option<bool>,
-    pub input: Bytes<{DISPLAY_INPUT_MAX_SIZE}>,
+    pub input: Option<Bytes<{DISPLAY_INPUT_MAX_SIZE}>>,
     pub number: Option<N>,
     pub date_time: Option<DateTime>,
 }
@@ -43,7 +43,7 @@ where N: Integer
     fn default() -> Self {
         Self {
             check: None,
-            input: Bytes::<{DISPLAY_INPUT_MAX_SIZE}>::default(),
+            input: None,
             number: None,
             date_time: None,
         }

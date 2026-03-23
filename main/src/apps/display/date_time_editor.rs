@@ -25,11 +25,12 @@ use osal_rs::os::types::EventBits;
 use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::utils::{AsSyncStr, Result};
 
-use crate::apps::display::commons::{DisplayCallback, FIRST_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
+use crate::apps::display::commons::{FIRST_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
+use crate::traits::screen::{ScreenCallback, ScreenParam};
 
 #[derive(PartialEq, Eq)]
 enum Step {
@@ -125,13 +126,13 @@ where
         signals: &mut EventBits,
         current_date_time: &DateTime,
         text: &impl AsSyncStr,
-        date_time: Option<DateTime>,
-        callback: DisplayCallback<DateTime>,
+        param: ScreenParam, 
+        callback: ScreenCallback,
     ) -> Result<()> {
         clean_context(&mut self.lcd)?;
 
         if self.result.is_none() {
-            if let Some(dt) = date_time {
+            if let Some(dt) = param.date_time {
                 let (f1, f2, f3) = (self.config.extractor)(&dt);
                 self.fields = [Some(f1), Some(f2), Some(f3)];
                 self.result = Some(dt);
@@ -221,7 +222,9 @@ where
             if self.step == Step::End {
                 self.result = (self.config.builder)(f[0], f[1], f[2]).ok();
                 if let Some(cb) = callback {
-                    cb(self.result, true);
+                    let mut p = ScreenParam::default();
+                    p.date_time = self.result;
+                    cb(Some(p), true);
                 }
             }
         }
@@ -229,7 +232,9 @@ where
         if *signals & DisplayFlag::ButtonReleased as u32 != 0 {
             if self.step == Step::Exit {
                 if let Some(cb) = callback {
-                    cb(self.result, false);
+                    let mut p = ScreenParam::default();
+                    p.date_time = self.result;
+                    cb(Some(p), false);
                 }
             }
         }
