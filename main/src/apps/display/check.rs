@@ -33,18 +33,16 @@ use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
-pub(super) struct Check<T> 
-where T: LCDDisplayFn + Sync + Send + Clone + 'static
+pub(super) struct Check 
 {
-    lcd: Arc<Mutex<T>>,
     icon: Icon<120>,
     checked: Option<bool>,
 }
 
-impl<T> Screen for Check<T> 
-where T: LCDDisplayFn + Sync + Send + Clone + 'static
+impl Screen for Check
 {
     fn draw(&mut self, 
+        lcd: &mut impl LCDDisplayFn,
         signals: &mut EventBits, 
         date_time: &DateTime, 
         text: &impl AsSyncStr, 
@@ -52,7 +50,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         callback: ScreenCallback
     ) -> Result<()> {
 
-        clean_context(&mut self.lcd)?;
+        clean_context(lcd)?;
 
         if self.checked.is_none() {
             if param.check.unwrap_or(false) { 
@@ -65,8 +63,6 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         }
 
         self.update_icon(signals);
-
-        let mut lcd = self.lcd.lock()?;
 
         let (width, _) = lcd.get_size(); 
 
@@ -108,13 +104,10 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
     }
 }
 
-impl<T> Check<T> 
-where T: LCDDisplayFn + Sync + Send + Clone + 'static
-{
+impl Check {
 
-    pub(super) fn new(lcd: Arc<Mutex<T>>) -> Self {
+    pub(super) const fn new() -> Self {
         Self {
-            lcd,
             icon: IC_CHECK_OFF,
             checked: None,
         }

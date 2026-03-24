@@ -88,12 +88,15 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         
         self.thread.spawn_simple(move || {
 
-            let mut header = Header::new( Arc::clone(&lcd));   
-            let mut _check = Check::new( Arc::clone(&lcd));
-            let mut _time = Time::new( Arc::clone(&lcd));
-            let mut _number = Number::new( Arc::clone(&lcd), 0, 100);
-            let mut _text = Text::new( Arc::clone(&lcd));
-            let mut input = Input::new( Arc::clone(&lcd));
+            let lcd = &mut *(lcd.lock().unwrap());
+
+
+            let mut header = Header::new();   
+            let mut _check = Check::new();
+            let mut _time = Time::new();
+            let mut _number = Number::new( 0, 100);
+            let mut _text = Text::new();
+            let mut input = Input::new();
             
             loop {
                 let mut signals = DisplaySignal::wait(EventGroup::MAX_MASK, TICK_INTERVAL_MS as u32);
@@ -124,7 +127,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 // }
 
 
-                if let Err(e) =  header.draw(&mut signals, &date_time, *wifi_enabled) {
+                if let Err(e) =  header.draw(lcd, &mut signals, &date_time, *wifi_enabled) {
                     if let Error::ReturnWithCode(_) = e {} else {
                         log_info!(APP_TAG, "Error drawing header: {:?}", e);
                         ErrorSignal::set(ErrorFlag::Display.into());
@@ -156,7 +159,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 let mut p = ScreenParam::default();
                 p.input = Some(Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Initial text"));
 
-                if let Err(e) =  input.draw(&mut signals, &date_time, &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert text"),p , Some(|txt, confirmed| log_info!(APP_TAG, "Input: {:?}, Confirmed: {:?}", txt, confirmed))) {
+                if let Err(e) =  input.draw(lcd, &mut signals, &date_time, &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert text"),p , Some(|txt, confirmed| log_info!(APP_TAG, "Input: {:?}, Confirmed: {:?}", txt, confirmed))) {
                     log_info!(APP_TAG, "Error drawing text: {:?}", e);
                     ErrorSignal::set(ErrorFlag::Display.into());
                 }
@@ -164,7 +167,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
 
                 if signals & Draw as u32 != 0 {
-                    lcd.lock().unwrap().draw().unwrap_or_else(|e| {
+                    lcd.draw().unwrap_or_else(|e| {
                         ErrorSignal::set(ErrorFlag::Display.into());
                         log_info!(APP_TAG, "Error drawing on LCD: {:?}", e);
                     });

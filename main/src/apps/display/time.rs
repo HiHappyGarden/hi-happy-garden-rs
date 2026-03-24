@@ -25,20 +25,17 @@ use osal_rs::os::types::EventBits;
 use osal_rs::os::Mutex;
 use osal_rs::utils::{AsSyncStr, Result};
 
-use crate::apps::display::commons::DisplayCallback;
 use crate::apps::display::date_time_editor::{FieldEditor, FieldEditorConfig};
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
-pub(super) struct Time<T>(FieldEditor<T>)
-where
-    T: LCDDisplayFn + Sync + Send + Clone + 'static;
+pub(super) struct Time(FieldEditor);
 
-impl<T> Screen for Time<T> 
-where T: LCDDisplayFn + Sync + Send + Clone + 'static
+impl Screen for Time
 {
     fn draw(&mut self, 
+        lcd: &mut impl LCDDisplayFn,
         signals: &mut EventBits, 
         date_time: &DateTime, 
         text: &impl AsSyncStr, 
@@ -46,19 +43,16 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         callback: ScreenCallback
     ) -> Result<()> {
 
-        self.0.draw(signals, date_time, text, param, callback)?;
+        self.0.draw(lcd, signals, date_time, text, param, callback)?;
 
         Ok(())
     }
 }
   
 
-impl<T> Time<T>
-where
-    T: LCDDisplayFn + Sync + Send + Clone + 'static,
-{
-    pub(super) fn new(lcd: Arc<Mutex<T>>) -> Self {
-        Self(FieldEditor::new(lcd, FieldEditorConfig {
+impl Time {
+    pub(super) const fn new() -> Self {
+        Self(FieldEditor::new(FieldEditorConfig {
             field_min:    [0, 0, 0],
             field_max_fn: [
                 |_, _, _| 23,

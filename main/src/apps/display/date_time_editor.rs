@@ -20,9 +20,7 @@
 #![allow(dead_code)]
 
 use alloc::string::String;
-use alloc::sync::Arc;
 use osal_rs::os::types::EventBits;
-use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::utils::{AsSyncStr, Result};
 
 use crate::apps::display::commons::{FIRST_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
@@ -62,24 +60,16 @@ pub(super) struct FieldEditorConfig {
     pub builder: fn(i32, i32, i32) -> Result<DateTime>,
 }
 
-pub(super) struct FieldEditor<T>
-where
-    T: LCDDisplayFn + Sync + Send + Clone + 'static,
-{
-    lcd: Arc<Mutex<T>>,
+pub(super) struct FieldEditor {
     fields: [Option<i32>; 3],
     step: Step,
     result: Option<DateTime>,
     config: FieldEditorConfig,
 }
 
-impl<T> FieldEditor<T>
-where
-    T: LCDDisplayFn + Sync + Send + Clone + 'static,
-{
-    pub(super) fn new(lcd: Arc<Mutex<T>>, config: FieldEditorConfig) -> Self {
+impl FieldEditor {
+    pub(super) const fn new(config: FieldEditorConfig) -> Self {
         Self {
-            lcd,
             fields: [None, None, None],
             step: Step::Field1,
             result: None,
@@ -123,13 +113,14 @@ where
 
     pub(super) fn draw(
         &mut self,
+        lcd: &mut impl LCDDisplayFn,
         signals: &mut EventBits,
         current_date_time: &DateTime,
         text: &impl AsSyncStr,
         param: ScreenParam, 
         callback: ScreenCallback,
     ) -> Result<()> {
-        clean_context(&mut self.lcd)?;
+        clean_context(lcd)?;
 
         if self.result.is_none() {
             if let Some(dt) = param.date_time {
@@ -173,8 +164,6 @@ where
             return Ok(());
         }
 
-        let mut lcd = self.lcd.lock()?;
-
         let (width, _) = lcd.get_size();
         let (visible_width, _) = lcd.get_visible_size();
 
@@ -215,8 +204,6 @@ where
                 LCDWriteMode::ADD,
             )?;
         }
-
-        drop(lcd);
 
         if *signals & DisplayFlag::EncoderButtonReleased as u32 != 0 {
             if self.step == Step::End {

@@ -19,8 +19,6 @@
 
 
 use alloc::string::String;
-use alloc::sync::Arc;
-use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::utils::Result;
 
 use crate::drivers::date_time::DateTime;
@@ -32,12 +30,8 @@ pub const ONLY_ONE_ROW_Y: u8 = 27;
 pub const FIRST_ROW_Y: u8 = 25;
 pub const SECOND_ROW_Y: u8 = 45;
 
-pub(super) type DisplayCallback<T> = Option<fn(Option<T>, confirmed: bool)>;
-
-pub(super) fn clean_context<T>(lcd: &mut Arc<Mutex<T>>) -> Result<()> 
-where T: LCDDisplayFn + Sync + Send + Clone + 'static
+pub(super) fn clean_context(lcd: &mut impl LCDDisplayFn) -> Result<()> 
 {
-    let mut lcd = lcd.lock()?;
     let (display_width, display_height) = lcd.get_size();
     let y_start = lcd.get_header_height();
     if y_start >= display_height {

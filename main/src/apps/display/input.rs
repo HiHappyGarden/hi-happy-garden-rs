@@ -19,8 +19,7 @@
 
 #![allow(dead_code)]
 
-use alloc::sync::Arc;
-use osal_rs::os::{Mutex, MutexFn, System, SystemFn};
+use osal_rs::os::{System, SystemFn};
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Bytes, Result};
 
@@ -34,11 +33,7 @@ use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 const LONG_PRESS_MS: u32 = 500;
 pub const MAX_SIZE: usize = 64;
 
-pub(super) struct Input<T>
-where
-    T: LCDDisplayFn + Sync + Send + Clone + 'static,
-{
-    lcd: Arc<Mutex<T>>,
+pub(super) struct Input {
     input: Option<Bytes<MAX_SIZE>>,
     original_input: Option<Bytes<MAX_SIZE>>,
     idx: usize,
@@ -46,10 +41,10 @@ where
     encoder_button_pressed_tick: u32,
 }
 
-impl<T> Screen for Input<T> 
-where T: LCDDisplayFn + Sync + Send + Clone + 'static
+impl Screen for Input
 {
     fn draw(&mut self, 
+        lcd: &mut impl LCDDisplayFn,
         signals: &mut EventBits, 
         date_time: &DateTime, 
         text: &impl AsSyncStr, 
@@ -57,7 +52,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         callback: ScreenCallback
     ) -> Result<()> {
 
-        clean_context(&mut self.lcd)?;
+        clean_context(lcd)?;
 
         if self.input.is_none() {
             let input_str = param.input.unwrap_or_default();
@@ -67,8 +62,6 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         } 
 
         self.update_input(signals);
-
-        let mut lcd = self.lcd.lock()?;
 
         let (width, _) = lcd.get_size(); 
 
@@ -148,13 +141,10 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 }
 
 
-impl<T> Input<T>
-where
-    T: LCDDisplayFn + Sync + Send + Clone + 'static,
+impl Input
 {
-    pub(super) fn new(lcd: Arc<Mutex<T>>) -> Self {
+    pub(super) const fn new() -> Self {
         Self { 
-            lcd, 
             input: None,
             original_input: None,
             idx: 0,

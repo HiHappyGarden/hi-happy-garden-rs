@@ -20,8 +20,6 @@
 #![allow(dead_code)]
 
 use alloc::format;
-use alloc::sync::Arc;
-use osal_rs::os::{Mutex, MutexFn}; 
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Result};
 
@@ -33,24 +31,22 @@ use crate::traits::integer::Integer;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
-pub struct Number<T, N>
+pub struct Number<N>
 where
-    T: LCDDisplayFn + Sync + Send + Clone + 'static,
     N: Integer,
 {
-    lcd: Arc<Mutex<T>>,
     number: Option<N>,
     min: N,
     max: N,
     result: Option<N>,
 }
 
-impl<T, N> Screen<N> for Number<T, N>
+impl<N> Screen<N> for Number<N>
 where
-    T: LCDDisplayFn + Sync + Send + Clone + 'static,
     N: Integer,
 {
     fn draw(&mut self, 
+        lcd: &mut impl LCDDisplayFn,
         signals: &mut EventBits, 
         date_time: &DateTime, 
         text: &impl AsSyncStr, 
@@ -58,7 +54,7 @@ where
         callback: ScreenCallback<N>
     ) -> Result<()> {
 
-                clean_context(&mut self.lcd)?;
+        clean_context(lcd)?;
 
 
         if self.number.is_none() {
@@ -66,8 +62,6 @@ where
         } 
 
         self.update_number(signals);
-
-        let mut lcd = self.lcd.lock()?;
 
         let (width, _) = lcd.get_size(); 
 
@@ -103,14 +97,12 @@ where
 }
 
 
-impl<T, N> Number<T, N>
+impl<N> Number<N>
 where
-    T: LCDDisplayFn + Sync + Send + Clone + 'static,
     N: Integer,
 {
-    pub(super) fn new(lcd: Arc<Mutex<T>>, min: N, max: N) -> Self {
+    pub(super) const fn new(min: N, max: N) -> Self {
         Self { 
-            lcd, 
             number: None,
             min,
             max,
@@ -137,55 +129,6 @@ where
             *signals |= DisplayFlag::Draw as u32;
         } 
     }
-
-    // pub(super) fn draw(
-    //     &mut self,
-    //     signals: &mut EventBits,
-    //     date_time: &DateTime, 
-    //     text: &impl AsSyncStr,
-    //     number: N,
-    //     callback: DisplayCallback<N>,
-    // ) -> Result<()> {
-    //     clean_context(&mut self.lcd)?;
-
-
-    //     if self.number.is_none() {
-    //         self.number = Some(number);
-    //     } 
-
-    //     self.update_number(signals);
-
-    //     let mut lcd = self.lcd.lock()?;
-
-    //     let (width, _) = lcd.get_size(); 
-
-    //     let (visible_width, _) = lcd.get_visible_size(); 
-
-    //     let (display_text, x_position) = scroll_text(text.as_str(), date_time, (width - visible_width) / 2, visible_width, FONT_8X8[0], 100);
-
-    //     lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
-
-    //     let to_show = format!("{}", self.number.unwrap_or(number));
-
-    //     let x_position = width - visible_width + (visible_width - (to_show.chars().count() as u8 * FONT_8X8[0])) / 2;
-
-    //     lcd.draw_str(&to_show, x_position, SECOND_ROW_Y, &FONT_8X8)?;
-
-    //     if *signals & DisplayFlag::EncoderButtonReleased as u32 != 0 {
-    //         self.result = self.number;
-    //         if let Some(cb) = callback {
-    //             cb(self.result, true);
-    //         }
-    //     }
-
-    //     if *signals & DisplayFlag::ButtonReleased as u32 != 0 {
-    //         if let Some(cb) = callback {
-    //             cb(self.number, false);
-    //         }
-    //     }
-
-    //     Ok(())
-    // }
 
     #[allow(unused)]
     #[inline]

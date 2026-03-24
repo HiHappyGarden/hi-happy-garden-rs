@@ -23,6 +23,7 @@ use osal_rs::utils::{AsSyncStr, Bytes, Result};
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::drivers::date_time::DateTime;
 use crate::traits::integer::Integer;
+use crate::traits::lcd_display::LCDDisplayFn;
 
 pub type ScreenCallback<N = u8> = Option<fn(Option<ScreenParam<N>>, confirmed: bool)>;
 
@@ -51,11 +52,11 @@ where N: Integer
 }
 
 
-
 pub trait Screen<N = u8>
 where N: Integer
 {
      fn draw(&mut self, 
+        lcd: &mut impl LCDDisplayFn,
         signals: &mut EventBits, 
         date_time: &DateTime, 
         text: &impl AsSyncStr, 

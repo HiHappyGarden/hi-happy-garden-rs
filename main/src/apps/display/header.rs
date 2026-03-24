@@ -18,11 +18,9 @@
  ***************************************************************************/
 
 use alloc::format;
-use alloc::sync::Arc;
 
 use osal_rs::os::types::EventBits;
-use osal_rs::{log_error};
-use osal_rs::os::{Mutex, MutexFn};
+use osal_rs::log_error;
 use osal_rs::utils::Result;
 
 use crate::apps::signals::display::DisplayFlag;
@@ -40,28 +38,24 @@ use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use crate::traits::signal::Signal;
 use crate::traits::wifi::RSSIStatus::{self, *};
 
-pub(super) struct Header<T> 
-where T: LCDDisplayFn + Sync + Send + Clone + 'static
+pub(super) struct Header
 {
-    lcd: Arc<Mutex<T>>,
     date_time: DateTime,
     rssi_status: RSSIStatus,
 }
 
-impl<T> Header<T> 
-where T: LCDDisplayFn + Sync + Send + Clone + 'static
+impl Header
 {
 
 
-    pub(super) fn new(lcd: Arc<Mutex<T>>) -> Self {
+    pub(super) fn new() -> Self {
         Self {
-            lcd,
             date_time: DateTime::default(),
             rssi_status: RSSIStatus::Unknown,
         }
     }
 
-    pub(super) fn draw(&mut self, signals: &mut EventBits, date_time: &DateTime, wifi_enabled: bool) -> Result<()> {
+    pub(super) fn draw(&mut self, lcd: &mut impl LCDDisplayFn, signals: &mut EventBits, date_time: &DateTime, wifi_enabled: bool) -> Result<()> {
         
         let rssi = match RSSIStatus::from_bites( (*signals >> 6) as u8 ) {
             Ok(status) => status,
@@ -85,8 +79,6 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         }
 
         self.date_time = date_time.clone();
-
-        let mut lcd = self.lcd.lock().unwrap();
 
         let (display_width, _) = lcd.get_size();
 

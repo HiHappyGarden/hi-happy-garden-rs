@@ -19,35 +19,32 @@
 
 #![allow(dead_code)]
 
-use alloc::sync::Arc;
-use osal_rs::os::{Mutex, MutexFn};
+use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Error, Result};
 
 use crate::apps::display::commons::{FIRST_ROW_Y, ONLY_ONE_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
 use crate::assets::font_8x8::FONT_8X8;
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::LCDDisplayFn;
+use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
 
 
-pub struct Text<T>(Arc<Mutex<T>>)
-where
-    T: LCDDisplayFn + Sync + Send + Clone + 'static;
+pub struct Text;
 
 
-
-impl<T> Text<T>
-where
-    T: LCDDisplayFn + Sync + Send + Clone + 'static,
+impl Screen for Text
 {
-    pub(super) fn new(lcd: Arc<Mutex<T>>) -> Self {
-        Self(lcd)
-    }
+    fn draw(&mut self, 
+        lcd: &mut impl LCDDisplayFn,
+        _: &mut EventBits, 
+        date_time: &DateTime, 
+        text: &impl AsSyncStr, 
+        _: ScreenParam, 
+        _: ScreenCallback
+    ) -> Result<()> {
 
-    pub(super) fn draw(&mut self, date_time: &DateTime, text: &impl AsSyncStr) -> Result<()> {
-        clean_context(&mut self.0)?;
-
-        let mut lcd = self.0.lock()?;
+        clean_context(lcd)?;
         
         let splitted_text = text.as_str().split("|");
 
@@ -86,4 +83,13 @@ where
 
         Ok(())
     }
+}
+
+
+impl Text {
+
+    pub(super) const fn new() -> Self {
+        Self
+    }
+
 }
