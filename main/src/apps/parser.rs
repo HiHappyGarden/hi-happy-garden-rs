@@ -17,16 +17,29 @@
  *
  ***************************************************************************/
 
-mod config;
-mod display;
-mod main;
-mod parser;
-mod screen_route;
-mod session;
-mod signals;
-mod users;
-mod wifi;
+use osal_rs::{log_debug, utils::Result};
 
-pub use display::DISPLAY_INPUT_MAX_SIZE;
-pub use main::AppMain;
+use crate::traits::{rx_tx::OnReceive, state::Initializable};
 
+
+const APP_TAG: &str = "AppParser";
+
+pub struct Parser;
+
+impl OnReceive for Parser {
+    fn on_receive(&self, source: &str, data: &[u8]) {
+        log_debug!(APP_TAG, "Received data from source: {}, data: {:02X?}", source, data);
+    }
+}
+
+impl Initializable for Parser {
+    fn init(&mut self) -> Result<()> {
+        Ok(())
+    }
+}
+
+impl Parser {
+    pub const fn new() -> Self {
+        Self
+    }
+}

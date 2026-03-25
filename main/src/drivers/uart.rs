@@ -128,10 +128,10 @@ impl Uart {
     pub fn new() -> Self {
         Self { 
             functions: unsafe {
-                &*&raw mut(UART_FN)   
+                &*&raw mut UART_FN
             },
             config: unsafe {
-                &*&raw mut(UART_CONFIG)   
+                &*&raw mut UART_CONFIG
             }, 
             thread: Thread::new_with_to_priority(APP_THREAD_NAME, minimal_stack_size!(), ThreadPriority::Normal),
         }

@@ -23,12 +23,12 @@ use osal_rs::utils::Result;
 
 use crate::apps::config::Config;
 use crate::apps::display::{Display};
+use crate::apps::parser::Parser;
 use crate::apps::signals::error::ErrorSignal;
 use crate::apps::wifi::WifiApp;
-use crate::drivers::platform::{GpioPeripheral, Hardware, LCDDisplay};
+use crate::drivers::platform::{Hardware, LCDDisplay};
 use crate::traits::hardware::HardwareFn;
-use crate::traits::relays::Relays;
-use crate::traits::rgb_led::RgbLed;
+use crate::traits::rx_tx::SetOnReceive;
 use crate::traits::state::Initializable;
 use crate::traits::wifi::SetOnWifiChangeStatus;
 
@@ -39,6 +39,7 @@ pub struct AppMain {
     config: &'static mut Config,
     display: Display<LCDDisplay>,
     wifi: WifiApp<'static>,
+    parser: Parser,
 }
 
 
@@ -60,7 +61,9 @@ impl Initializable for AppMain{
             let display_ptr = &raw const self.display;
             let wifi_ptr = &raw mut self.wifi;
             let config_ptr = &raw const self.config;
+            let parser_ptr = &raw const self.parser;
             let hardware_ptr = &raw mut self.hardware;
+            
             
             // Set RTC for wifi
             (*wifi_ptr).set_rtc((*hardware_ptr).get_rtc());
@@ -72,16 +75,18 @@ impl Initializable for AppMain{
             // Set wifi configuration
             (*wifi_ptr).set_ntp_config(&*config_ptr);
             (*hardware_ptr).set_on_wifi_change_status(&mut *wifi_ptr);
+            (*hardware_ptr).set_on_receive(&*parser_ptr);
+
         }
 
 //test funzionalità
 
-        self.hardware.set_color(0, 0, 255); // Blue
+        // self.hardware.set_color(0, 0, 255); // Blue
 
-        self.hardware.set_relay_state(GpioPeripheral::Relay1, true);
+        // self.hardware.set_relay_state(GpioPeripheral::Relay1, true);
 
-        let unique_id = Hardware::get_unique_id();
-        log_info!(APP_TAG, "Device Unique ID: {:02X?}", unique_id);
+        // let unique_id = Hardware::get_unique_id();
+        // log_info!(APP_TAG, "Device Unique ID: {:02X?}", unique_id);
 
         log_info!(APP_TAG, "App main initialized successfully heap_free:{}", System::get_free_heap_size());
 
@@ -99,6 +104,7 @@ impl AppMain {
             config: Config::new(),
             display,
             wifi: WifiApp::new(),
+            parser: Parser::new(),
         }
     }
 }

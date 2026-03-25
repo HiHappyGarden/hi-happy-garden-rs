@@ -25,3 +25,8 @@
 pub trait OnReceive : Send + Sync {
     fn on_receive(&self, source: &str, data: &[u8]);
 }
+
+
+pub trait SetOnReceive<'a> {
+    fn set_on_receive(&mut self, on_receive: &'a dyn OnReceive);
+}

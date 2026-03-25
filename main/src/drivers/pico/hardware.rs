@@ -47,6 +47,7 @@ use crate::traits::button::{OnClickable, SetClickable as ButtonOnClickable};
 use crate::traits::encoder::{OnRotatableAndClickable as EncoderOnRotatableAndClickable, SetRotatableAndClickable};
 use crate::traits::hardware::HardwareFn;
 use crate::traits::rtc::RTC as RTCFn;
+use crate::traits::rx_tx::{OnReceive, SetOnReceive};
 use crate::traits::state::Initializable;
 use crate::traits::wifi::{OnWifiChangeStatus, SetOnWifiChangeStatus};
 
@@ -192,6 +193,12 @@ impl SetOnWifiChangeStatus<'static> for Hardware {
 
     fn set_on_wifi_change_status(&mut self, on_wifi_change_status: &'static dyn OnWifiChangeStatus) {
         self.wifi.set_on_wifi_change_status(on_wifi_change_status);
+    }
+}
+
+impl SetOnReceive<'static> for Hardware {
+    fn set_on_receive(&mut self, on_receive: &'static dyn OnReceive) {
+        self.uart.add_listener(on_receive);
     }
 }
 
