@@ -53,8 +53,10 @@ unsafe extern "C" fn uart_isr() {
     while hhg_uart_is_readable() {
         let byte = hhg_uart_getc();       
 
+        let bytes = [byte];
+
         if let Some(receiver) = *&raw const UART_FN.receive {
-            if let Err(_) = receiver.post_from_isr(&[byte]) {
+            if let Err(_) = receiver.post_from_isr(&bytes) {
                 
             }
         }
