@@ -20,7 +20,7 @@
 mod config;
 mod display;
 mod main;
-mod screen_path;
+mod screen_route;
 mod signals;
 mod wifi;
 
