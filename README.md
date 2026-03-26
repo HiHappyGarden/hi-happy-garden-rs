@@ -217,3 +217,22 @@ During CMake configuration, the set values are printed:
 1. **Local development**: Use minimal defaults or no configuration
 2. **Testing**: Use a dedicated test WiFi network
 3. **Production**: Load configuration from an encrypted file, use CMake defaults only as fallback
+
+## License
+
+This project is licensed under the GNU General Public License v2.0 or later (GPL-2.0-or-later) - see the [LICENSE](LICENSE) file for details.
+
+### Sub-projects
+
+This repository includes several sub-projects, each with its own license:
+
+- **[at-parser-rs](at-parser-rs/)** - AT command parser library  
+  Licensed under LGPL-2.1-or-later
+
+- **[cjson-bindings](cjson-bindings/)** - Safe Rust bindings for cJSON  
+  Licensed under LGPL-2.1-or-later
+
+- **[osal-rs](osal-rs/)** - Operating System Abstraction Layer  
+  Licensed under LGPL-2.1-or-later
+
+See the LICENSE file in each sub-project directory for complete license information.
