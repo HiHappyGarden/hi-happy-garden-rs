@@ -99,13 +99,15 @@ fn init(config: &UartConfig) -> Result<()> {
             UartParity::Odd => uart_parity::UART_PARITY_ODD,
         };
         
+        // Initialize UART first
+        hhg_uart_init(config.baudrate);
+        
+        // Then configure format
         hhg_uart_set_format(data_bits, stop_bits, parity);
 
         if *flow_control == UartFlowControl::RtsCts {
             hhg_uart_set_hw_flow(true, true);
         }
-
-        hhg_uart_init(config.baudrate);
 
         hhg_uart_irq_set_exclusive_handler(uart_isr);
 

@@ -53,11 +53,11 @@ void hhg_uart_set_irq_enables(bool rx_en, bool tx_en) {
     uart_set_irq_enables(uart0, rx_en, tx_en);
 }
 
-bool hhg_uart_is_readable(uart_inst_t *uart) {
+bool hhg_uart_is_readable(void) {
     return uart_is_readable(uart0);
 }
 
-uint8_t hhg_uart_getc(uart_inst_t *uart) {
+uint8_t hhg_uart_getc(void) {
     return uart_getc(uart0);
 }
 

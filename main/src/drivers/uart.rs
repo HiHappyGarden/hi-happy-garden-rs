@@ -152,10 +152,30 @@ impl Uart {
             
             
             loop {
-                let mut bytes = [0u8; UART_QUEUE_SIZE as usize];
-                access_static_option!(UART_QUEUE).fetch(&mut bytes, TickType::MAX).unwrap();
+                let mut buffer = [0u8; UART_QUEUE_SIZE as usize];
+                let mut count = 0;
+                
+                // Read first byte (blocking)
+                let mut first_byte = [0u8; 1];
+                if access_static_option!(UART_QUEUE).fetch(&mut first_byte, TickType::MAX).is_ok() {
+                    buffer[count] = first_byte[0];
+                    count += 1;
+                    
+                    // Read all other available bytes (non-blocking)
+                    while count < UART_QUEUE_SIZE as usize {
+                        let mut next_byte = [0u8; 1];
+                        if access_static_option!(UART_QUEUE).fetch(&mut next_byte, 0).is_ok() {
+                            buffer[count] = next_byte[0];
+                            count += 1;
+                        } else {
+                            break;
+                        }
+                    }
+                }
 
-                listener.on_receive(SOURCE, &bytes);
+                if count > 0 {
+                    listener.on_receive(SOURCE, &buffer[..count]);
+                }
             }
 
         });
