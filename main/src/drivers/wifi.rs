@@ -37,8 +37,8 @@ use crate::traits::wifi::WifiStatus::Disconnected;
 
 
 const APP_TAG: &str = "WIFI";
-const APP_THREAD_NAME: &str = "wifi_trd";
-const APP_STACK_SIZE: StackType = 1_536; // 1.5KB stack size, adjust as needed
+const THREAD_NAME: &str = "wifi_trd";
+const STACK_SIZE: StackType = 1_536; // 1.5KB stack size, adjust as needed
 const MAX_ERROR: StackType = 5;
 
 static mut SSID: Bytes<32> = Bytes::new();
@@ -385,7 +385,7 @@ impl Wifi {
     pub fn new() -> Self {
         Self {
             handle: null_mut(),
-            thread: Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal),
+            thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),
             thread_started: AtomicBool::new(false),
         }
     }

@@ -54,8 +54,8 @@ use crate::ffi::{get_g_setup_called, print_systick_status};
 use crate::apps::AppMain;
 
 const APP_TAG: &str = "rust";
-const APP_THREAD_NAME: &str = "main_trd";
-const APP_STACK_SIZE: StackType = 1_024*4; // 4KB stack
+const THREAD_NAME: &str = "main_trd";
+const STACK_SIZE: StackType = 1_024*4; // 4KB stack
 
 static mut HARDWARE: Option<Hardware> = None;
 static mut APP_MAIN: Option<AppMain> = None;
@@ -131,7 +131,7 @@ pub unsafe extern "C" fn start() {
     {
         use crate::drivers::platform::ThreadPriority;
 
-        let mut thread = Thread::new_with_to_priority(APP_THREAD_NAME, APP_STACK_SIZE, ThreadPriority::Normal);
+        let mut thread = Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal);
         let _ = match thread.spawn(None, main_thread) {
             
             Ok(spawned) =>  {
