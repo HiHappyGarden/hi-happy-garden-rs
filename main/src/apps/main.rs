@@ -52,6 +52,7 @@ impl Initializable for AppMain{
 
 
         self.config.init()?;
+        self.parser.init()?;
         self.wifi.init()?;
         self.display.init()?;
         self.display.set_enabled_wifi(self.config.get_wifi_config().is_enabled());

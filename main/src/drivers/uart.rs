@@ -29,7 +29,7 @@ use crate::traits::state::Initializable;
 use crate::drivers::platform::{UART_FN, UART_CONFIG, ThreadPriority}; 
 
 const APP_TAG: &str = "Uart";
-const APP_THREAD_NAME: &str = "uart_trd";
+const THREAD_NAME: &str = "uart_trd";
 const SOURCE: &str = "UART";
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -63,7 +63,7 @@ pub enum UartFlowControl {
     XonXoff,
 }
 
-const UART_QUEUE_SIZE: UBaseType = 64;
+const UART_QUEUE_SIZE: UBaseType = 8;
 static mut UART_QUEUE: Option<Queue> = None;
 
 
@@ -134,7 +134,7 @@ impl Uart {
             config: unsafe {
                 &*&raw mut UART_CONFIG
             }, 
-            thread: Thread::new_with_to_priority(APP_THREAD_NAME, minimal_stack_size!(), ThreadPriority::Normal),
+            thread: Thread::new_with_to_priority(THREAD_NAME, minimal_stack_size!(), ThreadPriority::Normal),
         }
     }
 
@@ -149,32 +149,12 @@ impl Uart {
 
         let ret = self.thread.spawn_simple(move || {
 
-            
-            
-            loop {
-                let mut buffer = [0u8; UART_QUEUE_SIZE as usize];
-                let mut count = 0;
-                
-                // Read first byte (blocking)
-                let mut first_byte = [0u8; 1];
-                if access_static_option!(UART_QUEUE).fetch(&mut first_byte, TickType::MAX).is_ok() {
-                    buffer[count] = first_byte[0];
-                    count += 1;
-                    
-                    // Read all other available bytes (non-blocking)
-                    while count < UART_QUEUE_SIZE as usize {
-                        let mut next_byte = [0u8; 1];
-                        if access_static_option!(UART_QUEUE).fetch(&mut next_byte, 0).is_ok() {
-                            buffer[count] = next_byte[0];
-                            count += 1;
-                        } else {
-                            break;
-                        }
-                    }
-                }
-
-                if count > 0 {
-                    listener.on_receive(SOURCE, &buffer[..count]);
+             loop {
+                let mut buffer = [0u8; 1];
+                if access_static_option!(UART_QUEUE).fetch(&mut buffer, TickType::MAX).is_ok() {
+                    listener.on_receive(SOURCE, &buffer).unwrap_or_else(|e| {
+                        log_error!(APP_TAG, "Error processing received byte: {:?}", e);
+                    });
                 }
             }
 
