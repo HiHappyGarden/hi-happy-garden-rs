@@ -21,7 +21,6 @@
 #![allow(dead_code)]
 
 use alloc::string::{String, ToString};
-use alloc::format;
 use alloc::vec::Vec;
 
 use osal_rs::log_info;
@@ -722,10 +721,15 @@ impl Filesystem {
             if name == "." || name == ".." {
                 continue;
             }
-            let full_path = if is_root { format!("{FS_SEPARATOR_DIR}{name}") } else { format!("{path}{FS_SEPARATOR_DIR}{name}") };
+            let mut full_path = FileBytes::new();
+            if is_root {
+                full_path.format(format_args!("{FS_SEPARATOR_DIR}{name}"));
+            } else {
+                full_path.format(format_args!("{path}{FS_SEPARATOR_DIR}{name}"));
+            }
             match type_ {
-                EntryType::File => Self::remove(&full_path)?,
-                EntryType::Dir => Self::remove_recursive(&full_path)?,
+                EntryType::File => Self::remove(full_path.as_str())?,
+                EntryType::Dir => Self::remove_recursive(full_path.as_str())?,
                 EntryType::Unknown => continue,
             }
         }
