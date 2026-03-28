@@ -25,7 +25,7 @@ use core::time::Duration;
 use osal_rs::{log_debug, log_error, log_info, log_warning};
 use osal_rs::os::{System, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
-use osal_rs::utils::{AsSyncStr, Bytes, Result};
+use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 use crate::drivers::gpio::Gpio;
 use crate::drivers::pico::ffi::pico_error_codes::PICO_OK;
