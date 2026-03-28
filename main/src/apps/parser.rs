@@ -21,7 +21,7 @@
 use osal_rs::{access_static_option, log_debug, log_error};
 use osal_rs::os::{Queue, QueueFn, Thread, ThreadFn};
 use osal_rs::os::types::{StackType, TickType, UBaseType};
-use osal_rs::utils::{Bytes, Error, Result};
+use osal_rs::utils::{AsSyncStr, Bytes, Error, Result};
 
 use crate::drivers::platform::ThreadPriority;
 use crate::traits::rx_tx::OnReceive;
@@ -37,7 +37,7 @@ static mut QUEUE: Option<Queue> = None;
 static mut ON_RECEIVE: Bytes<8> = Bytes::new();
 static mut SOURCE: Option<Source> = None;
 
- #[derive(Debug)]
+ #[derive(Debug, Clone, Copy)]
 enum Source {
     Uart,
     Mqtt,
@@ -53,11 +53,28 @@ impl Source {
             _ => None
         }
     }
+
+    fn get_delimitor(_self: &Self) -> u8 {
+        match _self {
+            Self::Uart | Self::Display=> b'\n',
+            Self::Mqtt => b'}'
+        }
+    }
 }
 
+impl AsSyncStr for Source {
+    fn as_str(&self) -> &str {
+        match self {
+            Self::Uart => "UART",
+            Self::Mqtt => "MQTT",
+            Self::Display => "DISPLAY"
+        }
+    }
+}
 
 pub struct Parser {
-    thread: Thread
+    thread: Thread,
+
 }
 
 impl OnReceive for Parser {
@@ -86,34 +103,40 @@ impl Initializable for Parser {
             return Err(Error::OutOfMemory)
         }
 
-
         self.thread.spawn_simple(move || {
             
-                            let mut buffer = [0u8; QUEUE_SIZE as usize];
-        let mut count = 0;
+        let mut buffer = [0u8; QUEUE_SIZE as usize];
+        let mut buffer_count = 0;
 
             loop {
 
 
-                let mut first_byte = [0u8; 1];
-                if access_static_option!(QUEUE).fetch(&mut first_byte, TickType::MAX).is_ok() {
-                    buffer[count] = first_byte[0];
-                    count += 1;
+                let mut byte = [0u8; 1];
+                if access_static_option!(QUEUE).fetch(&mut byte, TickType::MAX).is_ok() {
+                    buffer[buffer_count] = byte[0];
+                    buffer_count += 1;
                     
-                    // Read all other available bytes (non-blocking)
-                    while count < QUEUE_SIZE as usize {
-                        let mut next_byte = [0u8; 1];
-                        if access_static_option!(QUEUE_SIZE).fetch(&mut next_byte, 0).is_ok() {
-                            buffer[count] = next_byte[0];
-                            count += 1;
-                        } else {
-                            break;
-                        }
-                    }
                 }
 
-                if count > 0 {
-                    log_debug!(APP_TAG, "Received data from {:?}: {:?}", unsafe { SOURCE.as_ref().unwrap() }, &buffer[..count]);
+                if buffer_count > 0 && buffer[buffer_count - 1] == Source::get_delimitor(access_static_option!(SOURCE)) {
+
+                    buffer[buffer_count - 1] = 0; 
+                    buffer_count -= 1;
+                    if buffer[buffer_count - 1] == b'\r' {
+                        buffer[buffer_count - 1] = 0; 
+                        buffer_count -= 1; 
+                    }
+                    
+                    let src = access_static_option!(SOURCE);
+
+                    log_debug!(APP_TAG, "Received data from {:?}: {:?}", src, &buffer[..buffer_count]);
+
+                    buffer.fill(0);
+                    buffer_count = 0;
+                    unsafe {
+                        SOURCE = None;
+                    }
+
                 }
             }
         })?;
