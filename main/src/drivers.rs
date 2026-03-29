@@ -1,7 +1,7 @@
 mod button;
 pub mod date_time;
 mod encoder;
-mod encrypt;
+pub mod encrypt;
 mod error;
 pub mod filesystem;
 pub mod gpio;

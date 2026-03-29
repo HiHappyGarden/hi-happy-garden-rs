@@ -20,13 +20,18 @@
 #![allow(dead_code)]
 
 use alloc::str;
-use osal_rs::{log_info, utils::{Bytes, Result}};
+use at_parser_rs::{AtError, AtResult, context::AtContext};
+use osal_rs::{log_info};
+use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
+use crate::apps::parser::{CMD_SIZE, RESPONSE_OK};
+use crate::drivers::encrypt::{EncryptGeneric}; 
 use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "AppSession";
 static mut USER_LOGGED: Option<User> = None;
+static mut USER_TMP: User = User::new();
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub(super) struct User {
@@ -43,7 +48,37 @@ impl Default for User {
     }
 }
 
+impl AtContext<{CMD_SIZE}> for User {
+
+    fn query(&mut self) -> AtResult<{CMD_SIZE}> {
+        let mut response = Bytes::<CMD_SIZE>::new();
+        response.format(format_args!("USER: {},{}", self.user.as_str(), self.password.as_str()));
+        Ok(response)
+    }
+
+    fn test(&mut self) -> AtResult<{CMD_SIZE}> {
+        Ok(Bytes::from_str("USER: <user>,<password>"))
+    }
+    
+    fn set(&mut self, args: at_parser_rs::Args) -> AtResult<{CMD_SIZE}> {
+        let arg0 = args.get(0).ok_or(AtError::InvalidArgs)?;
+        let arg1 = args.get(1).ok_or(AtError::InvalidArgs)?;
+
+
+        if unsafe { &*&raw const USER_LOGGED }.is_some() {
+            self.user = Bytes::from_str(arg0);
+            self.password = Bytes::from_str(arg1);
+        } else {
+            return Err(AtError::InvalidArgs);
+        }
+
+        Ok(Bytes::from_str(RESPONSE_OK))
+    }
+}
+
 impl User {
+
+    const AT_CMD: &'static str = "AT+USER";
 
     pub const fn new() -> Self {
         Self { 
@@ -52,25 +87,65 @@ impl User {
         }
     }
 
+    #[inline]
     pub fn get_user(&self) -> &Bytes<32> {
         &self.user
-    }
-
-    pub fn get_password(&self) -> &Bytes<32> {
-        &self.password
-    }
-
-    pub fn set_user(&mut self, user: Bytes<32>) {
-        self.user = user;
-    }
-
-    pub fn set_password(&mut self, password: Bytes<32>) {
-        self.password = password;
     }
 }
 
 
-pub struct Session ([User; Session::MAX_USERS]);
+pub(super) struct Session ([User; Session::MAX_USERS]);
+
+impl AtContext<{CMD_SIZE}> for Session {
+
+    fn exec(&self) -> AtResult<{CMD_SIZE}> {
+        
+        let password =  EncryptGeneric::get_sha256(unsafe { USER_TMP }.password.as_str().as_bytes()).map_err(|_| AtError::InvalidArgs)?;
+        
+
+        for User{user, password: pwd} in self.0.iter() {
+            if *user == unsafe { USER_TMP }.user && pwd.as_str() == password.as_str() {
+                unsafe { USER_LOGGED = Some(USER_TMP); }
+                return Ok(Bytes::from_str(RESPONSE_OK));
+            }
+        }
+
+        Err(AtError::InvalidArgs)
+    }
+
+    fn query(&mut self) -> AtResult<{CMD_SIZE}> {
+        let mut response = Bytes::<CMD_SIZE>::new();
+        
+        response.format(format_args!("SESSION: {}", if unsafe { &*&raw const USER_LOGGED }.is_some() { "LOGGED" } else { "NO_LOGGED" }));
+        
+        Ok(response)
+    }
+
+    fn test(&mut self) -> AtResult<{CMD_SIZE}> {
+        Ok(Bytes::from_str("SESSION: <user>,<password>"))
+    }
+
+    fn set(&mut self, args: at_parser_rs::Args) -> AtResult<{CMD_SIZE}> {
+        let arg0 = args.get(0).ok_or(AtError::InvalidArgs)?;
+        let arg1 = args.get(1).ok_or(AtError::InvalidArgs)?;
+        let arg2 = args.get(2).ok_or(AtError::InvalidArgs)?;
+
+        
+
+        if arg0 == "LI" { // Login
+            unsafe {
+                USER_TMP.user = Bytes::from_str(arg1);
+                USER_TMP.password = Bytes::from_str(arg2);
+            }
+        } else if arg0 == "LO" { // Logout
+            self.logout();
+        } else {
+            return Err(AtError::InvalidArgs);
+        }
+
+        Ok(Bytes::from_str(RESPONSE_OK))
+    }
+}
 
 
 impl Initializable for Session {
@@ -83,7 +158,7 @@ impl Initializable for Session {
 
 
 impl Session {
-
+    const AT_CMD: &'static str = "AT+SESSION";
     pub const MAX_USERS : usize = 2;
 
     pub const fn new() -> Self {

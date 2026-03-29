@@ -37,7 +37,11 @@ const QUEUE_SIZE: UBaseType = 64;
 static mut QUEUE: Option<Queue> = None;
 static mut SOURCE: Option<Source> = None;
 
-pub struct Parser {
+pub(super) const CMD_SIZE : usize = 64;
+pub(super) const RESPONSE_OK: &str = "OK";
+pub(super) const RESPONSE_KO: &str = "KO";
+
+pub(super) struct Parser {
     thread: Thread,
 
 }
@@ -112,7 +116,7 @@ impl Initializable for Parser {
 }
 
 impl Parser {
-    pub fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal)
         }
