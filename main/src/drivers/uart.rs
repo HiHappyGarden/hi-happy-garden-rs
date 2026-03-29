@@ -19,9 +19,8 @@
  ***************************************************************************/
 #![allow(dead_code)]
 
-use osal_rs::{access_static_option, log_error, log_info, minimal_stack_size};
-use osal_rs::os::{Queue, QueueFn, Thread, ThreadFn};
-use osal_rs::os::types::{TickType, UBaseType};
+use osal_rs::{log_info, minimal_stack_size};
+use osal_rs::os::{Thread};
 use osal_rs::utils::{Error, Ptr, Result};
 
 use crate::traits::rx_tx::OnReceive; 
@@ -63,8 +62,8 @@ pub enum UartFlowControl {
     XonXoff,
 }
 
-const UART_QUEUE_SIZE: UBaseType = 8;
-static mut UART_QUEUE: Option<Queue> = None;
+// const UART_QUEUE_SIZE: UBaseType = 8;
+// static mut UART_QUEUE: Option<Queue> = None;
 
 
 #[derive(Clone, Copy)]
@@ -86,7 +85,7 @@ unsafe impl Send for UartConfig {}
 pub struct UartFn {
     pub init: fn(&UartConfig) -> Result<()>,
     pub transmit: fn(data: &[u8]) -> usize,
-    pub receive: Option<&'static Queue>,
+    pub add_listener: Option<&'static dyn OnReceive>,
     pub deinit: fn(&UartConfig) -> Result<()>,
 }
 
@@ -108,18 +107,18 @@ impl Initializable for Uart {
             return Err(Error::Unhandled("Failed to initialize Uart"))
         }
 
-        if let Ok(queue) =  Queue::new(UART_QUEUE_SIZE, 1) {
-            unsafe {
-                UART_QUEUE = Some(queue);
-            }
-        } else {
-            log_error!(APP_TAG, "Error creating UART queue");
-            return Err(Error::OutOfMemory)
-        }
+        // if let Ok(queue) =  Queue::new(UART_QUEUE_SIZE, 1) {
+        //     unsafe {
+        //         UART_QUEUE = Some(queue);
+        //     }
+        // } else {
+        //     log_error!(APP_TAG, "Error creating UART queue");
+        //     return Err(Error::OutOfMemory)
+        // }
 
-        unsafe {
-            UART_FN.receive = Some(access_static_option!(UART_QUEUE));
-        };
+        // unsafe {
+        //     UART_FN.receive = Some(access_static_option!(UART_QUEUE));
+        // };
 
         Ok(())
     }
@@ -146,22 +145,25 @@ impl Uart {
 
     pub fn add_listener(&mut self, listener: &'static dyn OnReceive) {
 
+        unsafe {
+             UART_FN.add_listener = Some(listener);
+        };
 
-        let ret = self.thread.spawn_simple(move || {
+        // let ret = self.thread.spawn_simple(move || {
 
-             loop {
-                let mut buffer = [0u8; 1];
-                if access_static_option!(UART_QUEUE).fetch(&mut buffer, TickType::MAX).is_ok() {
-                    listener.on_receive(SOURCE, &buffer).unwrap_or_else(|e| {
-                        log_error!(APP_TAG, "Error processing received byte: {:?}", e);
-                    });
-                }
-            }
+        //      loop {
+        //         let mut buffer = [0u8; 1];
+        //         if access_static_option!(UART_QUEUE).fetch(&mut buffer, TickType::MAX).is_ok() {
+        //             listener.on_receive(SOURCE, &buffer).unwrap_or_else(|e| {
+        //                 log_error!(APP_TAG, "Error processing received byte: {:?}", e);
+        //             });
+        //         }
+        //     }
 
-        });
+        // });
 
-        if let Err(e) = ret {
-            log_error!(APP_TAG, "Error spawning encoder thread: {:?}", e);
-        }
+        // if let Err(e) = ret {
+        //     log_error!(APP_TAG, "Error spawning encoder thread: {:?}", e);
+        // }
     }
 }

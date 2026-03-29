@@ -20,13 +20,21 @@
 
 use osal_rs::utils::Result;
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy)]
+pub enum Source {
+    Uart,
+    Mqtt,
+    Display
+}
+
 
 /// Trait for receiving data callbacks
 /// 
 /// The `source` parameter accepts any string reference with lifetime 'a,
 /// making the trait more flexible while maintaining safety
 pub trait OnReceive : Send + Sync {
-    fn on_receive(&self, source: &str, data: &[u8]) -> Result<()>;
+    fn on_receive(&self, source: Source, data: &[u8]) -> Result<()>;
 }
 
 

@@ -21,21 +21,19 @@
 use core::ffi::c_uint;
 use core::ptr::null_mut;
 
-use osal_rs::log_error;
-use osal_rs::os::QueueFn;
 use osal_rs::utils::{Error, Result};
 
 use crate::drivers::uart::{UartConfig, UartDataBits, UartFlowControl, UartFn, UartParity, UartStopBits};
-use crate::drivers::pico::ffi::{gpio_function_type, hhg_gpio_set_function, hhg_uart_deinit, hhg_uart_getc, hhg_uart_init, hhg_uart_irq_set_enabled, hhg_uart_irq_set_exclusive_handler, hhg_uart_is_readable, hhg_uart_putc, hhg_uart_set_format, hhg_uart_set_hw_flow, hhg_uart_set_irq_enables, uart_parity};
+use crate::drivers::pico::ffi::{gpio_function_type, hhg_gpio_set_function, hhg_uart_deinit, hhg_uart_getc, hhg_uart_init, hhg_uart_irq_set_enabled, hhg_uart_irq_set_exclusive_handler, hhg_uart_putc, hhg_uart_set_format, hhg_uart_set_hw_flow, hhg_uart_set_irq_enables, uart_parity};
+use crate::traits::rx_tx::Source;
 
-const APP_TAG: &str = "PicoUart";
 const TX_PIN: u32 = 0;
 const RX_PIN: u32 = 1;
 
 pub static mut UART_FN: UartFn = UartFn {
     init,
     transmit,
-    receive: None,
+    add_listener: None,
     deinit,
 };
 
@@ -49,17 +47,26 @@ pub static mut UART_CONFIG: UartConfig = UartConfig {
     flow_control: UartFlowControl::None,
 };
 
+// #[allow(unsafe_op_in_unsafe_fn)]
+// unsafe extern "C" fn uart_isr() {
+
+//     while hhg_uart_is_readable() {
+//         if let Some(receiver) = *&raw const UART_FN.receive {
+//             if let Err(e) = receiver.post_from_isr(&[hhg_uart_getc()]) {
+//                 log_error!(APP_TAG, "Failed to post received byte to queue: {:?}", e);
+//             }
+//         }
+//     }
+// }
+
 #[allow(unsafe_op_in_unsafe_fn)]
 unsafe extern "C" fn uart_isr() {
-
-    while hhg_uart_is_readable() {
-        if let Some(receiver) = *&raw const UART_FN.receive {
-            if let Err(e) = receiver.post_from_isr(&[hhg_uart_getc()]) {
-                log_error!(APP_TAG, "Failed to post received byte to queue: {:?}", e);
-            }
-        }
+    if let Some(listener) = unsafe { *&raw const UART_FN.add_listener } {
+        let _= (*listener).on_receive(Source::Uart,&[hhg_uart_getc()]);
     }
 }
+
+
 
 fn init(config: &UartConfig) -> Result<()> {
     unsafe {
