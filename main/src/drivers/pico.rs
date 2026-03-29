@@ -160,6 +160,9 @@ impl FaultRegisters {
                 if ufsr & (1 << 3) != 0 {
                     return "UsageFault: No coprocessor";
                 }
+                if ufsr & (1 << 4) != 0 {
+                    return "UsageFault: Stack overflow (STKOF)";
+                }
                 if ufsr & (1 << 8) != 0 {
                     return "UsageFault: Unaligned access";
                 }
@@ -174,6 +177,22 @@ impl FaultRegisters {
         }
         
         "HardFault: Unknown cause"
+    }
+}
+
+#[allow(unsafe_op_in_unsafe_fn)]
+unsafe fn hardfault_uart_print(s: &[u8]) {
+    for &b in s {
+        ffi::hhg_uart_putc(b);
+    }
+}
+
+#[allow(unsafe_op_in_unsafe_fn)]
+unsafe fn hardfault_uart_print_hex(val: u32) {
+    const HEX: &[u8] = b"0123456789ABCDEF";
+    for i in (0..8).rev() {
+        let nibble = ((val >> (i * 4)) & 0xF) as usize;
+        ffi::hhg_uart_putc(HEX[nibble]);
     }
 }
 
@@ -200,23 +219,48 @@ pub unsafe extern "C" fn isr_hardfault() -> ! {
     let fault_regs = unsafe { FaultRegisters::read() };
     
     // Analyze the fault
-    let _fault_cause = fault_regs.analyze();
+    let fault_cause = fault_regs.analyze();
     
+    // Print fault info via UART
+    unsafe {
+        hardfault_uart_print(b"\r\n*** HARD FAULT ***\r\n");
+        hardfault_uart_print(b"Cause: ");
+        hardfault_uart_print(fault_cause.as_bytes());
+        hardfault_uart_print(b"\r\n");
+        hardfault_uart_print(b"PC  : 0x"); hardfault_uart_print_hex(frame.pc);    hardfault_uart_print(b"\r\n");
+        hardfault_uart_print(b"LR  : 0x"); hardfault_uart_print_hex(frame.lr);    hardfault_uart_print(b"\r\n");
+        hardfault_uart_print(b"R0  : 0x"); hardfault_uart_print_hex(frame.r0);    hardfault_uart_print(b"\r\n");
+        hardfault_uart_print(b"R1  : 0x"); hardfault_uart_print_hex(frame.r1);    hardfault_uart_print(b"\r\n");
+        hardfault_uart_print(b"R2  : 0x"); hardfault_uart_print_hex(frame.r2);    hardfault_uart_print(b"\r\n");
+        hardfault_uart_print(b"R3  : 0x"); hardfault_uart_print_hex(frame.r3);    hardfault_uart_print(b"\r\n");
+        hardfault_uart_print(b"R12 : 0x"); hardfault_uart_print_hex(frame.r12);   hardfault_uart_print(b"\r\n");
+        hardfault_uart_print(b"XPSR: 0x"); hardfault_uart_print_hex(frame.xpsr);  hardfault_uart_print(b"\r\n");
+        hardfault_uart_print(b"CFSR: 0x"); hardfault_uart_print_hex(fault_regs.cfsr); hardfault_uart_print(b"\r\n");
+        hardfault_uart_print(b"HFSR: 0x"); hardfault_uart_print_hex(fault_regs.hfsr); hardfault_uart_print(b"\r\n");
+        hardfault_uart_print(b"DFSR: 0x"); hardfault_uart_print_hex(fault_regs.dfsr); hardfault_uart_print(b"\r\n");
+        if fault_regs.cfsr & 0x0080 != 0 {
+            hardfault_uart_print(b"MMFAR: 0x"); hardfault_uart_print_hex(fault_regs.mmfar); hardfault_uart_print(b"\r\n");
+        }
+        if fault_regs.cfsr & 0x8000 != 0 {
+            hardfault_uart_print(b"BFAR: 0x"); hardfault_uart_print_hex(fault_regs.bfar); hardfault_uart_print(b"\r\n");
+        }
+        hardfault_uart_print(b"******************\r\n");
+    }
+
     // Store in static variables for debugger inspection
     static mut LAST_EXCEPTION_FRAME: Option<ExceptionFrame> = None;
     static mut LAST_FAULT_REGISTERS: Option<FaultRegisters> = None;
-    
+
     unsafe {
         LAST_EXCEPTION_FRAME = Some(*frame);
         LAST_FAULT_REGISTERS = Some(fault_regs);
     }
-    
-    
+
     // Breakpoint for debugger
     // When debugger stops here, inspect:
     // - frame: r0-r3, r12, lr, pc, xpsr
     // - fault_regs: cfsr, hfsr, dfsr, mmfar, bfar, afsr
-    // - _fault_cause: human-readable description
+    // - fault_cause: human-readable description
     unsafe {
         core::arch::asm!("bkpt #0");
     }
