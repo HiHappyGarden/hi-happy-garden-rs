@@ -38,7 +38,7 @@ use crate::traits::wifi::WifiStatus::Disconnected;
 
 const APP_TAG: &str = "WIFI";
 const THREAD_NAME: &str = "wifi_trd";
-const STACK_SIZE: StackType = 1_536; // 1.5KB stack size, adjust as needed
+const STACK_SIZE: StackType = 4_096; // 16KB stack size (NTP sync + mutex + formatting require large stack)
 const MAX_ERROR: StackType = 5;
 
 static mut SSID: Bytes<32> = Bytes::new();

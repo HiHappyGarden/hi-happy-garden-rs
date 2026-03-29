@@ -23,7 +23,7 @@
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-use osal_rs::log_info;
+use osal_rs::{log_error, log_info};
 use osal_rs::utils::{AsSyncStr, Bytes, Error, Result};
 
 use core::ffi::c_int;
@@ -558,7 +558,7 @@ impl Filesystem {
             log_info!(APP_TAG, "Filesystem mounted");
             Ok(())
         } else {
-            log_info!(APP_TAG, "Filesystem mount failed");
+            log_error!(APP_TAG, "Filesystem mount failed");
             Err(Error::Unhandled("Filesystem mount failed"))
         }
     }
