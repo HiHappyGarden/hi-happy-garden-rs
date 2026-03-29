@@ -25,6 +25,7 @@ use osal_rs::utils::Result;
 use crate::apps::config::Config;
 use crate::apps::display::{Display};
 use crate::apps::parser::Parser;
+use crate::apps::session::Session;
 use crate::apps::signals::error::ErrorSignal;
 use crate::apps::wifi::WifiApp;
 use crate::drivers::platform::{Hardware, LCDDisplay};
@@ -41,6 +42,7 @@ pub struct AppMain {
     display: Display<LCDDisplay>,
     wifi: WifiApp<'static>,
     parser: Parser,
+    session: Session,
 }
 
 
@@ -53,6 +55,7 @@ impl Initializable for AppMain{
 
         self.config.init()?;
         self.parser.init()?;
+        self.session.init()?;
         self.wifi.init()?;
         self.display.init()?;
         self.display.set_enabled_wifi(self.config.get_wifi_config().is_enabled());
@@ -64,16 +67,20 @@ impl Initializable for AppMain{
             let wifi_ptr = &raw mut self.wifi;
             let config_ptr = &raw const self.config;
             let parser_ptr = &raw const self.parser;
+            let session_ptr = &raw mut self.session;
             let hardware_ptr = &raw mut self.hardware;
             
+
+            // Set users for session
+            (*config_ptr).set_users(&mut *session_ptr);
             
             // Set RTC for wifi
             (*wifi_ptr).set_rtc((*hardware_ptr).get_rtc());
             
             // Set hardware callbacks - convert raw pointers to 'static references
             (*hardware_ptr).set_button_handler(&*display_ptr);
-            (*hardware_ptr).set_encoder_handler(&*display_ptr);
-            
+            (*hardware_ptr).set_encoder_handler(&*display_ptr);            
+
             // Set wifi configuration
             (*wifi_ptr).set_ntp_config(&*config_ptr);
             (*hardware_ptr).set_on_wifi_change_status(&mut *wifi_ptr);
@@ -107,6 +114,7 @@ impl AppMain {
             display,
             wifi: WifiApp::new(),
             parser: Parser::new(),
+            session: Session::new(),
         }
     }
 }

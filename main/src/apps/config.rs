@@ -31,6 +31,7 @@ use osal_rs::{log_info, log_warning};
 
 use osal_rs_serde::{Deserialize, Serialize};
 
+use crate::apps::session::{Session, User};
 use crate::drivers::date_time::DateTime;
 use crate::drivers::filesystem::{FileBytes, Filesystem, open_flags};
 use crate::drivers::network::Network;
@@ -71,10 +72,7 @@ static mut CONFIG: Config = Config {
         end_hour: 3,
         enabled: false,
     },
-    users: [UserConfig {
-        user: Bytes::new(),
-        password: Bytes::new(),
-    }; 2],
+    users: [User::new(); 2],
     wifi: WifiConfig {
         ssid: Bytes::new(),
         password: Bytes::new(),
@@ -244,48 +242,6 @@ impl NtpConfig {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy)]
-pub struct UserConfig {
-    user: Bytes<32>,
-    password: Bytes<32>,
-}
-
-impl Default for UserConfig {
-    fn default() -> Self {
-        Self {
-            user: Bytes::new(),
-            password: Bytes::new(),
-        }
-    }
-}
-
-impl UserConfig {
-    pub fn get_user(&self) -> &Bytes<32> {
-        mutex().lock();
-        let user = &self.user;
-        mutex().unlock();
-        user
-    }
-
-    pub fn get_password(&self) -> &Bytes<32> {
-        mutex().lock();
-        let password = &self.password;
-        mutex().unlock();
-        password
-    }
-
-    pub fn set_user(&mut self, user: Bytes<32>) {
-        mutex().lock();
-        self.user = user;
-        mutex().unlock();
-    }
-
-    pub fn set_password(&mut self, password: Bytes<32>) {
-        mutex().lock();
-        self.password = password;
-        mutex().unlock();
-    }
-}
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct Config {
@@ -293,7 +249,7 @@ pub struct Config {
     serial: Bytes<16>,
     timezone: i16,
     daylight_saving_time: DaylightSavingTime,
-    users: [UserConfig; 2],
+    users: [User; Session::MAX_USERS],
     wifi: WifiConfig,
     ntp: NtpConfig,
 }
@@ -305,7 +261,7 @@ impl Default for Config {
             serial: Bytes::new(),
             timezone: 0,
             daylight_saving_time: Default::default(),
-            users: [Default::default(); 2],
+            users: [Default::default(); Session::MAX_USERS],
             wifi: Default::default(),
             ntp: Default::default(),
         }
@@ -517,7 +473,7 @@ impl Config {
         mutex().unlock();
     }
 
-    pub fn set_user(&mut self, index: usize, user: UserConfig) {
+    pub fn set_user(&mut self, index: usize, user: User) {
         mutex().lock();
         if index < self.users.len() {
             self.users[index] = user;
@@ -525,7 +481,7 @@ impl Config {
         mutex().unlock();
     }
 
-    pub fn get_user(&self, index: usize) -> Result<&UserConfig> {
+    pub fn get_user(&self, index: usize) -> Result<&User> {
         mutex().lock();
         if index < self.users.len() {
             let user = &self.users[index];
@@ -535,6 +491,12 @@ impl Config {
             mutex().unlock();
             Err(Error::OutOfIndex)
         }
+    }
+
+    pub fn set_users(&self, users: &mut Session) {
+        mutex().lock();
+        users.set_users(&self.users);
+        mutex().unlock();
     }
 
     pub fn get_ntp_config(&self) -> &NtpConfig {
