@@ -4,7 +4,8 @@
 
 # Install pkg
 ```
-sudo apt install python3 git tar build-essential cmake gcc-arm-none-eabi libusb-1.0-0
+sudo apt install python3 git tar build-essential cmake gcc-arm-none-eabi libusb-1.0-0 libftdi1 gdb-multiarch libftdi1-2 libhidapi-hidraw0
+
 ```
 
 # Default Parameters Configuration via CMake
