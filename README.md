@@ -2,6 +2,11 @@
 
 # TODO
 
+# Install pkg
+```
+sudo apt install python3 git tar build-essential cmake gcc-arm-none-eabi libusb-1.0-0
+```
+
 # Default Parameters Configuration via CMake
 
 ## Overview
