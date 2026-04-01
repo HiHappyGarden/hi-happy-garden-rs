@@ -70,10 +70,8 @@ impl Initializable for AppMain{
             let session_ptr = &raw mut self.session;
             let hardware_ptr = &raw mut self.hardware;
             
-
-            // Set users for session
-            (*config_ptr).set_users(&mut *session_ptr);
             
+
             // Set RTC for wifi
             (*wifi_ptr).set_rtc((*hardware_ptr).get_rtc());
             

@@ -158,18 +158,18 @@ impl Initializable for Session {
 
 
 impl Session {
-    const AT_CMD: &'static str = "AT+SESSION";
+    pub const AT_CMD: &'static str = "AT+SESSION";
     pub const MAX_USERS : usize = 2;
 
     pub const fn new() -> Self {
         Self ([User::new(); Session::MAX_USERS])
     }
 
-    #[inline]
     pub fn set_users(&mut self, users: &[User; Session::MAX_USERS]) {
-        self.0 = users.clone();
+        for (i, user) in users.iter().enumerate() {
+            self.0[i] = *user;
+        }
     }
-
 
     pub fn login(&mut self, user: User) {
         unsafe { USER_LOGGED = Some(user); }
@@ -181,6 +181,10 @@ impl Session {
 
     pub fn get_logged_user(&self) -> Option<User> {
         unsafe { USER_LOGGED }
+    }
+
+    pub(super) fn get_user_logged(&self) -> Option<User> {
+        unsafe { *&raw const USER_LOGGED }.clone()
     }
 
 }

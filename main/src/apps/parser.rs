@@ -18,11 +18,17 @@
  *
  ***************************************************************************/
 
-use osal_rs::{access_static_option, log_debug, log_error};
-use osal_rs::os::{Queue, QueueFn, Thread, ThreadFn};
+use core::str::from_utf8;
+
+use alloc::sync::Arc;
+use at_parser_rs::context::AtContext;
+use at_parser_rs::parser::AtParser;
+use osal_rs::{access_static_option, log_debug, log_error, println};
+use osal_rs::os::{Mutex, MutexFn, Queue, QueueFn, Thread, ThreadFn};
 use osal_rs::os::types::{StackType, TickType, UBaseType};
 use osal_rs::utils::{Error, Result};
 
+use crate::apps::session::Session;
 use crate::drivers::platform::ThreadPriority;
 use crate::traits::rx_tx::{OnReceive, Source};
 use crate::traits::state::Initializable;
@@ -41,9 +47,12 @@ pub(super) const CMD_SIZE : usize = 64;
 pub(super) const RESPONSE_OK: &str = "OK";
 pub(super) const RESPONSE_KO: &str = "KO";
 
+
+
+
 pub(super) struct Parser {
     thread: Thread,
-
+    session: Arc<Mutex<Option<Session>>>,
 }
 
 impl OnReceive for Parser {
@@ -71,10 +80,24 @@ impl Initializable for Parser {
             return Err(Error::OutOfMemory)
         }
 
+        let session = Arc::clone(&self.session);
+
         self.thread.spawn_simple(move || {
             
-        let mut buffer = [0u8; BUFFER_SIZE];
-        let mut buffer_count = 0;
+            let mut parser: AtParser<dyn AtContext<CMD_SIZE>, CMD_SIZE> = AtParser::new();
+
+            let mut binding = session.lock().unwrap();
+            let session = binding.as_mut().unwrap();
+
+            let commands: &mut [(&str, &mut dyn AtContext<CMD_SIZE>)] = &mut [
+                (Session::AT_CMD, session),
+                //("AT+RST", &mut reset),
+            ];
+
+            parser.set_commands(commands);
+
+            let mut buffer = [0u8; BUFFER_SIZE];
+            let mut buffer_count = 0;
 
             loop {
 
@@ -97,9 +120,14 @@ impl Initializable for Parser {
                         buffer_count -= 1; 
                     }
                     
-                    let src = access_static_option!(SOURCE);
+                    let _src = access_static_option!(SOURCE);
 
-                    log_debug!(APP_TAG, "Received data from {:?}: {:?}", src, &buffer[..buffer_count]);
+                    let cmd = from_utf8(&buffer[..buffer_count]).unwrap_or("<invalid utf-8>");
+
+                    match parser.execute(cmd) {
+                        Ok(response) => println!("Response: {}", response),  
+                        Err(e) => println!("Error: {:?}", e),
+                    }
 
                     buffer.fill(0);
                     buffer_count = 0;
@@ -118,7 +146,12 @@ impl Initializable for Parser {
 impl Parser {
     pub(super) fn new() -> Self {
         Self {
-            thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal)
+            thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),
+            session: Arc::new(Mutex::new(None)),
         }
+    }
+
+    pub(super) fn set_session(&mut self, session: Arc<Mutex<Option<Session>>>) {
+        self.session = session;
     }
 }

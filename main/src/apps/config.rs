@@ -336,6 +336,8 @@ impl Config {
         );
     }
 
+    pub fn set_session() {  } 
+
     pub const fn new() -> &'static mut Self {
         unsafe { &mut *&raw mut CONFIG }
     }
@@ -491,12 +493,6 @@ impl Config {
             mutex().unlock();
             Err(Error::OutOfIndex)
         }
-    }
-
-    pub fn set_users(&self, users: &mut Session) {
-        mutex().lock();
-        users.set_users(&self.users);
-        mutex().unlock();
     }
 
     pub fn get_ntp_config(&self) -> &NtpConfig {
