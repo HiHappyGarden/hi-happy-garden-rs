@@ -31,9 +31,9 @@ use osal_rs::{log_info, log_warning};
 
 use osal_rs_serde::{Deserialize, Serialize};
 
-use crate::apps::session::{Session, User};
+use crate::apps::session::Session;
 use crate::drivers::date_time::DateTime;
-use crate::drivers::filesystem::{FileBytes, Filesystem, open_flags};
+use crate::drivers::filesystem::{FileBytes, Filesystem, flags};
 use crate::drivers::network::Network;
 use crate::drivers::platform::{FS_CONFIG_DIR, FS_SEPARATOR_DIR};
 use crate::drivers::wifi::{Auth, Wifi};
@@ -72,7 +72,7 @@ static mut CONFIG: Config = Config {
         end_hour: 3,
         enabled: false,
     },
-    users: [User::new(); 2],
+    session: Session::new(),
     wifi: WifiConfig {
         ssid: Bytes::new(),
         password: Bytes::new(),
@@ -249,7 +249,7 @@ pub struct Config {
     serial: Bytes<16>,
     timezone: i16,
     daylight_saving_time: DaylightSavingTime,
-    users: [User; Session::MAX_USERS],
+    session: Session,
     wifi: WifiConfig,
     ntp: NtpConfig,
 }
@@ -261,7 +261,7 @@ impl Default for Config {
             serial: Bytes::new(),
             timezone: 0,
             daylight_saving_time: Default::default(),
-            users: [Default::default(); Session::MAX_USERS],
+            session: Default::default(),
             wifi: Default::default(),
             ntp: Default::default(),
         }
@@ -336,8 +336,6 @@ impl Config {
         );
     }
 
-    pub fn set_session() {  } 
-
     pub const fn new() -> &'static mut Self {
         unsafe { &mut *&raw mut CONFIG }
     }
@@ -349,14 +347,14 @@ impl Config {
 
         let mut file = match Filesystem::open_with_as_sync_str(
             &file_name,
-            open_flags::RDWR | open_flags::CREAT,
+            flags::RDWR | flags::CREAT,
         ) {
             Ok(file) => file,
             Err(e @ Error::ReturnWithCode(-2)) => {
                 log_info!(APP_TAG, "Failed to open config file: {e}, try to create it");
                 Filesystem::open_with_as_sync_str(
                     &file_name,
-                    open_flags::WRONLY | open_flags::CREAT,
+                    flags::WRONLY | flags::CREAT,
                 )?
             }
             Err(e) => return Err(e),
@@ -421,14 +419,14 @@ impl Config {
 
                     let mut file = match Filesystem::open_with_as_sync_str(
                         &file_name,
-                        open_flags::WRONLY | open_flags::CREAT,
+                        flags::WRONLY | flags::CREAT,
                     ) {
                         Ok(file) => file,
                         Err(e @ Error::ReturnWithCode(-2)) => {
                             log_info!(APP_TAG, "Failed to open config file: {e}, try to create it");
                             Filesystem::open_with_as_sync_str(
                                 &file_name,
-                                open_flags::WRONLY | open_flags::CREAT,
+                                flags::WRONLY | flags::CREAT,
                             )?
                         }
                         Err(e) => return Err(e),
@@ -475,26 +473,6 @@ impl Config {
         mutex().unlock();
     }
 
-    pub fn set_user(&mut self, index: usize, user: User) {
-        mutex().lock();
-        if index < self.users.len() {
-            self.users[index] = user;
-        }
-        mutex().unlock();
-    }
-
-    pub fn get_user(&self, index: usize) -> Result<&User> {
-        mutex().lock();
-        if index < self.users.len() {
-            let user = &self.users[index];
-            mutex().unlock();
-            Ok(user)
-        } else {
-            mutex().unlock();
-            Err(Error::OutOfIndex)
-        }
-    }
-
     pub fn get_ntp_config(&self) -> &NtpConfig {
         mutex().lock();
         let ntp = &self.ntp;
@@ -502,10 +480,17 @@ impl Config {
         ntp
     }
 
-    pub fn get_wifi_config(&self) -> &WifiConfig {
+    pub fn get_wifi_config(&mut self) -> &mut WifiConfig {
         mutex().lock();
-        let wifi = &self.wifi;
+        let wifi = &mut self.wifi;
         mutex().unlock();
         wifi
+    }
+
+    pub fn get_session_mut(&mut self) -> &mut Session {
+        mutex().lock();
+        let session = &mut self.session;
+        mutex().unlock();
+        session
     }
 }

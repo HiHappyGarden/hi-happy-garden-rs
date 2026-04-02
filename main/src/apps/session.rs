@@ -21,13 +21,11 @@
 
 use alloc::str;
 use at_parser_rs::{AtError, AtResult, context::AtContext};
-use osal_rs::{log_info};
 use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
-use crate::apps::parser::{CMD_SIZE, RESPONSE_OK};
+use crate::apps::parser::{CMD_SIZE};
 use crate::drivers::encrypt::{EncryptGeneric}; 
-use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "AppSession";
 static mut USER_LOGGED: Option<User> = None;
@@ -52,12 +50,14 @@ impl AtContext<{CMD_SIZE}> for User {
 
     fn query(&mut self) -> AtResult<{CMD_SIZE}> {
         let mut response = Bytes::<CMD_SIZE>::new();
-        response.format(format_args!("USER: {},{}", self.user.as_str(), self.password.as_str()));
+        response.format(format_args!("{}{},{}", Self::AT_RESP, self.user.as_str(), self.password.as_str()));
         Ok(response)
     }
 
     fn test(&mut self) -> AtResult<{CMD_SIZE}> {
-        Ok(Bytes::from_str("USER: <user>,<password>"))
+        let mut response = Bytes::<CMD_SIZE>::new();
+        response.format(format_args!("{}<user>,<password>", Self::AT_RESP));
+        Ok(response)
     }
     
     fn set(&mut self, args: at_parser_rs::Args) -> AtResult<{CMD_SIZE}> {
@@ -72,14 +72,14 @@ impl AtContext<{CMD_SIZE}> for User {
             return Err(AtError::InvalidArgs);
         }
 
-        Ok(Bytes::from_str(RESPONSE_OK))
+        Ok(Bytes::new())
     }
 }
 
 impl User {
 
-    const AT_CMD: &'static str = "AT+USER";
-
+    const AT_CMD: &'static str = "AT+USR";
+    pub const AT_RESP: &'static str = "+USR: ";
     pub const fn new() -> Self {
         Self { 
             user: Bytes::new(),
@@ -93,7 +93,7 @@ impl User {
     }
 }
 
-
+#[derive(Serialize, Deserialize, Clone, Copy)]
 pub(super) struct Session ([User; Session::MAX_USERS]);
 
 impl AtContext<{CMD_SIZE}> for Session {
@@ -106,7 +106,7 @@ impl AtContext<{CMD_SIZE}> for Session {
         for User{user, password: pwd} in self.0.iter() {
             if *user == unsafe { USER_TMP }.user && pwd.as_str() == password.as_str() {
                 unsafe { USER_LOGGED = Some(USER_TMP); }
-                return Ok(Bytes::from_str(RESPONSE_OK));
+                return Ok(Bytes::new());
             }
         }
 
@@ -116,13 +116,15 @@ impl AtContext<{CMD_SIZE}> for Session {
     fn query(&mut self) -> AtResult<{CMD_SIZE}> {
         let mut response = Bytes::<CMD_SIZE>::new();
         
-        response.format(format_args!("SESSION: {}", if unsafe { &*&raw const USER_LOGGED }.is_some() { "LOGGED" } else { "NO_LOGGED" }));
+        response.format(format_args!("{}{}", Self::AT_RESP, if unsafe { &*&raw const USER_LOGGED }.is_some() { "LOGGED" } else { "NO_LOGGED" }));
         
         Ok(response)
     }
 
     fn test(&mut self) -> AtResult<{CMD_SIZE}> {
-        Ok(Bytes::from_str("SESSION: <user>,<password>"))
+        let mut response = Bytes::<CMD_SIZE>::new();
+        response.format(format_args!("{}<user>,<password>", Self::AT_RESP));
+        Ok(response)
     }
 
     fn set(&mut self, args: at_parser_rs::Args) -> AtResult<{CMD_SIZE}> {
@@ -143,22 +145,20 @@ impl AtContext<{CMD_SIZE}> for Session {
             return Err(AtError::InvalidArgs);
         }
 
-        Ok(Bytes::from_str(RESPONSE_OK))
+        Ok(Bytes::new())
     }
 }
 
 
-impl Initializable for Session {
-    fn init(&mut self) -> Result<()> {
-        log_info!(APP_TAG, "Init app session");
-        
-        Ok(())
+impl Default for Session {
+    fn default() -> Self {
+        Self::new()
     }
 }
-
 
 impl Session {
-    pub const AT_CMD: &'static str = "AT+SESSION";
+    pub const AT_CMD: &'static str = "AT+SESS";
+    pub const AT_RESP: &'static str = "+SESS: ";
     pub const MAX_USERS : usize = 2;
 
     pub const fn new() -> Self {

@@ -115,7 +115,7 @@ impl EntryType {
 
 
 /// File open flags
-pub mod open_flags {
+pub mod flags {
     pub const RDONLY: i32 = 0x0001;
     pub const WRONLY: i32 = 0x0002;
     pub const RDWR: i32 = 0x0003;
@@ -274,7 +274,7 @@ impl File {
 
                 let buffer_sha256 = EncryptGeneric::get_sha256(buffer)?;
 
-                let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), open_flags::WRONLY | open_flags::CREAT)?;
+                let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), flags::WRONLY | flags::CREAT)?;
                 file_sha.write_with_as_sync_str(&buffer_sha256, false)?;
             }
 
@@ -291,7 +291,7 @@ impl File {
                 let mut buffer_sha_file =  self.name.clone();
                 buffer_sha_file.append_str(".sha256");
                 let buffer_sha256 = EncryptGeneric::get_sha256(buffer)?;
-                let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), open_flags::WRONLY | open_flags::CREAT)?;
+                let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), flags::WRONLY | flags::CREAT)?;
                 file_sha.write_with_as_sync_str(&buffer_sha256, false)?;
             }
 
@@ -332,7 +332,7 @@ impl File {
                 let mut buffer_sha_file =  self.name.clone();
                 buffer_sha_file.append_str(".sha256");
 
-                let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), open_flags::RDONLY)?;
+                let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), flags::RDONLY)?;
                 let sha256_stored = file_sha.read(false)?;
                 let sha256_computed = EncryptGeneric::get_sha256(&decrypted_buffer)?;
 
@@ -356,7 +356,7 @@ impl File {
                 let mut buffer_sha_file =  self.name.clone();
                 buffer_sha_file.append_str(".sha256");
 
-                let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), open_flags::RDONLY)?;
+                let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), flags::RDONLY)?;
                 let sha256_stored = file_sha.read(false)?;
                 let sha256_computed = EncryptGeneric::get_sha256(&decrypted_buffer)?;
 
