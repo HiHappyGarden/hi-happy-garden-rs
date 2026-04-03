@@ -62,13 +62,16 @@ impl Initializable for AppMain{
         unsafe {
             let display_ptr = &raw const self.display;
             let wifi_ptr = &raw mut self.wifi;
-            let parser_ptr = &raw const self.parser;
+            let parser_ptr = &raw mut self.parser;
             let hardware_ptr = &raw mut self.hardware;
             
             
 
             // Set RTC for wifi
             (*wifi_ptr).set_rtc((*hardware_ptr).get_rtc());
+
+            // Set transmit function pointer on parser 
+            (*parser_ptr).set_transmit(&**hardware_ptr);
             
             // Set hardware callbacks - convert raw pointers to 'static references
             (*hardware_ptr).set_button_handler(&*display_ptr);

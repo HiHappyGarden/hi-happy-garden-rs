@@ -42,6 +42,6 @@ pub trait SetOnReceive<'a> {
     fn set_on_receive(&mut self, on_receive: &'a dyn OnReceive);
 }
 
-pub trait SetTransmit {
+pub trait SetTransmit: Send + Sync {
     fn transmit(&self, data: &[u8]) -> usize;
 }

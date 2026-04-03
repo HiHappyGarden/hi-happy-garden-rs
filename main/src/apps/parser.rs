@@ -22,7 +22,7 @@ use core::str::from_utf8;
 
 use at_parser_rs::context::AtContext;
 use at_parser_rs::parser::AtParser;
-use osal_rs::{access_static_option, log_error, println};
+use osal_rs::{access_static_option, log_error};
 use osal_rs::os::{Queue, QueueFn, Thread, ThreadFn};
 use osal_rs::os::types::{StackType, TickType, UBaseType};
 use osal_rs::utils::{Error, Result};
@@ -30,7 +30,7 @@ use osal_rs::utils::{Error, Result};
 use crate::apps::config::Config;
 use crate::apps::session::Session;
 use crate::drivers::platform::ThreadPriority;
-use crate::traits::rx_tx::{OnReceive, Source};
+use crate::traits::rx_tx::{OnReceive, SetTransmit, Source};
 use crate::traits::state::Initializable;
 
 
@@ -42,10 +42,9 @@ const BUFFER_SIZE: usize = 256;
 const QUEUE_SIZE: UBaseType = 64;
 static mut QUEUE: Option<Queue> = None;
 static mut SOURCE: Option<Source> = None;
+static mut TRANSMIT: Option<&'static dyn SetTransmit> = None;
 
 pub(super) const CMD_SIZE : usize = 64;
-const RESPONSE_OK: &str = "OK";
-const RESPONSE_KO: &str = "KO";
 
 
 
@@ -123,13 +122,20 @@ impl Initializable for Parser {
                     
                     match parser.execute(cmd) {
                         Ok(response) => {
-                            if response.is_empty() {
-                                println!("{}\r\n", RESPONSE_OK);
-                            } else {
-                                println!("{}\r\n{}\r\n", response, RESPONSE_OK);
+                            if let Some(transmit) = unsafe { &*&raw const TRANSMIT } {
+                                if response.is_empty() {
+                                    transmit.transmit(b"OK\r\n");
+                                } else {
+                                    transmit.transmit(response.as_raw_bytes());
+                                    transmit.transmit(b"\r\nOK\r\n");
+                                }
                             }
                         }
-                        Err(_) => println!("{}\r\n", RESPONSE_KO),   
+                        Err(_) => {
+                            if let Some(transmit) = unsafe { &*&raw const TRANSMIT } {
+                                transmit.transmit(b"KO\r\n");
+                            }
+                        }
                     }
 
                     buffer.fill(0);
@@ -147,6 +153,12 @@ impl Initializable for Parser {
 }
 
 impl Parser {
+    pub(super) fn set_transmit(&mut self, transmit: &'static dyn SetTransmit) {
+        unsafe {
+            TRANSMIT = Some(transmit);
+        }
+    }
+
     pub(super) fn new() -> Self {
         Self {
             thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),
