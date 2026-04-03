@@ -42,7 +42,6 @@ const BUFFER_SIZE: usize = 256;
 const QUEUE_SIZE: UBaseType = 64;
 static mut QUEUE: Option<Queue> = None;
 static mut SOURCE: Option<Source> = None;
-static mut TRANSMIT: Option<&'static dyn SetTransmit> = None;
 
 pub(super) const CMD_SIZE : usize = 64;
 
@@ -51,7 +50,6 @@ pub(super) const CMD_SIZE : usize = 64;
 
 pub(super) struct Parser {
     thread: Thread,
-
 }
 
 impl OnReceive for Parser {
@@ -79,7 +77,14 @@ impl Initializable for Parser {
             return Err(Error::OutOfMemory)
         }
 
-        self.thread.spawn_simple(move || {
+        Ok(())
+    }
+}
+
+impl Parser {
+    pub(super) fn set_transmit(&mut self, transmit: &'static dyn SetTransmit) {
+
+        let _ = self.thread.spawn_simple(move || {
             
             let mut parser: AtParser<dyn AtContext<CMD_SIZE>, CMD_SIZE> = AtParser::new();
 
@@ -122,19 +127,15 @@ impl Initializable for Parser {
                     
                     match parser.execute(cmd) {
                         Ok(response) => {
-                            if let Some(transmit) = unsafe { &*&raw const TRANSMIT } {
-                                if response.is_empty() {
-                                    transmit.transmit(b"OK\r\n");
-                                } else {
-                                    transmit.transmit(response.as_raw_bytes());
-                                    transmit.transmit(b"\r\nOK\r\n");
-                                }
+                            if response.is_empty() {
+                                transmit.transmit(b"OK\r\n");
+                            } else {
+                                transmit.transmit(response.as_raw_bytes());
+                                transmit.transmit(b"\r\nOK\r\n");
                             }
                         }
                         Err(_) => {
-                            if let Some(transmit) = unsafe { &*&raw const TRANSMIT } {
                                 transmit.transmit(b"KO\r\n");
-                            }
                         }
                     }
 
@@ -146,23 +147,12 @@ impl Initializable for Parser {
 
                 }
             }
-        })?;
-
-        Ok(())
-    }
-}
-
-impl Parser {
-    pub(super) fn set_transmit(&mut self, transmit: &'static dyn SetTransmit) {
-        unsafe {
-            TRANSMIT = Some(transmit);
-        }
+        });
     }
 
     pub(super) fn new() -> Self {
         Self {
             thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),
-
         }
     }
 
