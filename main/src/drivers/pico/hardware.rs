@@ -48,7 +48,7 @@ use crate::traits::button::{OnClickable, SetClickable as ButtonOnClickable};
 use crate::traits::encoder::{OnRotatableAndClickable as EncoderOnRotatableAndClickable, SetRotatableAndClickable};
 use crate::traits::hardware::HardwareFn;
 use crate::traits::rtc::RTC as RTCFn;
-use crate::traits::rx_tx::{OnReceive, SetOnReceive};
+use crate::traits::rx_tx::{OnReceive, SetOnReceive, SetTransmit};
 use crate::traits::state::Initializable;
 use crate::traits::wifi::{OnWifiChangeStatus, SetOnWifiChangeStatus};
 
@@ -192,18 +192,30 @@ impl RelaysFn for Hardware {
 
 impl SetOnWifiChangeStatus<'static> for Hardware {
 
+    #[inline]
     fn set_on_wifi_change_status(&mut self, on_wifi_change_status: &'static dyn OnWifiChangeStatus) {
         self.wifi.set_on_wifi_change_status(on_wifi_change_status);
     }
 }
 
 impl SetOnReceive<'static> for Hardware {
+
+    #[inline]
     fn set_on_receive(&mut self, on_receive: &'static dyn OnReceive) {
         self.uart.add_listener(on_receive);
     }
 }
 
+impl SetTransmit for Hardware {
+
+    #[inline]
+    fn transmit(&self, data: &[u8]) -> usize {
+        self.uart.transmit(data)
+    }
+}
+
 impl HardwareFn<'static> for Hardware {
+
     #[inline]
     fn set_button_handler(&mut self, clickable: &'static dyn OnClickable) {
         self.button.set_on_click(clickable);
@@ -235,6 +247,7 @@ impl HardwareFn<'static> for Hardware {
         id_buffer
     }
 
+    #[inline]
     fn get_rtc(&self) -> Arc<Mutex<dyn RTCFn + 'static>> {
         self.rtc.clone()
     }
@@ -261,6 +274,7 @@ impl Hardware {
         }
     }
 
+    #[inline]
     pub fn get_lcd_display(&mut self) -> LCDDisplay {
         self.display.clone()
     }

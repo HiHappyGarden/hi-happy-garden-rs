@@ -26,7 +26,7 @@ use crate::apps::config::Config;
 use crate::apps::display::{Display};
 use crate::apps::parser::Parser;
 use crate::apps::signals::error::ErrorSignal;
-use crate::apps::wifi::WifiApp;
+use crate::apps::wifi::Wifi;
 use crate::drivers::platform::{Hardware, LCDDisplay};
 use crate::traits::hardware::HardwareFn;
 use crate::traits::rx_tx::SetOnReceive;
@@ -37,9 +37,8 @@ const APP_TAG: &str = "AppMain";
 
 pub struct AppMain {
     hardware: &'static mut Hardware,
-    config: &'static mut Config,
     display: Display<LCDDisplay>,
-    wifi: WifiApp<'static>,
+    wifi: Wifi,
     parser: Parser,
 }
 
@@ -50,39 +49,41 @@ impl Initializable for AppMain{
 
         ErrorSignal::init()?;
 
+        let config = Config::new();
 
-        self.config.init()?;
+        config.init()?;
         self.parser.init()?;
         self.wifi.init()?;
         self.display.init()?;
-        self.display.set_enabled_wifi(self.config.get_wifi_config().is_enabled());
+        self.display.set_enabled_wifi(config.get_wifi_config().is_enabled());
 
         // SAFETY: AppMain lives in static mut APP_MAIN, initialized once at startup.
         // We use raw pointers to avoid borrow checker issues, then convert to 'static refs.
         unsafe {
             let display_ptr = &raw const self.display;
             let wifi_ptr = &raw mut self.wifi;
-            let config_ptr = &raw const self.config;
-            let parser_ptr = &raw const self.parser;
+            let parser_ptr = &raw mut self.parser;
             let hardware_ptr = &raw mut self.hardware;
             
             
 
             // Set RTC for wifi
             (*wifi_ptr).set_rtc((*hardware_ptr).get_rtc());
+
+            // Set transmit function pointer on parser 
+            (*parser_ptr).set_transmit(&**hardware_ptr);
             
             // Set hardware callbacks - convert raw pointers to 'static references
             (*hardware_ptr).set_button_handler(&*display_ptr);
             (*hardware_ptr).set_encoder_handler(&*display_ptr);            
 
-            // Set wifi configuration
-            (*wifi_ptr).set_ntp_config(&*config_ptr);
+            // Set wifi configuration change callback
             (*hardware_ptr).set_on_wifi_change_status(&mut *wifi_ptr);
             (*hardware_ptr).set_on_receive(&*parser_ptr);
 
         }
 
-//test funzionalità
+        //test funzionalità
 
         // self.hardware.set_color(0, 0, 255); // Blue
 
@@ -104,9 +105,8 @@ impl AppMain {
         
         Self {
             hardware,
-            config: Config::new(),
             display,
-            wifi: WifiApp::new(),
+            wifi: Wifi::new(),
             parser: Parser::new(),
         }
     }

@@ -22,7 +22,7 @@ use core::str::from_utf8;
 
 use at_parser_rs::context::AtContext;
 use at_parser_rs::parser::AtParser;
-use osal_rs::{access_static_option, log_error, println};
+use osal_rs::{access_static_option, log_error};
 use osal_rs::os::{Queue, QueueFn, Thread, ThreadFn};
 use osal_rs::os::types::{StackType, TickType, UBaseType};
 use osal_rs::utils::{Error, Result};
@@ -30,7 +30,7 @@ use osal_rs::utils::{Error, Result};
 use crate::apps::config::Config;
 use crate::apps::session::Session;
 use crate::drivers::platform::ThreadPriority;
-use crate::traits::rx_tx::{OnReceive, Source};
+use crate::traits::rx_tx::{OnReceive, SetTransmit, Source};
 use crate::traits::state::Initializable;
 
 
@@ -44,15 +44,12 @@ static mut QUEUE: Option<Queue> = None;
 static mut SOURCE: Option<Source> = None;
 
 pub(super) const CMD_SIZE : usize = 64;
-const RESPONSE_OK: &str = "OK";
-const RESPONSE_KO: &str = "KO";
 
 
 
 
 pub(super) struct Parser {
     thread: Thread,
-
 }
 
 impl OnReceive for Parser {
@@ -80,7 +77,14 @@ impl Initializable for Parser {
             return Err(Error::OutOfMemory)
         }
 
-        self.thread.spawn_simple(move || {
+        Ok(())
+    }
+}
+
+impl Parser {
+    pub(super) fn set_transmit(&mut self, transmit: &'static dyn SetTransmit) {
+
+        let _ = self.thread.spawn_simple(move || {
             
             let mut parser: AtParser<dyn AtContext<CMD_SIZE>, CMD_SIZE> = AtParser::new();
 
@@ -124,12 +128,15 @@ impl Initializable for Parser {
                     match parser.execute(cmd) {
                         Ok(response) => {
                             if response.is_empty() {
-                                println!("{}\r\n", RESPONSE_OK);
+                                transmit.transmit(b"OK\r\n");
                             } else {
-                                println!("{}\r\n{}\r\n", response, RESPONSE_OK);
+                                transmit.transmit(response.as_raw_bytes());
+                                transmit.transmit(b"\r\nOK\r\n");
                             }
                         }
-                        Err(_) => println!("{}\r\n", RESPONSE_KO),   
+                        Err(_) => {
+                                transmit.transmit(b"KO\r\n");
+                        }
                     }
 
                     buffer.fill(0);
@@ -140,17 +147,12 @@ impl Initializable for Parser {
 
                 }
             }
-        })?;
-
-        Ok(())
+        });
     }
-}
 
-impl Parser {
     pub(super) fn new() -> Self {
         Self {
             thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),
-
         }
     }
 
