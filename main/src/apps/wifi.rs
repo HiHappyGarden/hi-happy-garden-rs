@@ -71,9 +71,9 @@ macro_rules! ntp_sync {
     };
 }
 
-pub struct WifiApp<'a>(Option<&'a Config>, Option<Arc<Mutex<dyn RTC + 'static>>>);
+pub struct Wifi(Option<Arc<Mutex<dyn RTC + 'static>>>);
 
-impl<'a> Initializable for WifiApp<'a> {
+impl Initializable for Wifi {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init app wifi");
 
@@ -81,29 +81,26 @@ impl<'a> Initializable for WifiApp<'a> {
     }
 }
 
-impl<'a> OnWifiChangeStatus for WifiApp<'a> {
+impl OnWifiChangeStatus for Wifi {
     fn on_status_change(&self, _: WifiStatus, status: WifiStatus) -> Result<()>  {
 
         unsafe {
             STATUS = status;
         }
 
+        let config = Config::new();
+
         match status {
-            Disabled | Enabled | Connecting | WaitForIp => { 
-                log_info!(APP_TAG, "Waiting for IP status: {status:?}");
-            }
+            Disabled | Enabled | Connecting | WaitForIp => log_info!(APP_TAG, "Waiting for IP status: {status:?}"),
             Connected => {
                 log_info!(APP_TAG, "Connected ip: {}", Network::dhcp_get_ip_address());
 
-                let timestamp = if let Some(config) = self.0 {
-                    ntp_sync!(APP_TAG, config)
-                } else {
-                    0
-                };
+                let timestamp = ntp_sync!(APP_TAG, config);
+                
 
                 if timestamp > 0 {
 
-                    match &self.1 {
+                    match &self.0 {
                         Some(rtc) => {
                             let dt = DateTime::from_timestamp_locale(timestamp, true);
                             set_app_error!(dt.clone(), ErrorFlag::NTP);
@@ -119,12 +116,8 @@ impl<'a> OnWifiChangeStatus for WifiApp<'a> {
                 }
                 
             },
-            Disconnected | Resetting => {
-                log_info!(APP_TAG, "Disconnected");
-            },
-            Error => {
-                log_info!(APP_TAG, "Error");
-            },
+            Disconnected | Resetting => log_info!(APP_TAG, "Disconnected"),
+            Error => log_info!(APP_TAG, "Error")
         };
         Ok(())
     }
@@ -134,9 +127,9 @@ impl<'a> OnWifiChangeStatus for WifiApp<'a> {
     }
 }
 
-impl<'a> WifiApp<'a> {
+impl Wifi {
     pub fn new() -> Self {
-        Self(None, None)
+        Self(None)
     }
 
     #[allow(dead_code)]
@@ -145,12 +138,7 @@ impl<'a> WifiApp<'a> {
         unsafe { STATUS }
     }
 
-    #[inline]
-    pub fn set_ntp_config(&mut self, config: &'a Config) {
-        self.0 = Some(config);
-    }
-
     pub fn set_rtc(&mut self, rtc: Arc<Mutex<dyn RTC + 'static>>) {
-        self.1 = Some(rtc);
+        self.0 = Some(rtc);
     }
 }
