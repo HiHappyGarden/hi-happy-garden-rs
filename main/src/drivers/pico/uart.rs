@@ -47,17 +47,6 @@ pub static mut UART_CONFIG: UartConfig = UartConfig {
     flow_control: UartFlowControl::None,
 };
 
-// #[allow(unsafe_op_in_unsafe_fn)]
-// unsafe extern "C" fn uart_isr() {
-
-//     while hhg_uart_is_readable() {
-//         if let Some(receiver) = *&raw const UART_FN.receive {
-//             if let Err(e) = receiver.post_from_isr(&[hhg_uart_getc()]) {
-//                 log_error!(APP_TAG, "Failed to post received byte to queue: {:?}", e);
-//             }
-//         }
-//     }
-// }
 
 #[allow(unsafe_op_in_unsafe_fn)]
 unsafe extern "C" fn uart_isr() {

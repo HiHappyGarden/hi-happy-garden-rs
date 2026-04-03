@@ -80,7 +80,7 @@ impl Initializable for AppMain{
 
         }
 
-//test funzionalità
+        //test funzionalità
 
         // self.hardware.set_color(0, 0, 255); // Blue
 
