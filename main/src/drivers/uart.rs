@@ -22,7 +22,7 @@
 use osal_rs::log_info;
 use osal_rs::utils::{Ptr, Result};
 
-use crate::traits::rx_tx::OnReceive; 
+use crate::traits::rx_tx::{OnReceive, SetTransmit}; 
 use crate::traits::state::Initializable;
 use crate::drivers::platform::{UART_FN, UART_CONFIG}; 
 
@@ -106,6 +106,13 @@ impl Initializable for Uart {
     }
 }
 
+
+impl SetTransmit for Uart {
+    fn transmit(&self, data: &[u8]) -> usize {
+        (self.functions.transmit)(data)
+    }
+}
+
 impl Uart {
     pub fn new() -> Self {
         Self { 
@@ -118,12 +125,7 @@ impl Uart {
         }
     }
 
-
     #[inline]
-    pub fn transmit(&self, data: &[u8]) -> usize {
-        (self.functions.transmit)(data)
-    }
-
     pub fn add_listener(&mut self, listener: &'static dyn OnReceive) {
         unsafe {
              UART_FN.add_listener = Some(listener);
