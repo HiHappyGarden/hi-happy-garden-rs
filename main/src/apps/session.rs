@@ -25,8 +25,9 @@ use at_parser_rs::context::AtContext;
 use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
+use crate::apps::config::Config;
 use crate::apps::parser::{CMD_SIZE, at_cmd_response};
-use crate::drivers::encrypt::{EncryptGeneric};
+use crate::drivers::encrypt::{EncryptGeneric, SHA256_RESULT_BYTES};
 
 const APP_TAG: &str = "AppSession";
 
@@ -38,7 +39,7 @@ static mut USER_TMP: User = User::new();
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub(super) struct User {
     email: Bytes<32>,
-    password: Bytes<32>,
+    password: Bytes<{SHA256_RESULT_BYTES * 2}>,
 }
 
 impl Default for User {
@@ -52,6 +53,20 @@ impl Default for User {
 
 impl AtContext<{CMD_SIZE}> for User {
 
+    fn exec(&mut self) -> AtResult<'_, {CMD_SIZE}> {
+        if unsafe { USER_LOGGED }.is_some() {
+            return Err(AtError::Unhandled("Not logged".into()));
+        }
+        
+        let config = Config::shared();
+
+        config.get_session().set_user(self);
+        config.apply_session();
+        self.clear();
+        
+        Ok(at_cmd_response!(Self::AT_RESP; ""))
+    }
+
     #[inline]
     fn query(&mut self) -> AtResult<'_, {CMD_SIZE}> {
         Ok(at_cmd_response!(Self::AT_RESP; self.email.as_str(), self.password.as_str()))
@@ -64,19 +79,24 @@ impl AtContext<{CMD_SIZE}> for User {
     
     fn set(&mut self, args: at_parser_rs::Args) -> AtResult<'_, {CMD_SIZE}> {
         if unsafe { USER_LOGGED }.is_some() {
-            return Err(AtError::InvalidArgs);
+            return Err(AtError::Unhandled("Not logged".into()));
         }
 
         let arg0 = args.get(0).ok_or(AtError::InvalidArgs)?;
-        let arg1 = args.get(1).ok_or(AtError::InvalidArgs)?;
-
-        if unsafe { &*&raw const USER_LOGGED }.is_some() {
-            self.email = Bytes::from_str(arg0);
-            self.password = Bytes::from_str(arg1);
-        } else {
-            return Err(AtError::InvalidArgs);
+        if arg0.len() > 32 {
+            return Err(AtError::Unhandled("Max len 32"));
         }
 
+        let arg1 = args.get(1).ok_or(AtError::InvalidArgs)?;
+        if arg1.len() > 32 {
+            return Err(AtError::Unhandled("Max len 32"));
+        }
+
+        let arg1 = EncryptGeneric::get_sha256(arg1.as_bytes()).map_err(|_| AtError::InvalidArgs)?;
+
+        self.email = Bytes::from_str(arg0);
+        self.password = Bytes::from_str(arg1.as_str());
+        
         Ok(at_cmd_response!(Self::AT_RESP; ""))
     }
 }
@@ -99,6 +119,10 @@ impl User {
         unsafe { &mut *&raw mut USER_LOCAL }
     }
 
+    fn clear(&mut self) {
+        self.email.clear();
+        self.password.clear();
+    }
 
 }
 
@@ -111,7 +135,7 @@ pub(super) struct Session ([User; Session::MAX_USERS]);
 
 impl AtContext<{CMD_SIZE}> for Session {
 
-    fn exec(&self) -> AtResult<'_, {CMD_SIZE}> {
+    fn exec(&mut self) -> AtResult<'_, {CMD_SIZE}> {
         
         let password =  EncryptGeneric::get_sha256(unsafe { USER_TMP }.password.as_str().as_bytes()).map_err(|_| AtError::InvalidArgs)?;
         

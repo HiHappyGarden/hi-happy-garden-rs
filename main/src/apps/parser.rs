@@ -89,7 +89,7 @@ impl Initializable for Parser {
 }
 
 impl Parser {
-    pub(super) fn set_transmit(&mut self, transmit: &'static dyn SetTransmit) {
+    pub(super) fn set_uart_transmit(&mut self, transmit: &'static dyn SetTransmit) {
 
         let _ = self.thread.spawn_simple(move || {
             

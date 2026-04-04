@@ -72,7 +72,7 @@ impl Initializable for AppMain{
             (*wifi_ptr).set_rtc((*hardware_ptr).get_rtc());
 
             // Set transmit function pointer on parser 
-            (*parser_ptr).set_transmit(&**hardware_ptr);
+            (*parser_ptr).set_uart_transmit(&**hardware_ptr);
             
             // Set hardware callbacks - convert raw pointers to 'static references
             (*hardware_ptr).set_button_handler(&*display_ptr);
