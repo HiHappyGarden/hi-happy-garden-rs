@@ -72,7 +72,7 @@ static mut CONFIG: Config = Config {
         end_hour: 3,
         enabled: false,
     },
-    session: Session::shared(),
+    session: Session::new(),
     wifi: WifiConfig {
         ssid: Bytes::new(),
         password: Bytes::new(),
