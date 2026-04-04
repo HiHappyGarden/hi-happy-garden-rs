@@ -58,7 +58,7 @@ impl<'a, const KEY_SIZE: usize, const IV_SIZE: usize> Initializable for Encrypt<
 }
 
 impl<'a, const KEY_SIZE: usize, const IV_SIZE: usize> Encrypt<'a, KEY_SIZE, IV_SIZE> {
-    pub const fn new(key: &'a [u8; KEY_SIZE], iv: &'a [u8; IV_SIZE]) -> Result<Self> {
+    pub const fn shared(key: &'a [u8; KEY_SIZE], iv: &'a [u8; IV_SIZE]) -> Result<Self> {
         if KEY_SIZE != 16 && KEY_SIZE != 24 && KEY_SIZE != 32 {
             return Err(Error::Unhandled("Invalid key size. Must be 16, 24, or 32 bytes."));
         }

@@ -72,7 +72,7 @@ static mut CONFIG: Config = Config {
         end_hour: 3,
         enabled: false,
     },
-    session: Session::new(),
+    session: Session::shared(),
     wifi: WifiConfig {
         ssid: Bytes::new(),
         password: Bytes::new(),
@@ -342,7 +342,7 @@ impl Config {
         self.session.set_user_local();
     }
 
-    pub const fn new() -> &'static mut Self {
+    pub const fn shared() -> &'static mut Self {
         unsafe { &mut *&raw mut CONFIG }
     }
 

@@ -184,7 +184,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
             let mut link_status = LinkStatus::Down;
 
-            let gpio = Gpio::new();
+            let gpio = Gpio::shared();
 
             let mut rssi_old : i8 = Unknown.into();
 
@@ -382,7 +382,7 @@ impl Wifi {
         }
     }
 
-    pub fn new() -> Self {
+    pub fn shared() -> Self {
         Self {
             handle: null_mut(),
             thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),

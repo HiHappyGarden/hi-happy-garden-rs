@@ -86,7 +86,7 @@ impl RgbLed {
             gpio_red_ref: GpioPeripheral::LedRed,
             gpio_green_ref: GpioPeripheral::LedGreen,
             gpio_blue_ref: GpioPeripheral::LedBlue,
-            gpio: Gpio::new(),
+            gpio: Gpio::shared(),
         }
     }
 }

@@ -236,7 +236,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 impl<T> Display<T> 
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
-    pub fn new(rtc: Arc<Mutex<dyn RTC>>, lcd: T) -> Self{
+    pub fn shared(rtc: Arc<Mutex<dyn RTC>>, lcd: T) -> Self{
         Self {
             rtc,
             lcd: Mutex::new_arc(lcd),

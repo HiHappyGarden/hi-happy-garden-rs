@@ -88,7 +88,7 @@ impl OnWifiChangeStatus for Wifi {
             STATUS = status;
         }
 
-        let config = Config::new();
+        let config = Config::shared();
 
         match status {
             Disabled | Enabled | Connecting | WaitForIp => log_info!(APP_TAG, "Waiting for IP status: {status:?}"),
@@ -128,7 +128,7 @@ impl OnWifiChangeStatus for Wifi {
 }
 
 impl Wifi {
-    pub fn new() -> Self {
+    pub fn shared() -> Self {
         Self(None)
     }
 

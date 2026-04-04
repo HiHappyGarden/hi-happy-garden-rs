@@ -118,7 +118,7 @@ impl Initializable for Hardware {
 
         set_hardware_error!(self.wifi.init(), HardwareErrorFlag::Wifi);
 
-        set_hardware_error!(Gpio::new().init(), HardwareErrorFlag::Gpio);
+        set_hardware_error!(Gpio::shared().init(), HardwareErrorFlag::Gpio);
 
         set_hardware_error!(self.uart.init(), HardwareErrorFlag::Uart);
         
@@ -227,7 +227,7 @@ impl HardwareFn<'static> for Hardware {
     }
     
     fn get_temperature(&self) -> f32 {
-        let gpio = Gpio::new();
+        let gpio = Gpio::shared();
 
         let mut sum = 0f32;
         for _ in 0..Self::SAMPLES {
@@ -260,16 +260,16 @@ impl Hardware {
         let i2c1 =  I2C::new_with_address(LCDDisplay::I2C_ADDRESS);
 
         Self { 
-            uart: Uart::new(),
-            encoder: Encoder::new(),
-            button: Button::new(),
+            uart: Uart::shared(),
+            encoder: Encoder::shared(),
+            button: Button::shared(),
             rgb_led: RgbLed::new(),
-            relays: Relays::new(),
+            relays: Relays::shared(),
             display: LCDDisplay::new(),
             i2c0: I2C::new(),
             i2c1: i2c1,
-            wifi: Wifi::new(),
-            rtc: Mutex::new_arc(RTC::new()),
+            wifi: Wifi::shared(),
+            rtc: Mutex::new_arc(RTC::shared()),
             
         }
     }
