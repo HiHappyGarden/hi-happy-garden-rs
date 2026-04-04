@@ -25,5 +25,27 @@
 use crate::define_signal;
 
 
+pub enum StatusFlag {
+    None = 0x00,
+    RemoteUserConnection = 0x00_80_00_00,
+}
+
+impl From<u32> for StatusFlag {
+    fn from(value: u32) -> Self {
+        use StatusFlag::*;
+        match value {
+            0x00 => None,
+            0x00_80_00_00 => RemoteUserConnection,
+            _ => None, // Default case, can be adjusted as needed
+        }
+    }
+}
+
+impl From<StatusFlag> for u32 {
+    fn from(flag: StatusFlag) -> Self {
+        flag as u32
+    }
+}
+
 
 define_signal!(StatusSignal, STATUS_SIGNAL);
