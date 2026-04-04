@@ -135,7 +135,7 @@ impl SetClickable<'static> for Button {
 
 
 impl Button {
-    pub fn new() -> Self {
+    pub fn shared() -> Self {
         
         Self {
             gpio_ref: GpioPeripheral::Btn,
@@ -147,7 +147,7 @@ impl Button {
     pub fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init button");
 
-        let mut gpio = Gpio::new();
+        let mut gpio = Gpio::shared();
 
         gpio.get_mutex().lock();
         if gpio.set_interrupt(&self.gpio_ref, InterruptType::BothEdge, true, button_isr) == OsalRsBool::False {

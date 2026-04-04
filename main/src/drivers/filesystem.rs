@@ -549,7 +549,7 @@ impl Filesystem {
                 IV[i] = u8::from_str_radix(from_utf8(byte_str).unwrap(), 16).unwrap();
             }
 
-            let mut encrypt = Encrypt::new(&*&raw const KEY, &*&raw const IV)?;
+            let mut encrypt = Encrypt::shared(&*&raw const KEY, &*&raw const IV)?;
             encrypt.init()?;
             ENCRYPT = Some(encrypt);
         }

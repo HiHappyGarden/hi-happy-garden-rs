@@ -161,7 +161,7 @@ extern "C" fn encoder_cw_isr() {
 
 
 impl Encoder {
-    pub fn new() -> Self {
+    pub fn shared() -> Self {
                 
         Self {
             gpio_ccw_ref: GpioPeripheral::EncoderCCW,
@@ -175,7 +175,7 @@ impl Encoder {
     pub fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init encoder");
 
-        let mut gpio = Gpio::new();
+        let mut gpio = Gpio::shared();
 
         gpio.get_mutex().lock();
         if gpio.set_interrupt(&self.gpio_ccw_ref, InterruptType::BothEdge, true, encoder_ccw_isr) == OsalRsBool::False {
@@ -227,7 +227,7 @@ impl SetRotatableAndClickable<'static> for Encoder {
 
             let event_handler = access_static_option!(EVENT_HANDLER);
 
-            let gpio = Gpio::new();
+            let gpio = Gpio::shared();
 
             // State tracking: use 2-bit encoding where bit1=CCW, bit0=CW
             let mut last_state: u8 = 0;

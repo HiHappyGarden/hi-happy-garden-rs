@@ -184,7 +184,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
             let mut link_status = LinkStatus::Down;
 
-            let gpio = Gpio::new();
+            let gpio = Gpio::shared();
 
             let mut rssi_old : i8 = Unknown.into();
 

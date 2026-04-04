@@ -114,7 +114,7 @@ impl SetTransmit for Uart {
 }
 
 impl Uart {
-    pub fn new() -> Self {
+    pub fn shared() -> Self {
         Self { 
             functions: unsafe {
                 &*&raw mut UART_FN

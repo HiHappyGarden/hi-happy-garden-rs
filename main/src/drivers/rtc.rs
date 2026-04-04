@@ -80,7 +80,7 @@ impl RTC {
     pub const MINIMUM_DATE: i64 = 1_577_836_800; // 2020-01-01T00:00:00Z
 
     #[inline]
-    pub const fn new() -> Self {
+    pub const fn shared() -> Self {
         Self (None)
     }
 

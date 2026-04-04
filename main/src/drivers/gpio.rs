@@ -231,7 +231,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Deinitializable for Gpio<GPIO_CONFIG_SIZE> {
 
 
 impl Gpio<{GPIO_CONFIG_SIZE}> {
-    pub fn new() -> Self {
+    pub fn shared() -> Self {
 
         let mutex = match RawMutex::new() {
             Ok(mutex) => mutex,
