@@ -20,6 +20,7 @@
 #![allow(dead_code)]
 
 use alloc::str;
+use alloc::string::ToString;
 use at_parser_rs::{AtError, AtResult};
 use at_parser_rs::context::AtContext;
 use osal_rs::utils::{Bytes, Result};
@@ -54,10 +55,7 @@ impl Default for User {
 impl AtContext<{CMD_SIZE}> for User {
 
     fn exec(&mut self) -> AtResult<'_, {CMD_SIZE}> {
-        if unsafe { USER_LOGGED }.is_some() {
-            return Err(AtError::Unhandled("Not logged".into()));
-        }
-        
+
         let config = Config::shared();
 
         config.get_session().set_user(self);
@@ -126,9 +124,6 @@ impl User {
 
 }
 
-//------
-
-
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub(super) struct Session ([User; Session::MAX_USERS]);
@@ -143,7 +138,7 @@ impl AtContext<{CMD_SIZE}> for Session {
         for User{email: user, password: pwd} in self.0.iter() {
             if *user == unsafe { USER_TMP }.email && pwd.as_str() == password.as_str() {
                 unsafe { USER_LOGGED = Some(USER_TMP); }
-                return Ok(Bytes::new());
+                return Ok(at_cmd_response!(Self::AT_RESP; ""));
             }
         }
 
@@ -151,17 +146,22 @@ impl AtContext<{CMD_SIZE}> for Session {
     }
 
     fn query(&mut self) -> AtResult<'_, {CMD_SIZE}> {
-        let mut response = Bytes::<CMD_SIZE>::new();
-        
-        response.format(format_args!("{}{}", Self::AT_RESP, if unsafe { &*&raw const USER_LOGGED }.is_some() { "LOGGED" } else { "NO_LOGGED" }));
-        
-        Ok(response)
+
+        let logged = unsafe { *&raw const USER_LOGGED }.clone();
+
+        Ok(
+            at_cmd_response!(
+                Self::AT_RESP; if logged.is_some() { 
+                    logged.unwrap().email
+                } else { 
+                    Bytes::new() 
+                }
+            )
+        )
     }
 
     fn test(&mut self) -> AtResult<'_, {CMD_SIZE}> {
-        let mut response = Bytes::<CMD_SIZE>::new();
-        response.format(format_args!("{}<user>,<password>", Self::AT_RESP));
-        Ok(response)
+        Ok(at_cmd_response!(Self::AT_RESP; "<user>,<password>"))
     }
 
     fn set(&mut self, args: at_parser_rs::Args) -> AtResult<'_, {CMD_SIZE}> {
@@ -182,7 +182,7 @@ impl AtContext<{CMD_SIZE}> for Session {
             return Err(AtError::InvalidArgs);
         }
 
-        Ok(Bytes::new())
+        Ok(at_cmd_response!(Self::AT_RESP; ""))
     }
 }
 
