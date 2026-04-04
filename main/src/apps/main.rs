@@ -50,6 +50,7 @@ impl Initializable for AppMain{
         ErrorSignal::init()?;
 
         let config = Config::new();
+        
 
         config.init()?;
         self.parser.init()?;

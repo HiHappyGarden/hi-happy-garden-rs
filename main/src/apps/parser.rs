@@ -28,7 +28,7 @@ use osal_rs::os::types::{StackType, TickType, UBaseType};
 use osal_rs::utils::{Error, Result};
 
 use crate::apps::config::Config;
-use crate::apps::session::Session;
+use crate::apps::session::{Session, User};
 use crate::drivers::platform::ThreadPriority;
 use crate::traits::rx_tx::{OnReceive, SetTransmit, Source};
 use crate::traits::state::Initializable;
@@ -91,8 +91,8 @@ impl Parser {
             let config = Config::new();
 
             let commands: &mut [(&str, &mut dyn AtContext<CMD_SIZE>)] = &mut [
-                (Session::AT_CMD, config.get_session_mut()),
-                //("AT+RST", &mut reset),
+                (Session::AT_CMD, config.get_session()),
+                (User::AT_CMD, User::get_local()),
             ];
 
             parser.set_commands(commands);

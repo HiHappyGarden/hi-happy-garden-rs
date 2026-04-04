@@ -281,6 +281,8 @@ impl Initializable for Config {
         config.apply_daylight_saving_time();
         config.apply_ntp();
         config.apply_wifi();
+        config.apply_session();
+
 
         Ok(())
     }
@@ -336,6 +338,10 @@ impl Config {
         );
     }
 
+    pub fn apply_session(&self) {
+        self.session.set_user_local();
+    }
+
     pub const fn new() -> &'static mut Self {
         unsafe { &mut *&raw mut CONFIG }
     }
@@ -383,6 +389,9 @@ impl Config {
                 )));
             }
         };
+
+
+        log_info!(APP_TAG, "wifi_json:{}", wifi_json);
 
         match from_json::<Config>(&wifi_json) {
             Ok(config) => {
@@ -487,7 +496,7 @@ impl Config {
         wifi
     }
 
-    pub fn get_session_mut(&mut self) -> &mut Session {
+    pub fn get_session(&mut self) -> &mut Session {
         mutex().lock();
         let session = &mut self.session;
         mutex().unlock();
