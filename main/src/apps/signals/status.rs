@@ -20,6 +20,10 @@
 
 #![allow(dead_code)]
 
+///! FSM signal for status updates.
+
 use crate::define_signal;
+
+
 
 define_signal!(StatusSignal, STATUS_SIGNAL);

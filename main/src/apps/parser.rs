@@ -34,6 +34,7 @@ use crate::traits::rx_tx::{OnReceive, SetTransmit, Source};
 use crate::traits::state::Initializable;
 
 
+
 const APP_TAG: &str = "AppParser";
 const THREAD_NAME: &str = "parser_trd";
 const STACK_SIZE: StackType = 2_048;
@@ -45,6 +46,12 @@ static mut SOURCE: Option<Source> = None;
 
 pub(super) const CMD_SIZE : usize = 64;
 
+macro_rules! at_cmd_response {
+    ($at_resp:expr; $($args:expr),+) => {
+        at_parser_rs::at_response!(crate::apps::parser::CMD_SIZE, $at_resp; $($args),+)
+    };
+}
+pub(super) use at_cmd_response;
 
 
 

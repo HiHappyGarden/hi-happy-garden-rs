@@ -20,6 +20,8 @@
 
 #![allow(dead_code)]
 
+///! Display signal for display updates and interactions.
+
 use crate::define_signal;
 
 pub enum DisplayFlag {

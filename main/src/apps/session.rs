@@ -25,7 +25,7 @@ use at_parser_rs::context::AtContext;
 use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
-use crate::apps::parser::{CMD_SIZE};
+use crate::apps::parser::{CMD_SIZE, at_cmd_response};
 use crate::drivers::encrypt::{EncryptGeneric};
 
 const APP_TAG: &str = "AppSession";
@@ -52,22 +52,23 @@ impl Default for User {
 
 impl AtContext<{CMD_SIZE}> for User {
 
-    fn query(&mut self) -> AtResult<{CMD_SIZE}> {
-        let mut response = Bytes::<CMD_SIZE>::new();
-        response.format(format_args!("{}{},{}", Self::AT_RESP, self.email.as_str(), self.password.as_str()));
-        Ok(response)
+    #[inline]
+    fn query(&mut self) -> AtResult<'_, {CMD_SIZE}> {
+        Ok(at_cmd_response!(Self::AT_RESP; self.email.as_str(), self.password.as_str()))
     }
 
-    fn test(&mut self) -> AtResult<{CMD_SIZE}> {
-        let mut response = Bytes::<CMD_SIZE>::new();
-        response.format(format_args!("{}<user>,<password>", Self::AT_RESP));
-        Ok(response)
-    }
+    #[inline]
+    fn test(&mut self) -> AtResult<'_, {CMD_SIZE}> {
+        Ok(at_cmd_response!(Self::AT_RESP; "<user>,<password>"))
+    } 
     
-    fn set(&mut self, args: at_parser_rs::Args) -> AtResult<{CMD_SIZE}> {
+    fn set(&mut self, args: at_parser_rs::Args) -> AtResult<'_, {CMD_SIZE}> {
+        if unsafe { USER_LOGGED }.is_some() {
+            return Err(AtError::InvalidArgs);
+        }
+
         let arg0 = args.get(0).ok_or(AtError::InvalidArgs)?;
         let arg1 = args.get(1).ok_or(AtError::InvalidArgs)?;
-
 
         if unsafe { &*&raw const USER_LOGGED }.is_some() {
             self.email = Bytes::from_str(arg0);
@@ -76,7 +77,7 @@ impl AtContext<{CMD_SIZE}> for User {
             return Err(AtError::InvalidArgs);
         }
 
-        Ok(Bytes::new())
+        Ok(at_cmd_response!(Self::AT_RESP; ""))
     }
 }
 
@@ -110,7 +111,7 @@ pub(super) struct Session ([User; Session::MAX_USERS]);
 
 impl AtContext<{CMD_SIZE}> for Session {
 
-    fn exec(&self) -> AtResult<{CMD_SIZE}> {
+    fn exec(&self) -> AtResult<'_, {CMD_SIZE}> {
         
         let password =  EncryptGeneric::get_sha256(unsafe { USER_TMP }.password.as_str().as_bytes()).map_err(|_| AtError::InvalidArgs)?;
         
@@ -125,7 +126,7 @@ impl AtContext<{CMD_SIZE}> for Session {
         Err(AtError::InvalidArgs)
     }
 
-    fn query(&mut self) -> AtResult<{CMD_SIZE}> {
+    fn query(&mut self) -> AtResult<'_, {CMD_SIZE}> {
         let mut response = Bytes::<CMD_SIZE>::new();
         
         response.format(format_args!("{}{}", Self::AT_RESP, if unsafe { &*&raw const USER_LOGGED }.is_some() { "LOGGED" } else { "NO_LOGGED" }));
@@ -133,13 +134,13 @@ impl AtContext<{CMD_SIZE}> for Session {
         Ok(response)
     }
 
-    fn test(&mut self) -> AtResult<{CMD_SIZE}> {
+    fn test(&mut self) -> AtResult<'_, {CMD_SIZE}> {
         let mut response = Bytes::<CMD_SIZE>::new();
         response.format(format_args!("{}<user>,<password>", Self::AT_RESP));
         Ok(response)
     }
 
-    fn set(&mut self, args: at_parser_rs::Args) -> AtResult<{CMD_SIZE}> {
+    fn set(&mut self, args: at_parser_rs::Args) -> AtResult<'_, {CMD_SIZE}> {
         let arg0 = args.get(0).ok_or(AtError::InvalidArgs)?;
         let arg1 = args.get(1).ok_or(AtError::InvalidArgs)?;
         let arg2 = args.get(2).ok_or(AtError::InvalidArgs)?;
