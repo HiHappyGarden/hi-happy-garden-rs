@@ -382,7 +382,7 @@ impl Wifi {
         }
     }
 
-    pub fn new() -> Self {
+    pub fn shared() -> Self {
         Self {
             handle: null_mut(),
             thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),

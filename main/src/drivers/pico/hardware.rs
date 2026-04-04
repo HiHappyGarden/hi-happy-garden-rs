@@ -268,7 +268,7 @@ impl Hardware {
             display: LCDDisplay::new(),
             i2c0: I2C::new(),
             i2c1: i2c1,
-            wifi: Wifi::new(),
+            wifi: Wifi::shared(),
             rtc: Mutex::new_arc(RTC::shared()),
             
         }
