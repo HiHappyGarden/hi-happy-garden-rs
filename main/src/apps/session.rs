@@ -164,7 +164,7 @@ impl AtContext<{CMD_SIZE}> for Session {
 
 impl Default for Session {
     fn default() -> Self {
-        Self::new()
+        Self::shared()
     }
 }
 
@@ -173,7 +173,7 @@ impl Session {
     pub const AT_RESP: &'static str = "+SESS: ";
     pub const MAX_USERS : usize = 2;
 
-    pub const fn new() -> Self {
+    pub const fn shared() -> Self {
         Self ([User::new(); Session::MAX_USERS])
     }
 

@@ -88,7 +88,7 @@ impl Parser {
             
             let mut parser: AtParser<dyn AtContext<CMD_SIZE>, CMD_SIZE> = AtParser::new();
 
-            let config = Config::new();
+            let config = Config::shared();
 
             let commands: &mut [(&str, &mut dyn AtContext<CMD_SIZE>)] = &mut [
                 (Session::AT_CMD, config.get_session()),
@@ -150,7 +150,7 @@ impl Parser {
         });
     }
 
-    pub(super) fn new() -> Self {
+    pub(super) fn shared() -> Self {
         Self {
             thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),
         }

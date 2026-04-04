@@ -49,7 +49,7 @@ impl Initializable for AppMain{
 
         ErrorSignal::init()?;
 
-        let config = Config::new();
+        let config = Config::shared();
         
 
         config.init()?;
@@ -102,13 +102,13 @@ impl Initializable for AppMain{
 impl AppMain {
     pub fn new(hardware: &'static mut Hardware) -> Self {
 
-        let display = Display::new(hardware.get_rtc(), hardware.get_lcd_display());
+        let display = Display::shared(hardware.get_rtc(), hardware.get_lcd_display());
         
         Self {
             hardware,
             display,
-            wifi: Wifi::new(),
-            parser: Parser::new(),
+            wifi: Wifi::shared(),
+            parser: Parser::shared(),
         }
     }
 }
