@@ -20,7 +20,6 @@
 #![allow(dead_code)]
 
 use alloc::str;
-use alloc::string::ToString;
 use at_parser_rs::{AtError, AtResult};
 use at_parser_rs::context::AtContext;
 use osal_rs::utils::{Bytes, Result};
