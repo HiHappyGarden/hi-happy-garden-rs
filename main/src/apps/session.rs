@@ -20,8 +20,9 @@
 #![allow(dead_code)]
 
 use alloc::str;
-use at_parser_rs::{AtError, AtResult};
+use at_parser_rs::{AtError, AtResult, at_quoted};
 use at_parser_rs::context::AtContext;
+use osal_rs::access_static_option;
 use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
@@ -66,7 +67,7 @@ impl AtContext<{CMD_SIZE}> for User {
 
     #[inline]
     fn query(&mut self) -> AtResult<'_, {CMD_SIZE}> {
-        Ok(at_cmd_response!(Self::AT_RESP; self.email.as_str(), self.password.as_str()))
+        Ok(at_cmd_response!(Self::AT_RESP; at_quoted!(self.email.as_str()), at_quoted!(self.password.as_str())))
     }
 
     #[inline]
@@ -146,17 +147,15 @@ impl AtContext<{CMD_SIZE}> for Session {
 
     fn query(&mut self) -> AtResult<'_, {CMD_SIZE}> {
 
-        let logged = unsafe { *&raw const USER_LOGGED }.clone();
+        let logged = unsafe { *&raw const USER_LOGGED };
 
-        Ok(
-            at_cmd_response!(
-                Self::AT_RESP; if logged.is_some() { 
-                    logged.unwrap().email
-                } else { 
-                    Bytes::new() 
-                }
-            )
-        )
+        let mut ret = Bytes::<{CMD_SIZE}>::new();
+
+        if logged.is_some() { 
+            ret.format(format_args!("\"{}\"", access_static_option!(USER_LOGGED).email.as_str()));
+        } 
+
+        Ok(at_cmd_response!(Self::AT_RESP; ret))
     }
 
     fn test(&mut self) -> AtResult<'_, {CMD_SIZE}> {

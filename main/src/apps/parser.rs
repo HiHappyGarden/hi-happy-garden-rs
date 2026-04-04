@@ -41,8 +41,11 @@ const STACK_SIZE: StackType = 2_048;
 
 const BUFFER_SIZE: usize = 256;
 const QUEUE_SIZE: UBaseType = 64;
+
 static mut QUEUE: Option<Queue> = None;
 static mut SOURCE: Option<Source> = None;
+
+static mut UART_CHANNEL: Option<&'static dyn SetTransmit> = None;
 
 pub(super) const CMD_SIZE : usize = 64;
 
@@ -84,14 +87,7 @@ impl Initializable for Parser {
             return Err(Error::OutOfMemory)
         }
 
-        Ok(())
-    }
-}
-
-impl Parser {
-    pub(super) fn set_uart_transmit(&mut self, transmit: &'static dyn SetTransmit) {
-
-        let _ = self.thread.spawn_simple(move || {
+        self.thread.spawn_simple(move || {
             
             let mut parser: AtParser<dyn AtContext<CMD_SIZE>, CMD_SIZE> = AtParser::new();
 
@@ -128,21 +124,26 @@ impl Parser {
                         buffer_count -= 1; 
                     }
                     
-                    let _src = access_static_option!(SOURCE);
+                    let src = access_static_option!(SOURCE);
+
+                    let channel = match src {
+                            Source::Uart => *access_static_option!(UART_CHANNEL),
+                            Source::Display | Source::Mqtt => continue,
+                    };
 
                     let cmd = from_utf8(&buffer[..buffer_count]).unwrap_or("<invalid utf-8>").trim();
                     
                     match parser.execute(cmd) {
                         Ok(response) => {
                             if response.is_empty() {
-                                transmit.transmit(b"OK\r\n");
+                                channel.transmit(b"OK\r\n");
                             } else {
-                                transmit.transmit(response.as_raw_bytes());
-                                transmit.transmit(b"\r\nOK\r\n");
+                                channel.transmit(response.as_raw_bytes());
+                                channel.transmit(b"\r\nOK\r\n");
                             }
                         }
                         Err(_) => {
-                                transmit.transmit(b"KO\r\n");
+                                channel.transmit(b"KO\r\n");
                         }
                     }
 
@@ -154,7 +155,18 @@ impl Parser {
 
                 }
             }
-        });
+        })?;
+
+
+        Ok(())
+    }
+}
+
+impl Parser {
+    pub(super) fn set_uart_transmit(&mut self, transmit: &'static dyn SetTransmit) {
+        unsafe {
+            UART_CHANNEL = Some(transmit);
+        }
     }
 
     pub(super) fn shared() -> Self {
