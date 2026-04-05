@@ -135,8 +135,8 @@ set(HHG_DEFAULT_DAYLIGHT_SAVING_TIME_END_HOUR    "3"             CACHE STRING "D
 set(HHG_DEFAULT_NTP_SERVER             "0.europe.pool.ntp.org"   CACHE STRING "NTP server address")
 set(HHG_DEFAULT_NTP_PORT               "123"                     CACHE STRING "NTP server port")
 set(HHG_DEFAULT_NTP_MSG_LEN            "48"                      CACHE STRING "NTP message length in bytes")
-set(HHG_DEFAULT_SYSTEM_USER_EMAIL      ""                        CACHE STRING "Default system user email (position 0 in session)")
-set(HHG_DEFAULT_SYSTEM_USER_PASSWORD   ""                        CACHE STRING "Default system user password (plaintext, will be hashed)")
+set(HHG_DEFAULT_SYSTEM_USER_EMAIL      "admin@hhg.local"         CACHE STRING "Default system user email (position 0 in session)")
+set(HHG_DEFAULT_SYSTEM_USER_PASSWORD   "mysecretpassword"        CACHE STRING "Default system user password (plaintext, will be hashed)")
 
 # AES encryption salt values for key derivation (can be customized per deployment)
 set(HHG_AES_KEY_SALT "AES_KEY" CACHE STRING "Salt for AES key derivation from unique_id")
