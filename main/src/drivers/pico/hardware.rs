@@ -282,7 +282,7 @@ impl Hardware {
     pub fn init_fs(&self) -> Result<()> {
         Filesystem::mount(true)?;
 
-        Filesystem::remove_recursive("/")?;
+        // Filesystem::remove_recursive("/")?;
 
         if let Err(Error::ReturnWithCode(code)) = Filesystem::mkdir(FS_CONFIG_DIR) {
             if code != LFS_ERR_EXIST {
