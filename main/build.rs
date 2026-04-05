@@ -54,8 +54,8 @@ fn main() {
     writeln!(f, "pub const DEFAULT_NTP_SERVER: &str = {};", default_ntp_server).unwrap();
     writeln!(f, "pub const AES_KEY_SALT: &str = {};", hhg_aes_key_salt).unwrap();
     writeln!(f, "pub const AES_IV_SALT: &str = {};", hhg_aes_iv_salt).unwrap();
-    writeln!(f, "pub const DEFAULT_SYSTEM_USER_EMAIL: &str = \"{}\";" , default_system_user_email).unwrap();
-    writeln!(f, "pub const DEFAULT_SYSTEM_USER_PASSWORD: &str = \"{}\";" , default_system_user_password).unwrap();
+    writeln!(f, "pub const DEFAULT_SYSTEM_USER_EMAIL: &str = {};", default_system_user_email).unwrap();
+    writeln!(f, "pub const DEFAULT_SYSTEM_USER_PASSWORD: &str = {};", default_system_user_password).unwrap();
 
     // Flush and close file explicitly
     f.flush().unwrap();
