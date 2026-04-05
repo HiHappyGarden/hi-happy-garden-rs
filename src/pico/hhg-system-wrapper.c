@@ -52,6 +52,8 @@ void hhg_pico_sha256_finish(void *state, uint8_t out[SHA256_RESULT_BYTES]) {
 }
 
 void hhg_powman_timer_set_ms (uint64_t time_ms) {
+    // Use XOSC (crystal oscillator) for accuracy instead of default LPOSC
+    powman_timer_set_1khz_tick_source_xosc();
     powman_timer_set_ms(time_ms);
     // Ensure the timer is running after setting the time
     if (!powman_timer_is_running()) {

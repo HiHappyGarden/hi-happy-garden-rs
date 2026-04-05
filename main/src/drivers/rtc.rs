@@ -66,10 +66,9 @@ impl crate::traits::rtc::RTC for RTC {
 
     #[allow(unused)]
     fn get_timestamp(&self) -> Result<i64> {
-        //todo: we should read the RTC timestamp, not the system timestamp, but for now we read the system timestamp because it's easier to test without an RTC module
-        // let ret = self.get_timestamp()?;
-        // Ok(ret as i64)
-        Ok(self.get_rtc_timestamp()?)
+        let ret = self.get_timestamp()?;
+        Ok(ret as i64)
+        // Ok(self.get_rtc_timestamp()?)
     }
     
     fn is_to_synch(&self) -> bool {
