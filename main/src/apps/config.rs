@@ -270,11 +270,13 @@ impl Default for Config {
 
 impl Initializable for Config {
     fn init(&mut self) -> Result<()> {
-        log_info!(APP_TAG, "Init config");
+        log_info!(APP_TAG, "Init app config");
 
         unsafe {
             MUTEX = Some(RawMutex::new()?);
         }
+
+        self.session.init()?;
 
         let config = Self::load()?;
         config.apply_locale();
@@ -391,6 +393,7 @@ impl Config {
         };
 
 
+        //todo: error Bytes::as_str() Conversion error - invalid UTF-8
         log_info!(APP_TAG, "wifi_json:{}", wifi_json);
 
         match from_json::<Config>(&wifi_json) {
