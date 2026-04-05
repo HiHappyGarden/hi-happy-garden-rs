@@ -87,7 +87,7 @@ impl Header
 
         lcd.draw_rect(0, 0, display_width, header_height, LCDWriteMode::REMOVE)?;
 
-        match rssi {
+        match self.rssi_status {
             Unknown => if wifi_enabled {
                 //lcd.draw_bitmap_image(3, 0, IC_WIFI_NO_SIGNAL.0, IC_WIFI_NO_SIGNAL.1, &IC_WIFI_NO_SIGNAL.2, LCDWriteMode::ADD)?;
             }
