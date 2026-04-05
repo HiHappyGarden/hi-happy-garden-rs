@@ -32,6 +32,7 @@ use crate::drivers::gpio::{Gpio, InterruptType};
 use crate::drivers::platform::{GpioPeripheral, ThreadPriority};
 
 use crate::traits::button::{ButtonState, OnClickable, SetClickable};
+use crate::traits::state::Initializable;
 
 use button_events::*;
 
@@ -133,18 +134,8 @@ impl SetClickable<'static> for Button {
     }
 }
 
-
-impl Button {
-    pub fn shared() -> Self {
-        
-        Self {
-            gpio_ref: GpioPeripheral::Btn,
-            thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),
-            thread_started: AtomicBool::new(false),
-        }
-    }
-    
-    pub fn init(&mut self) -> Result<()> {
+impl Initializable for Button {
+    fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init button");
 
         let mut gpio = Gpio::shared();
@@ -168,5 +159,17 @@ impl Button {
 
         Ok(())
     }
+}
+
+impl Button {
+    pub fn shared() -> Self {
+        
+        Self {
+            gpio_ref: GpioPeripheral::Btn,
+            thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),
+            thread_started: AtomicBool::new(false),
+        }
+    }
+
 }
 

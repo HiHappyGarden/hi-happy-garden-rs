@@ -30,6 +30,7 @@ use crate::drivers::platform::{GpioPeripheral, ThreadPriority};
 use crate::drivers::gpio::Gpio;
 use crate::traits::button::ButtonState;
 use crate::traits::encoder::{EncoderDirection, OnRotatableAndClickable, SetRotatableAndClickable};
+use crate::traits::state::Initializable;
 use encoder_events::*;
 
 const APP_TAG: &str = "Encoder";
@@ -159,20 +160,8 @@ extern "C" fn encoder_cw_isr() {
     }
 }
 
-
-impl Encoder {
-    pub fn shared() -> Self {
-                
-        Self {
-            gpio_ccw_ref: GpioPeripheral::EncoderCCW,
-            gpio_cw_ref: GpioPeripheral::EncoderCW,
-            gpio_btn_ref: GpioPeripheral::EncoderBtn,
-            thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),
-            thread_started: AtomicBool::new(false),
-        }
-    }
-
-    pub fn init(&mut self) -> Result<()> {
+impl Initializable for Encoder {
+    fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init encoder");
 
         let mut gpio = Gpio::shared();
@@ -206,6 +195,20 @@ impl Encoder {
 
         Ok(())
     }
+}
+
+impl Encoder {
+    pub fn shared() -> Self {
+                
+        Self {
+            gpio_ccw_ref: GpioPeripheral::EncoderCCW,
+            gpio_cw_ref: GpioPeripheral::EncoderCW,
+            gpio_btn_ref: GpioPeripheral::EncoderBtn,
+            thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),
+            thread_started: AtomicBool::new(false),
+        }
+    }
+
 }
 
 
