@@ -1,0 +1,1 @@
+AT+SESS=i,admin@hhg.local,mysecretpassword
