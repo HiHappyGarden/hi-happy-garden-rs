@@ -169,7 +169,7 @@ impl AtContext<{CMD_SIZE}> for Session {
     }
 
     fn test(&mut self) -> AtResult<'_, {CMD_SIZE}> {
-        Ok(at_cmd_response!(Self::AT_RESP; "<user>,<password>"))
+        Ok(at_cmd_response!(Self::AT_RESP; "<i|o>,<user>,<password>"))
     }
 
     fn set(&mut self, args: at_parser_rs::Args) -> AtResult<'_, {CMD_SIZE}> {
@@ -179,14 +179,14 @@ impl AtContext<{CMD_SIZE}> for Session {
 
         
 
-        if arg0 == "LI" { // Login
+        if arg0 == "i" { // Login
             unsafe {
                 USER_TMP.email = Bytes::from_str(arg1);
                 USER_TMP.password = Bytes::from_str(arg2);
             }
             StatusSignal::set(StatusFlag::UserLogged.into());
             access_static_option!(TIMER).start(0);
-        } else if arg0 == "LO" { // Logout
+        } else if arg0 == "o" { // Logout
             Self::logout();
         } else {
             return Err(AtError::InvalidArgs);
