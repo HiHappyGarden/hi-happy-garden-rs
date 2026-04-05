@@ -301,8 +301,10 @@ impl Config {
         config.wifi = Default::default();
         // Apply CMake defaults to general config
         config.timezone = DEFAULT_TIMEZONE;
-
         config.daylight_saving_time = Default::default();
+
+        // Set system user (position 0) from CMake defaults
+        let _ = config.session.set_system_user(DEFAULT_SYSTEM_USER_EMAIL, DEFAULT_SYSTEM_USER_PASSWORD);
 
         config
     }

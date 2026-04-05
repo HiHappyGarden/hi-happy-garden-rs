@@ -33,8 +33,17 @@ You can configure the application's default values via CMake options. These valu
 
 ### General Configuration
 
-- **HHG_DEFAULT_TIMEZONE**: Timezone offset in minutes (default: 0)
+- **HHG_DEFAULT_TIMEZONE**: Timezone offset in minutes (default: 60, i.e. UTC+1)
 - **HHG_DEFAULT_DAYLIGHT_SAVING_ENABLED**: Enable daylight saving time (default: OFF)
+
+### System User Configuration
+
+> **Note**: System user credentials should be configured using the `secrets.cmake` file, which is excluded from git.
+
+The system user is stored at position 0 of the session user list and is loaded from the config file at startup. It is initialised from these CMake values only when the config file does not yet exist on the device.
+
+- **HHG_DEFAULT_SYSTEM_USER_EMAIL**: Email address of the system user (default: "")
+- **HHG_DEFAULT_SYSTEM_USER_PASSWORD**: Plain-text password of the system user — it is hashed with SHA256 before being stored (default: "")
 
 ### AES Encryption Configuration
 
@@ -75,11 +84,15 @@ For security reasons, WiFi credentials should not be hardcoded in CMakeLists.txt
    ```cmake
    set(HHG_DEFAULT_WIFI_SSID "YourSSID")
    set(HHG_DEFAULT_WIFI_PASSWORD "YourPassword")
-   
+
    # Optional: Customize AES encryption salts for enhanced security
    # These are combined with hardware unique_id to derive encryption keys
    set(HHG_AES_KEY_SALT "MyCustomKeySalt2024")
    set(HHG_AES_IV_SALT "MyCustomIVSalt2024")
+
+   # Optional: System user (stored at session position 0, password is SHA256-hashed)
+   set(HHG_DEFAULT_SYSTEM_USER_EMAIL "admin@hhg.local")
+   set(HHG_DEFAULT_SYSTEM_USER_PASSWORD "mysecretpassword")
    ```
 
 3. Include it in your CMakeLists.txt (if not already included):
@@ -107,6 +120,8 @@ NTP_PORT=123
 NTP_MSG_LEN=48
 TIMEZONE=60
 DAYLIGHT_SAVING=ON
+SYSTEM_USER_EMAIL="admin@hhg.local"
+SYSTEM_USER_PASSWORD="mysecretpassword"
 BUILD_TYPE=Release
 ...
 ```
@@ -127,7 +142,9 @@ cmake -B build \
   -DHHG_DEFAULT_NTP_PORT=${NTP_PORT} \
   -DHHG_DEFAULT_NTP_MSG_LEN=${NTP_MSG_LEN} \
   -DHHG_DEFAULT_TIMEZONE=${TIMEZONE} \
-  -DHHG_DEFAULT_DAYLIGHT_SAVING=${DAYLIGHT_SAVING}
+  -DHHG_DEFAULT_DAYLIGHT_SAVING=${DAYLIGHT_SAVING} \
+  -DHHG_DEFAULT_SYSTEM_USER_EMAIL="${SYSTEM_USER_EMAIL}" \
+  -DHHG_DEFAULT_SYSTEM_USER_PASSWORD="${SYSTEM_USER_PASSWORD}"
 
 # Build
 cmake --build build -j$(nproc)
@@ -168,7 +185,9 @@ cmake -B build-production \
   -DHHG_DEFAULT_TIMEZONE=60 \
   -DHHG_DEFAULT_DAYLIGHT_SAVING=ON \
   -DHHG_AES_KEY_SALT="PROD_KEY_2024" \
-  -DHHG_AES_IV_SALT="PROD_IV_2024"
+  -DHHG_AES_IV_SALT="PROD_IV_2024" \
+  -DHHG_DEFAULT_SYSTEM_USER_EMAIL="admin@hhg.local" \
+  -DHHG_DEFAULT_SYSTEM_USER_PASSWORD="mysecretpassword"
 ```
 
 ### Debug Only (without WiFi)
@@ -187,6 +206,7 @@ cmake -B build-debug \
 3. **Runtime**: When `Config::load()` is called:
    - If the configuration file exists and is not empty, it is loaded
    - Otherwise, the compiled default values are used
+   - The system user (position 0) is initialised from `HHG_DEFAULT_SYSTEM_USER_EMAIL` / `HHG_DEFAULT_SYSTEM_USER_PASSWORD` only on first boot (empty config file); the password is stored as a SHA256 hash
 
 ## Files Involved
 

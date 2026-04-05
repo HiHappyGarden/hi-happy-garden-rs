@@ -130,6 +130,8 @@ option(HHG_DEFAULT_DAYLIGHT_SAVING_TIME_END_HOUR "DST end hour (0-23)" 3)
 option(HHG_DEFAULT_NTP_MSG_LEN "Default NTP message length in bytes" 48)
 option(HHG_DEFAULT_NTP_PORT "Default NTP server port" 123)
 option(HHG_DEFAULT_NTP_SERVER "Default NTP server address" "0.europe.pool.ntp.org")
+set(HHG_DEFAULT_SYSTEM_USER_EMAIL "" CACHE STRING "Default system user email (position 0 in session)")
+set(HHG_DEFAULT_SYSTEM_USER_PASSWORD "" CACHE STRING "Default system user password (plaintext, will be hashed)")
 option(HHG_TESTS "Enable tests" OFF)
 
 set(HHG_DEFAULT_TIMEZONE "60" CACHE STRING "Default timezone offset in minutes (e.g. 60 for UTC+1, 120 for UTC+2)")
@@ -223,6 +225,18 @@ else()
     set(HHG_DEFAULT_NTP_SERVER "0.europe.pool.ntp.org")
 endif()
 
+if(HHG_DEFAULT_SYSTEM_USER_EMAIL)
+    set(HHG_DEFAULT_SYSTEM_USER_EMAIL ${HHG_DEFAULT_SYSTEM_USER_EMAIL})
+else()
+    set(HHG_DEFAULT_SYSTEM_USER_EMAIL "")
+endif()
+
+if(HHG_DEFAULT_SYSTEM_USER_PASSWORD)
+    set(HHG_DEFAULT_SYSTEM_USER_PASSWORD ${HHG_DEFAULT_SYSTEM_USER_PASSWORD})
+else()
+    set(HHG_DEFAULT_SYSTEM_USER_PASSWORD "")
+endif()
+
 if(HHG_TESTS)
     set(HHG_TESTS_FEATURE "tests")
     add_compile_definitions(HHG_TESTS=1)
@@ -255,6 +269,12 @@ if(HHG_AES_KEY_SALT)
 endif()
 if(HHG_AES_IV_SALT) 
     message(STATUS "HHG_AES_IV_SALT: is set")
+endif()
+if(HHG_DEFAULT_SYSTEM_USER_EMAIL)
+    message(STATUS "HHG_DEFAULT_SYSTEM_USER_EMAIL: ${HHG_DEFAULT_SYSTEM_USER_EMAIL}")
+endif()
+if(HHG_DEFAULT_SYSTEM_USER_PASSWORD)
+    message(STATUS "HHG_DEFAULT_SYSTEM_USER_PASSWORD: is set")
 endif()
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/hhg-config.h.in ${CMAKE_CURRENT_SOURCE_DIR}/inc/hhg-config/pico/hhg-config.h)
@@ -330,6 +350,8 @@ add_custom_command(
         HHG_DEFAULT_NTP_SERVER="${HHG_DEFAULT_NTP_SERVER}"
         HHG_AES_KEY_SALT="${HHG_AES_KEY_SALT}"
         HHG_AES_IV_SALT="${HHG_AES_IV_SALT}"
+        HHG_DEFAULT_SYSTEM_USER_EMAIL="${HHG_DEFAULT_SYSTEM_USER_EMAIL}"
+        HHG_DEFAULT_SYSTEM_USER_PASSWORD="${HHG_DEFAULT_SYSTEM_USER_PASSWORD}"
         cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --features pico,${HHG_TESTS_FEATURE} 
     DEPENDS ${RUST_SOURCES} ${OSAL_RS_SOURCES} ${HHG_PARSER_SOURCES} ${PARSER_RS_SOURCES}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/main

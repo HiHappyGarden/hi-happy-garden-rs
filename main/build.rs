@@ -27,6 +27,8 @@ fn main() {
     let default_ntp_server = env::var("HHG_DEFAULT_NTP_SERVER").unwrap_or_else(|_| "\"0.europe.pool.ntp.org\"".to_string());
     let hhg_aes_key_salt = env::var("HHG_AES_KEY_SALT").unwrap_or_else(|_| "\"AES_KEY\"".to_string());
     let hhg_aes_iv_salt = env::var("HHG_AES_IV_SALT").unwrap_or_else(|_| "\"AES_IV\"".to_string());
+    let default_system_user_email = env::var("HHG_DEFAULT_SYSTEM_USER_EMAIL").unwrap_or_else(|_| String::new());
+    let default_system_user_password = env::var("HHG_DEFAULT_SYSTEM_USER_PASSWORD").unwrap_or_else(|_| String::new());
 
     // Generate defaults.rs file
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
@@ -52,6 +54,8 @@ fn main() {
     writeln!(f, "pub const DEFAULT_NTP_SERVER: &str = {};", default_ntp_server).unwrap();
     writeln!(f, "pub const AES_KEY_SALT: &str = {};", hhg_aes_key_salt).unwrap();
     writeln!(f, "pub const AES_IV_SALT: &str = {};", hhg_aes_iv_salt).unwrap();
+    writeln!(f, "pub const DEFAULT_SYSTEM_USER_EMAIL: &str = \"{}\";" , default_system_user_email).unwrap();
+    writeln!(f, "pub const DEFAULT_SYSTEM_USER_PASSWORD: &str = \"{}\";" , default_system_user_password).unwrap();
 
     // Flush and close file explicitly
     f.flush().unwrap();
@@ -77,4 +81,6 @@ fn main() {
     println!("cargo:rerun-if-env-changed=HHG_DEFAULT_NTP_SERVER");
     println!("cargo:rerun-if-env-changed=HHG_AES_KEY_SALT");
     println!("cargo:rerun-if-env-changed=HHG_AES_IV_SALT");
+    println!("cargo:rerun-if-env-changed=HHG_DEFAULT_SYSTEM_USER_EMAIL");
+    println!("cargo:rerun-if-env-changed=HHG_DEFAULT_SYSTEM_USER_PASSWORD");
 }

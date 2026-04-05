@@ -250,5 +250,16 @@ impl Session {
     pub fn set_user_local(&self) {
         unsafe { USER_LOCAL = self.users[1]; }
     }
+
+    pub fn set_system_user(&mut self, email: &str, password: &str) -> Result<()> {
+        if email.is_empty() {
+            return Ok(());
+        }
+        let hashed = EncryptGeneric::get_sha256(password.as_bytes())
+            .map_err(|_| Error::Unhandled("Failed to hash system user password"))?;
+        self.users[0].email = Bytes::from_str(email);
+        self.users[0].password = Bytes::from_str(hashed.as_str());
+        Ok(())
+    }
 }
 
