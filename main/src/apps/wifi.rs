@@ -102,10 +102,10 @@ impl OnWifiChangeStatus for Wifi {
 
                     match &self.0 {
                         Some(rtc) => {
-                            let dt = DateTime::from_timestamp_locale(timestamp, true);
+                            let dt = DateTime::from_timestamp(timestamp);
                             set_app_error!(dt.clone(), ErrorFlag::NTP);
                             set_app_error!(rtc.lock().unwrap().set_timestamp(timestamp), ErrorFlag::NTP);
-                            log_info!(APP_TAG, "NTP time: {}", dt.unwrap());
+                            log_info!(APP_TAG, "NTP time (UTC): {}", dt.unwrap());
                         },
                         None => {
                             log_info!(APP_TAG, "RTC not set for WifiApp");

@@ -259,7 +259,7 @@ impl Default for Config {
         Self {
             version: 0,
             serial: Bytes::new(),
-            timezone: 0,
+            timezone: DEFAULT_TIMEZONE,
             daylight_saving_time: Default::default(),
             session: Default::default(),
             wifi: Default::default(),
