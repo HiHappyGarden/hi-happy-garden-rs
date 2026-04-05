@@ -155,6 +155,8 @@ impl Initializable for Parser {
 
                     if !is_logged {
                         StatusSignal::set(src_status_flags); // Set the status flag for the source of the command
+                    } else {
+                        Session::reset_timer(); // Reset the session timer on each command if logged in
                     }
 
 
@@ -177,7 +179,7 @@ impl Initializable for Parser {
                     }
 
                     if !is_logged {
-                        StatusSignal::set(src_status_flags); // Set the status flag for the source of the command
+                        StatusSignal::clear(src_status_flags); // Clear the status flag for the source of the command
                     }
                     
                     unsafe {

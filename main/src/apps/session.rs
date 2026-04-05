@@ -25,7 +25,7 @@ use alloc::sync::Arc;
 use at_parser_rs::{AtError, AtResult, at_quoted};
 use at_parser_rs::context::AtContext;
 use osal_rs::{access_static_option, log_error, log_info};
-use osal_rs::os::{Timer, ToTick};
+use osal_rs::os::{Timer, TimerFn, ToTick};
 use osal_rs::utils::{Bytes, Error, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
@@ -185,6 +185,7 @@ impl AtContext<{CMD_SIZE}> for Session {
                 USER_TMP.password = Bytes::from_str(arg2);
             }
             StatusSignal::set(StatusFlag::UserLogged.into());
+            access_static_option!(TIMER).start(0);
         } else if arg0 == "LO" { // Logout
             Self::logout();
         } else {
@@ -213,7 +214,7 @@ impl Initializable for Session {
         None,
         |_, _| {
 
-            StatusSignal::clear(StatusFlag::UserLogged.into());
+            Self::logout();
 
             Ok(Arc::new(()))
         }) {
@@ -241,6 +242,9 @@ impl Session {
     pub fn logout() {
         unsafe { USER_LOGGED = None; }
         StatusSignal::clear(StatusFlag::UserLogged.into());
+        StatusSignal::clear(StatusFlag::UartCmd.into());
+        StatusSignal::clear(StatusFlag::MqttCmd.into());
+        StatusSignal::clear(StatusFlag::DisplayCmd.into());
     }
 
     pub fn set_user(&mut self, user: &User) {
@@ -260,6 +264,10 @@ impl Session {
         self.users[0].email = Bytes::from_str(email);
         self.users[0].password = Bytes::from_str(hashed.as_str());
         Ok(())
+    }
+
+    pub fn reset_timer() {
+        access_static_option!(TIMER).reset(0);
     }
 }
 
