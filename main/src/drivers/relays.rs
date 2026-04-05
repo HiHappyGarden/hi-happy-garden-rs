@@ -44,7 +44,6 @@ impl Initializable for Relays {
     }
 }
 
-
 impl RaleayFn for Relays {
     fn set_relay_state(&self, relay_index: GpioPeripheral, state: bool) -> OsalRsBool {
 
