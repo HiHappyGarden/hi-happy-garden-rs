@@ -22,12 +22,15 @@
 
 ///! FSM signal for status updates.
 
-use crate::define_signal;
+use crate::{define_signal, traits::rx_tx::Source};
 
 
 pub enum StatusFlag {
     None = 0x00,
-    RemoteUserConnection = 0x00_80_00_00,
+    DisplayCmd = 0x00_10_00_00,
+    MqttCmd = 0x00_20_00_00,
+    UartCmd = 0x00_40_00_00,
+    UserLogged = 0x00_80_00_00,
 }
 
 impl From<u32> for StatusFlag {
@@ -35,7 +38,10 @@ impl From<u32> for StatusFlag {
         use StatusFlag::*;
         match value {
             0x00 => None,
-            0x00_80_00_00 => RemoteUserConnection,
+            0x00_10_00_00 => DisplayCmd,
+            0x00_20_00_00 => MqttCmd,
+            0x00_40_00_00 => UartCmd, 
+            0x00_80_00_00 => UserLogged,
             _ => None, // Default case, can be adjusted as needed
         }
     }
@@ -44,6 +50,16 @@ impl From<u32> for StatusFlag {
 impl From<StatusFlag> for u32 {
     fn from(flag: StatusFlag) -> Self {
         flag as u32
+    }
+}
+
+impl From<&Source> for StatusFlag {
+    fn from(source: &Source) -> Self {
+        match source {
+            Source::Display => StatusFlag::DisplayCmd,
+            Source::Mqtt => StatusFlag::MqttCmd,
+            Source::Uart => StatusFlag::UartCmd,
+        }
     }
 }
 

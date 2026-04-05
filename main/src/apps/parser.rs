@@ -31,8 +31,9 @@ use crate::apps::config::Config;
 use crate::apps::session::{Session, User};
 use crate::drivers::platform::ThreadPriority;
 use crate::traits::rx_tx::{OnReceive, SetTransmit, Source};
+use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
-
+use crate::apps::signals::status::{StatusSignal, StatusFlag};
 
 
 const APP_TAG: &str = "AppParser";
@@ -56,7 +57,12 @@ macro_rules! at_cmd_response {
 }
 pub(super) use at_cmd_response;
 
-
+macro_rules! clear_buffer {
+    ($buffer:expr, $buffer_count:expr) => {
+        $buffer.fill(0);
+        $buffer_count = 0;
+    };
+}
 
 pub(super) struct Parser {
     thread: Thread,
@@ -123,16 +129,39 @@ impl Initializable for Parser {
                         buffer[buffer_count - 1] = 0; 
                         buffer_count -= 1; 
                     }
+
                     
                     let src = access_static_option!(SOURCE);
+                    let src_status_flags = <StatusFlag as Into<u32>>::into(StatusFlag::from(src));
 
                     let channel = match src {
-                            Source::Uart => *access_static_option!(UART_CHANNEL),
-                            Source::Display | Source::Mqtt => continue,
+                        Source::Uart => *access_static_option!(UART_CHANNEL),
+                        Source::Display | Source::Mqtt => {
+                            clear_buffer!(buffer, buffer_count);
+                            continue;
+                        }
                     };
+
+
+                    let status = StatusSignal::get();
+                    let is_logged = status & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) != 0;
+                    
+                    if is_logged && (status & src_status_flags == 0) {
+                        channel.transmit(b"KO\r\n");
+                        clear_buffer!(buffer, buffer_count);
+                        continue;
+                    }
+
+
+                    if !is_logged {
+                        StatusSignal::set(src_status_flags); // Set the status flag for the source of the command
+                    }
+
 
                     let cmd = from_utf8(&buffer[..buffer_count]).unwrap_or("<invalid utf-8>").trim();
                     
+                    
+
                     match parser.execute(cmd) {
                         Ok(response) => {
                             if response.is_empty() {
@@ -147,12 +176,14 @@ impl Initializable for Parser {
                         }
                     }
 
-                    buffer.fill(0);
-                    buffer_count = 0;
+                    if !is_logged {
+                        StatusSignal::set(src_status_flags); // Set the status flag for the source of the command
+                    }
+                    
                     unsafe {
                         SOURCE = None;
                     }
-
+                    clear_buffer!(buffer, buffer_count);
                 }
             }
         })?;
@@ -174,5 +205,4 @@ impl Parser {
             thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),
         }
     }
-
 }

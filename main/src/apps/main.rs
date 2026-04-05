@@ -26,6 +26,7 @@ use crate::apps::config::Config;
 use crate::apps::display::{Display};
 use crate::apps::parser::Parser;
 use crate::apps::signals::error::ErrorSignal;
+use crate::apps::signals::status::StatusSignal;
 use crate::apps::wifi::Wifi;
 use crate::drivers::platform::{Hardware, LCDDisplay};
 use crate::traits::hardware::HardwareFn;
@@ -47,6 +48,7 @@ impl Initializable for AppMain{
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init app main");
 
+        StatusSignal::init()?;
         ErrorSignal::init()?;
 
         let config = Config::shared();
