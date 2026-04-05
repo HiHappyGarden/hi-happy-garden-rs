@@ -78,7 +78,7 @@ impl<T> Initializable for Display<T>
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
     fn init(&mut self) -> osal_rs::utils::Result<()> {
-        log_info!(APP_TAG, "Init LCD");
+        log_info!(APP_TAG, "Init app display");
 
 
         DisplaySignal::init()?;

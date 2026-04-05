@@ -22,7 +22,7 @@ use core::str::from_utf8;
 
 use at_parser_rs::context::AtContext;
 use at_parser_rs::parser::AtParser;
-use osal_rs::{access_static_option, log_error};
+use osal_rs::{access_static_option, log_error, log_info};
 use osal_rs::os::{Queue, QueueFn, Thread, ThreadFn};
 use osal_rs::os::types::{StackType, TickType, UBaseType};
 use osal_rs::utils::{Error, Result};
@@ -82,7 +82,7 @@ impl OnReceive for Parser {
 
 impl Initializable for Parser {
     fn init(&mut self) -> Result<()> {
-
+        log_info!(APP_TAG, "Init app parser");
 
         if let Ok(queue) =  Queue::new(QUEUE_SIZE, 1) {
             unsafe {
@@ -194,12 +194,21 @@ impl Initializable for Parser {
 }
 
 impl Parser {
-    pub(super) fn set_uart_transmit(&mut self, transmit: &'static dyn SetTransmit) {
+
+    #[inline]
+    pub(super) fn set_uart_transmit(transmit: &'static dyn SetTransmit) {
         unsafe {
             UART_CHANNEL = Some(transmit);
         }
     }
 
+    #[allow(unused)]
+    #[inline]
+    pub(super) fn get_source() -> Option<Source> {
+        unsafe { SOURCE }
+    }
+
+    #[inline]
     pub(super) fn shared() -> Self {
         Self {
             thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),

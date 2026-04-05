@@ -19,16 +19,22 @@
  ***************************************************************************/
 #![allow(dead_code)]
 
-use alloc::str;
+use core::time::Duration;
+
+use alloc::sync::Arc;
 use at_parser_rs::{AtError, AtResult, at_quoted};
 use at_parser_rs::context::AtContext;
-use osal_rs::access_static_option;
-use osal_rs::utils::{Bytes, Result};
+use osal_rs::{access_static_option, log_error, log_info};
+use osal_rs::os::{Timer, ToTick};
+use osal_rs::utils::{Bytes, Error, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
 use crate::apps::config::Config;
 use crate::apps::parser::{CMD_SIZE, at_cmd_response};
 use crate::drivers::encrypt::{EncryptGeneric, SHA256_RESULT_BYTES};
+use crate::traits::signal::Signal;
+use crate::traits::state::Initializable;
+use crate::apps::signals::status::{StatusSignal, StatusFlag};
 
 const APP_TAG: &str = "AppSession";
 
@@ -36,6 +42,8 @@ static mut USER_LOCAL: User = User::new();
 
 static mut USER_LOGGED: Option<User> = None;
 static mut USER_TMP: User = User::new();
+
+static mut TIMER: Option<Timer> = None;
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub(super) struct User {
@@ -126,7 +134,9 @@ impl User {
 
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
-pub(super) struct Session ([User; Session::MAX_USERS]);
+pub(super) struct Session {
+    users: [User; Session::MAX_USERS],
+}
 
 impl AtContext<{CMD_SIZE}> for Session {
 
@@ -135,7 +145,7 @@ impl AtContext<{CMD_SIZE}> for Session {
         let password =  EncryptGeneric::get_sha256(unsafe { USER_TMP }.password.as_str().as_bytes()).map_err(|_| AtError::InvalidArgs)?;
         
 
-        for User{email: user, password: pwd} in self.0.iter() {
+        for User{email: user, password: pwd} in self.users.iter() {
             if *user == unsafe { USER_TMP }.email && pwd.as_str() == password.as_str() {
                 unsafe { USER_LOGGED = Some(USER_TMP); }
                 return Ok(at_cmd_response!(Self::AT_RESP; ""));
@@ -174,8 +184,9 @@ impl AtContext<{CMD_SIZE}> for Session {
                 USER_TMP.email = Bytes::from_str(arg1);
                 USER_TMP.password = Bytes::from_str(arg2);
             }
+            StatusSignal::set(StatusFlag::UserLogged.into());
         } else if arg0 == "LO" { // Logout
-            self.logout();
+            Self::logout();
         } else {
             return Err(AtError::InvalidArgs);
         }
@@ -191,25 +202,53 @@ impl Default for Session {
     }
 }
 
+
+impl Initializable for Session {
+    fn init(&mut self) -> Result<()> {
+        log_info!(APP_TAG, "Init app session");
+
+        if let Ok(timer) = Timer::new("autoreload_timer",
+        Duration::from_millis(50).to_ticks(),
+        false,
+        None,
+        |_, _| {
+
+            StatusSignal::clear(StatusFlag::UserLogged.into());
+
+            Ok(Arc::new(()))
+        }) {
+            unsafe {
+                TIMER = Some(timer);
+            }
+        } else {
+            log_error!(APP_TAG, "Error creating timer");
+            return Err(Error::OutOfMemory)
+        }
+
+        Ok(())
+    }
+}
+
 impl Session {
     pub const AT_CMD: &'static str = "AT+SESS";
     pub const AT_RESP: &'static str = "+SESS: ";
     pub const MAX_USERS : usize = 2;
 
     pub const fn new() -> Self {
-        Self ([User::new(); Session::MAX_USERS])
+        Self { users: [User::new(); Session::MAX_USERS] }
     }
 
-    pub fn logout(&mut self) {
+    pub fn logout() {
         unsafe { USER_LOGGED = None; }
+        StatusSignal::clear(StatusFlag::UserLogged.into());
     }
 
     pub fn set_user(&mut self, user: &User) {
-        self.0[1] = *user;   
+        self.users[1] = *user;   
     }
 
     pub fn set_user_local(&self) {
-        unsafe { USER_LOCAL = self.0[1]; }
+        unsafe { USER_LOCAL = self.users[1]; }
     }
 }
 
