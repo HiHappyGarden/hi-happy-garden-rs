@@ -282,6 +282,7 @@ unsafe extern "C" {
     pub(super) fn hhg_uart_set_irq_enables(rx_en: bool, tx_en: bool);
     pub(super) fn hhg_uart_is_readable() -> bool;
     pub(super) fn hhg_uart_getc() -> u8;
+    pub(super) fn hhg_uart_read(dst: *mut u8, len: usize) -> usize;
     pub(super) fn hhg_uart_putc(c: u8);
 
     pub(super) fn hhg_adc_init();

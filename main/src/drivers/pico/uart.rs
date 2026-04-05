@@ -24,7 +24,7 @@ use core::ptr::null_mut;
 use osal_rs::utils::{Error, Result};
 
 use crate::drivers::uart::{UartConfig, UartDataBits, UartFlowControl, UartFn, UartParity, UartStopBits};
-use crate::drivers::pico::ffi::{gpio_function_type, hhg_gpio_set_function, hhg_uart_deinit, hhg_uart_getc, hhg_uart_init, hhg_uart_irq_set_enabled, hhg_uart_irq_set_exclusive_handler, hhg_uart_putc, hhg_uart_set_format, hhg_uart_set_hw_flow, hhg_uart_set_irq_enables, uart_parity};
+use crate::drivers::pico::ffi::{gpio_function_type, hhg_gpio_set_function, hhg_uart_deinit, hhg_uart_getc, hhg_uart_init, hhg_uart_irq_set_enabled, hhg_uart_irq_set_exclusive_handler, hhg_uart_is_readable, hhg_uart_putc, hhg_uart_set_format, hhg_uart_set_hw_flow, hhg_uart_set_irq_enables, uart_parity};
 use crate::traits::rx_tx::Source;
 
 const TX_PIN: u32 = 0;
@@ -47,11 +47,25 @@ pub static mut UART_CONFIG: UartConfig = UartConfig {
     flow_control: UartFlowControl::None,
 };
 
+static mut RX_BUFFER: [u8; 512] = [0u8; 512];
+static mut RX_LEN: usize = 0;
+const RX_BUFFER_SIZE: usize = 512;
 
 #[allow(unsafe_op_in_unsafe_fn)]
 unsafe extern "C" fn uart_isr() {
-    if let Some(listener) = unsafe { *&raw const UART_FN.add_listener } {
-        let _= (*listener).on_receive(Source::Uart,&[hhg_uart_getc()]);
+    while hhg_uart_is_readable() && RX_LEN < RX_BUFFER_SIZE {
+        RX_BUFFER[RX_LEN] = hhg_uart_getc();
+        RX_LEN += 1;
+    }
+    if RX_LEN > 0 {
+
+        // Call on_receive only when a complete line is available (\n)
+        if RX_BUFFER[..RX_LEN].contains(&b'\n') {
+            if let Some(listener) = *&raw const UART_FN.add_listener {
+                let _ = (*listener).on_receive(Source::Uart, &RX_BUFFER[..RX_LEN]);
+            }
+            RX_LEN = 0;
+        }
     }
 }
 

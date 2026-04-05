@@ -61,6 +61,17 @@ uint8_t hhg_uart_getc(void) {
     return uart_getc(uart0);
 }
 
+
+size_t count = 0;
+size_t hhg_uart_read(uint8_t *dst, size_t len) {
+    
+    while (count < len && uart_is_readable(uart0)) {
+        dst[count++] = (uint8_t) uart_get_hw(uart0)->dr;
+    }
+    return count;
+}
+
+
 void hhg_uart_putc(uint8_t c) {
     uart_putc(uart0, c);
 }
