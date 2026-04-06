@@ -20,7 +20,9 @@
 
 #include "pico/types.h"
 #include "pico/stdlib.h"
+#include "hardware/irq.h"
 #include "hardware/uart.h"
+#include "hardware/regs/uart.h"
 
 
 
@@ -40,6 +42,10 @@ void hhg_uart_set_format(uint data_bits, uint stop_bits, uart_parity_t parity) {
     uart_set_format(uart0, data_bits, stop_bits, parity);
 }
 
+void hhg_uart_set_fifo_enabled(bool enabled) {
+    uart_set_fifo_enabled(uart0, enabled);
+}
+
 
 void hhg_uart_irq_set_exclusive_handler(irq_handler_t handler) {
     irq_set_exclusive_handler(UART0_IRQ, handler);
@@ -49,8 +55,22 @@ void hhg_uart_irq_set_enabled(bool enabled) {
     irq_set_enabled(UART0_IRQ, enabled);
 }
 
+void hhg_uart_irq_set_high_priority(void) {
+    irq_set_priority(UART0_IRQ, PICO_HIGHEST_IRQ_PRIORITY);
+}
+
 void hhg_uart_set_irq_enables(bool rx_en, bool tx_en) {
     uart_set_irq_enables(uart0, rx_en, tx_en);
+}
+
+void hhg_uart_clear_irq(void) {
+    uart_get_hw(uart0)->icr =
+        UART_UARTICR_RXIC_BITS |
+        UART_UARTICR_RTIC_BITS |
+        UART_UARTICR_OEIC_BITS |
+        UART_UARTICR_BEIC_BITS |
+        UART_UARTICR_PEIC_BITS |
+        UART_UARTICR_FEIC_BITS;
 }
 
 bool hhg_uart_is_readable(void) {

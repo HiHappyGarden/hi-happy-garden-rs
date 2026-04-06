@@ -277,9 +277,12 @@ unsafe extern "C" {
     pub(super) fn hhg_uart_deinit();
     pub(super) fn hhg_uart_set_hw_flow(cts: bool, rts: bool);
     pub(super) fn hhg_uart_set_format(data_bits: c_uint, stop_bits: c_uint, parity: uart_parity);
+    pub(super) fn hhg_uart_set_fifo_enabled(enabled: bool);
     pub(super) fn hhg_uart_irq_set_exclusive_handler(handler: unsafe extern "C" fn());
     pub(super) fn hhg_uart_irq_set_enabled(enabled: bool);
+    pub(super) fn hhg_uart_irq_set_high_priority();
     pub(super) fn hhg_uart_set_irq_enables(rx_en: bool, tx_en: bool);
+    pub(super) fn hhg_uart_clear_irq();
     pub(super) fn hhg_uart_is_readable() -> bool;
     pub(super) fn hhg_uart_getc() -> u8;
     pub(super) fn hhg_uart_read(dst: *mut u8, len: usize) -> usize;
