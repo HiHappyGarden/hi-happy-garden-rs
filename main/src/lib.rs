@@ -125,7 +125,7 @@ fn main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Resul
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn start() {
-    set_enable_color(false);
+    set_enable_color(true);
 
     #[cfg(not(feature = "tests"))]
     {
