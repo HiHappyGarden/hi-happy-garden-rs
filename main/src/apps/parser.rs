@@ -41,7 +41,7 @@ const THREAD_NAME: &str = "parser_trd";
 const STACK_SIZE: StackType = 2_048;
 
 const BUFFER_SIZE: usize = 256;
-const QUEUE_SIZE: UBaseType = 64;
+const QUEUE_SIZE: UBaseType = BUFFER_SIZE as UBaseType;
 
 static mut QUEUE: Option<Queue> = None;
 static mut SOURCE: Option<Source> = None;
@@ -70,10 +70,14 @@ pub(super) struct Parser {
 
 impl OnReceive for Parser {
     fn on_receive(&self, source: Source, data: &[u8]) -> Result<()> {
-        access_static_option!(QUEUE).post(data, 0)?;
-
         unsafe {
             SOURCE = Some(source);
+        }
+
+        let queue = access_static_option!(QUEUE);
+
+        for &byte in data {
+            queue.post(&[byte], 0)?;
         }
 
         Ok(())

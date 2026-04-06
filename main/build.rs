@@ -3,6 +3,25 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
+fn rust_string_literal(value: &str) -> String {
+    let trimmed = value.trim();
+    let normalized = if trimmed.len() >= 2
+        && ((trimmed.starts_with('"') && trimmed.ends_with('"'))
+            || (trimmed.starts_with('\'') && trimmed.ends_with('\'')))
+    {
+        &trimmed[1..trimmed.len() - 1]
+    } else {
+        trimmed
+    };
+
+    format!("{:?}", normalized)
+}
+
+fn env_string_literal(var_name: &str, default: &str) -> String {
+    let value = env::var(var_name).unwrap_or_else(|_| default.to_string());
+    rust_string_literal(&value)
+}
+
 fn parse_bool(s: &str) -> bool {
     let cleaned = s.trim().trim_matches('"').to_lowercase();
     matches!(cleaned.as_str(), "true" | "1" | "on" | "yes")
@@ -10,8 +29,8 @@ fn parse_bool(s: &str) -> bool {
 
 fn main() {
     // Read configuration from environment variables set by CMake
-    let default_wifi_ssid = env::var("HHG_DEFAULT_WIFI_SSID").unwrap_or_else(|_| "\"\"".to_string());
-    let default_wifi_password = env::var("HHG_DEFAULT_WIFI_PASSWORD").unwrap_or_else(|_| "\"\"".to_string());
+    let default_wifi_ssid = env_string_literal("HHG_DEFAULT_WIFI_SSID", "");
+    let default_wifi_password = env_string_literal("HHG_DEFAULT_WIFI_PASSWORD", "");
     let default_wifi_auth = env::var("HHG_DEFAULT_WIFI_AUTH").unwrap_or_else(|_| "3".to_string()).parse::<u8>().unwrap_or(3);
     let default_wifi_enabled = parse_bool(&env::var("HHG_DEFAULT_WIFI_ENABLED").unwrap_or_else(|_| "false".to_string()));
     let default_timezone = env::var("HHG_DEFAULT_TIMEZONE").unwrap_or_else(|_| "0".to_string()).parse::<i16>().unwrap_or(60);
@@ -24,11 +43,11 @@ fn main() {
     let default_daylight_saving_end_hour = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_END_HOUR").unwrap_or_else(|_| "3".to_string()).parse::<u8>().unwrap_or(3);
     let default_ntp_msg_len = env::var("HHG_DEFAULT_NTP_MSG_LEN").unwrap_or_else(|_| "48".to_string()).parse::<u16>().unwrap_or(48);
     let default_ntp_port = env::var("HHG_DEFAULT_NTP_PORT").unwrap_or_else(|_| "123".to_string()).parse::<u16>().unwrap_or(123);
-    let default_ntp_server = env::var("HHG_DEFAULT_NTP_SERVER").unwrap_or_else(|_| "\"0.europe.pool.ntp.org\"".to_string());
-    let hhg_aes_key_salt = env::var("HHG_AES_KEY_SALT").unwrap_or_else(|_| "\"AES_KEY\"".to_string());
-    let hhg_aes_iv_salt = env::var("HHG_AES_IV_SALT").unwrap_or_else(|_| "\"AES_IV\"".to_string());
-    let default_system_user_email = env::var("HHG_DEFAULT_SYSTEM_USER_EMAIL").unwrap_or_else(|_| String::new());
-    let default_system_user_password = env::var("HHG_DEFAULT_SYSTEM_USER_PASSWORD").unwrap_or_else(|_| String::new());
+    let default_ntp_server = env_string_literal("HHG_DEFAULT_NTP_SERVER", "0.europe.pool.ntp.org");
+    let hhg_aes_key_salt = env_string_literal("HHG_AES_KEY_SALT", "AES_KEY");
+    let hhg_aes_iv_salt = env_string_literal("HHG_AES_IV_SALT", "AES_IV");
+    let default_system_user_email = env_string_literal("HHG_DEFAULT_SYSTEM_USER_EMAIL", "");
+    let default_system_user_password = env_string_literal("HHG_DEFAULT_SYSTEM_USER_PASSWORD", "");
 
     // Generate defaults.rs file
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());

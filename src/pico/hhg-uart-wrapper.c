@@ -28,7 +28,7 @@ uint hhg_uart_init(uint baudrate) {
     return uart_init(uart0, baudrate);
 }
 
-void hhg_uart_deinit(uart_inst_t *uart) {
+void hhg_uart_deinit(void) {
     uart_deinit(uart0);
 }
 
@@ -62,12 +62,13 @@ uint8_t hhg_uart_getc(void) {
 }
 
 
-size_t count = 0;
 size_t hhg_uart_read(uint8_t *dst, size_t len) {
-    
+    size_t count = 0;
+
     while (count < len && uart_is_readable(uart0)) {
-        dst[count++] = (uint8_t) uart_get_hw(uart0)->dr;
+        dst[count++] = uart_getc(uart0);
     }
+
     return count;
 }
 
