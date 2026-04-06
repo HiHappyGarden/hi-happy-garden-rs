@@ -24,7 +24,7 @@ use core::ptr::null_mut;
 use osal_rs::utils::{Error, Result};
 
 use crate::drivers::uart::{UartConfig, UartDataBits, UartFlowControl, UartFn, UartParity, UartStopBits};
-use crate::drivers::pico::ffi::{gpio_function_type, hhg_gpio_set_function, hhg_uart_deinit, hhg_uart_getc, hhg_uart_init, hhg_uart_irq_set_enabled, hhg_uart_irq_set_exclusive_handler, hhg_uart_putc, hhg_uart_set_format, hhg_uart_set_hw_flow, hhg_uart_set_irq_enables, uart_parity};
+use crate::drivers::pico::ffi::{gpio_function_type, hhg_gpio_set_function, hhg_uart_clear_irq, hhg_uart_deinit, hhg_uart_getc, hhg_uart_init, hhg_uart_irq_set_enabled, hhg_uart_irq_set_exclusive_handler, hhg_uart_irq_set_high_priority, hhg_uart_putc, hhg_uart_set_format, hhg_uart_set_hw_flow, hhg_uart_set_irq_enables, uart_parity};
 use crate::traits::rx_tx::Source;
 
 const TX_PIN: u32 = 0;
@@ -53,6 +53,7 @@ unsafe extern "C" fn uart_isr() {
     if let Some(listener) = unsafe { *&raw const UART_FN.add_listener } {
         let _= (*listener).on_receive(Source::Uart,&[hhg_uart_getc()]);
     }
+    hhg_uart_clear_irq();
 }
 
 
@@ -103,7 +104,9 @@ fn init(config: &UartConfig) -> Result<()> {
 
 
         hhg_uart_irq_set_exclusive_handler(uart_isr);
+        hhg_uart_irq_set_high_priority();
         hhg_uart_set_irq_enables(true, false);
+        hhg_uart_clear_irq();
         hhg_uart_irq_set_enabled(true);
     }
 
