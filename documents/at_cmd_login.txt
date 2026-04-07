@@ -1,1 +1,4 @@
+AT+SESS=?
 AT+SESS=i,admin@hhg.local,mysecretpassword
+AT+SESS
+AT+SESS?
