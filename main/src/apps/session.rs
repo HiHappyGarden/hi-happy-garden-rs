@@ -24,7 +24,7 @@ use core::time::Duration;
 use alloc::sync::Arc;
 use at_parser_rs::{AtError, AtResult, at_quoted};
 use at_parser_rs::context::AtContext;
-use osal_rs::{access_static_option, log_error, log_info};
+use osal_rs::{access_static_option, log_error, log_info, log_warning};
 use osal_rs::os::{Timer, TimerFn, ToTick};
 use osal_rs::utils::{Bytes, Error, Result};
 use osal_rs_serde::{Deserialize, Serialize};
@@ -142,17 +142,18 @@ impl AtContext<{CMD_SIZE}> for Session {
 
     fn exec(&mut self) -> AtResult<'_, {CMD_SIZE}> {
         
-        let password =  EncryptGeneric::get_sha256(unsafe { USER_TMP }.password.as_str().as_bytes()).map_err(|_| AtError::InvalidArgs)?;
         
-
-        for User{email: user, password: pwd} in self.users.iter() {
-            if *user == unsafe { USER_TMP }.email && pwd.as_str() == password.as_str() {
-                unsafe { USER_LOGGED = Some(USER_TMP); }
-                return Ok(at_cmd_response!(Self::AT_RESP; ""));
+        unsafe {
+            match USER_TMP {
+                User{email, password} if email.len() == 0 || password.len() == 0 => {
+                    Self::logout();
+                    Ok(at_cmd_response!(Self::AT_RESP; ""))
+                }
+                User{email, password} if email.len() > 0 && password.len() > 0 => self.login(),
+                User { .. } => Err(AtError::InvalidArgs)
             }
         }
 
-        Err(AtError::InvalidArgs)
     }
 
     fn query(&mut self) -> AtResult<'_, {CMD_SIZE}> {
@@ -184,10 +185,12 @@ impl AtContext<{CMD_SIZE}> for Session {
                 USER_TMP.email = Bytes::from_str(arg1);
                 USER_TMP.password = Bytes::from_str(arg2);
             }
-            StatusSignal::set(StatusFlag::UserLogged.into());
-            access_static_option!(TIMER).start(0);
         } else if arg0 == "o" { // Logout
-            Self::logout();
+            unsafe {
+                (*USER_TMP.email).fill(0);
+                (*USER_TMP.password).fill(0);
+            }
+            
         } else {
             return Err(AtError::InvalidArgs);
         }
@@ -215,6 +218,8 @@ impl Initializable for Session {
         |_, _| {
 
             Self::logout();
+            
+            log_warning!(APP_TAG, "Session timeout, user logged out");
 
             Ok(Arc::new(()))
         }) {
@@ -239,7 +244,34 @@ impl Session {
         Self { users: [User::new(); Session::MAX_USERS] }
     }
 
-    pub fn logout() {
+    fn login(&self) -> AtResult<'_, {CMD_SIZE}> {
+        if unsafe { USER_TMP.email }.len() == 0 || unsafe { USER_TMP.password }.len() == 0 {
+            return Err(AtError::InvalidArgs);
+        }
+
+        for User{email: user, password: pwd} in self.users.iter() {
+            if *user == unsafe { USER_TMP }.email && pwd.as_raw_bytes() == unsafe { USER_TMP }.password.as_raw_bytes() {
+                unsafe { USER_LOGGED = Some(USER_TMP); }
+
+                StatusSignal::set(StatusFlag::UserLogged.into());
+                access_static_option!(TIMER).start(0);
+
+                return Ok(at_cmd_response!(Self::AT_RESP; unsafe { USER_TMP.email } ));
+            }
+        }
+
+        if unsafe { USER_LOGGED }.is_none() {
+            unsafe {
+                (*USER_TMP.email).fill(0);
+                (*USER_TMP.password).fill(0);
+            }
+        }
+
+        Err(AtError::InvalidArgs)
+    }
+
+
+    fn logout() {
         unsafe { USER_LOGGED = None; }
         StatusSignal::clear(StatusFlag::UserLogged.into());
         StatusSignal::clear(StatusFlag::UartCmd.into());
@@ -259,10 +291,8 @@ impl Session {
         if email.is_empty() {
             return Ok(());
         }
-        let hashed = EncryptGeneric::get_sha256(password.as_bytes())
-            .map_err(|_| Error::Unhandled("Failed to hash system user password"))?;
         self.users[0].email = Bytes::from_str(email);
-        self.users[0].password = Bytes::from_str(hashed.as_str());
+        self.users[0].password = Bytes::from_as_sync_str(&EncryptGeneric::get_sha256(password.as_bytes())?);
         Ok(())
     }
 
