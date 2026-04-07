@@ -30,6 +30,7 @@ use crate::apps::signals::status::StatusSignal;
 use crate::apps::wifi::Wifi;
 use crate::drivers::platform::{Hardware, LCDDisplay};
 use crate::traits::hardware::HardwareFn;
+use crate::traits::rgb_led::RgbLed;
 use crate::traits::rx_tx::SetOnReceive;
 use crate::traits::state::Initializable;
 use crate::traits::wifi::SetOnWifiChangeStatus;
@@ -68,7 +69,7 @@ impl Initializable for AppMain{
             let parser_ptr = &raw mut self.parser;
             let hardware_ptr = &raw mut self.hardware;
             
-            
+            (*hardware_ptr).set_color(0, 0, 255); // Blue
 
             // Set RTC for wifi
             (*wifi_ptr).set_rtc((*hardware_ptr).get_rtc());
@@ -88,7 +89,7 @@ impl Initializable for AppMain{
 
         //test funzionalità
 
-        // self.hardware.set_color(0, 0, 255); // Blue
+        
 
         // self.hardware.set_relay_state(GpioPeripheral::Relay1, true);
 
