@@ -188,16 +188,17 @@ fn output(config: &GpioConfig, _: Option<Ptr>, pin: u32, default_value: u32) -> 
 }
 
 
-fn output_pwm(_: &GpioConfig, _: Option<Ptr>, pin: u32, default_value: u32) -> Result<()> {
+fn output_pwm(config: &GpioConfig, ptr: Option<Ptr>, pin: u32, default_value: u32) -> Result<()> {
 
     unsafe {
         hhg_gpio_set_function(pin, gpio_function_type::GPIO_FUNC_PWM as u32);
         let slice_num = hhg_pwm_gpio_to_slice_num(pin);
         let mut pwm_config = hhg_pwm_get_default_config();
         hhg_pwm_config_set_clkdiv(&mut pwm_config, 1.0);
-        hhg_pwm_config_set_wrap(&mut pwm_config, 65535);
+        hhg_pwm_config_set_wrap(&mut pwm_config, 255); 
         hhg_pwm_init(slice_num, &mut pwm_config, true);
-        hhg_pwm_set_gpio_level(pin, default_value as u16);
+
+        set_pwm(config, ptr, pin, default_value);
     }
 
     Ok(())
@@ -231,7 +232,8 @@ fn write(config: &GpioConfig, _: Option<Ptr>, pin: u32, state: u32) -> OsalRsBoo
 
 fn set_pwm(_: &GpioConfig, _: Option<Ptr>, pin: u32, value: u32) -> OsalRsBool {
     unsafe {
-        hhg_pwm_set_gpio_level(pin, value as u16);
+        let corrected = (value as u32 * value as u32) / 255; // gamma ~2.0, senza float
+        hhg_pwm_set_gpio_level(pin, corrected as u16);
     }
     OsalRsBool::True
 }
