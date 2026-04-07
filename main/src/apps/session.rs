@@ -100,7 +100,7 @@ impl AtContext<{CMD_SIZE}> for User {
 
         let arg1 = EncryptGeneric::get_sha256(arg1.as_bytes()).map_err(|_| AtError::InvalidArgs)?;
 
-        self.email = Bytes::from_str(arg0);
+        self.email = Bytes::from_str(arg0.as_ref());
         self.password = Bytes::from_str(arg1.as_str());
         
         Ok(at_cmd_response!(Self::AT_RESP; ""))
@@ -182,8 +182,8 @@ impl AtContext<{CMD_SIZE}> for Session {
 
         if arg0 == "i" { // Login
             unsafe {
-                USER_TMP.email = Bytes::from_str(arg1);
-                USER_TMP.password = Bytes::from_str(arg2);
+                USER_TMP.email = Bytes::from_str(arg1.as_ref());
+                USER_TMP.password = Bytes::from_str(arg2.as_ref());
             }
         } else if arg0 == "o" { // Logout
             unsafe {
