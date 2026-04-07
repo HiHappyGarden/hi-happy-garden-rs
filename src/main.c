@@ -23,13 +23,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <pico/stdlib.h>
-#include <pico/stdio.h>
-#include <hardware/clocks.h>
-#include <hardware/gpio.h>
-#include <portmacro.h>
-
 #include <string.h>
+#include <pico/stdio.h>
 
 int main() {
     stdio_init_all();
