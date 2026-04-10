@@ -62,7 +62,7 @@ impl Default for User {
 
 impl AtContext<{CMD_SIZE}> for User {
 
-    fn exec(&mut self) -> AtResult<'_, {CMD_SIZE}> {
+    fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
 
         let config = Config::shared();
 
@@ -70,40 +70,41 @@ impl AtContext<{CMD_SIZE}> for User {
         config.apply_session();
         self.clear();
         
-        Ok(at_cmd_response!(Self::AT_RESP; ""))
+        Ok(at_cmd_response!(at_response; ""))
     }
 
     #[inline]
-    fn query(&mut self) -> AtResult<'_, {CMD_SIZE}> {
-        Ok(at_cmd_response!(Self::AT_RESP; at_quoted!(self.email.as_str()), at_quoted!(self.password.as_str())))
+    fn query(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
+        Ok(at_cmd_response!(at_response; at_quoted!(self.email.as_str()), at_quoted!(self.password.as_str())))
     }
 
     #[inline]
-    fn test(&mut self) -> AtResult<'_, {CMD_SIZE}> {
-        Ok(at_cmd_response!(Self::AT_RESP; "<user>,<password>"))
+    fn test(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
+        Ok(at_cmd_response!(at_response; "<user>,<password>"))
     } 
     
-    fn set(&mut self, args: at_parser_rs::Args) -> AtResult<'_, {CMD_SIZE}> {
+    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, {CMD_SIZE}> {
         if unsafe { USER_LOGGED }.is_some() {
-            return Err(AtError::Unhandled("Not logged".into()));
+            return Err((at_response, AtError::Unhandled("Not logged".into())));
         }
 
-        let arg0 = args.get(0).ok_or(AtError::InvalidArgs)?;
+        let arg0 = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
         if arg0.len() > 32 {
-            return Err(AtError::Unhandled("Max len 32"));
+            return Err((at_response, AtError::Unhandled("Max len 32")));
+
         }
 
-        let arg1 = args.get(1).ok_or(AtError::InvalidArgs)?;
+        let arg1 = args.get(1).ok_or((at_response, AtError::InvalidArgs))?;
         if arg1.len() > 32 {
-            return Err(AtError::Unhandled("Max len 32"));
+            return Err((at_response, AtError::Unhandled("Max len 32")));
         }
 
-        let arg1 = EncryptGeneric::get_sha256(arg1.as_bytes()).map_err(|_| AtError::InvalidArgs)?;
+        let arg1 = EncryptGeneric::get_sha256(arg1.as_bytes()).map_err(|_| (at_response, AtError::InvalidArgs))?;
 
         self.email = Bytes::from_str(arg0.as_ref());
         self.password = Bytes::from_str(arg1.as_str());
         
-        Ok(at_cmd_response!(Self::AT_RESP; ""))
+        Ok(at_cmd_response!(at_response; ""))
     }
 }
 
@@ -140,23 +141,23 @@ pub(super) struct Session {
 
 impl AtContext<{CMD_SIZE}> for Session {
 
-    fn exec(&mut self) -> AtResult<'_, {CMD_SIZE}> {
+    fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
         
         
         unsafe {
             match USER_TMP {
                 User{email, password} if email.len() == 0 || password.len() == 0 => {
                     Self::logout();
-                    Ok(at_cmd_response!(Self::AT_RESP; ""))
+                    Ok(at_cmd_response!(at_response; ""))
                 }
-                User{email, password} if email.len() > 0 && password.len() > 0 => self.login(),
-                User { .. } => Err(AtError::InvalidArgs)
+                User{email, password} if email.len() > 0 && password.len() > 0 => self.login(at_response),
+                User { .. } => Err((at_response, AtError::InvalidArgs))
             }
         }
 
     }
 
-    fn query(&mut self) -> AtResult<'_, {CMD_SIZE}> {
+    fn query(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
 
         let logged = unsafe { *&raw const USER_LOGGED };
 
@@ -166,17 +167,17 @@ impl AtContext<{CMD_SIZE}> for Session {
             ret.format(format_args!("\"{}\"", access_static_option!(USER_LOGGED).email.as_str()));
         } 
 
-        Ok(at_cmd_response!(Self::AT_RESP; ret))
+        Ok(at_cmd_response!(at_response; ret))
     }
 
-    fn test(&mut self) -> AtResult<'_, {CMD_SIZE}> {
-        Ok(at_cmd_response!(Self::AT_RESP; "<i|o>,<user>,<password>"))
+    fn test(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
+        Ok(at_cmd_response!(at_response; "<i|o>,<user>,<password>"))
     }
 
-    fn set(&mut self, args: at_parser_rs::Args) -> AtResult<'_, {CMD_SIZE}> {
-        let arg0 = args.get(0).ok_or(AtError::InvalidArgs)?;
-        let arg1 = args.get(1).ok_or(AtError::InvalidArgs)?;
-        let arg2 = args.get(2).ok_or(AtError::InvalidArgs)?;
+    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, {CMD_SIZE}> {
+        let arg0 = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
+        let arg1 = args.get(1).ok_or((at_response, AtError::InvalidArgs))?;
+        let arg2 = args.get(2).ok_or((at_response, AtError::InvalidArgs))?;
 
         
 
@@ -192,10 +193,10 @@ impl AtContext<{CMD_SIZE}> for Session {
             }
             
         } else {
-            return Err(AtError::InvalidArgs);
+            return Err((at_response, AtError::InvalidArgs));
         }
 
-        Ok(at_cmd_response!(Self::AT_RESP; ""))
+        Ok(at_cmd_response!(at_response; ""))
     }
 }
 
@@ -244,9 +245,9 @@ impl Session {
         Self { users: [User::new(); Session::MAX_USERS] }
     }
 
-    fn login(&self) -> AtResult<'_, {CMD_SIZE}> {
+    fn login(&self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
         if unsafe { USER_TMP.email }.len() == 0 || unsafe { USER_TMP.password }.len() == 0 {
-            return Err(AtError::InvalidArgs);
+            return Err((at_response, AtError::InvalidArgs));
         }
 
         for User{email: user, password: pwd} in self.users.iter() {
@@ -256,7 +257,7 @@ impl Session {
                 StatusSignal::set(StatusFlag::UserLogged.into());
                 access_static_option!(TIMER).start(0);
 
-                return Ok(at_cmd_response!(Self::AT_RESP; unsafe { USER_TMP.email } ));
+                return Ok(at_cmd_response!(at_response; unsafe { USER_TMP.email } ));
             }
         }
 
@@ -267,7 +268,7 @@ impl Session {
             }
         }
 
-        Err(AtError::InvalidArgs)
+        Err((at_response, AtError::InvalidArgs))
     }
 
 

@@ -20,6 +20,7 @@
 
 use core::str::from_utf8;
 
+use at_parser_rs::AtError;
 use at_parser_rs::context::AtContext;
 use at_parser_rs::parser::AtParser;
 use osal_rs::{access_static_option, log_error, log_info};
@@ -39,6 +40,9 @@ use crate::apps::signals::status::{StatusSignal, StatusFlag};
 const APP_TAG: &str = "AppParser";
 const THREAD_NAME: &str = "parser_trd";
 const STACK_SIZE: StackType = 2_048;
+const NEW_LINE: &str = "\r\n";
+const OK_RESPONSE: &str = "OK";
+const KO_RESPONSE: &str = "KO";
 
 const BUFFER_SIZE: usize = 256;
 const QUEUE_SIZE: UBaseType = BUFFER_SIZE as UBaseType;
@@ -103,9 +107,9 @@ impl Initializable for Parser {
 
             let config = Config::shared();
 
-            let commands: &mut [(&str, &mut dyn AtContext<CMD_SIZE>)] = &mut [
-                (Session::AT_CMD, config.get_session()),
-                (User::AT_CMD, User::get_local()),
+            let commands: &mut [(&str, &str, &mut dyn AtContext<CMD_SIZE>)] = &mut [
+                (Session::AT_CMD, Session::AT_RESP, config.get_session()),
+                (User::AT_CMD, User::AT_RESP, User::get_local()),
             ];
 
             parser.set_commands(commands);
@@ -169,16 +173,44 @@ impl Initializable for Parser {
                     
 
                     match parser.execute(cmd) {
-                        Ok(response) => {
+                        Ok((at_response, mut response)) => {
                             if response.is_empty() {
-                                channel.transmit(b"OK\r\n");
-                            } else {
+                                response.prepend_str(at_response);
+                                response.append_str(OK_RESPONSE);
+                                response.append_str(NEW_LINE);
                                 channel.transmit(response.as_raw_bytes());
-                                channel.transmit(b"\r\nOK\r\n");
+                            } else {
+                                response.prepend_str(at_response);
+                                response.prepend_str(NEW_LINE);
+                                channel.transmit(response.as_raw_bytes());
                             }
                         }
-                        Err(_) => {
-                                channel.transmit(b"KO\r\n");
+                        Err((at_response, AtError::Unhandled(error)))  => {
+                            if error.is_empty() {
+                                channel.transmit(at_response.as_bytes());
+                                channel.transmit(OK_RESPONSE.as_bytes());
+                                channel.transmit(NEW_LINE.as_bytes());
+                            } else {
+                                channel.transmit(at_response.as_bytes());
+                                channel.transmit(error.as_bytes());
+                                channel.transmit(NEW_LINE.as_bytes());
+                            }
+                        }
+                        Err((at_response, AtError::UnhandledOwned(error)))  => {
+                            if error.is_empty() {
+                                channel.transmit(at_response.as_bytes());
+                                channel.transmit(KO_RESPONSE.as_bytes());
+                                channel.transmit(NEW_LINE.as_bytes());
+                            } else {
+                                channel.transmit(at_response.as_bytes());
+                                channel.transmit(error.as_bytes());
+                                channel.transmit(NEW_LINE.as_bytes());
+                            }
+                        }
+                        Err((at_response, _)) => {
+                            channel.transmit(at_response.as_bytes());
+                            channel.transmit(KO_RESPONSE.as_bytes());
+                            channel.transmit(NEW_LINE.as_bytes());
                         }
                     }
 
