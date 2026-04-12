@@ -162,14 +162,13 @@ impl AtContext<{CMD_SIZE}> for Session {
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
 
         let logged = unsafe { *&raw const USER_LOGGED };
-
-        let mut ret = Bytes::<{CMD_SIZE}>::new();
-
+        
         if logged.is_some() { 
-            ret.format(format_args!("\"{}\"", access_static_option!(USER_LOGGED).email.as_str()));
-        } 
-
-        Err((at_response, AtError::InvalidArgs))
+            Ok(at_cmd_response!(at_response; access_static_option!(USER_LOGGED).email.as_str()))
+        } else {
+            Err((at_response, AtError::InvalidArgs))
+        }
+        
     }
 
     #[inline]

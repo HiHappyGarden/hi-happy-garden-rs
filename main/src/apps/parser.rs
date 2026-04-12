@@ -40,7 +40,7 @@ use crate::apps::signals::status::{StatusSignal, StatusFlag};
 
 const APP_TAG: &str = "AppParser";
 const THREAD_NAME: &str = "parser_trd";
-const STACK_SIZE: StackType = 768;
+const STACK_SIZE: StackType = 1_024;
 const NEW_LINE: &str = "\r\n";
 const OK_RESPONSE: &str = "OK";
 const KO_RESPONSE: &str = "KO";
@@ -146,7 +146,7 @@ impl Initializable for Parser {
 
                     
                     let src = access_static_option!(SOURCE);
-                    let src_status_flags = <StatusFlag as Into<u32>>::into(StatusFlag::from(src));
+                    let source_flag = <StatusFlag as Into<u32>>::into(StatusFlag::from(src));
 
                     let channel = match src {
                         Source::Uart => *access_static_option!(UART_CHANNEL),
@@ -158,21 +158,13 @@ impl Initializable for Parser {
 
 
                     let status = StatusSignal::get();
-                    let is_logged = status & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) != 0;
+                    let mut is_logged = status & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) != 0;
                     
-                    if is_logged && (status & src_status_flags == 0) {
+                    if is_logged && (status & source_flag == 0) {
                         channel.transmit(b"KO\r\n");
                         clear_buffer!(buffer, buffer_count);
                         continue;
                     }
-
-
-                    if !is_logged {
-                        StatusSignal::set(src_status_flags); // Set the status flag for the source of the command
-                    } else {
-                        Session::reset_timer(); // Reset the session timer on each command if logged in
-                    }
-
 
                     let cmd = from_utf8(&buffer[..buffer_count]).unwrap_or("<invalid utf-8>").trim();
                     
@@ -180,6 +172,13 @@ impl Initializable for Parser {
 
                     match parser.execute(cmd) {
                         Ok((at_response, response)) => {
+                            let status = StatusSignal::get();
+                            let new_is_logged = status & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) != 0;
+                            if !is_logged && new_is_logged {
+                                StatusSignal::set(source_flag);
+                                is_logged = true;
+                            }
+
                             if response.is_empty() {
                                 channel.transmit(at_response.as_bytes());
                                 channel.transmit(OK_RESPONSE.as_bytes());
@@ -189,6 +188,10 @@ impl Initializable for Parser {
                                 channel.transmit(response.as_raw_bytes());
                                 channel.transmit(NEW_LINE.as_bytes());
                             }
+
+                            if is_logged {
+                                Session::reset_timer(); // Reset the session timer on each command if logged in
+                            }    
                         }
                         Err((at_response, AtError::Unhandled(error)))  => {
                             if error.is_empty() {
@@ -199,6 +202,10 @@ impl Initializable for Parser {
                                 channel.transmit(at_response.as_bytes());
                                 channel.transmit(error.as_bytes());
                                 channel.transmit(NEW_LINE.as_bytes());
+                            }
+
+                            if is_logged {
+                                Session::reset_timer(); // Reset the session timer on each command if logged in
                             }
                         }
                         Err((at_response, AtError::UnhandledOwned(error)))  => {
@@ -211,6 +218,11 @@ impl Initializable for Parser {
                                 channel.transmit(error.as_bytes());
                                 channel.transmit(NEW_LINE.as_bytes());
                             }
+
+
+                            if is_logged {
+                                Session::reset_timer(); // Reset the session timer on each command if logged in
+                            }
                         }
                         Err((at_response, _)) => {
                             channel.transmit(at_response.as_bytes());
@@ -220,7 +232,7 @@ impl Initializable for Parser {
                     }
 
                     if !is_logged {
-                        StatusSignal::clear(src_status_flags); // Clear the status flag for the source of the command
+                        StatusSignal::clear(source_flag); // Clear the status flag for the source of the command
                     }
                     
                     unsafe {
