@@ -38,7 +38,7 @@ use button_events::*;
 
 const APP_TAG: &str = "Button";
 const THREAD_NAME: &str = "button_trd";
-const STACK_SIZE: StackType = 512;
+const STACK_SIZE: StackType = 256;
 const DEBOUNCE_TIME: TickType = 50;
 
 

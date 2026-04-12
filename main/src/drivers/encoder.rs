@@ -35,7 +35,7 @@ use encoder_events::*;
 
 const APP_TAG: &str = "Encoder";
 const THREAD_NAME: &str = "encoder_trd";
-const STACK_SIZE: StackType = 512;
+const STACK_SIZE: StackType = 256;
 const DEBOUNCE_TIME: TickType = 6;
 const BUTTON_DEBOUNCE_TIME: TickType = 50;
 

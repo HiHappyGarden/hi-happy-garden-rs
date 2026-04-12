@@ -40,7 +40,7 @@ use crate::apps::signals::status::{StatusSignal, StatusFlag};
 
 const APP_TAG: &str = "AppParser";
 const THREAD_NAME: &str = "parser_trd";
-const STACK_SIZE: StackType = 2_048;
+const STACK_SIZE: StackType = 768;
 const NEW_LINE: &str = "\r\n";
 const OK_RESPONSE: &str = "OK";
 const KO_RESPONSE: &str = "KO";
