@@ -56,7 +56,7 @@ void hhg_uart_irq_set_enabled(bool enabled) {
 }
 
 void hhg_uart_irq_set_high_priority(void) {
-    irq_set_priority(UART0_IRQ, PICO_HIGHEST_IRQ_PRIORITY);
+    irq_set_priority(UART0_IRQ, PICO_DEFAULT_IRQ_PRIORITY);
 }
 
 void hhg_uart_set_irq_enables(bool rx_en, bool tx_en) {

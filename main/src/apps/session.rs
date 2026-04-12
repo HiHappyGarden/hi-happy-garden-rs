@@ -38,9 +38,13 @@ use crate::apps::signals::status::{StatusSignal, StatusFlag};
 
 const APP_TAG: &str = "AppSession";
 
+/// Temp user data for update local user
 static mut USER_LOCAL: User = User::new();
 
+/// User currently logged in, None if no user is logged
 static mut USER_LOGGED: Option<User> = None;
+
+/// Temporary user used for login/logout operations
 static mut USER_TMP: User = User::new();
 
 static mut TIMER: Option<Timer> = None;
@@ -99,10 +103,8 @@ impl AtContext<{CMD_SIZE}> for User {
             return Err((at_response, AtError::Unhandled("Max len 32")));
         }
 
-        let arg1 = EncryptGeneric::get_sha256(arg1.as_bytes()).map_err(|_| (at_response, AtError::InvalidArgs))?;
-
         self.email = Bytes::from_str(arg0.as_ref());
-        self.password = Bytes::from_str(arg1.as_str());
+        self.password = EncryptGeneric::get_sha256(arg1.as_bytes()).map_err(|_| (at_response, AtError::InvalidArgs))?;
         
         Ok(at_cmd_response!(at_response; ""))
     }
@@ -167,9 +169,10 @@ impl AtContext<{CMD_SIZE}> for Session {
             ret.format(format_args!("\"{}\"", access_static_option!(USER_LOGGED).email.as_str()));
         } 
 
-        Ok(at_cmd_response!(at_response; ret))
+        Err((at_response, AtError::InvalidArgs))
     }
 
+    #[inline]
     fn test(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
         Ok(at_cmd_response!(at_response; "<i|o>,<user>,<password>"))
     }
@@ -184,7 +187,7 @@ impl AtContext<{CMD_SIZE}> for Session {
         if arg0 == "i" { // Login
             unsafe {
                 USER_TMP.email = Bytes::from_str(arg1.as_ref());
-                USER_TMP.password = Bytes::from_str(arg2.as_ref());
+                USER_TMP.password = EncryptGeneric::get_sha256(arg2.as_bytes()).map_err(|_| (at_response, AtError::InvalidArgs))?;
             }
         } else if arg0 == "o" { // Logout
             unsafe {
@@ -213,7 +216,7 @@ impl Initializable for Session {
         log_info!(APP_TAG, "Init app session");
 
         if let Ok(timer) = Timer::new("autoreload_timer",
-        Duration::from_millis(50).to_ticks(),
+        Duration::from_mins(5).to_ticks(),
         false,
         None,
         |_, _| {
@@ -246,12 +249,14 @@ impl Session {
     }
 
     fn login(&self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
-        if unsafe { USER_TMP.email }.len() == 0 || unsafe { USER_TMP.password }.len() == 0 {
+        let user_tmp = unsafe { USER_TMP }.clone();
+
+        if user_tmp.email.len() == 0 || user_tmp.password.len() == 0 {
             return Err((at_response, AtError::InvalidArgs));
         }
 
         for User{email: user, password: pwd} in self.users.iter() {
-            if *user == unsafe { USER_TMP }.email && pwd.as_raw_bytes() == unsafe { USER_TMP }.password.as_raw_bytes() {
+            if *user == user_tmp.email && pwd.as_raw_bytes() == user_tmp.password.as_raw_bytes() {
                 unsafe { USER_LOGGED = Some(USER_TMP); }
 
                 StatusSignal::set(StatusFlag::UserLogged.into());
@@ -280,23 +285,26 @@ impl Session {
         StatusSignal::clear(StatusFlag::DisplayCmd.into());
     }
 
+    #[inline]
     pub fn set_user(&mut self, user: &User) {
         self.users[1] = *user;   
     }
 
+    #[inline]
     pub fn set_user_local(&self) {
         unsafe { USER_LOCAL = self.users[1]; }
     }
 
     pub fn set_system_user(&mut self, email: &str, password: &str) -> Result<()> {
-        if email.is_empty() {
-            return Ok(());
+        if email.is_empty() || password.is_empty() {
+            return Err(Error::Empty);
         }
         self.users[0].email = Bytes::from_str(email);
-        self.users[0].password = Bytes::from_as_sync_str(&EncryptGeneric::get_sha256(password.as_bytes())?);
+        self.users[0].password = Bytes::from_str(password);
         Ok(())
     }
 
+    #[inline]
     pub fn reset_timer() {
         access_static_option!(TIMER).reset(0);
     }

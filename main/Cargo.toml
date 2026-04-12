@@ -23,6 +23,9 @@ osal-rs-tests = { path = "../osal-rs/osal-rs-tests", features = ["freertos"], op
 at-parser-rs = { path = "../at-parser-rs", features = ["freertos"] }
 cjson-bindings = { path = "../cjson-bindings", features = ["osal_rs"] }
 
+[build-dependencies]
+sha2 = { version = "0.10", default-features = false }
+
 [profile.dev]
 panic = "abort"
 debug = true

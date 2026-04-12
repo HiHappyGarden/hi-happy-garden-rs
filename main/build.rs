@@ -1,3 +1,4 @@
+use sha2::{Digest, Sha256};
 use std::env;
 use std::fs::File;
 use std::io::Write;
@@ -47,7 +48,21 @@ fn main() {
     let hhg_aes_key_salt = env_string_literal("HHG_AES_KEY_SALT", "AES_KEY");
     let hhg_aes_iv_salt = env_string_literal("HHG_AES_IV_SALT", "AES_IV");
     let default_system_user_email = env_string_literal("HHG_DEFAULT_SYSTEM_USER_EMAIL", "");
-    let default_system_user_password = env_string_literal("HHG_DEFAULT_SYSTEM_USER_PASSWORD", "");
+    let raw_password = env::var("HHG_DEFAULT_SYSTEM_USER_PASSWORD").unwrap_or_default();
+    let raw_password = {
+        let t = raw_password.trim();
+        if t.len() >= 2
+            && ((t.starts_with('"') && t.ends_with('"'))
+                || (t.starts_with('\'') && t.ends_with('\'')))
+        {
+            t[1..t.len() - 1].to_string()
+        } else {
+            t.to_string()
+        }
+    };
+    let mut hasher = Sha256::new();
+    hasher.update(raw_password.as_bytes());
+    let default_system_user_password = format!("{:?}", format!("{:x}", hasher.finalize()));
 
     // Generate defaults.rs file
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());

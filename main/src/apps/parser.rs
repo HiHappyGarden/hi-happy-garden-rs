@@ -19,6 +19,7 @@
  ***************************************************************************/
 
 use core::str::from_utf8;
+use core::time::Duration;
 
 use at_parser_rs::AtError;
 use at_parser_rs::context::AtContext;
@@ -74,14 +75,19 @@ pub(super) struct Parser {
 
 impl OnReceive for Parser {
     fn on_receive(&self, source: Source, data: &[u8]) -> Result<()> {
-        unsafe {
-            SOURCE = Some(source);
-        }
+        
 
         let queue = access_static_option!(QUEUE);
 
         for &byte in data {
-            queue.post(&[byte], 0)?;
+            match &source {
+                Source::Uart => queue.post_from_isr(&[byte])?,
+                Source::Display | Source::Mqtt => queue.post_with_to_tick(&[byte], Duration::from_millis(100))?,
+            }
+        }
+
+        unsafe {
+            SOURCE = Some(source);
         }
 
         Ok(())
@@ -173,16 +179,15 @@ impl Initializable for Parser {
                     
 
                     match parser.execute(cmd) {
-                        Ok((at_response, mut response)) => {
+                        Ok((at_response, response)) => {
                             if response.is_empty() {
-                                response.prepend_str(at_response);
-                                response.append_str(OK_RESPONSE);
-                                response.append_str(NEW_LINE);
-                                channel.transmit(response.as_raw_bytes());
+                                channel.transmit(at_response.as_bytes());
+                                channel.transmit(OK_RESPONSE.as_bytes());
+                                channel.transmit(NEW_LINE.as_bytes());
                             } else {
-                                response.prepend_str(at_response);
-                                response.prepend_str(NEW_LINE);
+                                channel.transmit(at_response.as_bytes());
                                 channel.transmit(response.as_raw_bytes());
+                                channel.transmit(NEW_LINE.as_bytes());
                             }
                         }
                         Err((at_response, AtError::Unhandled(error)))  => {
