@@ -2,3 +2,8 @@ AT+SESS=?
 AT+SESS=i,admin@hhg.local,mysecretpassword
 AT+SESS
 AT+SESS?
+
+AT+USR=?
+AT+USR=passy.linux@zresa.it,12345678
+AT+USR
+AT+USR?
