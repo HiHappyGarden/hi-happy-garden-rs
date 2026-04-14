@@ -29,8 +29,9 @@ use osal_rs::os::{Queue, QueueFn, Thread, ThreadFn};
 use osal_rs::os::types::{StackType, TickType, UBaseType};
 use osal_rs::utils::{Error, Result};
 
-use crate::apps::config::Config;
+use crate::apps::config::{Config, DaylightSavingTime, WifiConfig, NtpConfig};
 use crate::apps::session::{Session, User};
+use crate::apps::system_handler::SystemHandler;
 use crate::drivers::platform::ThreadPriority;
 use crate::traits::rx_tx::{OnReceive, SetTransmit, Source};
 use crate::traits::signal::Signal;
@@ -111,11 +112,13 @@ impl Initializable for Parser {
             
             let mut parser: AtParser<dyn AtContext<CMD_SIZE>, CMD_SIZE> = AtParser::new();
 
-            let config = Config::shared();
-
             let commands: &mut [(&str, &str, &mut dyn AtContext<CMD_SIZE>)] = &mut [
-                (Session::AT_CMD, Session::AT_RESP, config.get_session()),
+                (Session::AT_CMD, Session::AT_RESP, Config::shared().get_session()),
                 (User::AT_CMD, User::AT_RESP, User::get_local()),
+                (SystemHandler::AT_CMD, SystemHandler::AT_RESP, SystemHandler::get()),
+                (DaylightSavingTime::AT_CMD, DaylightSavingTime::AT_RESP, Config::shared().get_daylight_saving_time()),
+                (WifiConfig::AT_CMD, WifiConfig::AT_RESP, Config::shared().get_wifi_config()),
+                (NtpConfig::AT_CMD, NtpConfig::AT_RESP, Config::shared().get_ntp_config_mut()),
             ];
 
             parser.set_commands(commands);

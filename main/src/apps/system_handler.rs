@@ -18,3 +18,33 @@
  *
  ***************************************************************************/
 
+use at_parser_rs::AtResult;
+use at_parser_rs::context::AtContext;
+
+use crate::apps::parser::{CMD_SIZE, at_cmd_response};
+
+static mut SYSTEM_HANDLER: SystemHandler = SystemHandler;
+
+pub struct SystemHandler;
+
+
+
+
+impl AtContext<{CMD_SIZE}> for SystemHandler {
+
+    #[inline]
+    /// sv = save, ld = load, rb = reboot, fr = factory reset
+    fn test(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
+        Ok(at_cmd_response!(at_response; "sv|ld|rb|fr"))
+    }
+
+}
+
+impl SystemHandler {
+    pub const AT_CMD: &'static str = "AT+SYS";
+    pub const AT_RESP: &'static str = "+SYS: ";
+
+    pub fn get() -> &'static mut SystemHandler {
+        unsafe { &mut *&raw mut SYSTEM_HANDLER }
+    }
+}
