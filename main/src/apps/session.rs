@@ -71,20 +71,20 @@ impl AtContext<{CMD_SIZE}> for User {
             return Err((at_response, AtError::Unhandled("Not logged".into())));
         }
 
-        let config = Config::shared();
+        let email = self.email.clone();
 
-        config.get_session().set_user(self);
-        config.apply_session();
+        Config::shared().get_session().set_user(self);
+        
         self.clear();
         
-        Ok(at_cmd_response!(at_response; ""))
+        Ok(at_cmd_response!(at_response; email))
     }
 
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
         if unsafe { USER_LOGGED }.is_none() {
             return Err((at_response, AtError::Unhandled("Not logged".into())));
         }
-        Ok(at_cmd_response!(at_response; at_quoted!(self.email.as_str()), at_quoted!(self.password.as_str())))
+        Ok(at_cmd_response!(at_response; at_quoted!(self.email.as_str())))
     }
 
     #[inline]
@@ -150,16 +150,17 @@ impl AtContext<{CMD_SIZE}> for Session {
 
     fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
         
-        
-        unsafe {
-            match USER_TMP {
-                User{email, password} if email.len() == 0 || password.len() == 0 => {
-                    Self::logout();
-                    Ok(at_cmd_response!(at_response; ""))
+        let user_tmp = unsafe { &*&raw mut USER_TMP };
+        match user_tmp {
+            User{email, password} if email.len() == 0 || password.len() == 0 => {
+                if unsafe { USER_LOGGED }.is_none() {
+                    return Err((at_response, AtError::Unhandled("Not logged".into())));
                 }
-                User{email, password} if email.len() > 0 && password.len() > 0 => self.login(at_response),
-                User { .. } => Err((at_response, AtError::InvalidArgs))
+                Self::logout();
+                Ok(at_cmd_response!(at_response; ""))
             }
+            User{email, password} if email.len() > 0 && password.len() > 0 => self.login(at_response),
+            User { .. } => Err((at_response, AtError::InvalidArgs))
         }
 
     }
@@ -167,7 +168,6 @@ impl AtContext<{CMD_SIZE}> for Session {
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
 
         let logged = unsafe { *&raw const USER_LOGGED };
-        
         if logged.is_some() { 
             Ok(at_cmd_response!(at_response; access_static_option!(USER_LOGGED).email.as_str()))
         } else {
@@ -281,6 +281,7 @@ impl Session {
 
     fn logout() {
         unsafe { USER_LOGGED = None; }
+        User::get_local().clear();
         StatusSignal::clear(StatusFlag::UserLogged.into());
         StatusSignal::clear(StatusFlag::UartCmd.into());
         StatusSignal::clear(StatusFlag::MqttCmd.into());
