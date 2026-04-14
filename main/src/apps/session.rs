@@ -67,6 +67,9 @@ impl Default for User {
 impl AtContext<{CMD_SIZE}> for User {
 
     fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
+        if unsafe { USER_LOGGED }.is_none() {
+            return Err((at_response, AtError::Unhandled("Not logged".into())));
+        }
 
         let config = Config::shared();
 
@@ -77,30 +80,32 @@ impl AtContext<{CMD_SIZE}> for User {
         Ok(at_cmd_response!(at_response; ""))
     }
 
-    #[inline]
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
+        if unsafe { USER_LOGGED }.is_none() {
+            return Err((at_response, AtError::Unhandled("Not logged".into())));
+        }
         Ok(at_cmd_response!(at_response; at_quoted!(self.email.as_str()), at_quoted!(self.password.as_str())))
     }
 
     #[inline]
     fn test(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
-        Ok(at_cmd_response!(at_response; "<user>,<password>"))
+        Ok(at_cmd_response!(at_response; "<email>,<password>"))
     } 
     
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, {CMD_SIZE}> {
-        if unsafe { USER_LOGGED }.is_some() {
+        if unsafe { USER_LOGGED }.is_none() {
             return Err((at_response, AtError::Unhandled("Not logged".into())));
         }
 
         let arg0 = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
         if arg0.len() > 32 {
-            return Err((at_response, AtError::Unhandled("Max len 32")));
+            return Err((at_response, AtError::Unhandled("email max len 32")));
 
         }
 
         let arg1 = args.get(1).ok_or((at_response, AtError::InvalidArgs))?;
         if arg1.len() > 32 {
-            return Err((at_response, AtError::Unhandled("Max len 32")));
+            return Err((at_response, AtError::Unhandled("password max len 32")));
         }
 
         self.email = Bytes::from_str(arg0.as_ref());
@@ -173,17 +178,15 @@ impl AtContext<{CMD_SIZE}> for Session {
 
     #[inline]
     fn test(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
-        Ok(at_cmd_response!(at_response; "<i|o>,<user>,<password>"))
+        Ok(at_cmd_response!(at_response; "<i|o>,<email>,<password>"))
     }
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, {CMD_SIZE}> {
         let arg0 = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
-        let arg1 = args.get(1).ok_or((at_response, AtError::InvalidArgs))?;
-        let arg2 = args.get(2).ok_or((at_response, AtError::InvalidArgs))?;
-
-        
 
         if arg0 == "i" { // Login
+            let arg1 = args.get(1).ok_or((at_response, AtError::InvalidArgs))?;
+            let arg2 = args.get(2).ok_or((at_response, AtError::InvalidArgs))?;
             unsafe {
                 USER_TMP.email = Bytes::from_str(arg1.as_ref());
                 USER_TMP.password = EncryptGeneric::get_sha256(arg2.as_bytes()).map_err(|_| (at_response, AtError::InvalidArgs))?;
