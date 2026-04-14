@@ -7,3 +7,6 @@ AT+USR=?
 AT+USR=passy.linux@zresa.it,12345678
 AT+USR
 AT+USR?
+
+AT+SESS=o
+AT+SESS
