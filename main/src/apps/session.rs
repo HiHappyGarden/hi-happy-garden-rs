@@ -178,7 +178,7 @@ impl AtContext<{CMD_SIZE}> for Session {
 
     #[inline]
     fn test(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
-        Ok(at_cmd_response!(at_response; "<i|o>,<email>,<password>"))
+        Ok(at_cmd_response!(at_response; "<cmd(i|o)>,<email>,<password>"))
     }
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, {CMD_SIZE}> {

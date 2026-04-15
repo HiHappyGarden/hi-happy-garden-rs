@@ -54,7 +54,7 @@ static mut SOURCE: Option<Source> = None;
 
 static mut UART_CHANNEL: Option<&'static dyn SetTransmit> = None;
 
-pub(super) const CMD_SIZE : usize = 64;
+pub(super) const CMD_SIZE : usize = 96;
 
 macro_rules! at_cmd_response {
     ($at_resp:expr; $($args:expr),+) => {
@@ -113,6 +113,7 @@ impl Initializable for Parser {
             let mut parser: AtParser<dyn AtContext<CMD_SIZE>, CMD_SIZE> = AtParser::new();
 
             let commands: &mut [(&str, &str, &mut dyn AtContext<CMD_SIZE>)] = &mut [
+                (Config::AT_CMD, Config::AT_RESP, Config::shared()),
                 (Session::AT_CMD, Session::AT_RESP, Config::shared().get_session()),
                 (User::AT_CMD, User::AT_RESP, User::get_local()),
                 (SystemHandler::AT_CMD, SystemHandler::AT_RESP, SystemHandler::get()),

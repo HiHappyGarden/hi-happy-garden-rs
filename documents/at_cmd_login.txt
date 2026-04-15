@@ -10,3 +10,7 @@ AT+USR?
 
 AT+SESS=o
 AT+SESS
+
+AT+WIFI=?
+AT+DST=?
+AT+NTP=?

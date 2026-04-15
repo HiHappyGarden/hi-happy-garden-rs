@@ -30,7 +30,9 @@ use osal_rs::utils::{Error, Result};
 use osal_rs::{log_info, log_warning};
 
 use osal_rs_serde::{Deserialize, Serialize};
+use at_parser_rs::at_quoted as quoted;
 
+use crate::apps::parser::{CMD_SIZE, at_cmd_response};
 use crate::apps::session::Session;
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::drivers::date_time::DateTime;
@@ -121,9 +123,9 @@ impl DaylightSavingTime {
     pub const AT_RESP: &'static str = "+DST: ";
 }
 
-impl AtContext<{ crate::apps::parser::CMD_SIZE }> for DaylightSavingTime {
-    fn query(&mut self, at_response: &'static str) -> AtResult<'_, { crate::apps::parser::CMD_SIZE }> {
-        let mut response = Bytes::<{ crate::apps::parser::CMD_SIZE }>::new();
+impl AtContext<{ CMD_SIZE }> for DaylightSavingTime {
+    fn query(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+        let mut response = Bytes::<{ CMD_SIZE }>::new();
         response.format(format_args!("{},{},{},{},{},{},{}",
             self.start_month, self.start_day, self.start_hour,
             self.end_month, self.end_day, self.end_hour,
@@ -131,13 +133,12 @@ impl AtContext<{ crate::apps::parser::CMD_SIZE }> for DaylightSavingTime {
         Ok((at_response, response))
     }
 
-    fn test(&mut self, at_response: &'static str) -> AtResult<'_, { crate::apps::parser::CMD_SIZE }> {
-        let mut response = Bytes::<{ crate::apps::parser::CMD_SIZE }>::new();
-        response.format(format_args!("<start_month>,<start_day>,<start_hour>,<end_month>,<end_day>,<end_hour>,<enabled>"));
-        Ok((at_response, response))
+    #[inline]
+    fn test(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+        Ok(at_cmd_response!(at_response; "<start_month>,<start_day>,<start_hour>,<end_month>,<end_day>,<end_hour>,<enabled>"))
     }
 
-    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { crate::apps::parser::CMD_SIZE }> {
+    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
         if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
             return Err((at_response, AtError::Unhandled("Not logged")));
         }
@@ -164,12 +165,9 @@ impl AtContext<{ crate::apps::parser::CMD_SIZE }> for DaylightSavingTime {
         self.end_hour = end_hour;
         self.enabled = enabled != 0;
 
-        Config::save().map_err(|_| (at_response, AtError::Unhandled("Save error")))?;
         Config::shared().apply_daylight_saving_time();
 
-        let mut response = Bytes::<{ crate::apps::parser::CMD_SIZE }>::new();
-        response.format(format_args!(""));
-        Ok((at_response, response))
+        Ok(at_cmd_response!(at_response; ""))
     }
 }
 
@@ -249,22 +247,19 @@ impl WifiConfig {
     }
 }
 
-impl AtContext<{ crate::apps::parser::CMD_SIZE }> for WifiConfig {
-    fn query(&mut self, at_response: &'static str) -> AtResult<'_, { crate::apps::parser::CMD_SIZE }> {
-        let mut response = Bytes::<{ crate::apps::parser::CMD_SIZE }>::new();
-        let auth: u8 = self.auth.into();
-        response.format(format_args!("\"{}\",{},{}",
-            self.ssid.as_str(), auth, self.enabled as u8));
-        Ok((at_response, response))
+impl AtContext<{ CMD_SIZE }> for WifiConfig {
+    
+    #[inline]
+    fn query(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+        Ok(at_cmd_response!(at_response; quoted!(self.ssid.as_str()), <Auth as Into<u8>>::into(self.auth), self.enabled as u8))
     }
 
-    fn test(&mut self, at_response: &'static str) -> AtResult<'_, { crate::apps::parser::CMD_SIZE }> {
-        let mut response = Bytes::<{ crate::apps::parser::CMD_SIZE }>::new();
-        response.format(format_args!("<ssid>,<password>,<auth(0-6)>,<enabled(0|1)>"));
-        Ok((at_response, response))
+    #[inline]
+    fn test(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+        Ok(at_cmd_response!(at_response; "<ssid>,<password>,<auth(0-6)>,<enabled(0|1)>"))
     }
 
-    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { crate::apps::parser::CMD_SIZE }> {
+    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
         if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
             return Err((at_response, AtError::Unhandled("Not logged")));
         }
@@ -286,12 +281,9 @@ impl AtContext<{ crate::apps::parser::CMD_SIZE }> for WifiConfig {
         self.auth = Auth::from(auth);
         self.enabled = enabled != 0;
 
-        Config::save().map_err(|_| (at_response, AtError::Unhandled("Save error")))?;
         Config::shared().apply_wifi();
 
-        let mut response = Bytes::<{ crate::apps::parser::CMD_SIZE }>::new();
-        response.format(format_args!(""));
-        Ok((at_response, response))
+        Ok(at_cmd_response!(at_response; ""))
     }
 }
 
@@ -356,21 +348,18 @@ impl NtpConfig {
     }
 }
 
-impl AtContext<{ crate::apps::parser::CMD_SIZE }> for NtpConfig {
-    fn query(&mut self, at_response: &'static str) -> AtResult<'_, { crate::apps::parser::CMD_SIZE }> {
-        let mut response = Bytes::<{ crate::apps::parser::CMD_SIZE }>::new();
-        response.format(format_args!("\"{}\",{},{}",
-            self.server.as_str(), self.port, self.msg_len));
-        Ok((at_response, response))
+impl AtContext<{ CMD_SIZE }> for NtpConfig {
+    #[inline]
+    fn query(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+        Ok(at_cmd_response!(at_response; quoted!(self.server.as_str()), self.port, self.msg_len))
     }
 
-    fn test(&mut self, at_response: &'static str) -> AtResult<'_, { crate::apps::parser::CMD_SIZE }> {
-        let mut response = Bytes::<{ crate::apps::parser::CMD_SIZE }>::new();
-        response.format(format_args!("<server>,<port>,<msg_len>"));
-        Ok((at_response, response))
+    #[inline]
+    fn test(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+        Ok(at_cmd_response!(at_response; "<server>,<port>,<msg_len>"))
     }
 
-    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { crate::apps::parser::CMD_SIZE }> {
+    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
         if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
             return Err((at_response, AtError::Unhandled("Not logged")));
         }
@@ -387,12 +376,9 @@ impl AtContext<{ crate::apps::parser::CMD_SIZE }> for NtpConfig {
         self.port = port;
         self.msg_len = msg_len;
 
-        Config::save().map_err(|_| (at_response, AtError::Unhandled("Save error")))?;
         Config::shared().apply_ntp();
 
-        let mut response = Bytes::<{ crate::apps::parser::CMD_SIZE }>::new();
-        response.format(format_args!(""));
-        Ok((at_response, response))
+        Ok(at_cmd_response!(at_response; ""))
     }
 }
 
@@ -444,8 +430,61 @@ impl Initializable for Config {
     }
 }
 
+impl AtContext<{ CMD_SIZE }> for Config {
+    fn exec(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+        Config::save().map_err(|_| (at_response, AtError::Unhandled("Save error")))?;
+        Ok(at_cmd_response!(at_response; ""))
+    }
+
+    fn query(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+        Ok(at_cmd_response!(at_response; quoted!(self.serial.as_str()), self.timezone))
+    }
+
+    #[inline]
+    fn test(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+        Ok(at_cmd_response!(at_response; "serial,<value> | timezone,<value> | save | load"))
+    }
+
+    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
+        if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
+            return Err((at_response, AtError::Unhandled("Not logged")));
+        }
+        let cmd = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
+        match cmd.as_ref() {
+            "serial" => {
+                let value = args.get(1).ok_or((at_response, AtError::InvalidArgs))?;
+                if value.len() > 16 {
+                    return Err((at_response, AtError::Unhandled("serial max len 16")));
+                }
+                self.serial = Bytes::from_str(value.as_ref());
+            }
+            "timezone" => {
+                let value: i16 = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+                self.timezone = value;
+                self.apply_locale();
+            }
+            "save" => {
+                Config::save().map_err(|_| (at_response, AtError::Unhandled("Save error")))?;
+            }
+            "load" => {
+                let config = Config::load().map_err(|_| (at_response, AtError::Unhandled("Load error")))?;
+                config.apply_locale();
+                config.apply_daylight_saving_time();
+                config.apply_ntp();
+                config.apply_wifi();
+                config.apply_session();
+            }
+            _ => return Err((at_response, AtError::InvalidArgs)),
+        }
+        Ok(at_cmd_response!(at_response; ""))
+    }
+}
+
 impl Config {
     const FILE_NAME: &'static str = "config.json";
+    pub const AT_CMD: &'static str = "AT+CNF";
+    pub const AT_RESP: &'static str = "+CNF: ";
 
     /// Initialize Config with default values from CMake
     fn with_defaults() -> Self {
