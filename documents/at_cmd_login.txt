@@ -14,3 +14,7 @@ AT+SESS
 AT+WIFI=?
 AT+DST=?
 AT+NTP=?
+
+AT+SYS=?
+AT+SYS=rs
+AT+SYS?
