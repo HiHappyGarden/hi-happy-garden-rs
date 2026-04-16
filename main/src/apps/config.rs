@@ -135,35 +135,46 @@ impl AtContext<{ CMD_SIZE }> for DaylightSavingTime {
 
     #[inline]
     fn test(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
-        Ok(at_cmd_response!(at_response; "<start_month>,<start_day>,<start_hour>,<end_month>,<end_day>,<end_hour>,<enabled>"))
+        Ok(at_cmd_response!(at_response; "start_month,<value> | start_day,<value> | start_hour,<value> | end_month,<value> | end_day,<value> | end_hour,<value> | enabled,<0|1>"))
     }
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
         if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
             return Err((at_response, AtError::Unhandled("Not logged")));
         }
-        let start_month: u8 = args.get(0).ok_or((at_response, AtError::InvalidArgs))?
-            .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
-        let start_day: u8 = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
-            .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
-        let start_hour: u8 = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
-            .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
-        let end_month: u8 = args.get(3).ok_or((at_response, AtError::InvalidArgs))?
-            .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
-        let end_day: u8 = args.get(4).ok_or((at_response, AtError::InvalidArgs))?
-            .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
-        let end_hour: u8 = args.get(5).ok_or((at_response, AtError::InvalidArgs))?
-            .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
-        let enabled: u8 = args.get(6).ok_or((at_response, AtError::InvalidArgs))?
-            .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
-
-        self.start_month = start_month;
-        self.start_day = start_day;
-        self.start_hour = start_hour;
-        self.end_month = end_month;
-        self.end_day = end_day;
-        self.end_hour = end_hour;
-        self.enabled = enabled != 0;
+        let cmd = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
+        match cmd.as_ref() {
+            "start_month" => {
+                self.start_month = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+            }
+            "start_day" => {
+                self.start_day = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+            }
+            "start_hour" => {
+                self.start_hour = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+            }
+            "end_month" => {
+                self.end_month = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+            }
+            "end_day" => {
+                self.end_day = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+            }
+            "end_hour" => {
+                self.end_hour = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+            }
+            "enabled" => {
+                let value: u8 = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+                self.enabled = value != 0;
+            }
+            _ => return Err((at_response, AtError::InvalidArgs)),
+        }
 
         Config::shared().apply_daylight_saving_time();
 
