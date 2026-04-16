@@ -18,6 +18,8 @@
  *
  ***************************************************************************/
 
+use core::ptr::write_volatile;
+
 use alloc::sync::Arc;
 use osal_rs::log_info;
 use osal_rs::os::types::UBaseType;
@@ -54,6 +56,7 @@ use crate::traits::wifi::{OnWifiChangeStatus, SetOnWifiChangeStatus};
 
 
 const APP_TAG: &str = "Hardware";
+const PPB_BASE: usize = 0xe0000000;
 
 #[allow(dead_code)]
 #[repr(u32)]
@@ -282,7 +285,7 @@ impl Hardware {
     pub fn init_fs(&self) -> Result<()> {
         Filesystem::mount(true)?;
 
-        Filesystem::remove_recursive("/")?;
+        //Filesystem::remove_recursive("/")?;
 
         if let Err(Error::ReturnWithCode(code)) = Filesystem::mkdir(FS_CONFIG_DIR) {
             if code != LFS_ERR_EXIST {
@@ -325,5 +328,12 @@ impl Hardware {
         Ok(())
     }
 
+    pub fn reset() -> ! {
+        unsafe {
+            let aircr_register = (PPB_BASE + 0x0ED0C) as *mut u32;
+            write_volatile(aircr_register, 0x5FA0004);
+        }
+        loop {}
+    }
 }
 
