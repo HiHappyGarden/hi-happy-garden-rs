@@ -45,6 +45,7 @@ const STACK_SIZE: StackType = 1_280;
 const NEW_LINE: &str = "\r\n";
 const OK_RESPONSE: &str = "OK";
 const KO_RESPONSE: &str = "KO";
+pub(super) const NOT_LOGGED_RESPONSE: &str = "KO: Not logged in";
 
 const BUFFER_SIZE: usize = 256;
 const QUEUE_SIZE: UBaseType = BUFFER_SIZE as UBaseType;

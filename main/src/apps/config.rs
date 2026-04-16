@@ -32,7 +32,7 @@ use osal_rs::{log_info, log_warning};
 use osal_rs_serde::{Deserialize, Serialize};
 use at_parser_rs::at_quoted as quoted;
 
-use crate::apps::parser::{CMD_SIZE, at_cmd_response};
+use crate::apps::parser::{CMD_SIZE, NOT_LOGGED_RESPONSE, at_cmd_response};
 use crate::apps::session::Session;
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::drivers::date_time::DateTime;
@@ -140,34 +140,34 @@ impl AtContext<{ CMD_SIZE }> for DaylightSavingTime {
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
         if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
-            return Err((at_response, AtError::Unhandled("Not logged")));
+            return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE)));
         }
         let cmd = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
         match cmd.as_ref() {
-            "start_month" => {
+            "start_month" => 
                 self.start_month = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
-                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
-            }
-            "start_day" => {
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+            
+            "start_day" => 
                 self.start_day = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
-                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
-            }
-            "start_hour" => {
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+
+            "start_hour" => 
                 self.start_hour = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
-                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
-            }
-            "end_month" => {
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+
+            "end_month" => 
                 self.end_month = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
-                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
-            }
-            "end_day" => {
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+
+            "end_day" => 
                 self.end_day = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
-                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
-            }
-            "end_hour" => {
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+            
+            "end_hour" => 
                 self.end_hour = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
-                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
-            }
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+            
             "enabled" => {
                 let value: u8 = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
                     .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
@@ -272,7 +272,7 @@ impl AtContext<{ CMD_SIZE }> for WifiConfig {
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
         if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
-            return Err((at_response, AtError::Unhandled("Not logged")));
+            return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE)));
         }
         let ssid = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
         if ssid.len() > 32 {
@@ -372,7 +372,7 @@ impl AtContext<{ CMD_SIZE }> for NtpConfig {
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
         if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
-            return Err((at_response, AtError::Unhandled("Not logged")));
+            return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE)));
         }
         let server = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
         if server.len() > 64 {
@@ -458,7 +458,7 @@ impl AtContext<{ CMD_SIZE }> for Config {
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
         if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
-            return Err((at_response, AtError::Unhandled("Not logged")));
+            return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE)));
         }
         let cmd = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
         match cmd.as_ref() {
@@ -599,9 +599,6 @@ impl Config {
         };
 
 
-        //todo: error Bytes::as_str() Conversion error - invalid UTF-8
-        log_info!(APP_TAG, "wifi_json:{}", wifi_json);
-
         match from_json::<Config>(&wifi_json) {
             Ok(config) => {
                 unsafe {
@@ -613,7 +610,7 @@ impl Config {
             }
             Err(e) => {
                 log_warning!(APP_TAG, "Using default config values err: {e}");
-                unsafe { CONFIG = Default::default() };
+                unsafe { CONFIG = Self::with_defaults() };
 
                 Self::save()?;
 

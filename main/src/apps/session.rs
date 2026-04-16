@@ -30,7 +30,7 @@ use osal_rs::utils::{Bytes, Error, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
 use crate::apps::config::Config;
-use crate::apps::parser::{CMD_SIZE, at_cmd_response};
+use crate::apps::parser::{CMD_SIZE, NOT_LOGGED_RESPONSE, at_cmd_response};
 use crate::drivers::encrypt::{EncryptGeneric, SHA256_RESULT_BYTES};
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
@@ -49,10 +49,33 @@ static mut USER_TMP: User = User::new();
 
 static mut TIMER: Option<Timer> = None;
 
-#[derive(Serialize, Deserialize, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub(super) struct User {
     email: Bytes<32>,
     password: Bytes<{SHA256_RESULT_BYTES * 2}>,
+}
+
+impl Serialize for User {
+    fn serialize<S: osal_rs_serde::Serializer>(&self, name: &str, serializer: &mut S) -> core::result::Result<(), S::Error> {
+        serializer.serialize_struct_start(name, 2)?;
+        serializer.serialize_str("email", self.email.as_str())?;
+        serializer.serialize_str("password", self.password.as_str())?;
+        serializer.serialize_struct_end()
+    }
+}
+
+impl Deserialize for User {
+    fn deserialize<D: osal_rs_serde::Deserializer>(deserializer: &mut D, name: &str) -> core::result::Result<Self, D::Error> {
+        deserializer.deserialize_struct_start(name)?;
+        let email = deserializer.deserialize_string("email")?;
+        let password = deserializer.deserialize_string("password")?;
+        deserializer.deserialize_struct_end()?;
+
+        Ok(Self {
+            email: Bytes::from_str(&email),
+            password: Bytes::from_str(&password),
+        })
+    }
 }
 
 impl Default for User {
@@ -68,7 +91,7 @@ impl AtContext<{CMD_SIZE}> for User {
 
     fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
         if unsafe { USER_LOGGED }.is_none() {
-            return Err((at_response, AtError::Unhandled("Not logged".into())));
+            return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE.into())));
         }
 
         let email = self.email.clone();
@@ -82,7 +105,7 @@ impl AtContext<{CMD_SIZE}> for User {
 
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
         if unsafe { USER_LOGGED }.is_none() {
-            return Err((at_response, AtError::Unhandled("Not logged".into())));
+            return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE.into())));
         }
         Ok(at_cmd_response!(at_response; at_quoted!(self.email.as_str())))
     }
@@ -94,7 +117,7 @@ impl AtContext<{CMD_SIZE}> for User {
     
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, {CMD_SIZE}> {
         if unsafe { USER_LOGGED }.is_none() {
-            return Err((at_response, AtError::Unhandled("Not logged".into())));
+            return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE.into())));
         }
 
         let arg0 = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
@@ -154,7 +177,7 @@ impl AtContext<{CMD_SIZE}> for Session {
         match user_tmp {
             User{email, password} if email.len() == 0 || password.len() == 0 => {
                 if unsafe { USER_LOGGED }.is_none() {
-                    return Err((at_response, AtError::Unhandled("Not logged".into())));
+                    return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE.into())));
                 }
                 Self::logout();
                 Ok(at_cmd_response!(at_response; ""))
