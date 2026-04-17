@@ -123,7 +123,6 @@ pub struct GpioFn {
 unsafe impl Send for GpioFn {}
 unsafe impl Sync for GpioFn {}
 
-
 pub struct Gpio<const GPIO_CONFIG_SIZE: usize> {
     configs: &'static mut GpioConfigs<'static, GPIO_CONFIG_SIZE>,
     mutex: RawMutex,

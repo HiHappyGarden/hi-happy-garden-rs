@@ -18,17 +18,25 @@
  *
  ***************************************************************************/
 
-mod config;
-mod display;
-mod main;
-mod parser;
-mod screen_route;
-mod session;
-mod signals;
-mod system_handler;
-mod system_led;
-mod wifi;
+use osal_rs::log_info;
 
-pub use display::DISPLAY_INPUT_MAX_SIZE;
-pub use main::AppMain;
+use crate::traits::{rgb_led::RgbLed, state::Initializable};
 
+
+const APP_TAG: &str = "AppSystemLed";
+
+ pub struct SystemLed;
+
+
+ impl Initializable for SystemLed {
+    fn init(&mut self) -> osal_rs::utils::Result<()> {
+        log_info!(APP_TAG, "Init app display");
+        Ok(())
+    }
+ }
+
+ impl SystemLed {
+    pub const fn new() -> Self {
+        Self
+    }
+ }

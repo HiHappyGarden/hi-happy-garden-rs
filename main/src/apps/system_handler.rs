@@ -31,10 +31,7 @@ use crate::traits::signal::Signal;
 static mut SYSTEM_HANDLER: SystemHandler = SystemHandler;
 
 pub struct SystemHandler;
-
-
-
-
+    
 impl AtContext<{CMD_SIZE}> for SystemHandler {
 
     #[inline]

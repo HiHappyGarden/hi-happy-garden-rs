@@ -27,6 +27,7 @@ use crate::apps::display::{Display};
 use crate::apps::parser::Parser;
 use crate::apps::signals::error::ErrorSignal;
 use crate::apps::signals::status::StatusSignal;
+use crate::apps::system_led::{self, SystemLed};
 use crate::apps::wifi::Wifi;
 use crate::drivers::platform::{Hardware, LCDDisplay};
 use crate::traits::hardware::HardwareFn;
@@ -42,6 +43,7 @@ pub struct AppMain {
     display: Display<LCDDisplay>,
     wifi: Wifi,
     parser: Parser,
+    system_led: SystemLed,
 }
 
 
@@ -60,7 +62,8 @@ impl Initializable for AppMain{
         self.wifi.init()?;
         self.display.init()?;
         self.display.set_enabled_wifi(config.get_wifi_config().is_enabled());
-
+        self.system_led.init()?;
+        
         // SAFETY: AppMain lives in static mut APP_MAIN, initialized once at startup.
         // We use raw pointers to avoid borrow checker issues, then convert to 'static refs.
         unsafe {
@@ -104,14 +107,16 @@ impl Initializable for AppMain{
 
 impl AppMain {
     pub fn new(hardware: &'static mut Hardware) -> Self {
-
-        let display = Display::shared(hardware.get_rtc(), hardware.get_lcd_display());
         
+        let display = Display::shared(hardware.get_rtc(), hardware.get_lcd_display());
+        // let system_led = SystemLed::new(hardware);
+
         Self {
             hardware,
             display,
             wifi: Wifi::shared(),
             parser: Parser::shared(),
+            system_led: SystemLed::new(),
         }
     }
 }
