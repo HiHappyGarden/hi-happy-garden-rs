@@ -307,10 +307,12 @@ impl SetRotatableAndClickable<'static> for Encoder {
 
         });
 
-        if let Err(e) = ret {
+        if let Err(e) = &ret {
             log_error!(APP_TAG, "Error spawning encoder thread: {:?}", e);
             self.thread_started.store(false, Ordering::Release);
         }
+
+        self.thread = ret.unwrap();
 
     }
     

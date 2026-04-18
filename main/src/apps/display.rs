@@ -87,7 +87,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
         let wifi_enabled = Arc::clone(&self.wifi_enabled);
         
-        self.thread.spawn_simple(move || {
+        self.thread = self.thread.spawn_simple(move || {
 
             let lcd = &mut *(lcd.lock().unwrap());
 

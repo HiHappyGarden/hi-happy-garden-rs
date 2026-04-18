@@ -109,7 +109,7 @@ impl Initializable for Parser {
             return Err(Error::OutOfMemory)
         }
 
-        self.thread.spawn_simple(move || {
+        self.thread = self.thread.spawn_simple(move || {
             
             let mut parser: AtParser<dyn AtContext<CMD_SIZE>, CMD_SIZE> = AtParser::new();
 

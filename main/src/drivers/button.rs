@@ -118,10 +118,12 @@ impl SetClickable<'static> for Button {
             }
         });
 
-        if let Err(e) = ret {
+        if let Err(e) = &ret {
             log_error!(APP_TAG, "Error spawning button thread: {:?}", e);
             self.thread_started.store(false, Ordering::Release);
         }
+
+        self.thread = ret.unwrap();
     }
 
     fn get_state(&self) -> ButtonState {
