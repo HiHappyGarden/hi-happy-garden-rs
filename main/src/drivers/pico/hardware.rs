@@ -44,7 +44,6 @@ use crate::drivers::plt::flash::lfs_errors::LFS_ERR_EXIST;
 use crate::drivers::wifi::Wifi;
 
 use crate::set_hardware_error;
-use crate::traits::rgb_led::RgbLed as RgbLedFn;
 use crate::traits::relays::Relays as RelaysFn;
 use crate::traits::button::{OnClickable, SetClickable as ButtonOnClickable};
 use crate::traits::encoder::{OnRotatableAndClickable as EncoderOnRotatableAndClickable, SetRotatableAndClickable};
@@ -104,7 +103,6 @@ pub struct Hardware {
     uart: Uart,
     encoder: Encoder,
     button: Button,
-    rgb_led: RgbLed,
     relays: Relays,
     display: LCDDisplay,
     i2c0: I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>,
@@ -131,7 +129,7 @@ impl Initializable for Hardware {
 
         set_hardware_error!(self.button.init(), HardwareErrorFlag::Button);
 
-        set_hardware_error!(self.rgb_led.init(), HardwareErrorFlag::Leds);
+        set_hardware_error!(RgbLed::new().init(), HardwareErrorFlag::Leds);
 
         set_hardware_error!(self.i2c0.init(), HardwareErrorFlag::I2C);
         
@@ -163,27 +161,6 @@ impl Initializable for Hardware {
     } 
 }
 
-impl RgbLedFn for Hardware {
-    #[inline]
-    fn set_color(&self, red: u8, green: u8, blue: u8) {
-        self.rgb_led.set_color(red, green, blue);
-    }
-
-    #[inline]
-    fn set_red(&self, red: u8) {
-        self.rgb_led.set_red(red);
-    }
-    
-    #[inline]
-    fn set_green(&self, green: u8) {
-        self.rgb_led.set_green(green);
-    }
-
-    #[inline]
-    fn set_blue(&self, blue: u8) {
-        self.rgb_led.set_blue(blue);
-    }
-}
 
 impl RelaysFn for Hardware {
 
@@ -266,7 +243,6 @@ impl Hardware {
             uart: Uart::shared(),
             encoder: Encoder::shared(),
             button: Button::shared(),
-            rgb_led: RgbLed::new(),
             relays: Relays::shared(),
             display: LCDDisplay::new(),
             i2c0: I2C::new(),

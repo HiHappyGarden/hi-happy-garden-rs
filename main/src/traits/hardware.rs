@@ -22,7 +22,6 @@
 use alloc::sync::Arc;
 use osal_rs::os::Mutex;
 
-use crate::traits::rgb_led::RgbLed as RgbLedFn;
 use crate::traits::relays::Relays as RelaysFn;
 use crate::traits::button::OnClickable;
 use crate::traits::encoder::OnRotatableAndClickable;
@@ -30,7 +29,7 @@ use crate::traits::rtc::RTC;
 use crate::traits::rx_tx::{SetOnReceive, SetTransmit};
 use crate::traits::wifi::SetOnWifiChangeStatus;
 
-pub trait HardwareFn<'a> : RgbLedFn + RgbLedFn + RelaysFn + SetOnWifiChangeStatus<'a> + SetOnReceive<'a> + SetTransmit {
+pub trait HardwareFn<'a> : RelaysFn + SetOnWifiChangeStatus<'a> + SetOnReceive<'a> + SetTransmit {
 
     #![allow(dead_code)]
     const SAMPLES: u8 = 20;

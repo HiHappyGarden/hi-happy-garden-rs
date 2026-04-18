@@ -24,9 +24,11 @@ use at_parser_rs::context::AtContext;
 use crate::apps::parser::{CMD_SIZE, NOT_LOGGED_RESPONSE, at_cmd_response};
 use crate::apps::signals::error::ErrorSignal;
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
+use crate::drivers::error::HardwareErrorSignal;
 use crate::drivers::filesystem::Filesystem;
 use crate::drivers::platform::Hardware;
 use crate::traits::signal::Signal;
+
 
 static mut SYSTEM_HANDLER: SystemHandler = SystemHandler;
 
@@ -36,13 +38,13 @@ impl AtContext<{CMD_SIZE}> for SystemHandler {
 
     #[inline]
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
-        Ok(at_cmd_response!(at_response; StatusSignal::get(), ErrorSignal::get()))
+        Ok(at_cmd_response!(at_response; HardwareErrorSignal::get(), ErrorSignal::get(), StatusSignal::get()))
     }
 
     #[inline]
-    /// rb = reboot, fr = factory reset, e = error, s = status
+    /// rb = reboot, fr = factory reset, hwe = hardware error, e = error, s = status,
     fn test(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
-        Ok(at_cmd_response!(at_response; "<rs|fr|e|s>"))
+        Ok(at_cmd_response!(at_response; "<rs|fr|hwe|e|s>"))
     }
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {

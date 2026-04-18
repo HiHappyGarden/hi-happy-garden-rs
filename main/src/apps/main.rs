@@ -27,11 +27,10 @@ use crate::apps::display::{Display};
 use crate::apps::parser::Parser;
 use crate::apps::signals::error::ErrorSignal;
 use crate::apps::signals::status::StatusSignal;
-use crate::apps::system_led::{self, SystemLed};
+use crate::apps::system_led::SystemLed;
 use crate::apps::wifi::Wifi;
 use crate::drivers::platform::{Hardware, LCDDisplay};
 use crate::traits::hardware::HardwareFn;
-use crate::traits::rgb_led::RgbLed;
 use crate::traits::rx_tx::SetOnReceive;
 use crate::traits::state::Initializable;
 use crate::traits::wifi::SetOnWifiChangeStatus;
@@ -58,11 +57,12 @@ impl Initializable for AppMain{
         
 
         config.init()?;
+        self.system_led.init()?;
         self.parser.init()?;
         self.wifi.init()?;
         self.display.init()?;
         self.display.set_enabled_wifi(config.get_wifi_config().is_enabled());
-        self.system_led.init()?;
+        
         
         // SAFETY: AppMain lives in static mut APP_MAIN, initialized once at startup.
         // We use raw pointers to avoid borrow checker issues, then convert to 'static refs.
@@ -71,8 +71,6 @@ impl Initializable for AppMain{
             let wifi_ptr = &raw mut self.wifi;
             let parser_ptr = &raw mut self.parser;
             let hardware_ptr = &raw mut self.hardware;
-            
-            (*hardware_ptr).set_color(0, 0, 255); // Blue
 
             // Set RTC for wifi
             (*wifi_ptr).set_rtc((*hardware_ptr).get_rtc());
