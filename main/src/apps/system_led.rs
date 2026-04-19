@@ -40,7 +40,7 @@ const APP_TAG: &str = "AppSystemLed";
 const THREAD_NAME: &str = "system_led_trd";
 const STACK_SIZE: StackType = 256;
 const BLINK_INTERVAL_MS: u64 = 500;
-const DELAY_IN_MS: u64 = 100; 
+const TICK_INTERVAL_MS: u64 = 100; 
 
 
 static mut STATUS: Status = Status::Initializing;
@@ -80,8 +80,8 @@ static mut STATUS: Status = Status::Initializing;
                     }
                 }
                 
-                System::delay_with_to_tick(Duration::from_millis(DELAY_IN_MS));
-                timer += DELAY_IN_MS;
+                System::delay_with_to_tick(Duration::from_millis(TICK_INTERVAL_MS));
+                timer += TICK_INTERVAL_MS;
             }
         })?;
 
