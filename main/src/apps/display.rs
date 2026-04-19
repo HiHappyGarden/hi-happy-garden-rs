@@ -58,7 +58,7 @@ use crate::traits::rtc::RTC;
 
 
 const APP_TAG: &str = "AppDisplay";
-const THREAD_NAME: &str = "display_trd";
+const THREAD_NAME: &str = "app_display_trd";
 const STACK_SIZE: StackType = 2_560;
 const TICK_INTERVAL_MS: u16 = 100;
 
@@ -241,7 +241,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
             rtc,
             lcd: Mutex::new_arc(lcd),
             wifi_enabled: Arc::new(true),
-            thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),
+            thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::BelowHigh),
         }
     }
 
