@@ -129,11 +129,13 @@ impl AppMain {
     }
 
     fn thread_handler(_: Box<dyn ThreadFn>, param: Option<ThreadParam>) -> Result<ThreadParam> {
-        let me = unsafe { &mut *param
-        .as_deref()
-        .and_then(|param| param.downcast_ref::<AppMainPtr>())
-        .map(|param| param.0 as *mut AppMain)
-        .ok_or(Error::Unhandled("Missing AppMain thread param"))? };
+        
+        // SAFETY: AppMain lives in static mut APP_MAIN, initialized once at startup. We use raw pointers to avoid borrow checker issues, then convert to 'static refs.
+        let me = unsafe { &mut *param // Get the thread parameter
+        .as_deref() // Defrence the Option<Arc<dyn Any + Send + Sync>> to Option<&(dyn Any + Send + Sync)>
+        .and_then(|param| param.downcast_ref::<AppMainPtr>()) // Option<&(dyn Any + Send + Sync)> to Option<&AppMainPtr>
+        .map(|param| param.0 as *mut AppMain) // Get from Option<&AppMainPtr> the usize pointer and convert to *mut AppMain
+        .ok_or(Error::Unhandled("Missing AppMain thread param"))? }; // Extract AppMain pointer or return error if missing
 
         // SAFETY: AppMain lives in static mut APP_MAIN, initialized once at startup.
         // We use raw pointers to avoid borrow checker issues, then convert to 'static refs.
