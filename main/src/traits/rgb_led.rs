@@ -18,26 +18,44 @@
  *
  ***************************************************************************/
 
+pub struct Color {
+    pub red: u8,
+    pub green: u8,
+    pub blue: u8,
+}
+
+impl Color {
+    pub const fn new(red: u8, green: u8, blue: u8) -> Self {
+        Self { red, green, blue }
+    }
+}
+
+
 pub trait RgbLed {
-    fn set_color(&self, red: u8, green: u8, blue: u8);
+    fn set(&self, red: u8, green: u8, blue: u8);    
+
+    #[inline]
+    fn set_color(&self, color: &Color) {
+        self.set(color.red, color.green, color.blue);
+    }
 
     #[inline]
     fn set_red(&self, red: u8) {
-        self.set_color(red, 0, 0);
+        self.set(red, 0, 0);
     }
 
     #[inline]
     fn set_green(&self, green: u8) {
-        self.set_color(0, green, 0);
+        self.set(0, green, 0);
     }
 
     #[inline]
     fn set_blue(&self, blue: u8) {
-        self.set_color(0, 0, blue);
+        self.set(0, 0, blue);
     }
 
     #[inline]
     fn turn_off(&self) {
-        self.set_color(0, 0, 0);
+        self.set(0, 0, 0);
     }
 }

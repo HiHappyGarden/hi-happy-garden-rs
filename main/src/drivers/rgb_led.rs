@@ -50,7 +50,7 @@ impl Initializable for RgbLed {
 }
 
 impl RgbLedFn for RgbLed {
-    fn set_color(&self, red: u8, green: u8, blue: u8) {
+    fn set(&self, red: u8, green: u8, blue: u8) {
         // Set the red LED
         self.set_red(red);
         

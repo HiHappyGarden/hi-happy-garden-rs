@@ -24,9 +24,20 @@
 
 use crate::{define_signal, traits::rx_tx::Source};
 
-
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StatusFlag {
     None = 0x00,
+    Startup = 0x01,
+    EnableSystemHandler = 0x02,
+    EnableSession = 0x04,
+    EnableParser = 0x08,
+    EnableDisplay = 0x10,
+    CheckConfig = 0x20,
+    EnableWifi = 0x40,
+    Ready = 0x80,
+    Error = 0x01_00,
+    Reset = 0x02_00,
+    
     DisplayCmd = 0x00_10_00_00,
     MqttCmd = 0x00_20_00_00,
     UartCmd = 0x00_40_00_00,
@@ -38,6 +49,17 @@ impl From<u32> for StatusFlag {
         use StatusFlag::*;
         match value {
             0x00 => None,
+            0x01 => Startup,
+            0x02 => EnableSystemHandler,
+            0x04 => EnableSession,
+            0x08 => EnableParser,
+            0x10 => EnableDisplay,
+            0x20 => CheckConfig,
+            0x40 => EnableWifi,
+            0x80 => Ready,
+            0x01_00 => Error,
+            0x02_00 => Reset,
+            
             0x00_10_00_00 => DisplayCmd,
             0x00_20_00_00 => MqttCmd,
             0x00_40_00_00 => UartCmd, 

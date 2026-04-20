@@ -22,9 +22,9 @@ use core::time::Duration;
 
 use alloc::boxed::Box;
 use alloc::sync::Arc;
-use osal_rs::{log_info};
+use osal_rs::{log_debug, log_info};
 use osal_rs::os::types::StackType;
-use osal_rs::os::{System, SystemFn as _, Thread, ThreadFn, ThreadParam};
+use osal_rs::os::{System, Thread, ThreadFn, ThreadParam};
 use osal_rs::utils::{Error, Result};
 
 use crate::apps::config::Config;
@@ -44,6 +44,14 @@ const APP_TAG: &str = "AppMain";
 const THREAD_NAME: &str = "app_main_trd";
 const STACK_SIZE: StackType = 1_024;
 const TICK_INTERVAL_MS: u16 = 100;
+
+macro_rules! set_current_status {
+    ($status_old:expr, $status_current:expr, $status:expr) => {
+        $status_old = $status_current;
+        $status_current = $status;
+    };
+}
+
 
 #[derive(Clone, Copy)]
 struct AppMainPtr(usize);
@@ -77,30 +85,6 @@ impl Initializable for AppMain{
         self.wifi.init()?;
         self.display.init()?;
         self.display.set_enabled_wifi(config.get_wifi_config().is_enabled());
-        
-        
-        // // SAFETY: AppMain lives in static mut APP_MAIN, initialized once at startup.
-        // // We use raw pointers to avoid borrow checker issues, then convert to 'static refs.
-        // unsafe {
-        //     let display_ptr = &raw const self.display;
-        //     let wifi_ptr = &raw mut self.wifi;
-        //     let parser_ptr = &raw mut self.parser;
-        //     let hardware_ptr = &raw mut self.hardware;
-
-        //     // Set RTC for wifi
-        //     (*wifi_ptr).set_rtc((*hardware_ptr).get_rtc());
-
-        //     // Set transmit function pointer on parser 
-        //     Parser::set_uart_transmit(&**hardware_ptr);
-            
-        //     // Set hardware callbacks - convert raw pointers to 'static references
-        //     (*hardware_ptr).set_button_handler(&*display_ptr);
-        //     (*hardware_ptr).set_encoder_handler(&*display_ptr);            
-
-        //     // Set wifi configuration change callback
-        //     (*hardware_ptr).set_on_wifi_change_status(&mut *wifi_ptr);
-        //     (*hardware_ptr).set_on_receive(&*parser_ptr);
-        // }
 
         //main FSM thread
         let app_param = AppMainPtr(self as *mut Self as usize); // Pass AppMain pointer as usize to thread
@@ -128,6 +112,11 @@ impl AppMain {
         }
     }
 
+    fn check_config(_config: &Config, status_current: &mut StatusFlag, status_old: &mut StatusFlag) {
+
+        set_current_status!(*status_old, *status_current, StatusFlag::EnableWifi);
+    }
+
     fn thread_handler(_: Box<dyn ThreadFn>, param: Option<ThreadParam>) -> Result<ThreadParam> {
         
         // SAFETY: AppMain lives in static mut APP_MAIN, initialized once at startup. We use raw pointers to avoid borrow checker issues, then convert to 'static refs.
@@ -137,6 +126,14 @@ impl AppMain {
         .map(|param| param.0 as *mut AppMain) // Get from Option<&AppMainPtr> the usize pointer and convert to *mut AppMain
         .ok_or(Error::Unhandled("Missing AppMain thread param"))? }; // Extract AppMain pointer or return error if missing
 
+
+
+        let config = Config::shared();
+
+        let mut status_current = StatusFlag::None;
+        let mut status_old = StatusFlag::None;
+
+
         // SAFETY: AppMain lives in static mut APP_MAIN, initialized once at startup.
         // We use raw pointers to avoid borrow checker issues, then convert to 'static refs.
         unsafe {
@@ -145,31 +142,55 @@ impl AppMain {
             let parser_ptr = &raw mut me.parser;
             let hardware_ptr = &raw mut me.hardware;
 
-            // Set RTC for wifi
-            (*wifi_ptr).set_rtc((*hardware_ptr).get_rtc());
+            loop {
+                match status_current {
+                    StatusFlag::None => {
+                        set_current_status!(status_old, status_current, StatusFlag::Startup);
+                    }
+                    StatusFlag::Startup => {
+                        log_debug!(APP_TAG, "Start MAIN FSM");
+                        set_current_status!(status_old, status_current, StatusFlag::CheckConfig);
+                    }
+                    StatusFlag::EnableSystemHandler => {
+                        set_current_status!(status_old, status_current, StatusFlag::EnableSession);
+                    }
+                    StatusFlag::EnableSession => {
+                        set_current_status!(status_old, status_current, StatusFlag::EnableParser);
+                    }
+                    StatusFlag::EnableParser => {
+                        // Set transmit function pointer on parser 
+                        Parser::set_uart_transmit(&**hardware_ptr);
+                        set_current_status!(status_old, status_current, StatusFlag::EnableDisplay);
+                    }
+                    StatusFlag::EnableDisplay => {
+                        // Set hardware callbacks - convert raw pointers to 'static references
+                        (*hardware_ptr).set_button_handler(&*display_ptr);
+                        (*hardware_ptr).set_encoder_handler(&*display_ptr);    
+                        set_current_status!(status_old, status_current, StatusFlag::CheckConfig);
+                    }
+                    StatusFlag::CheckConfig => Self::check_config(&config, &mut status_current, &mut status_old),
+                    StatusFlag::EnableWifi => {
+                        // Set RTC for wifi
+                        (*wifi_ptr).set_rtc((*hardware_ptr).get_rtc());
 
-            // Set transmit function pointer on parser 
-            Parser::set_uart_transmit(&**hardware_ptr);
-            
-            // Set hardware callbacks - convert raw pointers to 'static references
-            (*hardware_ptr).set_button_handler(&*display_ptr);
-            (*hardware_ptr).set_encoder_handler(&*display_ptr);            
-
-            // Set wifi configuration change callback
-            (*hardware_ptr).set_on_wifi_change_status(&mut *wifi_ptr);
-            (*hardware_ptr).set_on_receive(&*parser_ptr);
+                        // Set wifi configuration change callback
+                        (*hardware_ptr).set_on_wifi_change_status(&mut *wifi_ptr);
+                        (*hardware_ptr).set_on_receive(&*parser_ptr);
+                        set_current_status!(status_old, status_current, StatusFlag::Ready);
+                    }
+                    StatusFlag::Ready => todo!(),
+                    StatusFlag::Error => todo!(),
+                    StatusFlag::Reset => todo!(),
+                    StatusFlag::DisplayCmd => todo!(),
+                    StatusFlag::MqttCmd => todo!(),
+                    StatusFlag::UartCmd => todo!(),
+                    StatusFlag::UserLogged => todo!(),
+                                }
+                System::delay_with_to_tick(Duration::from_millis(TICK_INTERVAL_MS.into()));
+            }
+        
         }
 
-
-        let config = Config::shared();
-
-        let state_current = StatusFlag::None;
-        let state_old = StatusFlag::None;
-
-        loop {
-            log_info!(APP_TAG, "App main loop running heap_free:{}", System::get_free_heap_size());
-            System::delay_with_to_tick(Duration::from_millis(TICK_INTERVAL_MS.into()));
-        }
     }
 
 }

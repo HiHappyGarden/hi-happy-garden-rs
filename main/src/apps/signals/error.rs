@@ -27,6 +27,7 @@ use crate::define_signal;
 
 define_signal!(ErrorSignal, ERROR_SIGNAL);
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ErrorFlag {
     None = 0x00,
     NTP = 0x01,

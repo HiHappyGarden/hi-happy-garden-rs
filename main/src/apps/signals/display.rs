@@ -24,6 +24,7 @@
 
 use crate::define_signal;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DisplayFlag {
     None = 0x00,
     ButtonPressed = 0x01,
