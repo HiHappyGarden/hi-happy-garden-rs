@@ -33,6 +33,17 @@ use crate::traits::state::Initializable;
 
 use crate::apps::signals::status::{StatusFlag::{self, *}, StatusSignal};
 
+macro_rules! blink_led {
+    ($rgb_led:expr, $color:expr) => {{
+        if TIMER.load(Ordering::SeqCst) % (BLINK_INTERVAL_MS * 2) < BLINK_INTERVAL_MS {
+            $rgb_led.set_color(&$color);
+        } else {
+            $rgb_led.set_color(&COLOR_OFF);
+            TIMER.store(0, Ordering::SeqCst);
+        }
+    }};
+}
+
 const APP_TAG: &str = "AppSystemLed";
 const THREAD_NAME: &str = "system_led_trd";
 const STACK_SIZE: StackType = 256;
@@ -64,42 +75,22 @@ const COLOR_OFF: Color = Color::new(0, 0, 0);
             loop {
                 let status: u32 = StatusSignal::get().into();
                 if status >= None.into() && status <= EnableWifi.into() {
-                    if TIMER.load(Ordering::SeqCst) % (BLINK_INTERVAL_MS * 2) < BLINK_INTERVAL_MS {
-                        rgb_led.set_color(&COLOR_ORANGE);
-                    } else {
-                        rgb_led.set_color(&COLOR_OFF);
-                    }
-                } else if (status & <StatusFlag as Into<u32>>::into(StatusFlag::Ready)) == Ready.into() {
-                    Self::handle_ready(&rgb_led);
-                } else if (status & <StatusFlag as Into<u32>>::into(StatusFlag::Error)) == Error.into() {
-                    if TIMER.load(Ordering::SeqCst) % (BLINK_INTERVAL_MS * 2) < BLINK_INTERVAL_MS {
-                        rgb_led.set_color(&COLOR_RED);
-                    } else {
-                        rgb_led.set_color(&COLOR_OFF);
-                    }
-                } else {
-                   rgb_led.set_color(&COLOR_OFF);
-                }
-
-                // match status {
-                //     None | Startup | EnableSystemHandler | EnableSession | EnableParser | EnableDisplay | EnableWifi => 
-                //         if TIMER.load(Ordering::SeqCst) % (BLINK_INTERVAL_MS * 2) < BLINK_INTERVAL_MS {
-                //             rgb_led.set_color(&COLOR_ORANGE);
-                //         } else {
-                //             rgb_led.set_color(&COLOR_OFF);
-                //         },
-                //     Ready => Self::handle_ready(&rgb_led),
-                //     Error => {
-                //         if TIMER.load(Ordering::SeqCst) % (BLINK_INTERVAL_MS * 2) < BLINK_INTERVAL_MS {
-                //             rgb_led.set_color(&COLOR_RED);
-                //         } else {
-                //             rgb_led.set_color(&COLOR_OFF);
-                //         }
-                //     },
-                //     _ => rgb_led.set_color(&COLOR_OFF),
                     
-                // }
-                
+                    blink_led!(rgb_led, COLOR_ORANGE);
+
+                } else if (status & <StatusFlag as Into<u32>>::into(StatusFlag::Ready)) == Ready.into() {
+
+                    Self::handle_ready(&rgb_led);
+
+                } else if (status & <StatusFlag as Into<u32>>::into(StatusFlag::Error)) == Error.into() {
+                    
+                    blink_led!(rgb_led, COLOR_RED);
+
+                } else {
+
+                   rgb_led.set_color(&COLOR_OFF);
+                   
+                }
                 
                 System::delay_with_to_tick(Duration::from_millis(TICK_INTERVAL_MS as u64));
                 TIMER.fetch_add(TICK_INTERVAL_MS as u16, Ordering::SeqCst);
@@ -120,5 +111,6 @@ const COLOR_OFF: Color = Color::new(0, 0, 0);
 
     fn handle_ready(rgb_led: &RgbLed) {
         rgb_led.set_color(&COLOR_GREEN);
+        TIMER.store(0, Ordering::SeqCst);
     }
  }
