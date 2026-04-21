@@ -37,6 +37,7 @@ use crate::apps::wifi::Wifi;
 use crate::drivers::platform::{Hardware, LCDDisplay, ThreadPriority};
 use crate::traits::hardware::HardwareFn;
 use crate::traits::rx_tx::SetOnReceive;
+use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
 use crate::traits::wifi::SetOnWifiChangeStatus;
 
@@ -47,8 +48,10 @@ const TICK_INTERVAL_MS: u16 = 100;
 
 macro_rules! set_current_status {
     ($status_old:expr, $status_current:expr, $status:expr) => {
+        StatusSignal::clear($status_old.into());
         $status_old = $status_current;
         $status_current = $status;
+        StatusSignal::set($status.into());
     };
 }
 
@@ -149,6 +152,7 @@ impl AppMain {
                     }
                     StatusFlag::Startup => {
                         log_debug!(APP_TAG, "Start MAIN FSM");
+                        
                         set_current_status!(status_old, status_current, StatusFlag::CheckConfig);
                     }
                     StatusFlag::EnableSystemHandler => {
@@ -159,13 +163,16 @@ impl AppMain {
                     }
                     StatusFlag::EnableParser => {
                         // Set transmit function pointer on parser 
-                        Parser::set_uart_transmit(&**hardware_ptr);
+                        Parser::set_uart_transmit(*hardware_ptr);
+                        (*hardware_ptr).set_on_receive(&*parser_ptr);
+
                         set_current_status!(status_old, status_current, StatusFlag::EnableDisplay);
                     }
                     StatusFlag::EnableDisplay => {
                         // Set hardware callbacks - convert raw pointers to 'static references
                         (*hardware_ptr).set_button_handler(&*display_ptr);
                         (*hardware_ptr).set_encoder_handler(&*display_ptr);    
+
                         set_current_status!(status_old, status_current, StatusFlag::CheckConfig);
                     }
                     StatusFlag::CheckConfig => Self::check_config(&config, &mut status_current, &mut status_old),
@@ -175,17 +182,18 @@ impl AppMain {
 
                         // Set wifi configuration change callback
                         (*hardware_ptr).set_on_wifi_change_status(&mut *wifi_ptr);
-                        (*hardware_ptr).set_on_receive(&*parser_ptr);
+
                         set_current_status!(status_old, status_current, StatusFlag::Ready);
                     }
-                    StatusFlag::Ready => todo!(),
+                    StatusFlag::Ready => {
+
+                        StatusSignal::set(StatusFlag::Ready.into());
+                        
+                    },
                     StatusFlag::Error => todo!(),
-                    StatusFlag::Reset => todo!(),
-                    StatusFlag::DisplayCmd => todo!(),
-                    StatusFlag::MqttCmd => todo!(),
-                    StatusFlag::UartCmd => todo!(),
-                    StatusFlag::UserLogged => todo!(),
-                                }
+                    StatusFlag::Reset | _  => todo!(),
+                
+                }
                 System::delay_with_to_tick(Duration::from_millis(TICK_INTERVAL_MS.into()));
             }
         
