@@ -25,7 +25,7 @@ use osal_rs::utils::Result;
 pub enum Source {
     Uart,
     Mqtt,
-    Display
+    System
 }
 
 

@@ -38,7 +38,7 @@ pub enum StatusFlag {
     Error = 0x01_00,
     Reset = 0x02_00,
     
-    DisplayCmd = 0x00_10_00_00,
+    SystemCmd = 0x00_10_00_00,
     MqttCmd = 0x00_20_00_00,
     UartCmd = 0x00_40_00_00,
     UserLogged = 0x00_80_00_00,
@@ -60,7 +60,7 @@ impl From<u32> for StatusFlag {
             0x01_00 => Error,
             0x02_00 => Reset,
             
-            0x00_10_00_00 => DisplayCmd,
+            0x00_10_00_00 => SystemCmd,
             0x00_20_00_00 => MqttCmd,
             0x00_40_00_00 => UartCmd, 
             0x00_80_00_00 => UserLogged,
@@ -78,7 +78,7 @@ impl From<StatusFlag> for u32 {
 impl From<&Source> for StatusFlag {
     fn from(source: &Source) -> Self {
         match source {
-            Source::Display => StatusFlag::DisplayCmd,
+            Source::System => StatusFlag::SystemCmd,
             Source::Mqtt => StatusFlag::MqttCmd,
             Source::Uart => StatusFlag::UartCmd,
         }

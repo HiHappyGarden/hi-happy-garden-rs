@@ -308,7 +308,7 @@ impl Session {
         StatusSignal::clear(StatusFlag::UserLogged.into());
         StatusSignal::clear(StatusFlag::UartCmd.into());
         StatusSignal::clear(StatusFlag::MqttCmd.into());
-        StatusSignal::clear(StatusFlag::DisplayCmd.into());
+        StatusSignal::clear(StatusFlag::SystemCmd.into());
     }
 
     #[inline]

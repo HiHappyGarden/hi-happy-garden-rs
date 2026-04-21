@@ -84,7 +84,7 @@ impl OnReceive for Parser {
         for &byte in data {
             match &source {
                 Source::Uart => queue.post_from_isr(&[byte])?,
-                Source::Display | Source::Mqtt => queue.post_with_to_tick(&[byte], Duration::from_millis(100))?,
+                Source::System | Source::Mqtt => queue.post_with_to_tick(&[byte], Duration::from_millis(100))?,
             }
         }
 
@@ -155,7 +155,7 @@ impl Initializable for Parser {
 
                     let channel = match src {
                         Source::Uart => *access_static_option!(UART_CHANNEL),
-                        Source::Display | Source::Mqtt => {
+                        Source::System | Source::Mqtt => {
                             clear_buffer!(buffer, buffer_count);
                             continue;
                         }

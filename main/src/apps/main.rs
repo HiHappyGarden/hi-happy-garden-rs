@@ -103,7 +103,6 @@ impl AppMain {
     pub fn new(hardware: &'static mut Hardware) -> Self {
         
         let display = Display::shared(hardware.get_rtc(), hardware.get_lcd_display());
-        // let system_led = SystemLed::new(hardware);
 
         Self {
             hardware,
