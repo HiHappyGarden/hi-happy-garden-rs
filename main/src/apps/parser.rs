@@ -54,6 +54,9 @@ static mut QUEUE: Option<Queue> = None;
 static mut SOURCE: Option<Source> = None;
 
 static mut UART_CHANNEL: Option<&'static dyn SetTransmit> = None;
+static mut SYSTEM_CHANNEL: Option<&'static dyn SetTransmit> = None;
+static mut MQTT_CHANNEL: Option<&'static dyn SetTransmit> = None;
+
 
 pub(super) const CMD_SIZE : usize = 96;
 
@@ -155,10 +158,8 @@ impl Initializable for Parser {
 
                     let channel = match src {
                         Source::Uart => *access_static_option!(UART_CHANNEL),
-                        Source::System | Source::Mqtt => {
-                            clear_buffer!(buffer, buffer_count);
-                            continue;
-                        }
+                        Source::System => *access_static_option!(SYSTEM_CHANNEL),
+                        Source::Mqtt => *access_static_option!(MQTT_CHANNEL),
                     };
 
 
@@ -166,7 +167,8 @@ impl Initializable for Parser {
                     let mut is_logged = status & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) != 0;
                     
                     if is_logged && (status & source_flag == 0) {
-                        channel.transmit(b"KO\r\n");
+                        channel.transmit(KO_RESPONSE.as_bytes());
+                        channel.transmit(NEW_LINE.as_bytes());
                         clear_buffer!(buffer, buffer_count);
                         continue;
                     }
@@ -261,6 +263,14 @@ impl Parser {
             UART_CHANNEL = Some(transmit);
         }
     }
+
+        #[inline]
+    pub(super) fn set_system_transmit(transmit: &'static dyn SetTransmit) {
+        unsafe {
+            SYSTEM_CHANNEL = Some(transmit);
+        }
+    }
+
 
     #[allow(unused)]
     #[inline]

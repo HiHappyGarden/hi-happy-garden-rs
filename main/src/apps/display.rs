@@ -38,7 +38,7 @@ use osal_rs::utils::{Bytes, Error};
 
 use crate::apps::display::check::Check;
 use crate::apps::display::header::Header;
-use crate::apps::display::input::Input;
+use crate::apps::display::input::{Input, MAX_SIZE};
 
 use crate::apps::display::number::Number;
 use crate::apps::display::text::Text;
@@ -51,6 +51,7 @@ use crate::drivers::platform::ThreadPriority;
 use crate::traits::button::{ButtonState::{self, *}, OnClickable};
 use crate::traits::encoder::{EncoderDirection::{self, *}, OnRotatableAndClickable};
 use crate::traits::lcd_display::LCDDisplayFn;
+use crate::traits::rx_tx::{OnReceive, SetOnReceive, SetTransmit};
 use crate::traits::screen::{ScreenParam, Screen};
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
@@ -63,7 +64,9 @@ const STACK_SIZE: StackType = 2_560;
 const TICK_INTERVAL_MS: u16 = 100;
 
 #[allow(dead_code)]
-pub const DISPLAY_INPUT_MAX_SIZE: usize = crate::apps::display::input::MAX_SIZE;
+pub const DISPLAY_INPUT_MAX_SIZE: usize = MAX_SIZE;
+
+static mut ON_RECEIVE: Option<&'static dyn OnReceive> = Option::None;
 
 pub struct Display<T>
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
@@ -230,6 +233,27 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
             }
             ButtonState::None => {}
         }
+    }
+}
+
+impl<T> SetOnReceive<'static> for Display<T> 
+where T: LCDDisplayFn + Sync + Send + Clone + 'static {
+
+    #[inline]
+    fn set_on_receive(&mut self, on_receive: &'static dyn OnReceive) {
+        unsafe {
+            ON_RECEIVE = Some(on_receive);
+        }
+    }
+}
+
+impl<T> SetTransmit for Display<T> 
+where T: LCDDisplayFn + Sync + Send + Clone + 'static {
+
+    #[inline]
+    fn transmit(&self, _data: &[u8]) -> usize {
+        // This is a display, it doesn't transmit data, so we can ignore this
+        0
     }
 }
 

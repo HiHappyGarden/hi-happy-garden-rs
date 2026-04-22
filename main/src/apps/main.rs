@@ -139,7 +139,7 @@ impl AppMain {
         // SAFETY: AppMain lives in static mut APP_MAIN, initialized once at startup.
         // We use raw pointers to avoid borrow checker issues, then convert to 'static refs.
         unsafe {
-            let display_ptr = &raw const me.display;
+            let display_ptr = &raw mut me.display;
             let wifi_ptr = &raw mut me.wifi;
             let parser_ptr = &raw mut me.parser;
             let hardware_ptr = &raw mut me.hardware;
@@ -170,8 +170,10 @@ impl AppMain {
                     StatusFlag::EnableDisplay => {
                         // Set hardware callbacks - convert raw pointers to 'static references
                         (*hardware_ptr).set_button_handler(&*display_ptr);
-                        (*hardware_ptr).set_encoder_handler(&*display_ptr);    
+                        (*hardware_ptr).set_encoder_handler(&*display_ptr);
 
+                        Parser::set_system_transmit(&*display_ptr);
+                        (&mut *display_ptr).set_on_receive(&*parser_ptr);
                         set_current_status!(status_old, status_current, StatusFlag::CheckConfig);
                     }
                     StatusFlag::CheckConfig => Self::check_config(&config, &mut status_current, &mut status_old),
