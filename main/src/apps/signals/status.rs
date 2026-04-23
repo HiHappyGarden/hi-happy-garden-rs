@@ -20,6 +20,8 @@
 
 #![allow(dead_code)]
 
+use osal_rs::utils::Bytes;
+
 ///! FSM signal for status updates.
 
 use crate::{define_signal, traits::rx_tx::Source};
@@ -77,13 +79,36 @@ impl From<StatusFlag> for u32 {
 
 impl From<&Source> for StatusFlag {
     fn from(source: &Source) -> Self {
+        use StatusFlag::*;
         match source {
-            Source::System => StatusFlag::SystemCmd,
-            Source::Mqtt => StatusFlag::MqttCmd,
-            Source::Uart => StatusFlag::UartCmd,
+            Source::System => SystemCmd,
+            Source::Mqtt => MqttCmd,
+            Source::Uart => UartCmd,
         }
     }
 }
 
+impl StatusFlag {
+    fn as_str(&self) -> Bytes<24> {
+        use StatusFlag::*;
+        match self {
+            None => Bytes::from("None"),
+            Startup => Bytes::from("Startup"),
+            EnableSystemHandler => Bytes::from("EnableSystemHandler"),
+            EnableSession => Bytes::from("EnableSession"),
+            EnableParser => Bytes::from("EnableParser"),
+            EnableDisplay => Bytes::from("EnableDisplay"),
+            CheckConfig => Bytes::from("CheckConfig"),
+            EnableWifi => Bytes::from("EnableWifi"),
+            Ready => Bytes::from("Ready"),
+            Error => Bytes::from("Error"),
+            Reset => Bytes::from("Reset"),
+            SystemCmd => Bytes::from("SystemCmd"),
+            MqttCmd => Bytes::from("MqttCmd"),
+            UartCmd => Bytes::from("UartCmd"),
+            UserLogged => Bytes::from("UserLogged"),
+        }
+    }
+}
 
 define_signal!(StatusSignal, STATUS_SIGNAL);
