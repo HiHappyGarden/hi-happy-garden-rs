@@ -102,7 +102,7 @@ impl<N> Number<N>
 where
     N: Integer,
 {
-    pub(super) const fn new(min: N, max: N) -> Self {
+    pub const fn new(min: N, max: N) -> Self {
         Self { 
             number: None,
             min,

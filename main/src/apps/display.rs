@@ -20,14 +20,14 @@
 
 #[macro_use]
 pub mod commons;
-mod check;
-mod date_time_editor;
-mod date;
-mod header;
-mod input;
-mod number;
-mod text;
-mod time;
+pub mod check;
+pub mod date_time_editor;
+pub mod date;
+pub mod header;
+pub mod input;
+pub mod number;
+pub mod text;
+pub mod time;
 
 
 use alloc::sync::Arc;

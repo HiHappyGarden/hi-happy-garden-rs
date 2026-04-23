@@ -18,7 +18,7 @@
  *
  ***************************************************************************/
 
-use core::sync::atomic::{AtomicU16, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use core::time::Duration;
 
 use osal_rs::log_info;
@@ -34,14 +34,20 @@ use crate::traits::state::Initializable;
 use crate::apps::signals::status::{StatusFlag::{self, *}, StatusSignal};
 
 macro_rules! blink_led {
-    ($rgb_led:expr, $color:expr) => {{
-        if TIMER.load(Ordering::SeqCst) % (BLINK_INTERVAL_MS * 2) < BLINK_INTERVAL_MS {
-            $rgb_led.set_color(&$color);
-        } else {
-            $rgb_led.set_color(&COLOR_OFF);
+    ($rgb_led:expr, $color:expr) => {
+
+        let time = TIMER.load(Ordering::SeqCst);
+        if (time % BLINK_INTERVAL_MS) == 0 {
+            BLINK.fetch_xor(true, Ordering::SeqCst);
             TIMER.store(0, Ordering::SeqCst);
         }
-    }};
+        
+        if BLINK.load(Ordering::SeqCst) {
+             $rgb_led.set_color(&$color);
+        } else {
+             $rgb_led.set_color(&COLOR_OFF);
+        }
+    };
 }
 
 const APP_TAG: &str = "AppSystemLed";
@@ -50,6 +56,7 @@ const STACK_SIZE: StackType = 256;
 const BLINK_INTERVAL_MS: u16 = 500;
 const TICK_INTERVAL_MS: u16 = 100; 
 static TIMER: AtomicU16 = AtomicU16::new(0);
+static BLINK: AtomicBool = AtomicBool::new(false);
 
 const COLOR_RED: Color = Color::new(255, 0, 0);
 const COLOR_ORANGE: Color = Color::new(255, 165, 0);
