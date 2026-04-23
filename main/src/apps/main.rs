@@ -43,11 +43,12 @@ use crate::traits::wifi::SetOnWifiChangeStatus;
 
 const APP_TAG: &str = "AppMain";
 const THREAD_NAME: &str = "app_main_trd";
-const STACK_SIZE: StackType = 1_024;
+const STACK_SIZE: StackType = 1_536;
 const TICK_INTERVAL_MS: u16 = 100;
 
 macro_rules! set_current_status {
     ($status_old:expr, $status_current:expr, $status:expr) => {
+        log_debug!(APP_TAG, "Status change: {:?} -> {:?}", $status_current, $status);
         StatusSignal::clear($status_old.into());
         $status_old = $status_current;
         $status_current = $status;
@@ -114,9 +115,13 @@ impl AppMain {
         }
     }
 
-    fn check_config(_config: &Config, status_current: &mut StatusFlag, status_old: &mut StatusFlag) {
+    fn check_config(config: &Config, status_current: &mut StatusFlag, status_old: &mut StatusFlag) {
+        let serial = config.get_serial();
+        if serial.is_empty() {
 
-        set_current_status!(*status_old, *status_current, StatusFlag::EnableWifi);
+        } else {
+            set_current_status!(*status_old, *status_current, StatusFlag::EnableWifi);
+        }
     }
 
     fn thread_handler(_: Box<dyn ThreadFn>, param: Option<ThreadParam>) -> Result<ThreadParam> {
@@ -152,7 +157,7 @@ impl AppMain {
                     StatusFlag::Startup => {
                         log_debug!(APP_TAG, "Start MAIN FSM");
                         
-                        set_current_status!(status_old, status_current, StatusFlag::CheckConfig);
+                        set_current_status!(status_old, status_current, StatusFlag::EnableSystemHandler);
                     }
                     StatusFlag::EnableSystemHandler => {
                         set_current_status!(status_old, status_current, StatusFlag::EnableSession);
