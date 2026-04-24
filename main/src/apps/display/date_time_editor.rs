@@ -18,8 +18,6 @@
  *
  ***************************************************************************/
 
-#![allow(dead_code)]
-
 use alloc::string::String;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Result};

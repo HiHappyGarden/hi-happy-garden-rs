@@ -18,7 +18,6 @@
  *
  ***************************************************************************/
 
-#![allow(dead_code)]
 
 use core::str;
 use core::sync::atomic::{AtomicU32, AtomicBool, Ordering};

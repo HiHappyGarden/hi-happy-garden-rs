@@ -18,8 +18,6 @@
  *
  ***************************************************************************/
 
-#![allow(dead_code)]
-
 use core::ffi::c_void;
 use core::ptr::null_mut;
 use alloc::{str, vec::Vec};

@@ -18,8 +18,6 @@
  *
  ***************************************************************************/
 
-#![allow(dead_code)]
-
 use osal_rs::os::{System, SystemFn};
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Bytes, Result};

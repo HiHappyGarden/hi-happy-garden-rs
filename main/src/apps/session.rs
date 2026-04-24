@@ -17,8 +17,7 @@
  * with this program; if not, see <https://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
-#![allow(dead_code)]
-
+ 
 use core::time::Duration;
 
 use alloc::sync::Arc;
