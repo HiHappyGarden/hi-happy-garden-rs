@@ -65,3 +65,14 @@ where N: Integer
         callback: ScreenCallback<N>
     ) -> Result<()>;
 }
+
+pub trait ScreenRoute<N = u16>
+where N: Integer
+{
+     fn draw(&mut self, 
+        lcd: &mut impl LCDDisplayFn,
+        display_signal: &mut EventBits, 
+        status_signal: &EventBits, 
+        date_time: &DateTime
+    ) -> Result<()>;
+}
