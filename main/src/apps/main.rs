@@ -49,7 +49,7 @@ const TICK_INTERVAL_MS: u16 = 100;
 macro_rules! set_current_status {
     ($status_old:expr, $status_current:expr, $status:expr) => {
         log_debug!(APP_TAG, "Status change: {:?} -> {:?}", $status_current, $status);
-        StatusSignal::clear($status_old.into());
+        StatusSignal::clear($status_current.into());
         $status_old = $status_current;
         $status_current = $status;
         StatusSignal::set($status.into());
