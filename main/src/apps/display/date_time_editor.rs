@@ -76,7 +76,7 @@ impl FieldEditor {
         }
     }
 
-    fn update_field(&mut self, signals: &mut EventBits) {
+    fn update_field(&mut self, signal: &mut EventBits) {
         let idx = match self.step {
             Step::Field1 => 0,
             Step::Field2 => 1,
@@ -84,9 +84,9 @@ impl FieldEditor {
             _ => return,
         };
 
-        let delta: i32 = if *signals & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
+        let delta: i32 = if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
             1
-        } else if *signals & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+        } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
             -1
         } else {
             return;
@@ -106,14 +106,14 @@ impl FieldEditor {
             } else {
                 val + delta
             });
-            *signals |= DisplayFlag::Draw as u32;
+            *signal |= DisplayFlag::Draw as u32;
         }
     }
 
     pub fn draw(
         &mut self,
         lcd: &mut impl LCDDisplayFn,
-        signals: &mut EventBits,
+        signal: &mut EventBits,
         current_date_time: &DateTime,
         text: &impl AsSyncStr,
         param: ScreenParam, 
@@ -132,10 +132,10 @@ impl FieldEditor {
         if self.fields[0].is_none() || self.fields[1].is_none() || self.fields[2].is_none() {
             let (f1, f2, f3) = (self.config.extractor)(current_date_time);
             self.fields = [Some(f1), Some(f2), Some(f3)];
-            *signals |= DisplayFlag::Draw as u32;
+            *signal |= DisplayFlag::Draw as u32;
         }
 
-        if *signals & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
             self.step = match self.step {
                 Step::Exit   => Step::Field1,
                 Step::Field1 => Step::Field2,
@@ -143,10 +143,10 @@ impl FieldEditor {
                 Step::Field3 => Step::End,
                 Step::End    => Step::End,
             };
-            *signals |= DisplayFlag::Draw as u32;
+            *signal |= DisplayFlag::Draw as u32;
         }
 
-        if *signals & DisplayFlag::ButtonReleased as u32 != 0 {
+        if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
             self.step = match self.step {
                 Step::Exit   => Step::Exit,
                 Step::Field1 => Step::Exit,
@@ -154,12 +154,12 @@ impl FieldEditor {
                 Step::Field3 => Step::Field2,
                 Step::End    => Step::Field3,
             };
-            *signals |= DisplayFlag::Draw as u32;
+            *signal |= DisplayFlag::Draw as u32;
         }
 
-        self.update_field(signals);
+        self.update_field(signal);
 
-        if *signals & DisplayFlag::Draw as u32 == 0 {
+        if *signal & DisplayFlag::Draw as u32 == 0 {
             return Ok(());
         }
 
@@ -204,7 +204,7 @@ impl FieldEditor {
             )?;
         }
 
-        if *signals & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
             if self.step == Step::End {
                 self.result = (self.config.builder)(f[0], f[1], f[2]).ok();
                 if let Some(cb) = callback {
@@ -215,7 +215,7 @@ impl FieldEditor {
             }
         }
 
-        if *signals & DisplayFlag::ButtonReleased as u32 != 0 {
+        if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
             if self.step == Step::Exit {
                 if let Some(cb) = callback {
                     let mut p = ScreenParam::default();

@@ -48,7 +48,7 @@ where
 {
     fn draw(&mut self, 
         lcd: &mut impl LCDDisplayFn,
-        signals: &mut EventBits, 
+        signal: &mut EventBits, 
         date_time: &DateTime, 
         text: &impl AsSyncStr, 
         param: ScreenParam<N>, 
@@ -62,7 +62,7 @@ where
             self.number = param.number;
         } 
 
-        self.update_number(signals);
+        self.update_number(signal);
 
         let (width, _) = lcd.get_size(); 
 
@@ -78,7 +78,7 @@ where
 
         lcd.draw_str(&to_show, x_position, SECOND_ROW_Y, &FONT_8X8)?;
 
-        if *signals & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
             self.result = self.number;
             if let Some(cb) = callback {
                 let param = self.result.map(|n| { let mut p = ScreenParam::default(); p.number = Some(n); p });
@@ -86,7 +86,7 @@ where
             }
         }
 
-        if *signals & DisplayFlag::ButtonReleased as u32 != 0 {
+        if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
             if let Some(cb) = callback {
                 let param = self.number.map(|n| { let mut p = ScreenParam::default(); p.number = Some(n); p });
                 cb(param, false);
@@ -111,23 +111,23 @@ where
         }
     }
 
-    fn update_number(&mut self, signals: &mut EventBits) {
-        if *signals & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
+    fn update_number(&mut self, signal: &mut EventBits) {
+        if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
             if let Some(current) = self.number {
                 let new_value = current + N::one();
                 self.number = Some(if new_value > self.max { self.min } else { new_value });
             } else {
                 self.number = Some(self.min);
             }  
-            *signals |= DisplayFlag::Draw as u32;
-        } else if *signals & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+            *signal |= DisplayFlag::Draw as u32;
+        } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
             if let Some(current) = self.number {
                 let new_value = current - N::one();
                 self.number = Some(if new_value < self.min { self.max } else { new_value });
             } else {
                 self.number = Some(self.max);
             }
-            *signals |= DisplayFlag::Draw as u32;
+            *signal |= DisplayFlag::Draw as u32;
         } 
     }
 

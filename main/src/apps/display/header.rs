@@ -56,9 +56,9 @@ impl Header
         }
     }
 
-    pub fn draw(&mut self, lcd: &mut impl LCDDisplayFn, signals: &mut EventBits, date_time: &DateTime, wifi_enabled: bool) -> Result<()> {
+    pub fn draw(&mut self, lcd: &mut impl LCDDisplayFn, signal: &mut EventBits, date_time: &DateTime, wifi_enabled: bool) -> Result<()> {
         
-        let rssi = match RSSIStatus::from_bites( (*signals >> 6) as u8 ) {
+        let rssi = match RSSIStatus::from_bites( (*signal >> 6) as u8 ) {
             Ok(status) => status,
             Err(_) => RSSIStatus::Unknown,
         };
@@ -108,7 +108,7 @@ impl Header
             });
         }
 
-        *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+        *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
         
         Ok(())
     }

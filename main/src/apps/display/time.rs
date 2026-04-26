@@ -37,14 +37,14 @@ impl Screen for Time
 {
     fn draw(&mut self, 
         lcd: &mut impl LCDDisplayFn,
-        signals: &mut EventBits, 
+        signal: &mut EventBits, 
         date_time: &DateTime, 
         text: &impl AsSyncStr, 
         param: ScreenParam, 
         callback: ScreenCallback
     ) -> Result<()> {
 
-        self.0.draw(lcd, signals, date_time, text, param, callback)?;
+        self.0.draw(lcd, signal, date_time, text, param, callback)?;
 
         Ok(())
     }

@@ -58,11 +58,10 @@ where N: Integer
 {
      fn draw(&mut self, 
         lcd: &mut impl LCDDisplayFn,
-        signals: &mut EventBits, 
+        signal: &mut EventBits, 
         date_time: &DateTime, 
         text: &impl AsSyncStr, 
         param: ScreenParam<N>, 
         callback: ScreenCallback<N>
     ) -> Result<()>;
 }
-

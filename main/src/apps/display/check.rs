@@ -44,7 +44,7 @@ impl Screen for Check
 {
     fn draw(&mut self, 
         lcd: &mut impl LCDDisplayFn,
-        signals: &mut EventBits, 
+        signal: &mut EventBits, 
         date_time: &DateTime, 
         text: &impl AsSyncStr, 
         param: ScreenParam, 
@@ -63,7 +63,7 @@ impl Screen for Check
             }
         }
 
-        self.update_icon(signals);
+        self.update_icon(signal);
 
         let (width, _) = lcd.get_size(); 
 
@@ -75,7 +75,7 @@ impl Screen for Check
 
         lcd.draw_bitmap_image((width  / 2 ) - (self.icon.0 / 2), SECOND_ROW_Y, self.icon.0, self.icon.1, &self.icon.2, LCDWriteMode::ADD)?;
 
-        if *signals & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
             if self.icon.2 == IC_CHECK_ON.2 {
                 self.checked = Some(true);
                 if let Some(ref cb) = callback {
@@ -93,13 +93,13 @@ impl Screen for Check
             };
         }
 
-        if *signals & DisplayFlag::ButtonReleased as u32 != 0 {
+        if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
             if let Some(ref cb) = callback {
                 cb(None, false);
             }
         }
 
-        *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+        *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
         Ok(())
         
     }
@@ -114,14 +114,14 @@ impl Check {
         }
     }
 
-    fn update_icon(&mut self, signals: &mut EventBits) {
-        if *signals & DisplayFlag::EncoderRotatedClockwise as u32 != 0 || *signals & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+    fn update_icon(&mut self, signal: &mut EventBits) {
+        if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 || *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
             self.icon = if self.icon.2 == IC_CHECK_OFF.2 {
                 IC_CHECK_ON
             } else {
                 IC_CHECK_OFF
             };
-            *signals |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
+            *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
         }
     }
 
