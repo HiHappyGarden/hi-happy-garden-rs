@@ -34,7 +34,7 @@ use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
-pub(super) struct Check 
+pub struct Check 
 {
     icon: Icon<120>,
     checked: Option<bool>,
@@ -107,7 +107,7 @@ impl Screen for Check
 
 impl Check {
 
-    pub(super) const fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             icon: IC_CHECK_OFF,
             checked: None,
@@ -127,7 +127,7 @@ impl Check {
 
     #[allow(unused)]
     #[inline]
-    pub(super) fn is_checked(&self) -> bool {
+    pub fn is_checked(&self) -> bool {
         self.checked.unwrap_or(false)
     }
 }

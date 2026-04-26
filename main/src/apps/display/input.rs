@@ -217,7 +217,7 @@ impl Input
 
     #[allow(unused)]
     #[inline]
-    pub(super) fn get_input(&self) -> Option<Bytes<MAX_SIZE>> {
+    pub fn get_input(&self) -> Option<Bytes<MAX_SIZE>> {
         self.input.clone()
     }
 }

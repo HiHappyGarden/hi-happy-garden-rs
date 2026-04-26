@@ -39,7 +39,7 @@ use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use crate::traits::signal::Signal;
 use crate::traits::wifi::RSSIStatus::{self, *};
 
-pub(super) struct Header
+pub struct Header
 {
     date_time: DateTime,
     rssi_status: RSSIStatus,
@@ -49,14 +49,14 @@ impl Header
 {
 
 
-    pub(super) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             date_time: DateTime::default(),
             rssi_status: RSSIStatus::Unknown,
         }
     }
 
-    pub(super) fn draw(&mut self, lcd: &mut impl LCDDisplayFn, signals: &mut EventBits, date_time: &DateTime, wifi_enabled: bool) -> Result<()> {
+    pub fn draw(&mut self, lcd: &mut impl LCDDisplayFn, signals: &mut EventBits, date_time: &DateTime, wifi_enabled: bool) -> Result<()> {
         
         let rssi = match RSSIStatus::from_bites( (*signals >> 6) as u8 ) {
             Ok(status) => status,

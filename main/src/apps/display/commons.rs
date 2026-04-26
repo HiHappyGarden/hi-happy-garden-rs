@@ -31,7 +31,7 @@ pub const ONLY_ONE_ROW_Y: u8 = 27;
 pub const FIRST_ROW_Y: u8 = 25;
 pub const SECOND_ROW_Y: u8 = 45;
 
-pub(super) fn clean_context(lcd: &mut impl LCDDisplayFn) -> Result<()> 
+pub fn clean_context(lcd: &mut impl LCDDisplayFn) -> Result<()> 
 {
     let (display_width, display_height) = lcd.get_size();
     let y_start = lcd.get_header_height();
@@ -47,7 +47,7 @@ pub(super) fn clean_context(lcd: &mut impl LCDDisplayFn) -> Result<()>
 // Maximum displayable characters: 16 (128px / 8px)
 /// Returns the text to display and the x position for the LCD.
 /// If the text fits, it is centred; otherwise it scrolls circularly with 4-space separator.
-pub(super) fn scroll_text(
+pub fn scroll_text(
     text: &str, 
     date_time: &DateTime, 
     margin_left: u8, 

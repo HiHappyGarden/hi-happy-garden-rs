@@ -89,7 +89,7 @@ impl Screen for Text
 
 impl Text {
 
-    pub(super) const fn new() -> Self {
+    pub const fn new() -> Self {
         Self
     }
 

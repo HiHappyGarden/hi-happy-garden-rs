@@ -41,7 +41,7 @@ enum Step {
 /// Configuration for a 3-field step-by-step editor.
 /// Drives both the date editor (year / month / day) and the time editor
 /// (hour / minute / second) from a single generic implementation.
-pub(super) struct FieldEditorConfig {
+pub struct FieldEditorConfig {
     /// Minimum value for each field.
     pub field_min: [i32; 3],
     /// Returns the maximum value for field `i` given the current values of all
@@ -59,7 +59,7 @@ pub(super) struct FieldEditorConfig {
     pub builder: fn(i32, i32, i32) -> Result<DateTime>,
 }
 
-pub(super) struct FieldEditor {
+pub struct FieldEditor {
     fields: [Option<i32>; 3],
     step: Step,
     result: Option<DateTime>,
@@ -67,7 +67,7 @@ pub(super) struct FieldEditor {
 }
 
 impl FieldEditor {
-    pub(super) const fn new(config: FieldEditorConfig) -> Self {
+    pub const fn new(config: FieldEditorConfig) -> Self {
         Self {
             fields: [None, None, None],
             step: Step::Field1,
@@ -110,7 +110,7 @@ impl FieldEditor {
         }
     }
 
-    pub(super) fn draw(
+    pub fn draw(
         &mut self,
         lcd: &mut impl LCDDisplayFn,
         signals: &mut EventBits,
@@ -230,7 +230,7 @@ impl FieldEditor {
 
     #[allow(unused)]
     #[inline]
-    pub(super) fn get_result(&self) -> Option<DateTime> {
+    pub fn get_result(&self) -> Option<DateTime> {
         self.result
     }
 }

@@ -133,7 +133,7 @@ where
 
     #[allow(unused)]
     #[inline]
-    pub(super) fn get_number(&self) -> Option<N> {
+    pub fn get_number(&self) -> Option<N> {
         self.result
     }
 }

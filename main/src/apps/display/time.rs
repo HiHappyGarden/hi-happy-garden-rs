@@ -31,7 +31,7 @@ use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
-pub(super) struct Time(FieldEditor);
+pub struct Time(FieldEditor);
 
 impl Screen for Time
 {
@@ -52,7 +52,7 @@ impl Screen for Time
   
 
 impl Time {
-    pub(super) const fn new() -> Self {
+    pub const fn new() -> Self {
         Self(FieldEditor::new(FieldEditorConfig {
             field_min:    [0, 0, 0],
             field_max_fn: [
@@ -70,7 +70,7 @@ impl Time {
 
     #[allow(unused)]
     #[inline]
-    pub(super) fn get_time(&self) -> Option<DateTime> {
+    pub fn get_time(&self) -> Option<DateTime> {
         self.0.get_result()
     }
 }
