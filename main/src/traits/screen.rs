@@ -26,10 +26,10 @@ use crate::drivers::date_time::DateTime;
 use crate::traits::integer::Integer;
 use crate::traits::lcd_display::LCDDisplayFn;
 
-pub type ScreenCallback<N = u8> = Option<fn(Option<ScreenParam<N>>, confirmed: bool)>;
+pub type ScreenCallback<N = u16> = Option<fn(Option<ScreenParam<N>>, confirmed: bool)>;
 
 #[derive(Debug, Clone)]
-pub struct ScreenParam<N = u8> 
+pub struct ScreenParam<N = u16> 
 where N: Integer
 {
     pub check: Option<bool>,
@@ -53,7 +53,7 @@ where N: Integer
 }
 
 
-pub trait Screen<N = u8>
+pub trait Screen<N = u16>
 where N: Integer
 {
      fn draw(&mut self, 
@@ -65,3 +65,4 @@ where N: Integer
         callback: ScreenCallback<N>
     ) -> Result<()>;
 }
+
