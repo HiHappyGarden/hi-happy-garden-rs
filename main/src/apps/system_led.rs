@@ -31,7 +31,7 @@ use crate::traits::rgb_led::{Color, RgbLed as _};
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
 
-use crate::apps::signals::status::{StatusFlag::{self, *}, StatusSignal};
+use crate::apps::signals::status::{StatusFlag::*, StatusSignal};
 
 macro_rules! blink_led {
     ($rgb_led:expr, $color:expr) => {
@@ -85,11 +85,11 @@ const COLOR_OFF: Color = Color::new(0, 0, 0);
                     
                     blink_led!(rgb_led, COLOR_ORANGE);
 
-                } else if (status & <StatusFlag as Into<u32>>::into(StatusFlag::Ready)) == Ready.into() {
+                } else if Ready.check_signal(status) {
 
                     Self::handle_ready(&rgb_led);
 
-                } else if (status & <StatusFlag as Into<u32>>::into(StatusFlag::Error)) == Error.into() {
+                } else if Error.check_signal(status) {
                     
                     blink_led!(rgb_led, COLOR_RED);
 

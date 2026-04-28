@@ -89,7 +89,7 @@ impl From<&Source> for StatusFlag {
 }
 
 impl StatusFlag {
-    fn as_str(&self) -> Bytes<24> {
+    pub fn as_str(&self) -> Bytes<24> {
         use StatusFlag::*;
         match self {
             None => Bytes::from("None"),
@@ -108,6 +108,11 @@ impl StatusFlag {
             UartCmd => Bytes::from("UartCmd"),
             UserLogged => Bytes::from("UserLogged"),
         }
+    }
+
+    pub fn check_signal(&self, signal: u32) -> bool {
+        let flag_value: u32 = (*self).into();
+        (signal & flag_value) == flag_value
     }
 }
 
