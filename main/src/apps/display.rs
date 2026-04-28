@@ -163,7 +163,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 //     ErrorSignal::set(ErrorFlag::Display.into());
                 // }
                 
-                screen_route.draw(lcd, &mut display_signal, &status_signal, &date_time).unwrap_or_else(|e| {
+                screen_route.draw(lcd, &mut display_signal, status_signal, &date_time).unwrap_or_else(|e| {
                     log_info!(APP_TAG, "Error drawing screen route: {:?}", e);
                     ErrorSignal::set(ErrorFlag::Display.into());
                 });

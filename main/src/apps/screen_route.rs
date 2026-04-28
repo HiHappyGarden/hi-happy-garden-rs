@@ -20,6 +20,9 @@
 
 #![allow(dead_code)]
 
+mod config;
+
+use osal_rs::log_debug;
 use osal_rs::os::types::EventBits;
 
 
@@ -30,29 +33,56 @@ use crate::traits::lcd_display::LCDDisplayFn;
 
 pub static mut SCREEN_ROUTE: ScreenRoute = ScreenRoute::new();
 
+const CHECK_STATUS_THRESHOLD: u8 = 5;
 
 enum FSMState {
-    Idle,
-    Active,
-    Confirming,
+    Init,
+    Config,
+    Menu,
 }
-
-pub struct ScreenRoute(StatusFlag);
+pub struct ScreenRoute{
+    fsm_state: FSMState,
+    check_staus_counter: u8,
+}
 
 impl ScreenRouteFn for ScreenRoute {
     fn draw(&mut self, 
-        lcd: &mut impl LCDDisplayFn,
-        display_signal: &mut EventBits, 
-        status_signal: &EventBits, 
-        date_time: &DateTime
+        _lcd: &mut impl LCDDisplayFn,
+        _display_signal: &mut EventBits, 
+        status_signal: EventBits, 
+        _date_time: &DateTime
     ) -> osal_rs::utils::Result<()> {
         
+        match self.fsm_state {
+            FSMState::Init => {
+                // Handle Init state
+                if StatusFlag::CheckConfig.check_signal(status_signal) {
+                    self.check_staus_counter += 1;
+                    if self.check_staus_counter >= CHECK_STATUS_THRESHOLD {
+                        self.fsm_state = FSMState::Config;
+                        self.check_staus_counter = 0;
+                    }
+                } else {
+                    self.check_staus_counter = 0;
+                }
+            }
+            FSMState::Config => {
+                log_debug!("---->", "ScreenRoute: Config state");
+            }
+            FSMState::Menu => {
+                // Handle Menu state
+            }
+        }
+
         Ok(())
     }
 }
 
 impl ScreenRoute {
     pub const fn new() -> Self {
-        Self(StatusFlag::None)
+        Self {
+            fsm_state: FSMState::Init,
+            check_staus_counter: 0,
+        }
     }
 }
