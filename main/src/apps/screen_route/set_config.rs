@@ -17,3 +17,30 @@
  * with this program; if not, see <https://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
+
+use crate::apps::display::check::Check;
+use crate::apps::display::input::Input;
+use crate::apps::display::date::Date;
+use crate::apps::display::time::Time;
+
+enum FSMState {
+    Serial,
+    EnableWifi,
+    Ssid,
+    Passwd,
+    Date,
+    Time,
+    EnableDst,
+}
+
+pub struct ScreenSetConfig {
+    fsm_state: FSMState,
+    serial: Input,
+    enable_wifi: Check,
+    ssid: Input,
+    passwd: Input,
+    auth: bool,
+    date: Date,
+    time: Time,
+    enable_dst: Check,
+}

@@ -20,9 +20,8 @@
 
 #![allow(dead_code)]
 
-mod config;
+mod set_config;
 
-use osal_rs::log_debug;
 use osal_rs::os::types::EventBits;
 
 
@@ -37,7 +36,7 @@ const CHECK_STATUS_THRESHOLD: u8 = 5;
 
 enum FSMState {
     Init,
-    Config,
+    SetConfig,
     Menu,
 }
 pub struct ScreenRoute{
@@ -59,15 +58,15 @@ impl ScreenRouteFn for ScreenRoute {
                 if StatusFlag::CheckConfig.check_signal(status_signal) {
                     self.check_staus_counter += 1;
                     if self.check_staus_counter >= CHECK_STATUS_THRESHOLD {
-                        self.fsm_state = FSMState::Config;
+                        self.fsm_state = FSMState::SetConfig;
                         self.check_staus_counter = 0;
                     }
                 } else {
                     self.check_staus_counter = 0;
                 }
             }
-            FSMState::Config => {
-                log_debug!("---->", "ScreenRoute: Config state");
+            FSMState::SetConfig => {
+                
             }
             FSMState::Menu => {
                 // Handle Menu state
