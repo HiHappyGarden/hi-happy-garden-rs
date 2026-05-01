@@ -37,10 +37,10 @@ pub struct Text;
 impl Screen for Text
 {
     fn draw(&mut self, 
-        lcd: &mut impl LCDDisplayFn,
+        lcd: &mut dyn LCDDisplayFn,
         _: &mut EventBits, 
         date_time: &DateTime, 
-        text: &impl AsSyncStr, 
+        text: &dyn AsSyncStr, 
         _: ScreenParam, 
         _: ScreenCallback
     ) -> Result<()> {

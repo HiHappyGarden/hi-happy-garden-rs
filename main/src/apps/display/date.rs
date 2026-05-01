@@ -34,10 +34,10 @@ pub struct Date(FieldEditor);
 impl Screen for Date
 {
     fn draw(&mut self, 
-        lcd: &mut impl LCDDisplayFn,
+        lcd: &mut dyn LCDDisplayFn,
         signal: &mut EventBits, 
         date_time: &DateTime, 
-        text: &impl AsSyncStr, 
+        text: &dyn AsSyncStr, 
         param: ScreenParam, 
         callback: ScreenCallback
     ) -> Result<()> {

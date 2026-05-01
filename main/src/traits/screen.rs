@@ -69,10 +69,10 @@ pub trait Screen<N = u16>
 where N: Integer
 {
      fn draw(&mut self, 
-        lcd: &mut impl LCDDisplayFn,
+        lcd: &mut dyn LCDDisplayFn,
         signal: &mut EventBits, 
         date_time: &DateTime, 
-        text: &impl AsSyncStr, 
+        text: &dyn AsSyncStr, 
         param: ScreenParam<N>, 
         callback: ScreenCallback<N>
     ) -> Result<()>;
@@ -82,7 +82,7 @@ pub trait ScreenRoute<N = u16>
 where N: Integer
 {
      fn draw(&mut self, 
-        lcd: &mut impl LCDDisplayFn,
+        lcd: &mut dyn LCDDisplayFn,
         display_signal: &mut EventBits, 
         status_signal: EventBits, 
         date_time: &DateTime

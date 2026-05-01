@@ -48,7 +48,7 @@ pub struct ScreenRoute{
 
 impl ScreenRouteFn for ScreenRoute {
     fn draw(&mut self, 
-        _lcd: &mut impl LCDDisplayFn,
+        _lcd: &mut dyn LCDDisplayFn,
         _display_signal: &mut EventBits, 
         status_signal: EventBits, 
         _date_time: &DateTime

@@ -33,7 +33,7 @@ pub(super) const SECOND_ROW_Y: u8 = 45;
 pub(super) const LONG_PRESS_MS: u32 = 500;
 pub(super) const MAX_SIZE: usize = 64;
 
-pub(super) fn clean_context(lcd: &mut impl LCDDisplayFn) -> Result<()> 
+pub(super) fn clean_context(lcd: &mut dyn LCDDisplayFn) -> Result<()> 
 {
     let (display_width, display_height) = lcd.get_size();
     let y_start = lcd.get_header_height();

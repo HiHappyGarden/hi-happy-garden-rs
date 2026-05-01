@@ -43,10 +43,10 @@ pub struct Check
 impl Screen for Check
 {
     fn draw(&mut self, 
-        lcd: &mut impl LCDDisplayFn,
+        lcd: &mut dyn LCDDisplayFn,
         signal: &mut EventBits, 
         date_time: &DateTime, 
-        text: &impl AsSyncStr, 
+        text: &dyn AsSyncStr, 
         param: ScreenParam, 
         callback: ScreenCallback
     ) -> Result<()> {

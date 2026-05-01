@@ -112,10 +112,10 @@ impl FieldEditor {
 
     pub(super) fn draw(
         &mut self,
-        lcd: &mut impl LCDDisplayFn,
+        lcd: &mut dyn LCDDisplayFn,
         signal: &mut EventBits,
         current_date_time: &DateTime,
-        text: &impl AsSyncStr,
+        text: &dyn AsSyncStr,
         param: ScreenParam, 
         callback: ScreenCallback,
     ) -> Result<()> {

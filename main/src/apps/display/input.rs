@@ -42,10 +42,10 @@ pub struct Input {
 impl Screen for Input
 {
     fn draw(&mut self, 
-        lcd: &mut impl LCDDisplayFn,
+        lcd: &mut dyn LCDDisplayFn,
         signal: &mut EventBits, 
         date_time: &DateTime, 
-        text: &impl AsSyncStr, 
+        text: &dyn AsSyncStr, 
         param: ScreenParam, 
         callback: ScreenCallback
     ) -> Result<()> {
