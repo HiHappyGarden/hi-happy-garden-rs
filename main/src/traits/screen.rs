@@ -27,6 +27,16 @@ use crate::traits::integer::Integer;
 use crate::traits::lcd_display::LCDDisplayFn;
 
 pub type ScreenCallback<N = u16> = Option<fn(Option<ScreenParam<N>>, confirmed: bool)>;
+pub type ScreenSelections = [Bytes<{DISPLAY_INPUT_MAX_SIZE}>; 4];
+
+pub const fn screen_selections_new() -> ScreenSelections {
+    [
+        Bytes::new(),
+        Bytes::new(),
+        Bytes::new(),
+        Bytes::new(),
+    ]
+}
 
 #[derive(Debug, Clone)]
 pub struct ScreenParam<N = u16> 
@@ -36,6 +46,7 @@ where N: Integer
     pub input: Option<Bytes<{DISPLAY_INPUT_MAX_SIZE}>>,
     pub number: Option<N>,
     pub date_time: Option<DateTime>,
+    pub selects: Option<ScreenSelections>,
 }
 
 
@@ -48,6 +59,7 @@ where N: Integer
             input: None,
             number: None,
             date_time: None,
+            selects: None,
         }
     }
 }

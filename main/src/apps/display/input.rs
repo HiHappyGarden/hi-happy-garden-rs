@@ -24,15 +24,12 @@ use osal_rs::os::{System, SystemFn};
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Bytes, Result};
 
-use crate::apps::display::commons::{FIRST_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
+use super::commons::{FIRST_ROW_Y, SECOND_ROW_Y, LONG_PRESS_MS, MAX_SIZE, clean_context, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
-
-const LONG_PRESS_MS: u32 = 500;
-pub const MAX_SIZE: usize = 64;
 
 pub struct Input {
     input: Option<Bytes<MAX_SIZE>>,

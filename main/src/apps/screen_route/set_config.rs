@@ -21,6 +21,7 @@
 use crate::apps::display::check::Check;
 use crate::apps::display::input::Input;
 use crate::apps::display::date::Date;
+use crate::apps::display::select::Select;
 use crate::apps::display::time::Time;
 
 enum FSMState {
@@ -39,7 +40,7 @@ pub struct ScreenSetConfig {
     enable_wifi: Check,
     ssid: Input,
     passwd: Input,
-    auth: bool,
+    auth: Select,
     date: Date,
     time: Time,
     enable_dst: Check,

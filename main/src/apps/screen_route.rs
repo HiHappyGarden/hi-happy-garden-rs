@@ -22,6 +22,7 @@
 
 mod set_config;
 
+use alloc::boxed::Box;
 use osal_rs::os::types::EventBits;
 
 
@@ -42,6 +43,7 @@ enum FSMState {
 pub struct ScreenRoute{
     fsm_state: FSMState,
     check_staus_counter: u8,
+    current_screen: Option<Box<dyn ScreenRouteFn>>,
 }
 
 impl ScreenRouteFn for ScreenRoute {
@@ -82,6 +84,7 @@ impl ScreenRoute {
         Self {
             fsm_state: FSMState::Init,
             check_staus_counter: 0,
+            current_screen: None,
         }
     }
 }

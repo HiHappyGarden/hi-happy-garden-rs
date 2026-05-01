@@ -22,25 +22,26 @@
 use alloc::sync::Arc;
 use osal_rs::os::types::EventBits;
 use osal_rs::os::{Mutex, MutexFn};
-use osal_rs::utils::{AsSyncStr, Result};
+use osal_rs::utils::{AsSyncStr, Bytes, Result};
 
 use crate::apps::display::commons::{FIRST_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
+use crate::apps::display::select;
 use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
-use crate::assets::ic_check_off::IC_CHECK_OFF;
-use crate::assets::ic_check_on::IC_CHECK_ON;
 use crate::assets::types::Icon;
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
-use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
+use crate::traits::screen::{Screen, ScreenCallback, ScreenParam, ScreenSelections, screen_selections_new};
 
-pub struct Check 
+static NO_SELECTIONS: &str = "No selections available";
+
+pub struct Select 
 {
-    icon: Icon<120>,
-    checked: Option<bool>,
+    index: u8,
+    selections: Option<ScreenSelections>,
 }
 
-impl Screen for Check
+impl Screen for Select
 {
     fn draw(&mut self, 
         lcd: &mut impl LCDDisplayFn,
@@ -53,17 +54,20 @@ impl Screen for Check
 
         clean_context(lcd)?;
 
-        if self.checked.is_none() {
-            if param.check.unwrap_or(false) { 
-                self.icon = IC_CHECK_ON;
-                self.checked = Some(true);
-            } else {
-                self.icon = IC_CHECK_OFF;
-                self.checked = Some(false);
+        if self.selections.is_none() {
+            match &param.selects {
+                Some(selections) => {
+                    self.index = 0;
+                    self.selections = Some(selections.clone());
+                }
+                None => {
+                    self.index = 0;
+                    self.selections = Some(screen_selections_new());
+                }
             }
         }
 
-        self.update_icon(signal);
+        self.update_select(signal);
 
         let (width, _) = lcd.get_size(); 
 
@@ -73,26 +77,46 @@ impl Screen for Check
 
         lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
 
-        lcd.draw_bitmap_image((width  / 2 ) - (self.icon.0 / 2), SECOND_ROW_Y, self.icon.0, self.icon.1, &self.icon.2, LCDWriteMode::ADD)?;
+
+        let text = if let Some(selections) = &self.selections {
+            if let Some(selection) = selections.get(self.index as usize) {
+                selection.as_str()
+            } else {
+                NO_SELECTIONS
+            }
+        } else {
+            NO_SELECTIONS
+        };
+
+        let (display_text, x_position) = scroll_text(text, date_time, (width - visible_width) / 2, visible_width, FONT_8X8[0], 100);
+
+        lcd.draw_str(&display_text, x_position, SECOND_ROW_Y, &FONT_8X8)?;
+        
 
         if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
-            if self.icon.2 == IC_CHECK_ON.2 {
-                self.checked = Some(true);
+            if self.selections.as_ref().and_then(|s| s.get(self.index as usize)).is_some() {
                 if let Some(ref cb) = callback {
                     let mut p = ScreenParam::default();
-                    p.check = self.checked;
+                    let s = self.selections.as_ref().and_then(|s| {
+                        let mut selections = s.clone();
+                        
+                        for i in 0..selections.len() {
+                            if i != self.index as usize {
+                                selections[i] = Bytes::new();
+                            }
+                        }
+
+                        Some(selections)
+                    });
                     cb(Some(p), true);
                 }
                 *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
             } else {
-                self.checked = Some(false);
                 if let Some(ref cb) = callback {
-                    let mut p = ScreenParam::default();
-                    p.check = self.checked;
-                    cb(Some(p), true);
+                    cb(None, false);
                 }
                 *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
-            };
+            }
         }
 
         if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
@@ -102,35 +126,38 @@ impl Screen for Check
             *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
         }
 
+        
         Ok(())
         
     }
 }
 
-impl Check {
+impl Select {
 
     pub const fn new() -> Self {
         Self {
-            icon: IC_CHECK_OFF,
-            checked: None,
+            index: 0,
+            selections: None,
         }
     }
 
-    fn update_icon(&mut self, signal: &mut EventBits) {
-        if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 || *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
-            self.icon = if self.icon.2 == IC_CHECK_OFF.2 {
-                IC_CHECK_ON
-            } else {
-                IC_CHECK_OFF
-            };
+    fn update_select(&mut self, signal: &mut EventBits) {
+
+        let modulo = self.selections.as_ref().map_or(1, |s| s.len() as u8); // Get the length of selections or default to 1 to avoid division by zero
+
+        if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
+            self.index = self.index.wrapping_add(1) % modulo; // Increment index and wrap around using modulo
+            *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
+        } else  if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+            self.index = self.index.wrapping_sub(1) % modulo; // Decrement index and wrap around using modulo
             *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
         }
     }
 
-    #[allow(unused)]
-    #[inline]
-    pub fn is_checked(&self) -> bool {
-        self.checked.unwrap_or(false)
-    }
+    // #[allow(unused)]
+    // #[inline]
+    // pub fn is_checked(&self) -> bool {
+    //     self.selections.unwrap_or(false)
+    // }
 }
 
