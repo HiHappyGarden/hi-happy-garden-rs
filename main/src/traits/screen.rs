@@ -27,10 +27,12 @@ use crate::traits::integer::Integer;
 use crate::traits::lcd_display::LCDDisplayFn;
 
 pub type ScreenCallback<N = u16> = Option<fn(Option<ScreenParam<N>>, confirmed: bool)>;
-pub type ScreenSelections = [Bytes<{DISPLAY_INPUT_MAX_SIZE}>; 4];
+pub type ScreenSelections = [Bytes<{DISPLAY_INPUT_MAX_SIZE}>; 6];
 
 pub const fn screen_selections_new() -> ScreenSelections {
     [
+        Bytes::new(),
+        Bytes::new(),
         Bytes::new(),
         Bytes::new(),
         Bytes::new(),
@@ -84,7 +86,7 @@ where N: Integer
      fn draw(&mut self, 
         lcd: &mut dyn LCDDisplayFn,
         display_signal: &mut EventBits, 
-        status_signal: EventBits, 
+        status_signal: &mut EventBits, 
         date_time: &DateTime
     ) -> Result<()>;
 }

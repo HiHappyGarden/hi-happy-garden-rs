@@ -37,6 +37,7 @@ pub struct Input {
     idx: usize,
     button_pressed_tick: u32,
     encoder_button_pressed_tick: u32,
+    secret_mode: bool, //todo: implement secret input mode (show '*' instead of actual chars) for password input, activated by long pressing the encoder button when on the first char of the input. In secret mode, the actual input is still stored in self.input and returned in the callback, but the display shows '*' for each char instead of the real chars. Long pressing the encoder button again would toggle back to normal mode.
 }
 
 impl Screen for Input
@@ -148,6 +149,7 @@ impl Input
             idx: 0,
             button_pressed_tick: 0,
             encoder_button_pressed_tick: 0,
+            secret_mode: false,
         }
     }
 

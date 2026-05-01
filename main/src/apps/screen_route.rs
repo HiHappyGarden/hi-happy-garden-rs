@@ -26,9 +26,10 @@ use alloc::boxed::Box;
 use osal_rs::os::types::EventBits;
 
 
+use set_config::ScreenSetConfig;
 use crate::apps::signals::status::StatusFlag;
 use crate::drivers::date_time::DateTime;
-use crate::traits::screen::{ScreenRoute as ScreenRouteFn};
+use crate::traits::screen::ScreenRoute as ScreenRouteFn;
 use crate::traits::lcd_display::LCDDisplayFn;
 
 pub static mut SCREEN_ROUTE: ScreenRoute = ScreenRoute::new();
@@ -40,7 +41,7 @@ enum FSMState {
     SetConfig,
     Menu,
 }
-pub struct ScreenRoute{
+pub struct ScreenRoute {
     fsm_state: FSMState,
     check_staus_counter: u8,
     current_screen: Option<Box<dyn ScreenRouteFn>>,
@@ -48,16 +49,16 @@ pub struct ScreenRoute{
 
 impl ScreenRouteFn for ScreenRoute {
     fn draw(&mut self, 
-        _lcd: &mut dyn LCDDisplayFn,
-        _display_signal: &mut EventBits, 
-        status_signal: EventBits, 
-        _date_time: &DateTime
+        lcd: &mut dyn LCDDisplayFn,
+        display_signal: &mut EventBits, 
+        status_signal: &mut EventBits, 
+        date_time: &DateTime
     ) -> osal_rs::utils::Result<()> {
         
         match self.fsm_state {
             FSMState::Init => {
                 // Handle Init state
-                if StatusFlag::CheckConfig.check_signal(status_signal) {
+                if StatusFlag::CheckConfig.check_signal(*status_signal) {
                     self.check_staus_counter += 1;
                     if self.check_staus_counter >= CHECK_STATUS_THRESHOLD {
                         self.fsm_state = FSMState::SetConfig;
@@ -68,7 +69,14 @@ impl ScreenRouteFn for ScreenRoute {
                 }
             }
             FSMState::SetConfig => {
-                
+                if self.current_screen.is_none() {
+                    self.current_screen = Some(Box::new(ScreenSetConfig::new()));
+                } else {
+                    if let Some(screen) = &mut self.current_screen {
+                        screen.draw(lcd, display_signal, status_signal, date_time)?;
+                    }
+                }
+
             }
             FSMState::Menu => {
                 // Handle Menu state

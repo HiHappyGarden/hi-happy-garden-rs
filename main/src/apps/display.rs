@@ -59,10 +59,9 @@ use crate::traits::rtc::RTC;
 
 const APP_TAG: &str = "AppDisplay";
 const THREAD_NAME: &str = "app_display_trd";
-const STACK_SIZE: StackType = 2_560;
+const STACK_SIZE: StackType = 1_024 * 6;
 const TICK_INTERVAL_MS: u16 = 100;
 
-#[allow(dead_code)]
 pub const DISPLAY_INPUT_MAX_SIZE: usize = MAX_SIZE;
 
 static mut ON_RECEIVE: Option<&'static dyn OnReceive> = Option::None;
@@ -108,7 +107,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 DisplaySignal::clear(display_signal);
 
                 //get status signal
-                let status_signal = StatusSignal::get();
+                let mut status_signal = StatusSignal::get();
 
                 //get date time
                 let date_time = rtc.lock().unwrap().get_timestamp().unwrap_or_else(|e| {
@@ -164,7 +163,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 //     ErrorSignal::set(ErrorFlag::Display.into());
                 // }
                 
-                screen_route.draw(lcd, &mut display_signal, status_signal, &date_time).unwrap_or_else(|e| {
+                screen_route.draw(lcd, &mut display_signal, &mut status_signal, &date_time).unwrap_or_else(|e| {
                     log_info!(APP_TAG, "Error drawing screen route: {:?}", e);
                     ErrorSignal::set(ErrorFlag::Display.into());
                 });
