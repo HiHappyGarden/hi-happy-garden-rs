@@ -19,13 +19,14 @@
  ***************************************************************************/
 
 #[macro_use]
-pub mod commons;
+mod commons;
 pub mod check;
-pub mod date_time_editor;
+mod date_time_editor;
 pub mod date;
-pub mod header;
+mod header;
 pub mod input;
 pub mod number;
+pub mod select;
 pub mod text;
 pub mod time;
 
@@ -37,7 +38,7 @@ use osal_rs::os::types::StackType;
 use osal_rs::utils::Error;
 
 use crate::apps::display::header::Header;
-use crate::apps::display::input::MAX_SIZE;
+use crate::apps::display::commons::MAX_SIZE;
 
 use crate::apps::screen_route::SCREEN_ROUTE;
 use crate::apps::signals::display::{DisplayFlag::{*}, DisplaySignal};

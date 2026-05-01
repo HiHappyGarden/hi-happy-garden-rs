@@ -41,25 +41,25 @@ enum Step {
 /// Configuration for a 3-field step-by-step editor.
 /// Drives both the date editor (year / month / day) and the time editor
 /// (hour / minute / second) from a single generic implementation.
-pub struct FieldEditorConfig {
+pub(super) struct FieldEditorConfig {
     /// Minimum value for each field.
-    pub field_min: [i32; 3],
+    pub(super) field_min: [i32; 3],
     /// Returns the maximum value for field `i` given the current values of all
     /// three fields.  Signature: `fn(field1, field2, field3) -> max_i`.
-    pub field_max_fn: [fn(i32, i32, i32) -> i32; 3],
+    pub(super) field_max_fn: [fn(i32, i32, i32) -> i32; 3],
     /// Whether each field wraps around at its min/max boundaries.
-    pub field_wrap: [bool; 3],
+    pub(super) field_wrap: [bool; 3],
     /// Formats the three field values into the display string.
-    pub formatter: fn(i32, i32, i32) -> String,
+    pub(super) formatter: fn(i32, i32, i32) -> String,
     /// `(x_offset, width)` of the underline for Field1, Field2, Field3.
-    pub underlines: [(u8, u8); 3],
+    pub(super) underlines: [(u8, u8); 3],
     /// Extracts `(field1, field2, field3)` from a `DateTime`.
-    pub extractor: fn(&DateTime) -> (i32, i32, i32),
+    pub(super) extractor: fn(&DateTime) -> (i32, i32, i32),
     /// Builds a `DateTime` from the confirmed field values.
-    pub builder: fn(i32, i32, i32) -> Result<DateTime>,
+    pub(super) builder: fn(i32, i32, i32) -> Result<DateTime>,
 }
 
-pub struct FieldEditor {
+pub(super) struct FieldEditor {
     fields: [Option<i32>; 3],
     step: Step,
     result: Option<DateTime>,
@@ -67,7 +67,7 @@ pub struct FieldEditor {
 }
 
 impl FieldEditor {
-    pub const fn new(config: FieldEditorConfig) -> Self {
+    pub(super) const fn new(config: FieldEditorConfig) -> Self {
         Self {
             fields: [None, None, None],
             step: Step::Field1,
@@ -110,7 +110,7 @@ impl FieldEditor {
         }
     }
 
-    pub fn draw(
+    pub(super) fn draw(
         &mut self,
         lcd: &mut impl LCDDisplayFn,
         signal: &mut EventBits,
@@ -230,7 +230,7 @@ impl FieldEditor {
 
     #[allow(unused)]
     #[inline]
-    pub fn get_result(&self) -> Option<DateTime> {
+    pub(super) fn get_result(&self) -> Option<DateTime> {
         self.result
     }
 }
