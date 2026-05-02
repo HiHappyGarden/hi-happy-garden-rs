@@ -57,7 +57,7 @@ impl Screen for Input
             let input_str = param.input.unwrap_or_default();
             self.input = Some(Bytes::from_bytes(input_str.as_raw_bytes()));
             self.original_input = Some(Bytes::from_bytes(input_str.as_raw_bytes()));
-            self.idx = input_str.len() - 1;
+            self.idx = input_str.len().saturating_sub(1);
         } 
 
         self.update_input(signal);
@@ -166,39 +166,38 @@ impl Input
             *signal &= !(DisplayFlag::ButtonPressed as u32);
         }
         if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
-            if let Some(current) = self.input.as_ref() {
+            if self.seed_input_if_empty() {
+            } else if let Some(current) = self.input.as_ref() {
                 let next_char = if current[self.idx] >= 0xFF {
                     b' ' // wrap from 255 back to 32 (space)
                 } else {
                     current[self.idx] + 1
                 };
                 self.input.as_mut().unwrap()[self.idx] = next_char;
-            } else {
-                self.input = Some(Bytes::from_str("a"));
             }
             *signal |= DisplayFlag::Draw as u32;
         } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
-            if let Some(current) = self.input.as_ref() {
+            if self.seed_input_if_empty() {
+            } else if let Some(current) = self.input.as_ref() {
                 let prev_char = if current[self.idx] <= b' ' {
                     0xFF // wrap from 32 (space) back to 255
                 } else {
                     current[self.idx] - 1
                 };
                 self.input.as_mut().unwrap()[self.idx] = prev_char;
-            } else {
-                self.input = Some(Bytes::from_str("a"));
             }
             *signal |= DisplayFlag::Draw as u32;
         }
          
         if *signal & DisplayFlag::EncoderButtonPressed as u32 != 0 {
             self.encoder_button_pressed_tick = System::get_tick_count();
-            if let Some(mut input) = self.input {
+            if self.seed_input_if_empty() {
+            } else if let Some(mut input) = self.input {
                 if self.idx < input.size() - 1 {
                     self.idx += 1;
                     let _ = input.push_char('a');
-                    self.input = Some(input);
                 }
+                self.input = Some(input);
             }
             *signal |= DisplayFlag::Draw as u32;
         } else if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
@@ -219,6 +218,21 @@ impl Input
                 }
             }
             *signal |= DisplayFlag::Draw as u32;
+        }
+    }
+
+    fn seed_input_if_empty(&mut self) -> bool {
+        let needs_seed = match self.input.as_ref() {
+            Some(input) => input.is_empty(),
+            None => true,
+        };
+
+        if needs_seed {
+            self.input = Some(Bytes::from_str("a"));
+            self.idx = 0;
+            true
+        } else {
+            false
         }
     }
 
