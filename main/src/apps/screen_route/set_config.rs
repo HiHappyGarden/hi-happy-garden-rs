@@ -20,6 +20,7 @@
 
 use core::sync::atomic::{AtomicBool, Ordering};
 
+use osal_rs::log_warning;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Bytes, Result, bytes_to_hex};
 
@@ -40,6 +41,7 @@ use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::screen::{Screen, ScreenParam, ScreenRoute, ScreenSelections, screen_selections_new};
 
 static mut FSM_STATE: FSMState = FSMState::Serial;
+static mut OLD_FSM_STATE: FSMState = FSMState::Serial;
 static UPDATE_DRAW: AtomicBool = AtomicBool::new(false);
 
 impl Auth {
@@ -108,7 +110,6 @@ impl ScreenRoute for ScreenSetConfig {
         }
 
         let fsm_state = unsafe { *&raw const FSM_STATE };
-
         
         match fsm_state {
             FSMState::Serial => {
@@ -120,6 +121,7 @@ impl ScreenRoute for ScreenSetConfig {
                 let mut param = ScreenParam::default();
                 param.input = Some(unique_id);
 
+
                 self.serial.draw(
                     lcd, 
                     display_signal, 
@@ -127,6 +129,7 @@ impl ScreenRoute for ScreenSetConfig {
                     &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Serial Number"), 
                     param, 
                     Some(|_, confirmed| {
+                        unsafe { OLD_FSM_STATE = FSM_STATE; }
                         if confirmed {
                             unsafe { FSM_STATE = FSMState::EnableWifi; }
                         } 
@@ -144,12 +147,21 @@ impl ScreenRoute for ScreenSetConfig {
                     date_time, 
                     &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Enable WiFi?"), 
                     param, 
-                    Some(|_, confirmed| {
+                    Some(|param, confirmed| {
                         if confirmed {
-                            unsafe { FSM_STATE = FSMState::Ssid; }
+                            unsafe { OLD_FSM_STATE = FSM_STATE; }
+                            match param {
+                                Some(screen_param) => match screen_param.check {
+                                    Some(true) => unsafe { FSM_STATE = FSMState::Ssid; },
+                                    Some(false) => unsafe { FSM_STATE = FSMState::Date; },
+                                    None => unsafe { FSM_STATE = FSMState::Serial; }
+                                },
+                                None => unsafe { FSM_STATE = FSMState::Serial; }
+                            }
+
                         } else {
                             // Skip WiFi config and go to next screen
-                            unsafe { FSM_STATE = FSMState::Date; }
+                            unsafe { FSM_STATE = FSMState::Serial; }
                         }
                         UPDATE_DRAW.store(true, Ordering::SeqCst);
                     })
@@ -166,6 +178,7 @@ impl ScreenRoute for ScreenSetConfig {
                     &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi SSID"), 
                     param, 
                     Some(|_, confirmed| {
+                        unsafe { OLD_FSM_STATE = FSM_STATE; }
                         if confirmed {
                             unsafe { FSM_STATE = FSMState::Passwd; }
                         } else {
@@ -186,6 +199,7 @@ impl ScreenRoute for ScreenSetConfig {
                     &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi Password"), 
                     param, 
                     Some(|_, confirmed| {
+                        unsafe { OLD_FSM_STATE = FSM_STATE; }
                         if confirmed {
                             unsafe { FSM_STATE = FSMState::Auth; }
                         } else {
@@ -206,6 +220,7 @@ impl ScreenRoute for ScreenSetConfig {
                     &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi Auth"), 
                     param, 
                     Some(|_, confirmed| {
+                        unsafe { OLD_FSM_STATE = FSM_STATE; }
                         if confirmed {
                             unsafe { FSM_STATE = FSMState::EnableDst; }
                         } else {
@@ -226,10 +241,11 @@ impl ScreenRoute for ScreenSetConfig {
                     &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Set Date"), 
                     param, 
                     Some(|_, confirmed| {
+                        unsafe { OLD_FSM_STATE = FSM_STATE; }
                         if confirmed {
                             unsafe { FSM_STATE = FSMState::Time; }
                         } else {
-                            unsafe { FSM_STATE = FSMState::Auth; }
+                            unsafe { FSM_STATE = FSMState::EnableWifi; }
                         }
                         UPDATE_DRAW.store(true, Ordering::SeqCst);
                     })
@@ -246,6 +262,7 @@ impl ScreenRoute for ScreenSetConfig {
                     &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Set Time"), 
                     param, 
                     Some(|_, confirmed| {
+                        unsafe { OLD_FSM_STATE = FSM_STATE; }
                         if confirmed {
                             unsafe { FSM_STATE = FSMState::EnableDst; }
                         } else {
@@ -258,6 +275,8 @@ impl ScreenRoute for ScreenSetConfig {
             FSMState::EnableDst => {
                 let mut param = ScreenParam::default();
                 param.check = Some(self.enable_dst.is_checked());
+    
+                
 
                 self.enable_dst.draw(
                     lcd, 
@@ -265,10 +284,10 @@ impl ScreenRoute for ScreenSetConfig {
                     date_time, 
                     &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Enable DST?"), 
                     param, 
-                    Some(|_, confirmed| {
+                    Some(move |_, confirmed| {
                         if confirmed {
                             // Configuration complete, go back to menu or next step
-                            unsafe { FSM_STATE = FSMState::Serial; }
+                            unsafe { FSM_STATE = OLD_FSM_STATE; }
                         } else {
                             unsafe { FSM_STATE = FSMState::End; }
                         }
@@ -277,9 +296,10 @@ impl ScreenRoute for ScreenSetConfig {
                 )?;
             }
             FSMState::End => {
-
+                log_warning!("--->", "Configuration complete. Returning to menu.");
             }
         }
+
 
         Ok(())
     }
