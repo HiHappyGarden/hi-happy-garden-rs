@@ -69,7 +69,14 @@ impl Screen for Check
 
         let (visible_width, _) = lcd.get_visible_size(); 
 
-        let (display_text, x_position) = scroll_text(text.as_str(), date_time, (width - visible_width) / 2, visible_width, FONT_8X8[0], 100);
+        let (display_text, x_position) = scroll_text(
+            text.as_str(),
+            signal,
+            date_time,
+            (width - visible_width) / 2, visible_width,
+            FONT_8X8[0],
+            100
+        );
 
         lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
 

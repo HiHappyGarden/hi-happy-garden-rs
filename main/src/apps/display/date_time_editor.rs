@@ -168,6 +168,7 @@ impl FieldEditor {
 
         let (display_text, x_position) = scroll_text(
             text.as_str(),
+            signal, 
             current_date_time,
             (width - visible_width) / 2,
             visible_width,

@@ -20,8 +20,10 @@
 
 
 use alloc::string::String;
+use osal_rs::os::types::EventBits;
 use osal_rs::utils::Result;
 
+use crate::apps::signals::display::DisplayFlag;
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 
@@ -51,6 +53,7 @@ pub(super) fn clean_context(lcd: &mut dyn LCDDisplayFn) -> Result<()>
 /// If the text fits, it is centred; otherwise it scrolls circularly with 4-space separator.
 pub(super) fn scroll_text(
     text: &str, 
+    signal: &mut EventBits, 
     date_time: &DateTime, 
     margin_left: u8, 
     visible_width: u8, 
@@ -76,6 +79,7 @@ pub(super) fn scroll_text(
         let scroll_index = ((total_millis / scroll_delay_ms) % (loop_len as u64)) as usize;
 
         let scrolled: String = loop_text.chars().cycle().skip(scroll_index).take(max_chars).collect();
+        *signal |= DisplayFlag::Draw as u32;
         (scrolled, margin_left)
     }
 }

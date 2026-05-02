@@ -38,7 +38,7 @@ impl Screen for Text
 {
     fn draw(&mut self, 
         lcd: &mut dyn LCDDisplayFn,
-        _: &mut EventBits, 
+        signal: &mut EventBits, 
         date_time: &DateTime, 
         text: &dyn AsSyncStr, 
         _: ScreenParam, 
@@ -60,7 +60,13 @@ impl Screen for Text
             1 => {
                 let text = splitted_text.into_iter().next().unwrap_or_default();
 
-                let (display_text, x_position) = scroll_text(text, date_time, (width - visible_width) / 2, visible_width, FONT_8X8[0], 100);
+                let (display_text, x_position) = scroll_text(text,
+                    signal, 
+                    date_time,
+                    (width - visible_width) / 2, visible_width,
+                    FONT_8X8[0],
+                    100
+                );
 
                 lcd.draw_str(&display_text, x_position, ONLY_ONE_ROW_Y, &FONT_8X8)?;
             },
@@ -69,12 +75,26 @@ impl Screen for Text
                 let first_line = iter.next().unwrap_or_default();
                 let second_line = iter.next().unwrap_or_default();
 
-                let (display_text, x_position) = scroll_text(first_line, date_time, (width - visible_width) / 2, visible_width, FONT_8X8[0], 100);
+                let (display_text, x_position) = scroll_text(
+                    first_line,
+                    signal,
+                    date_time,
+                    (width - visible_width) / 2, visible_width,
+                    FONT_8X8[0],
+                    100
+                );
 
 
                 lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
 
-                let (display_text, x_position) = scroll_text(second_line, date_time, (width - visible_width) / 2, visible_width, FONT_8X8[0], 100);
+                let (display_text, x_position) = scroll_text(
+                    second_line,
+                    signal,
+                    date_time,
+                    (width - visible_width) / 2, visible_width,
+                    FONT_8X8[0],
+                    100
+                );
 
                 lcd.draw_str(&display_text, x_position, SECOND_ROW_Y, &FONT_8X8)?;
             },

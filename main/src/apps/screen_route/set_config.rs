@@ -18,6 +18,8 @@
  *
  ***************************************************************************/
 
+use core::sync::atomic::{AtomicBool, Ordering};
+
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Bytes, Result, bytes_to_hex};
 
@@ -29,6 +31,7 @@ use crate::apps::display::date::Date;
 use crate::apps::display::select::Select;
 use crate::apps::display::time::Time;
 
+use crate::apps::signals::display::DisplayFlag;
 use crate::drivers::date_time::DateTime;
 use crate::drivers::platform::Hardware;
 use crate::drivers::wifi::Auth;
@@ -36,7 +39,8 @@ use crate::traits::hardware::HardwareFn;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::screen::{Screen, ScreenParam, ScreenRoute, ScreenSelections, screen_selections_new};
 
-static mut FSN_STATE: FSMState = FSMState::Serial;
+static mut FSM_STATE: FSMState = FSMState::Serial;
+static UPDATE_DRAW: AtomicBool = AtomicBool::new(false);
 
 impl Auth {
     fn as_bytes(&self) -> Bytes<{DISPLAY_INPUT_MAX_SIZE}> {
@@ -64,6 +68,7 @@ impl Auth {
 
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum FSMState {
     Serial,
     EnableWifi,
@@ -94,14 +99,18 @@ impl ScreenRoute for ScreenSetConfig {
         display_signal: &mut EventBits, 
         _status_signal: &mut EventBits, 
         date_time: &DateTime
+        
     ) -> Result<()> {
 
-        match unsafe { &*&raw const FSN_STATE } {
+        let fsm_state = unsafe { &*&raw const FSM_STATE };
+
+        
+        match fsm_state {
             FSMState::Serial => {
                 
 
                 let unique_id = Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str(bytes_to_hex(&Hardware::get_unique_id()).as_str());
-                let unique_id = Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_bytes(&unique_id[..unique_id.len()/2]);
+                let unique_id = Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_bytes(&unique_id[..(unique_id.len()/3) * 2]);
 
                 let mut param = ScreenParam::default();
                 param.input = Some(unique_id);
@@ -110,12 +119,13 @@ impl ScreenRoute for ScreenSetConfig {
                     lcd, 
                     display_signal, 
                     date_time, 
-                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str(""), 
+                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Serial Number"), 
                     param, 
                     Some(|_, confirmed| {
                         if confirmed {
-                            unsafe { FSN_STATE = FSMState::EnableWifi; }
+                            unsafe { FSM_STATE = FSMState::EnableWifi; }
                         } 
+                        UPDATE_DRAW.store(true, Ordering::SeqCst);
                     })
                 )?;
             }
@@ -131,11 +141,12 @@ impl ScreenRoute for ScreenSetConfig {
                     param, 
                     Some(|_, confirmed| {
                         if confirmed {
-                            unsafe { FSN_STATE = FSMState::Ssid; }
+                            unsafe { FSM_STATE = FSMState::Ssid; }
                         } else {
                             // Skip WiFi config and go to next screen
-                            unsafe { FSN_STATE = FSMState::Date; }
+                            unsafe { FSM_STATE = FSMState::Date; }
                         }
+                        UPDATE_DRAW.store(true, Ordering::SeqCst);
                     })
                 )?;
             }
@@ -151,11 +162,12 @@ impl ScreenRoute for ScreenSetConfig {
                     param, 
                     Some(|_, confirmed| {
                         if confirmed {
-                            unsafe { FSN_STATE = FSMState::Passwd; }
+                            unsafe { FSM_STATE = FSMState::Passwd; }
                         } else {
                             // Skip WiFi config and go to next screen
-                            unsafe { FSN_STATE = FSMState::EnableWifi; }
+                            unsafe { FSM_STATE = FSMState::EnableWifi; }
                         }
+                        UPDATE_DRAW.store(true, Ordering::SeqCst);
                     })
                 )?;
             }
@@ -170,10 +182,11 @@ impl ScreenRoute for ScreenSetConfig {
                     param, 
                     Some(|_, confirmed| {
                         if confirmed {
-                            unsafe { FSN_STATE = FSMState::Auth; }
+                            unsafe { FSM_STATE = FSMState::Auth; }
                         } else {
-                            unsafe { FSN_STATE = FSMState::Ssid; }
+                            unsafe { FSM_STATE = FSMState::Ssid; }
                         }
+                        UPDATE_DRAW.store(true, Ordering::SeqCst);
                     })
                 )?;
             }
@@ -189,10 +202,11 @@ impl ScreenRoute for ScreenSetConfig {
                     param, 
                     Some(|_, confirmed| {
                         if confirmed {
-                            unsafe { FSN_STATE = FSMState::EnableDst; }
+                            unsafe { FSM_STATE = FSMState::EnableDst; }
                         } else {
-                            unsafe { FSN_STATE = FSMState::Passwd; }
+                            unsafe { FSM_STATE = FSMState::Passwd; }
                         }
+                        UPDATE_DRAW.store(true, Ordering::SeqCst);
                     })
                 )?;
             }
@@ -208,10 +222,11 @@ impl ScreenRoute for ScreenSetConfig {
                     param, 
                     Some(|_, confirmed| {
                         if confirmed {
-                            unsafe { FSN_STATE = FSMState::Time; }
+                            unsafe { FSM_STATE = FSMState::Time; }
                         } else {
-                            unsafe { FSN_STATE = FSMState::Auth; }
+                            unsafe { FSM_STATE = FSMState::Auth; }
                         }
+                        UPDATE_DRAW.store(true, Ordering::SeqCst);
                     })
                 )?;
             }
@@ -227,10 +242,11 @@ impl ScreenRoute for ScreenSetConfig {
                     param, 
                     Some(|_, confirmed| {
                         if confirmed {
-                            unsafe { FSN_STATE = FSMState::EnableDst; }
+                            unsafe { FSM_STATE = FSMState::EnableDst; }
                         } else {
-                            unsafe { FSN_STATE = FSMState::Date; }
+                            unsafe { FSM_STATE = FSMState::Date; }
                         }
+                        UPDATE_DRAW.store(true, Ordering::SeqCst);
                     })
                 )?;
             }
@@ -247,16 +263,22 @@ impl ScreenRoute for ScreenSetConfig {
                     Some(|_, confirmed| {
                         if confirmed {
                             // Configuration complete, go back to menu or next step
-                            unsafe { FSN_STATE = FSMState::Serial; }
+                            unsafe { FSM_STATE = FSMState::Serial; }
                         } else {
-                            unsafe { FSN_STATE = FSMState::End; }
+                            unsafe { FSM_STATE = FSMState::End; }
                         }
+                        UPDATE_DRAW.store(true, Ordering::SeqCst);
                     })
                 )?;
             }
             FSMState::End => {
 
             }
+        }
+
+        if UPDATE_DRAW.load(Ordering::SeqCst) {
+            UPDATE_DRAW.store(false, Ordering::SeqCst);
+            *display_signal |= DisplayFlag::Draw as u32;
         }
 
         Ok(())
