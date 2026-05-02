@@ -102,7 +102,12 @@ impl ScreenRoute for ScreenSetConfig {
         
     ) -> Result<()> {
 
-        let fsm_state = unsafe { &*&raw const FSM_STATE };
+        if UPDATE_DRAW.load(Ordering::SeqCst) {
+            UPDATE_DRAW.store(false, Ordering::SeqCst);
+            *display_signal |= DisplayFlag::Draw as u32;
+        }
+
+        let fsm_state = unsafe { *&raw const FSM_STATE };
 
         
         match fsm_state {
@@ -274,11 +279,6 @@ impl ScreenRoute for ScreenSetConfig {
             FSMState::End => {
 
             }
-        }
-
-        if UPDATE_DRAW.load(Ordering::SeqCst) {
-            UPDATE_DRAW.store(false, Ordering::SeqCst);
-            *display_signal |= DisplayFlag::Draw as u32;
         }
 
         Ok(())
