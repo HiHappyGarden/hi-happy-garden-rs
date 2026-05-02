@@ -17,7 +17,7 @@
  * with this program; if not, see <https://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
-
+use core::sync::atomic::{AtomicU32, Ordering};
 
 use alloc::string::String;
 use osal_rs::os::types::EventBits;
@@ -34,6 +34,8 @@ pub(super) const FIRST_ROW_Y: u8 = 25;
 pub(super) const SECOND_ROW_Y: u8 = 45;
 pub(super) const LONG_PRESS_MS: u32 = 500;
 pub(super) const MAX_SIZE: usize = 64;
+
+static LAST_SCROLL_SLOT: AtomicU32 = AtomicU32::new(u32::MAX);
 
 pub(super) fn clean_context(lcd: &mut dyn LCDDisplayFn) -> Result<()> 
 {
@@ -72,6 +74,11 @@ pub(super) fn scroll_text(
         let total_millis = (date_time.minute as u64 * 60 * 1000)
             + (date_time.second as u64 * 1000)
             + date_time.millis as u64;
+        let scroll_slot = (total_millis / scroll_delay_ms) as u32;
+
+        if LAST_SCROLL_SLOT.swap(scroll_slot, Ordering::Relaxed) != scroll_slot {
+            *signal |= DisplayFlag::Draw as u32;
+        }
 
         let loop_text = ::alloc::format!("{}{}", text, "  "); // Add spaces for separation
         let loop_len = loop_text.chars().count();
@@ -79,7 +86,6 @@ pub(super) fn scroll_text(
         let scroll_index = ((total_millis / scroll_delay_ms) % (loop_len as u64)) as usize;
 
         let scrolled: String = loop_text.chars().cycle().skip(scroll_index).take(max_chars).collect();
-        *signal |= DisplayFlag::Draw as u32;
         (scrolled, margin_left)
     }
 }
