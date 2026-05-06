@@ -20,7 +20,7 @@
 
 use core::sync::atomic::{AtomicBool, Ordering};
 
-use osal_rs::log_warning;
+use osal_rs::{log_debug, log_warning};
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Bytes, Result, bytes_to_hex};
 
@@ -339,14 +339,14 @@ impl ScreenRoute for ScreenSetConfig {
                 )?;
             }
             FSMState::End => {
-                log_warning!("--->", r#"
+                log_debug!("--->", r#"
                 serial: {}\r\n
                 email: {}\r\n
                 email_passwd: {}\r\n
                 wifi_enable: {}\r\n
                 wifi_ssid: {}\r\n
                 wifi_passwd: {}\r\n
-                auth: {:?}\r\n
+                auth: {}\r\n
                 date: {}\r\n
                 time: {}\r\n
                 "#,
@@ -356,16 +356,22 @@ impl ScreenRoute for ScreenSetConfig {
                 self.wifi_enable.get_value().unwrap_or(false),
                 self.wifi_ssid.get_value().unwrap_or(Bytes::new()),
                 self.wifi_passwd.get_value().unwrap_or(Bytes::new()),
-                
-                for auth, let Ok(auth) = self.auth.get_value() => auth {
-                    let mut auth_str = [0u8; DISPLAY_INPUT_MAX_SIZE];
-                    if let Ok(auth) = self.auth.get_value() {
-                        auth
-                    } 
-                }
-                self.auth.get_value().unwrap_or(Auth::Open),
-                self.date.get_value().unwrap_or(Bytes::new()),
-                self.time.get_value().unwrap_or(Bytes::new());
+                match self.auth.get_value() {
+                    Ok(values) => {
+                        let mut selected = Bytes::<DISPLAY_INPUT_MAX_SIZE>::new();
+                        while let Some(value) = values.iter().next() {
+                            if !value.is_empty() {
+                                selected.append(value);
+                                break;
+                            } 
+                        }
+                        selected
+                    }
+                    Err(_) => Bytes::<DISPLAY_INPUT_MAX_SIZE>::new(),
+                },
+                self.date.get_value().unwrap_or(DateTime::new_date(1977, 1, 1)?),
+                self.time.get_value().unwrap_or(DateTime::new_time(0, 0, 0)?)
+                );
             }
         }
 
