@@ -34,7 +34,7 @@ use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 pub struct Text;
 
 
-impl Screen for Text
+impl Screen<()> for Text
 {
     fn draw(&mut self, 
         lcd: &mut dyn LCDDisplayFn,
@@ -104,6 +104,11 @@ impl Screen for Text
 
         Ok(())
     }
+
+    fn get_value(&self) -> Result<()> {
+        Ok(())
+    }
+
 }
 
 

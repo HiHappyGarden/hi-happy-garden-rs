@@ -22,7 +22,7 @@
 
 use alloc::format;
 use osal_rs::os::types::EventBits;
-use osal_rs::utils::{AsSyncStr, Result};
+use osal_rs::utils::{AsSyncStr, Error, Result};
 
 use crate::apps::display::date_time_editor::{FieldEditor, FieldEditorConfig};
 use crate::drivers::date_time::DateTime;
@@ -31,7 +31,7 @@ use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
 pub struct Date(FieldEditor);
 
-impl Screen for Date
+impl Screen<DateTime> for Date
 {
     fn draw(&mut self, 
         lcd: &mut dyn LCDDisplayFn,
@@ -45,6 +45,10 @@ impl Screen for Date
         self.0.draw(lcd, signal, date_time, text, param, callback)?;
 
         Ok(())
+    }
+
+    fn get_value(&self) -> Result<DateTime> {
+        self.0.get_result().ok_or(Error::NullPtr)
     }
 }
     
@@ -65,12 +69,6 @@ impl Date
             extractor:    |dt| (dt.year, dt.month as i32, dt.mday as i32),
             builder:      |y, m, d| DateTime::new_date(y, m as u8, d as u8),
         }))
-    }
-
-    #[allow(unused)]
-    #[inline]
-    pub fn get_date(&self) -> Option<DateTime> {
-        self.0.get_result()
     }
 }
 

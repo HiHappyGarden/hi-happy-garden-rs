@@ -22,7 +22,7 @@
 use alloc::sync::Arc;
 use osal_rs::os::types::EventBits;
 use osal_rs::os::{Mutex, MutexFn};
-use osal_rs::utils::{AsSyncStr, Result};
+use osal_rs::utils::{AsSyncStr, Error, Result};
 
 use crate::apps::display::commons::{FIRST_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
@@ -40,7 +40,7 @@ pub struct Check
     checked: Option<bool>,
 }
 
-impl Screen for Check
+impl Screen<bool> for Check
 {
     fn draw(&mut self, 
         lcd: &mut dyn LCDDisplayFn,
@@ -112,6 +112,10 @@ impl Screen for Check
         Ok(())
         
     }
+
+    fn get_value(&self) -> Result<bool> {
+        self.checked.ok_or(Error::NullPtr)
+    }
 }
 
 impl Check {
@@ -132,12 +136,6 @@ impl Check {
             };
             *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
         }
-    }
-
-    #[allow(unused)]
-    #[inline]
-    pub fn is_checked(&self) -> bool {
-        self.checked.unwrap_or(false)
     }
 }
 

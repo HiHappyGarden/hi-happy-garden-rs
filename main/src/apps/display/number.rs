@@ -22,7 +22,7 @@
 
 use alloc::format;
 use osal_rs::os::types::EventBits;
-use osal_rs::utils::{AsSyncStr, Result};
+use osal_rs::utils::{AsSyncStr, Error, Result};
 
 use crate::apps::display::commons::{FIRST_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
@@ -42,7 +42,7 @@ where
     result: Option<N>,
 }
 
-impl<N> Screen<N> for Number<N>
+impl<N> Screen<N, N> for Number<N>
 where
     N: Integer,
 {
@@ -102,6 +102,10 @@ where
 
         Ok(())
     }
+
+    fn get_value(&self) -> Result<N> {
+        self.result.ok_or(Error::NullPtr)
+    }
 }
 
 
@@ -136,11 +140,5 @@ where
             }
             *signal |= DisplayFlag::Draw as u32;
         } 
-    }
-
-    #[allow(unused)]
-    #[inline]
-    pub fn get_number(&self) -> Option<N> {
-        self.result
     }
 }

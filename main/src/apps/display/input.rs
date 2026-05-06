@@ -22,7 +22,7 @@
 
 use osal_rs::os::{System, SystemFn};
 use osal_rs::os::types::EventBits;
-use osal_rs::utils::{AsSyncStr, Bytes, Result};
+use osal_rs::utils::{AsSyncStr, Bytes, Error, Result};
 
 use super::commons::{FIRST_ROW_Y, SECOND_ROW_Y, MAX_SIZE, clean_context, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
@@ -39,10 +39,10 @@ pub struct Input {
     idx: usize,
     button_pressed_tick: u32,
     encoder_button_pressed_tick: u32,
-    secret_mode: bool, //todo: implement secret input mode (show '*' instead of actual chars) for password input, activated by long pressing the encoder button when on the first char of the input. In secret mode, the actual input is still stored in self.input and returned in the callback, but the display shows '*' for each char instead of the real chars. Long pressing the encoder button again would toggle back to normal mode.
+    secret_mode: bool,
 }
 
-impl Screen for Input
+impl Screen<Bytes<MAX_SIZE>> for Input
 {
     fn draw(&mut self, 
         lcd: &mut dyn LCDDisplayFn,
@@ -60,6 +60,9 @@ impl Screen for Input
             self.input = Some(Bytes::from_bytes(input_str.as_raw_bytes()));
             self.original_input = Some(Bytes::from_bytes(input_str.as_raw_bytes()));
             self.idx = input_str.len().saturating_sub(1);
+            if let Some(secret) = param.input_secret_mode {
+                self.secret_mode = secret;
+            }
         } 
 
         self.update_input(signal);
@@ -89,12 +92,19 @@ impl Screen for Input
                     let offset = raw.len() - 15;
                     let mut display_buf = [0u8; 16];
                     display_buf[0] = b'<';
-                    // Slice the trailing part that must remain visible.
                     let src = &raw[offset..];
                     let copy_len = src.len().min(15);
-                    // Copy at most 15 bytes after the marker to fill the line.
-                    display_buf[1..1 + copy_len].copy_from_slice(&src[..copy_len]);
+                    if self.secret_mode {
+                        for i in 0..copy_len {
+                            display_buf[1 + i] = b'*';
+                        }
+                    } else {
+                        display_buf[1..1 + copy_len].copy_from_slice(&src[..copy_len]);
+                    }
                     lcd.draw_bytes(&display_buf[..1 + copy_len], 0, SECOND_ROW_Y, &FONT_8X8)?;
+                } else if self.secret_mode {
+                    let masked = [b'*'; 16];
+                    lcd.draw_bytes(&masked[..raw.len()], 3, SECOND_ROW_Y, &FONT_8X8)?;
                 } else {
                     lcd.draw_bytes(raw, 3, SECOND_ROW_Y, &FONT_8X8)?;
                 }
@@ -139,6 +149,10 @@ impl Screen for Input
         }
 
         Ok(())
+    }
+
+    fn get_value(&self) -> Result<Bytes<MAX_SIZE>> {
+        self.input.clone().ok_or(Error::NullPtr)
     }
 }
 
@@ -241,12 +255,5 @@ impl Input
         } else {
             false
         }
-    }
-
-
-    #[allow(unused)]
-    #[inline]
-    pub fn get_input(&self) -> Option<Bytes<MAX_SIZE>> {
-        self.input.clone()
     }
 }

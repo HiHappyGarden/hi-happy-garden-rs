@@ -86,6 +86,30 @@ impl Default for User {
     }
 }
 
+impl User {
+    #[inline]
+    pub fn get_email(&self) -> &Bytes<32> {
+        &self.email
+    }
+
+    #[inline]
+    pub fn get_password(&self) -> &Bytes<{SHA256_RESULT_BYTES * 2}> {
+        &self.password
+    }
+
+    #[allow(dead_code)]
+    #[inline]
+    pub fn set_email(&mut self, email: &str) {
+        self.email = Bytes::from_str(email);
+    }
+
+    #[allow(dead_code)]
+    #[inline]
+    pub fn set_password(&mut self, password: &str) {
+        self.password = Bytes::from_str(password);
+    }
+}
+
 impl AtContext<{CMD_SIZE}> for User {
 
     fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
@@ -318,6 +342,11 @@ impl Session {
     #[inline]
     pub fn set_user_local(&self) {
         unsafe { USER_LOCAL = self.users[1]; }
+    }
+
+    #[inline]
+    pub fn get_user_local(&self) -> User {
+        self.users[1]
     }
 
     pub fn set_system_user(&mut self, email: &str, password: &str) -> Result<()> {

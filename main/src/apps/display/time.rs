@@ -24,7 +24,7 @@ use alloc::format;
 use alloc::sync::Arc;
 use osal_rs::os::types::EventBits;
 use osal_rs::os::Mutex;
-use osal_rs::utils::{AsSyncStr, Result};
+use osal_rs::utils::{AsSyncStr, Error, Result};
 
 use crate::apps::display::date_time_editor::{FieldEditor, FieldEditorConfig};
 use crate::drivers::date_time::DateTime;
@@ -33,7 +33,7 @@ use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
 pub struct Time(FieldEditor);
 
-impl Screen for Time
+impl Screen<DateTime> for Time
 {
     fn draw(&mut self, 
         lcd: &mut dyn LCDDisplayFn,
@@ -47,6 +47,10 @@ impl Screen for Time
         self.0.draw(lcd, signal, date_time, text, param, callback)?;
 
         Ok(())
+    }
+
+    fn get_value(&self) -> Result<DateTime> {
+        self.0.get_result().ok_or(Error::NullPtr)
     }
 }
   
@@ -66,12 +70,6 @@ impl Time {
             extractor:    |dt| (dt.hour as i32, dt.minute as i32, dt.second as i32),
             builder:      |h, m, s| DateTime::new_time(h as u8, m as u8, s as u8),
         }))
-    }
-
-    #[allow(unused)]
-    #[inline]
-    pub fn get_time(&self) -> Option<DateTime> {
-        self.0.get_result()
     }
 }
 

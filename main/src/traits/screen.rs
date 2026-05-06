@@ -46,6 +46,7 @@ where N: Integer
 {
     pub check: Option<bool>,
     pub input: Option<Bytes<{DISPLAY_INPUT_MAX_SIZE}>>,
+    pub input_secret_mode: Option<bool>,
     pub number: Option<N>,
     pub date_time: Option<DateTime>,
     pub selects: Option<ScreenSelections>,
@@ -59,6 +60,7 @@ where N: Integer
         Self {
             check: None,
             input: None,
+            input_secret_mode: None,
             number: None,
             date_time: None,
             selects: None,
@@ -67,7 +69,7 @@ where N: Integer
 }
 
 
-pub trait Screen<N = u16>
+pub trait Screen<T, N = u16>
 where N: Integer
 {
      fn draw(&mut self, 
@@ -78,6 +80,8 @@ where N: Integer
         param: ScreenParam<N>, 
         callback: ScreenCallback<N>
     ) -> Result<()>;
+
+    fn get_value(&self) -> Result<T>;
 }
 
 pub trait ScreenRoute<N = u16>

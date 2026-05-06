@@ -73,6 +73,8 @@ impl Auth {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum FSMState {
     Serial,
+    Email,
+    EmailPasswd,
     EnableWifi,
     Ssid,
     Passwd,
@@ -86,9 +88,11 @@ enum FSMState {
 pub struct ScreenSetConfig {
     config: &'static mut Config,
     serial: Input,
-    enable_wifi: Check,
-    ssid: Input,
-    passwd: Input,
+    email: Input,
+    email_passwd: Input,
+    wifi_enable: Check,
+    wifi_ssid: Input,
+    wifi_passwd: Input,
     auth: Select,
     date: Date,
     time: Time,
@@ -137,11 +141,50 @@ impl ScreenRoute for ScreenSetConfig {
                     })
                 )?;
             }
+            FSMState::Email => {
+                let mut param = ScreenParam::<u16>::default();
+                param.input = Some(Bytes::from_as_sync_str(self.config.get_session().get_user_local().get_email()));
+
+                self.email.draw(
+                    lcd, 
+                    display_signal, 
+                    date_time, 
+                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Email"), 
+                    param, 
+                    Some(|_, confirmed| {
+                        unsafe { OLD_FSM_STATE = FSM_STATE; }
+                        if confirmed {
+                            unsafe { FSM_STATE = FSMState::EnableWifi; }
+                        } 
+                        UPDATE_DRAW.store(true, Ordering::SeqCst);
+                    })
+                )?;
+            }
+            FSMState::EmailPasswd => {
+                let mut param = ScreenParam::<u16>::default();
+                param.input = Some(Bytes::from_as_sync_str(self.config.get_session().get_user_local().get_password()));
+                param.input_secret_mode = Some(true);
+
+                self.email_passwd.draw(
+                    lcd, 
+                    display_signal, 
+                    date_time, 
+                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Password"), 
+                    param, 
+                    Some(|_, confirmed| {
+                        unsafe { OLD_FSM_STATE = FSM_STATE; }
+                        if confirmed {
+                            unsafe { FSM_STATE = FSMState::EnableWifi; }
+                        } 
+                        UPDATE_DRAW.store(true, Ordering::SeqCst);
+                    })
+                )?;
+            }
             FSMState::EnableWifi => {
                 let mut param = ScreenParam::default();
-                param.check = Some(self.enable_wifi.is_checked());
+                param.check = Some(self.wifi_enable.get_value().unwrap_or(false));
 
-                self.enable_wifi.draw(
+                self.wifi_enable.draw(
                     lcd, 
                     display_signal, 
                     date_time, 
@@ -171,7 +214,7 @@ impl ScreenRoute for ScreenSetConfig {
                 let mut param = ScreenParam::default();
                 param.input = Some(Bytes::from_as_sync_str(self.config.get_wifi_config().get_ssid()));
 
-                self.ssid.draw(
+                self.wifi_ssid.draw(
                     lcd, 
                     display_signal, 
                     date_time, 
@@ -192,7 +235,7 @@ impl ScreenRoute for ScreenSetConfig {
             FSMState::Passwd => {
                 let param = ScreenParam::default();
 
-                self.passwd.draw(
+                self.wifi_passwd.draw(
                     lcd, 
                     display_signal, 
                     date_time, 
@@ -274,7 +317,7 @@ impl ScreenRoute for ScreenSetConfig {
             }
             FSMState::EnableDst => {
                 let mut param = ScreenParam::default();
-                param.check = Some(self.enable_dst.is_checked());
+                param.check = Some(self.enable_dst.get_value().unwrap_or(false));
     
                 
 
@@ -296,7 +339,33 @@ impl ScreenRoute for ScreenSetConfig {
                 )?;
             }
             FSMState::End => {
-                log_warning!("--->", "Configuration complete. Returning to menu.");
+                log_warning!("--->", r#"
+                serial: {}\r\n
+                email: {}\r\n
+                email_passwd: {}\r\n
+                wifi_enable: {}\r\n
+                wifi_ssid: {}\r\n
+                wifi_passwd: {}\r\n
+                auth: {:?}\r\n
+                date: {}\r\n
+                time: {}\r\n
+                "#,
+                self.serial.get_value().unwrap_or(Bytes::new()),
+                self.email.get_value().unwrap_or(Bytes::new()),
+                self.email_passwd.get_value().unwrap_or(Bytes::new()),
+                self.wifi_enable.get_value().unwrap_or(false),
+                self.wifi_ssid.get_value().unwrap_or(Bytes::new()),
+                self.wifi_passwd.get_value().unwrap_or(Bytes::new()),
+                
+                for auth, let Ok(auth) = self.auth.get_value() => auth {
+                    let mut auth_str = [0u8; DISPLAY_INPUT_MAX_SIZE];
+                    if let Ok(auth) = self.auth.get_value() {
+                        auth
+                    } 
+                }
+                self.auth.get_value().unwrap_or(Auth::Open),
+                self.date.get_value().unwrap_or(Bytes::new()),
+                self.time.get_value().unwrap_or(Bytes::new());
             }
         }
 
@@ -310,9 +379,11 @@ impl ScreenSetConfig {
         Self {
             config: Config::shared(),
             serial: Input::new(),
-            enable_wifi: Check::new(),
-            ssid: Input::new(),
-            passwd: Input::new(),
+            email: Input::new(),
+            email_passwd: Input::new(),
+            wifi_enable: Check::new(),
+            wifi_ssid: Input::new(),
+            wifi_passwd: Input::new(),
             auth: Select::new(),
             date: Date::new(),
             time: Time::new(),

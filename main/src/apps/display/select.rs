@@ -22,7 +22,7 @@
 use alloc::sync::Arc;
 use osal_rs::os::types::EventBits;
 use osal_rs::os::{Mutex, MutexFn};
-use osal_rs::utils::{AsSyncStr, Bytes, Result};
+use osal_rs::utils::{AsSyncStr, Bytes, Error, Result};
 
 use crate::apps::display::commons::{FIRST_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
 use crate::apps::display::select;
@@ -41,7 +41,7 @@ pub struct Select
     selections: Option<ScreenSelections>,
 }
 
-impl Screen for Select
+impl Screen<ScreenSelections> for Select
 {
     fn draw(&mut self, 
         lcd: &mut dyn LCDDisplayFn,
@@ -146,6 +146,11 @@ impl Screen for Select
         Ok(())
         
     }
+
+    fn get_value(&self) -> Result<ScreenSelections> {
+        self.selections.clone().ok_or(Error::NullPtr)
+    }
+
 }
 
 impl Select {
@@ -170,10 +175,5 @@ impl Select {
         }
     }
 
-    // #[allow(unused)]
-    // #[inline]
-    // pub fn is_checked(&self) -> bool {
-    //     self.selections.unwrap_or(false)
-    // }
 }
 
