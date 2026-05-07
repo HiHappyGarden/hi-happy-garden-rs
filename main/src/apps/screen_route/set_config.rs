@@ -20,7 +20,7 @@
 
 use core::sync::atomic::{AtomicBool, Ordering};
 
-use osal_rs::{log_debug, log_warning};
+use osal_rs::log_debug;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Bytes, Result, bytes_to_hex};
 
@@ -135,7 +135,7 @@ impl ScreenRoute for ScreenSetConfig {
                     Some(|_, confirmed| {
                         unsafe { OLD_FSM_STATE = FSM_STATE; }
                         if confirmed {
-                            unsafe { FSM_STATE = FSMState::EnableWifi; }
+                            unsafe { FSM_STATE = FSMState::Email; }
                         } 
                         UPDATE_DRAW.store(true, Ordering::SeqCst);
                     })
@@ -154,7 +154,7 @@ impl ScreenRoute for ScreenSetConfig {
                     Some(|_, confirmed| {
                         unsafe { OLD_FSM_STATE = FSM_STATE; }
                         if confirmed {
-                            unsafe { FSM_STATE = FSMState::EnableWifi; }
+                            unsafe { FSM_STATE = FSMState::EmailPasswd; }
                         } 
                         UPDATE_DRAW.store(true, Ordering::SeqCst);
                     })
@@ -330,9 +330,10 @@ impl ScreenRoute for ScreenSetConfig {
                     Some(move |_, confirmed| {
                         if confirmed {
                             // Configuration complete, go back to menu or next step
-                            unsafe { FSM_STATE = OLD_FSM_STATE; }
-                        } else {
                             unsafe { FSM_STATE = FSMState::End; }
+                        } else {
+                            unsafe { FSM_STATE = OLD_FSM_STATE; }
+                            
                         }
                         UPDATE_DRAW.store(true, Ordering::SeqCst);
                     })
