@@ -59,7 +59,7 @@ use crate::traits::rtc::RTC;
 
 const APP_TAG: &str = "AppDisplay";
 const THREAD_NAME: &str = "app_display_trd";
-const STACK_SIZE: StackType = 1_024 * 6;
+const STACK_SIZE: StackType = 1_024 * 7;
 const TICK_INTERVAL_MS: u16 = 100;
 
 pub const DISPLAY_INPUT_MAX_SIZE: usize = MAX_SIZE;
