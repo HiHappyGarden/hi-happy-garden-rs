@@ -28,7 +28,7 @@ use super::commons::{FIRST_ROW_Y, SECOND_ROW_Y, MAX_SIZE, clean_context, scroll_
 use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::drivers::date_time::DateTime;
-use crate::traits::lcd_display::LCDDisplayFn;
+use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
 const LONG_PRESS_TICK: u32 = 500;
@@ -124,6 +124,13 @@ impl Screen<Bytes<MAX_SIZE>> for Input
                 }
             }
         }
+
+        //self.idx
+
+        let mut x: u8 = 2;
+        x = x.saturating_add((self.idx * 8).try_into().unwrap());
+
+        lcd.draw_rect(x, SECOND_ROW_Y + 9, 8, 1, LCDWriteMode::INVERT)?;
 
         // Callback handling: encoder long press confirms the current input, while regular button long press restores the original input and short press cancels when the buffer becomes empty.
         if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
