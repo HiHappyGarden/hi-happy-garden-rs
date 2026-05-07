@@ -32,7 +32,7 @@ pub(super) const ONLY_ONE_ROW_Y: u8 = 27;
 
 pub(super) const FIRST_ROW_Y: u8 = 25;
 pub(super) const SECOND_ROW_Y: u8 = 45;
-pub(super) const MAX_SIZE: usize = 64;
+pub(super) const MAX_SIZE: usize = 32;
 
 static LAST_SCROLL_SLOT: AtomicU32 = AtomicU32::new(u32::MAX);
 
