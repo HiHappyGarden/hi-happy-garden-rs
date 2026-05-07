@@ -340,39 +340,46 @@ impl ScreenRoute for ScreenSetConfig {
                 )?;
             }
             FSMState::End => {
-                log_debug!("--->", r#"
-                serial: {}\r\n
-                email: {}\r\n
-                email_passwd: {}\r\n
-                wifi_enable: {}\r\n
-                wifi_ssid: {}\r\n
-                wifi_passwd: {}\r\n
-                auth: {}\r\n
-                date: {}\r\n
-                time: {}\r\n
-                "#,
-                self.serial.get_value().unwrap_or(Bytes::new()),
-                self.email.get_value().unwrap_or(Bytes::new()),
-                self.email_passwd.get_value().unwrap_or(Bytes::new()),
-                self.wifi_enable.get_value().unwrap_or(false),
-                self.wifi_ssid.get_value().unwrap_or(Bytes::new()),
-                self.wifi_passwd.get_value().unwrap_or(Bytes::new()),
-                match self.auth.get_value() {
-                    Ok(values) => {
-                        let mut selected = Bytes::<DISPLAY_INPUT_MAX_SIZE>::new();
-                        while let Some(value) = values.iter().next() {
-                            if !value.is_empty() {
-                                selected.append(value);
-                                break;
-                            } 
-                        }
-                        selected
-                    }
-                    Err(_) => Bytes::<DISPLAY_INPUT_MAX_SIZE>::new(),
-                },
-                self.date.get_value().unwrap_or(DateTime::new_date(1977, 1, 1)?),
-                self.time.get_value().unwrap_or(DateTime::new_time(0, 0, 0)?)
-                );
+                if unsafe { OLD_FSM_STATE != FSMState::End } {
+                    let serial = self.serial.get_value().unwrap_or(Bytes::new());
+                    let email = self.email.get_value().unwrap_or(Bytes::new());
+                    let email_passwd = self.email_passwd.get_value().unwrap_or(Bytes::new());
+                    let wifi_enable = self.wifi_enable.get_value().unwrap_or(false);
+                    let wifi_ssid = self.wifi_ssid.get_value().unwrap_or(Bytes::new());
+                    let wifi_passwd = self.wifi_passwd.get_value().unwrap_or(Bytes::new());
+                    let auth = match self.auth.get_value() {
+                        Ok(values) => values
+                            .iter()
+                            .find(|value| !value.is_empty())
+                            .copied()
+                            .unwrap_or(Bytes::<DISPLAY_INPUT_MAX_SIZE>::new()),
+                        Err(_) => Bytes::<DISPLAY_INPUT_MAX_SIZE>::new(),
+                    };
+
+                    log_debug!("--->", r#"
+                    serial(hex): {}\r\n
+                    email(hex): {}\r\n
+                    email_passwd(hex): {}\r\n
+                    wifi_enable: {}\r\n
+                    wifi_ssid(hex): {}\r\n
+                    wifi_passwd(hex): {}\r\n
+                    auth(hex): {}\r\n
+                    date: {}\r\n
+                    time: {}\r\n
+                    "#,
+                    bytes_to_hex(serial.as_raw_bytes()),
+                    bytes_to_hex(email.as_raw_bytes()),
+                    bytes_to_hex(email_passwd.as_raw_bytes()),
+                    wifi_enable,
+                    bytes_to_hex(wifi_ssid.as_raw_bytes()),
+                    bytes_to_hex(wifi_passwd.as_raw_bytes()),
+                    bytes_to_hex(auth.as_raw_bytes()),
+                    self.date.get_value().unwrap_or(DateTime::new_date(1977, 1, 1)?),
+                    self.time.get_value().unwrap_or(DateTime::new_time(0, 0, 0)?)
+                    );
+
+                    unsafe { OLD_FSM_STATE = FSMState::End; }
+                }
             }
         }
 
