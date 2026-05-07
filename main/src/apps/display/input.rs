@@ -59,7 +59,12 @@ impl Screen<Bytes<MAX_SIZE>> for Input
             let input_str = param.input.unwrap_or_default();
             self.input = Some(Bytes::from_bytes(input_str.as_raw_bytes()));
             self.original_input = Some(Bytes::from_bytes(input_str.as_raw_bytes()));
-            self.idx = input_str.len().saturating_sub(1);
+            if input_str.is_empty() {
+                self.input = Some(Bytes::from_str("a"));
+                self.idx = 0;
+            } else {
+                self.idx = input_str.len().saturating_sub(1);
+            }
             if let Some(secret) = param.input_secret_mode {
                 self.secret_mode = secret;
             }
@@ -98,13 +103,22 @@ impl Screen<Bytes<MAX_SIZE>> for Input
                         for i in 0..copy_len {
                             display_buf[1 + i] = b'*';
                         }
+                        // Keep visible the character currently being edited.
+                        if self.idx >= offset && self.idx < offset + copy_len {
+                            let visible_idx = self.idx - offset;
+                            display_buf[1 + visible_idx] = src[visible_idx];
+                        }
                     } else {
                         display_buf[1..1 + copy_len].copy_from_slice(&src[..copy_len]);
                     }
                     lcd.draw_bytes(&display_buf[..1 + copy_len], 0, SECOND_ROW_Y, &FONT_8X8)?;
                 } else if self.secret_mode {
                     let masked = [b'*'; 16];
-                    lcd.draw_bytes(&masked[..raw.len()], 3, SECOND_ROW_Y, &FONT_8X8)?;
+                    let mut display_buf = masked;
+                    if self.idx < raw.len() {
+                        display_buf[self.idx] = raw[self.idx];
+                    }
+                    lcd.draw_bytes(&display_buf[..raw.len()], 3, SECOND_ROW_Y, &FONT_8X8)?;
                 } else {
                     lcd.draw_bytes(raw, 3, SECOND_ROW_Y, &FONT_8X8)?;
                 }
