@@ -24,6 +24,7 @@ use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Error, Result};
 
 use crate::apps::display::commons::{FIRST_ROW_Y, ONLY_ONE_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
+use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::LCDDisplayFn;
@@ -42,7 +43,7 @@ impl Screen<()> for Text
         date_time: &DateTime, 
         text: &dyn AsSyncStr, 
         _: ScreenParam, 
-        _: ScreenCallback
+        callback: ScreenCallback
     ) -> Result<()> {
 
         clean_context(lcd)?;
@@ -100,6 +101,18 @@ impl Screen<()> for Text
             },
             _ => return Err(Error::Unhandled("Text must contain at most one '|' character")),
             
+        }
+
+        if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+            if let Some(cb) = callback {
+                cb(Option::None, true);
+            }
+        }
+
+        if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
+            if let Some(cb) = callback {
+                cb(Option::None, false);
+            }
         }
 
         Ok(())
