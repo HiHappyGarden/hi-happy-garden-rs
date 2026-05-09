@@ -30,16 +30,16 @@ pub mod select;
 pub mod text;
 pub mod time;
 
-
 use alloc::sync::Arc;
 use osal_rs::log_info;
 use osal_rs::os::{EventGroup, Mutex, MutexFn, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
-use osal_rs::utils::Error;
+use osal_rs::utils::{Bytes, Error};
 
 use crate::apps::display::header::Header;
 use crate::apps::display::commons::MAX_SIZE;
 
+use crate::apps::display::text::Text;
 use crate::apps::screen_route::SCREEN_ROUTE;
 use crate::apps::signals::display::{DisplayFlag::{*}, DisplaySignal};
 use crate::apps::signals::error::{ErrorSignal, ErrorFlag};
@@ -51,7 +51,7 @@ use crate::traits::button::{ButtonState::{self, *}, OnClickable};
 use crate::traits::encoder::{EncoderDirection::{self, *}, OnRotatableAndClickable};
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rx_tx::{OnReceive, SetOnReceive, SetTransmit};
-use crate::traits::screen::ScreenRoute;
+use crate::traits::screen::{Screen, ScreenParam, ScreenRoute};
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
 use crate::traits::rtc::RTC;
@@ -94,11 +94,27 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
             let screen_route = unsafe{&mut *&raw mut SCREEN_ROUTE};
 
-            let mut header = Header::new();   
+            let mut header = Header::new();
+            if let Err(e) =  Text::new().draw(
+                lcd, 
+                &mut 0, 
+                &DateTime::default(), 
+                &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Loading..."), 
+                ScreenParam::default(), 
+                Option::None
+            ) {
+                log_info!(APP_TAG, "Error drawing text: {:?}", e);
+                ErrorSignal::set(ErrorFlag::Display.into());
+            }
+            lcd.draw().unwrap_or_else(|e| {
+                ErrorSignal::set(ErrorFlag::Display.into());
+                log_info!(APP_TAG, "Error drawing on LCD: {:?}", e);
+            });
+
             // let mut _check = Check::new();
             // let mut _time = Time::new();
             // let mut _number = Number::new( 0, 100);
-            // let mut _text = Text::new();
+            // 
             // let mut input = Input::new();
             
             loop {
@@ -147,11 +163,6 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 // }
                 // if let Err(e) =  number.draw(&mut signals, &date_time, &Bytes::<64>::from_str("Insert number"), 3, Some(|number| log_info!(APP_TAG, "Number: {:?}", number))) {
                 //     log_info!(APP_TAG, "Error drawing number: {:?}", e);
-                //     ErrorSignal::set(ErrorFlag::Display.into());
-                // }
-
-                // if let Err(e) =  text.draw(&date_time, &Bytes::<64>::from_str("Insert text|questa è una stringa molto lunga che scorre")) {
-                //     log_info!(APP_TAG, "Error drawing text: {:?}", e);
                 //     ErrorSignal::set(ErrorFlag::Display.into());
                 // }
 
