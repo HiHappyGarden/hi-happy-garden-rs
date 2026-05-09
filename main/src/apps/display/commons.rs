@@ -20,11 +20,11 @@
 use core::sync::atomic::{AtomicU32, Ordering};
 
 use alloc::string::String;
+use osal_rs::os::{System, SystemFn};
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::Result;
 
 use crate::apps::signals::display::DisplayFlag;
-use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 
 #[allow(dead_code)]
@@ -35,6 +35,8 @@ pub(super) const SECOND_ROW_Y: u8 = 45;
 pub(super) const MAX_SIZE: usize = 32;
 
 static LAST_SCROLL_SLOT: AtomicU32 = AtomicU32::new(u32::MAX);
+pub const SCROLL_DELAY_MS: u64 = 200;
+
 
 pub(super) fn clean_context(lcd: &mut dyn LCDDisplayFn) -> Result<()> 
 {
@@ -55,7 +57,6 @@ pub(super) fn clean_context(lcd: &mut dyn LCDDisplayFn) -> Result<()>
 pub(super) fn scroll_text(
     text: &str, 
     signal: &mut EventBits, 
-    date_time: &DateTime, 
     margin_left: u8, 
     visible_width: u8, 
     char_width: u8, 
@@ -70,9 +71,8 @@ pub(super) fn scroll_text(
         let x_pos = margin_left + (visible_width - text_width) / 2;
         (String::from(text), x_pos)
     } else {
-        let total_millis = (date_time.minute as u64 * 60 * 1000)
-            + (date_time.second as u64 * 1000)
-            + date_time.millis as u64;
+        // Use OS monotonic ticks to keep scroll cadence independent from RTC precision.
+        let total_millis = System::get_tick_count() as u64;
         let scroll_slot = (total_millis / scroll_delay_ms) as u32;
 
         if LAST_SCROLL_SLOT.swap(scroll_slot, Ordering::Relaxed) != scroll_slot {

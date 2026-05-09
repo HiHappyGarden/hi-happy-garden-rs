@@ -22,7 +22,7 @@ use alloc::string::String;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Result};
 
-use crate::apps::display::commons::{FIRST_ROW_Y, SECOND_ROW_Y, clean_context, scroll_text};
+use crate::apps::display::commons::{FIRST_ROW_Y, SCROLL_DELAY_MS, SECOND_ROW_Y, clean_context, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::drivers::date_time::DateTime;
@@ -169,11 +169,10 @@ impl FieldEditor {
         let (display_text, x_position) = scroll_text(
             text.as_str(),
             signal, 
-            current_date_time,
             (width - visible_width) / 2,
             visible_width,
             FONT_8X8[0],
-            100,
+            SCROLL_DELAY_MS,
         );
         lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
 

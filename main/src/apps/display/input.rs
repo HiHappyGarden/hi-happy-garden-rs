@@ -25,6 +25,7 @@ use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Bytes, Error, Result};
 
 use super::commons::{FIRST_ROW_Y, SECOND_ROW_Y, MAX_SIZE, clean_context, scroll_text};
+use crate::apps::display::commons::SCROLL_DELAY_MS;
 use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::drivers::date_time::DateTime;
@@ -47,7 +48,7 @@ impl Screen<Bytes<MAX_SIZE>> for Input
     fn draw(&mut self, 
         lcd: &mut dyn LCDDisplayFn,
         signal: &mut EventBits, 
-        date_time: &DateTime, 
+        _: &DateTime, 
         text: &dyn AsSyncStr, 
         param: ScreenParam, 
         callback: ScreenCallback
@@ -78,11 +79,10 @@ impl Screen<Bytes<MAX_SIZE>> for Input
 
         let (display_text, x_position) = scroll_text(
             text.as_str(), 
-            signal, 
-            date_time, 
+            signal,  
             (width - visible_width) / 2, visible_width,
             FONT_8X8[0],
-            100
+            SCROLL_DELAY_MS
         );
 
         lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
