@@ -420,7 +420,7 @@ impl DateTime {
     }
 
     pub fn is_valid(&self) -> bool {
-        *self != Self::default()
+        self.to_timestamp() > Self::default().to_timestamp()
     }
 
 }

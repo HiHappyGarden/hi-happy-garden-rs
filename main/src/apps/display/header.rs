@@ -87,6 +87,13 @@ impl Header
 
         lcd.draw_rect(0, 0, display_width, header_height, LCDWriteMode::REMOVE)?;
 
+        lcd.draw_rect(0, header_height, display_width, 1, LCDWriteMode::ADD)?;
+
+        if !self.date_time.is_valid() {    
+            *signal |= DisplayFlag::Draw as u32;
+            return Ok(());
+        }
+
         match self.rssi_status {
             Unknown => if wifi_enabled {
                 //lcd.draw_bitmap_image(3, 0, IC_WIFI_NO_SIGNAL.0, IC_WIFI_NO_SIGNAL.1, &IC_WIFI_NO_SIGNAL.2, LCDWriteMode::ADD)?;
@@ -97,7 +104,6 @@ impl Header
             NoSignal => lcd.draw_bitmap_image(3, 0, IC_WIFI_NO_SIGNAL.0, IC_WIFI_NO_SIGNAL.1, &IC_WIFI_NO_SIGNAL.2, LCDWriteMode::ADD)?,
         }
         
-        lcd.draw_rect(0, header_height, display_width, 1, LCDWriteMode::ADD)?;
 
 
         if date_time.is_valid() {
