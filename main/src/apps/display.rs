@@ -111,12 +111,6 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 log_info!(APP_TAG, "Error drawing on LCD: {:?}", e);
             });
 
-            // let mut _check = Check::new();
-            // let mut _time = Time::new();
-            // let mut _number = Number::new( 0, 100);
-            // 
-            // let mut input = Input::new();
-            
             loop {
                 //wait for display signal
                 let mut display_signal = DisplaySignal::wait(EventGroup::MAX_MASK, TICK_INTERVAL_MS as u32);
@@ -125,6 +119,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 //get status signal
                 let mut status_signal = StatusSignal::get();
 
+                
                 //get date time
                 let date_time = rtc.lock().unwrap().get_timestamp().unwrap_or_else(|e| {
                     log_info!(APP_TAG, "Error getting date time: {:?}", e);
@@ -134,7 +129,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
 
                 //convert timestamp to date time
-                let mut date_time = DateTime::from_timestamp_locale(date_time, true).unwrap_or_else(|e| {
+                let date_time = DateTime::from_timestamp_locale(date_time, true).unwrap_or_else(|e| {
                     log_info!(APP_TAG, "Error converting timestamp to datetime: {:?}", e);
                     ErrorSignal::set(ErrorFlag::DateTime.into());
                     DateTime::default()
@@ -149,37 +144,14 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                     }
                 }
 
-                // if let Err(e) =  check.draw(&mut signals, &date_time, &Bytes::<64>::from_str("ciao sono antonio e programmo molto"), true, Some(|state| log_info!(APP_TAG, "Check state changed: {:?}", state))) {
-                //     log_info!(APP_TAG, "Error drawing check: {:?}", e);
-                //     ErrorSignal::set(ErrorFlag::Display.into());
-                // }
-
-                // let mut test = date_time.clone();
-                //         test.year += 1;
-                //         test.month += 1;        
-                // if let Err(e) =  time.draw(&mut signals, &date_time, &Bytes::<64>::from_str("Insert time"), Option::None, Some(|time| log_info!(APP_TAG, "Time: {:?}", time))) {
-                //     log_info!(APP_TAG, "Error drawing time: {:?}", e);
-                //     ErrorSignal::set(ErrorFlag::Display.into());
-                // }
-                // if let Err(e) =  number.draw(&mut signals, &date_time, &Bytes::<64>::from_str("Insert number"), 3, Some(|number| log_info!(APP_TAG, "Number: {:?}", number))) {
-                //     log_info!(APP_TAG, "Error drawing number: {:?}", e);
-                //     ErrorSignal::set(ErrorFlag::Display.into());
-                // }
-
-                // let mut p = ScreenParam::default();
-                // p.input = Some(Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Initial text"));
-
-                // if let Err(e) =  input.draw(lcd, &mut signals, &date_time, &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert text"),p , Some(|txt, confirmed| log_info!(APP_TAG, "Input: {:?}, Confirmed: {:?}", txt, confirmed))) {
-                //     log_info!(APP_TAG, "Error drawing text: {:?}", e);
-                //     ErrorSignal::set(ErrorFlag::Display.into());
-                // }
                 
+                //draw current screen
                 screen_route.draw(lcd, &mut display_signal, &mut status_signal, &date_time).unwrap_or_else(|e| {
                     log_info!(APP_TAG, "Error drawing screen route: {:?}", e);
                     ErrorSignal::set(ErrorFlag::Display.into());
                 });
 
-
+                
                 //check if draw signal is set, if so, redraw the screen
                 if display_signal & Draw as u32 != 0 {
                     lcd.draw().unwrap_or_else(|e| {
@@ -187,16 +159,8 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                         log_info!(APP_TAG, "Error drawing on LCD: {:?}", e);
                     });
                 }
-
-                //update date time
-                if date_time.millis >= 1000 {
-                    date_time.millis = 0;
-                } else {
-                    date_time.millis += TICK_INTERVAL_MS;    
-                }
                 
             }
-
 
         })?;
 
