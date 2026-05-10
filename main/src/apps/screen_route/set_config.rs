@@ -20,7 +20,6 @@
 
 use core::sync::atomic::{AtomicBool, Ordering};
 
-use osal_rs::log_debug;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Bytes, Result, bytes_to_hex};
 
@@ -32,6 +31,7 @@ use crate::apps::display::date::Date;
 use crate::apps::display::select::Select;
 use crate::apps::display::time::Time;
 
+use crate::apps::session::User;
 use crate::apps::signals::display::DisplayFlag;
 use crate::drivers::date_time::DateTime;
 use crate::drivers::platform::Hardware;
@@ -82,6 +82,7 @@ enum FSMState {
     Date,
     Time,
     EnableDst,
+    SetConfig,
     End,
 }
 
@@ -330,7 +331,7 @@ impl ScreenRoute for ScreenSetConfig {
                     Some(move |_, confirmed| {
                         if confirmed {
                             // Configuration complete, go back to menu or next step
-                            unsafe { FSM_STATE = FSMState::End; }
+                            unsafe { FSM_STATE = FSMState::SetConfig; }
                         } else {
                             unsafe { FSM_STATE = OLD_FSM_STATE; }
                             
@@ -339,48 +340,61 @@ impl ScreenRoute for ScreenSetConfig {
                     })
                 )?;
             }
-            FSMState::End => {
-                if unsafe { OLD_FSM_STATE != FSMState::End } {
-                    let serial = self.serial.get_value().unwrap_or(Bytes::new());
-                    let email = self.email.get_value().unwrap_or(Bytes::new());
-                    let email_passwd = self.email_passwd.get_value().unwrap_or(Bytes::new());
-                    let wifi_enable = self.wifi_enable.get_value().unwrap_or(false);
-                    let wifi_ssid = self.wifi_ssid.get_value().unwrap_or(Bytes::new());
-                    let wifi_passwd = self.wifi_passwd.get_value().unwrap_or(Bytes::new());
-                    let auth = match self.auth.get_value() {
-                        Ok(values) => values
-                            .iter()
-                            .find(|value| !value.is_empty())
-                            .copied()
-                            .unwrap_or(Bytes::<DISPLAY_INPUT_MAX_SIZE>::new()),
-                        Err(_) => Bytes::<DISPLAY_INPUT_MAX_SIZE>::new(),
-                    };
+            FSMState::SetConfig => {
+                let serial = self.serial.get_value().unwrap_or(Bytes::new());
+                let email = self.email.get_value().unwrap_or(Bytes::new());
+                let email_passwd = self.email_passwd.get_value().unwrap_or(Bytes::new());
+                let wifi_enable = self.wifi_enable.get_value().unwrap_or(false);
+                let wifi_ssid = self.wifi_ssid.get_value().unwrap_or(Bytes::new());
+                let wifi_passwd = self.wifi_passwd.get_value().unwrap_or(Bytes::new());
+                let auth = match self.auth.get_value() {
+                    Ok(values) => values
+                        .iter()
+                        .find(|value| !value.is_empty())
+                        .copied()
+                        .unwrap_or(Bytes::<DISPLAY_INPUT_MAX_SIZE>::new()),
+                    Err(_) => Bytes::<DISPLAY_INPUT_MAX_SIZE>::new(),
+                };
+                    
+                    // self.date.get_value().unwrap_or_default();
+                    // self.time.get_value().unwrap_or_default();
 
-                    log_debug!("--->", r#"
-                    serial(hex): {}\r\n
-                    email(hex): {}\r\n
-                    email_passwd(hex): {}\r\n
-                    wifi_enable: {}\r\n
-                    wifi_ssid(hex): {}\r\n
-                    wifi_passwd(hex): {}\r\n
-                    auth(hex): {}\r\n
-                    date: {}\r\n
-                    time: {}\r\n
-                    "#,
-                    bytes_to_hex(serial.as_raw_bytes()),
-                    bytes_to_hex(email.as_raw_bytes()),
-                    bytes_to_hex(email_passwd.as_raw_bytes()),
-                    wifi_enable,
-                    bytes_to_hex(wifi_ssid.as_raw_bytes()),
-                    bytes_to_hex(wifi_passwd.as_raw_bytes()),
-                    bytes_to_hex(auth.as_raw_bytes()),
-                    self.date.get_value().unwrap_or(DateTime::new_date(1977, 1, 1)?),
-                    self.time.get_value().unwrap_or(DateTime::new_time(0, 0, 0)?)
-                    );
-
-                    unsafe { OLD_FSM_STATE = FSMState::End; }
+                
+                
+                let mut user = User::default();
+                user.set_email(email.as_str());
+                user.set_password(email_passwd.as_str());
+                self.config.get_session().set_user(&user);
+                
+                if wifi_enable {
+                    self.config.get_wifi_config().set_ssid(wifi_ssid.as_str());
+                    self.config.get_wifi_config().set_password(wifi_passwd.as_str());
+                    self.config.get_wifi_config().set_auth(match auth.as_str() {
+                        "OPEN" => Auth::Open,
+                        "WPA" => Auth::Wpa,
+                        "WPA2" => Auth::Wpa2,
+                        "WPA2 MIXED" => Auth::Wpa2Mixed,
+                        "WPA3" => Auth::Wpa3,
+                        "WPA3/WPA2" => Auth::Wpa2Wpa3,
+                        _ => Auth::Open,
+                    });
+                } else {
+                    self.config.get_wifi_config().set_ssid("");
+                    self.config.get_wifi_config().set_password("");
+                    self.config.get_wifi_config().set_auth(Auth::Open);
+                    self.config.get_ntp_config_mut().set_server("");
+                    self.config.get_ntp_config_mut().set_port(0);
+                    self.config.get_ntp_config_mut().set_msg_len(0);
                 }
+
+                DateTime::set_daylight_saving_time(self.enable_dst.get_value().unwrap_or_default());
+                
+                self.config.set_serial(&Bytes::from_as_sync_str(&serial));
+
+                unsafe { OLD_FSM_STATE = FSMState::SetConfig; }
+                unsafe { FSM_STATE = FSMState::End; }
             }
+            FSMState::End => (),
         }
 
 

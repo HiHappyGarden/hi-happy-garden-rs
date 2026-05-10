@@ -56,7 +56,14 @@ impl DateTime {
     pub const SECONDS_PER_HOUR: i64 = 3_600;
     pub const SECONDS_PER_DAY: i64 = 86_400;
 
-    pub fn set_daylight_saving_time(enabled: bool, start_month: u8, start_day: u8, start_hour: u8, end_month: u8, end_day: u8, end_hour: u8) {
+    pub fn set_daylight_saving_time(enabled: bool) {
+        unsafe {
+            DAYLIGHT_SAVING_TIME_ENABLED = enabled;
+        }
+    }
+
+
+    pub fn set_daylight_saving_time_whit_param(enabled: bool, start_month: u8, start_day: u8, start_hour: u8, end_month: u8, end_day: u8, end_hour: u8) {
         unsafe {
             DAYLIGHT_SAVING_TIME_ENABLED = enabled;
             START_MONTH = start_month;

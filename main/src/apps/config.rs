@@ -233,15 +233,15 @@ impl WifiConfig {
         auth
     }
 
-    pub fn set_ssid(&mut self, ssid: Bytes<32>) {
+    pub fn set_ssid(&mut self, ssid: &str) {
         mutex().lock();
-        self.ssid = ssid;
+        self.ssid = Bytes::from_str(ssid);
         mutex().unlock();
     }
 
-    pub fn set_password(&mut self, password: Bytes<32>) {
+    pub fn set_password(&mut self, password: &str) {
         mutex().lock();
-        self.password = password;
+        self.password = Bytes::from_str(password);
         mutex().unlock();
     }
 
@@ -340,9 +340,9 @@ impl NtpConfig {
         msg_len
     }
 
-    pub fn set_server(&mut self, server: Bytes<64>) {
+    pub fn set_server(&mut self, server: &str) {
         mutex().lock();
-        self.server = server;
+        self.server = Bytes::from_str(server);
         mutex().unlock();
     }
 
@@ -518,7 +518,7 @@ impl Config {
     }
 
     pub fn apply_daylight_saving_time(&self) {
-        DateTime::set_daylight_saving_time(
+        DateTime::set_daylight_saving_time_whit_param(
             self.daylight_saving_time.enabled,
             self.daylight_saving_time.start_month,
             self.daylight_saving_time.start_day,
@@ -669,9 +669,9 @@ impl Config {
         serial
     }
 
-    pub fn set_serial(&mut self, serial: Bytes<16>) {
+    pub fn set_serial(&mut self, serial: &Bytes<16>) {
         mutex().lock();
-        self.serial = serial;
+        self.serial = serial.clone();
         mutex().unlock();
     }
 

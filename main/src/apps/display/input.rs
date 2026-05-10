@@ -57,14 +57,14 @@ impl Screen<Bytes<MAX_SIZE>> for Input
         clean_context(lcd)?;
 
         if self.input.is_none() {
-            let input_str = param.input.unwrap_or_default();
-            self.input = Some(Bytes::from_bytes(input_str.as_raw_bytes()));
-            self.original_input = Some(Bytes::from_bytes(input_str.as_raw_bytes()));
-            if input_str.is_empty() {
+            let input = param.input.unwrap_or_default();
+            self.input = Some(Bytes::from_as_sync_str(&input));
+            self.original_input = Some(Bytes::from_as_sync_str(&input));
+            if input.is_empty() {
                 self.input = Some(Bytes::from_str("a"));
                 self.idx = 0;
             } else {
-                self.idx = input_str.len().saturating_sub(1);
+                self.idx = input.len().saturating_sub(1);
             }
             if let Some(secret) = param.input_secret_mode {
                 self.secret_mode = secret;
