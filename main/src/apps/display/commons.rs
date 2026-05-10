@@ -37,6 +37,23 @@ pub(super) const MAX_SIZE: usize = 32;
 static LAST_SCROLL_SLOT: AtomicU32 = AtomicU32::new(u32::MAX);
 pub const SCROLL_DELAY_MS: u64 = 200;
 
+macro_rules! get_datetime_from_rtc {
+
+    ($rtc:expr, $error_flag:expr) => {{
+        get_datetime_from_rtc!($rtc, $error_flag, true)
+    }};
+    ($rtc:expr, $error_flag:expr, $locale:expr) => {{
+        use $crate::traits::signal::Signal;
+        use osal_rs::os::MutexFn;
+
+        $crate::drivers::date_time::DateTime::from_timestamp_locale($rtc.lock().unwrap().get_timestamp().unwrap_or(0), $locale)
+            .unwrap_or_else(|_| {
+                $crate::apps::signals::error::ErrorSignal::set($error_flag.into());
+                $crate::drivers::date_time::DateTime::default()
+            })
+    }};
+}
+pub(crate) use get_datetime_from_rtc;
 
 pub(super) fn clean_context(lcd: &mut dyn LCDDisplayFn) -> Result<()> 
 {

@@ -19,14 +19,18 @@
  ***************************************************************************/
 
 use alloc::string::String;
+use alloc::sync::Arc;
+use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Result};
 
 use crate::apps::display::commons::{FIRST_ROW_Y, SCROLL_DELAY_MS, SECOND_ROW_Y, clean_context, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
+use crate::apps::signals::error::ErrorFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
+use crate::traits::rtc::RTC;
 use crate::traits::screen::{ScreenCallback, ScreenParam};
 
 #[derive(PartialEq, Eq)]
@@ -114,12 +118,14 @@ impl FieldEditor {
         &mut self,
         lcd: &mut dyn LCDDisplayFn,
         signal: &mut EventBits,
-        current_date_time: &DateTime,
+        rtc: &Arc<Mutex<dyn RTC + 'static>>,
         text: &dyn AsSyncStr,
         param: ScreenParam, 
         callback: ScreenCallback,
     ) -> Result<()> {
         clean_context(lcd)?;
+
+        let current_date_time = get_datetime_from_rtc!(rtc, ErrorFlag::DateTime);
 
         if self.result.is_none() {
             if let Some(dt) = param.date_time {
@@ -130,7 +136,7 @@ impl FieldEditor {
         }
 
         if self.fields[0].is_none() || self.fields[1].is_none() || self.fields[2].is_none() {
-            let (f1, f2, f3) = (self.config.extractor)(current_date_time);
+            let (f1, f2, f3) = (self.config.extractor)(&current_date_time);
             self.fields = [Some(f1), Some(f2), Some(f3)];
             *signal |= DisplayFlag::Draw as u32;
         }
@@ -176,7 +182,7 @@ impl FieldEditor {
         );
         lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
 
-        let (c0, c1, c2) = (self.config.extractor)(current_date_time);
+        let (c0, c1, c2) = (self.config.extractor)(&current_date_time);
         let f = [
             self.fields[0].unwrap_or(c0),
             self.fields[1].unwrap_or(c1),

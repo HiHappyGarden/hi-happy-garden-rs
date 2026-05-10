@@ -20,12 +20,15 @@
 
 use core::sync::atomic::{AtomicBool, Ordering};
 
+use alloc::sync::Arc;
+use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Bytes, Result, bytes_to_hex};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::config::Config;
 use crate::apps::display::check::Check;
+use crate::apps::display::commons::get_datetime_from_rtc;
 use crate::apps::display::input::Input;
 use crate::apps::display::date::Date;
 use crate::apps::display::select::Select;
@@ -33,11 +36,13 @@ use crate::apps::display::time::Time;
 
 use crate::apps::session::User;
 use crate::apps::signals::display::DisplayFlag;
+use crate::apps::signals::error::ErrorFlag;
 use crate::drivers::date_time::DateTime;
 use crate::drivers::platform::Hardware;
 use crate::drivers::wifi::Auth;
 use crate::traits::hardware::HardwareFn;
 use crate::traits::lcd_display::LCDDisplayFn;
+use crate::traits::rtc::RTC;
 use crate::traits::screen::{Screen, ScreenParam, ScreenRoute, ScreenSelections, screen_selections_new};
 
 static mut FSM_STATE: FSMState = FSMState::Serial;
@@ -105,7 +110,7 @@ impl ScreenRoute for ScreenSetConfig {
         lcd: &mut dyn LCDDisplayFn,
         display_signal: &mut EventBits, 
         _status_signal: &mut EventBits, 
-        date_time: &DateTime
+        rtc: &Arc<Mutex<dyn RTC + 'static>>,
         
     ) -> Result<()> {
 
@@ -130,7 +135,7 @@ impl ScreenRoute for ScreenSetConfig {
                 self.serial.draw(
                     lcd, 
                     display_signal, 
-                    date_time, 
+                    rtc, 
                     &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Serial Number"), 
                     param, 
                     Some(|_, confirmed| {
@@ -149,7 +154,7 @@ impl ScreenRoute for ScreenSetConfig {
                 self.email.draw(
                     lcd, 
                     display_signal, 
-                    date_time, 
+                    rtc, 
                     &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Email"), 
                     param, 
                     Some(|_, confirmed| {
@@ -169,7 +174,7 @@ impl ScreenRoute for ScreenSetConfig {
                 self.email_passwd.draw(
                     lcd, 
                     display_signal, 
-                    date_time, 
+                    rtc, 
                     &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Password"), 
                     param, 
                     Some(|_, confirmed| {
@@ -188,7 +193,7 @@ impl ScreenRoute for ScreenSetConfig {
                 self.wifi_enable.draw(
                     lcd, 
                     display_signal, 
-                    date_time, 
+                    rtc, 
                     &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Enable WiFi?"), 
                     param, 
                     Some(|param, confirmed| {
@@ -218,7 +223,7 @@ impl ScreenRoute for ScreenSetConfig {
                 self.wifi_ssid.draw(
                     lcd, 
                     display_signal, 
-                    date_time, 
+                    rtc, 
                     &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi SSID"), 
                     param, 
                     Some(|_, confirmed| {
@@ -239,7 +244,7 @@ impl ScreenRoute for ScreenSetConfig {
                 self.wifi_passwd.draw(
                     lcd, 
                     display_signal, 
-                    date_time, 
+                    rtc, 
                     &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi Password"), 
                     param, 
                     Some(|_, confirmed| {
@@ -260,7 +265,7 @@ impl ScreenRoute for ScreenSetConfig {
                 self.auth.draw(
                     lcd, 
                     display_signal, 
-                    date_time, 
+                    rtc, 
                     &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi Auth"), 
                     param, 
                     Some(|_, confirmed| {
@@ -275,13 +280,15 @@ impl ScreenRoute for ScreenSetConfig {
                 )?;
             }
             FSMState::Date => {
+                let date_time = get_datetime_from_rtc!(rtc, ErrorFlag::DateTime);
+
                 let mut param = ScreenParam::default();
                 param.date_time = Some(date_time.clone());
 
                 self.date.draw(
                     lcd, 
                     display_signal, 
-                    date_time, 
+                    rtc, 
                     &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Set Date"), 
                     param, 
                     Some(|_, confirmed| {
@@ -296,13 +303,15 @@ impl ScreenRoute for ScreenSetConfig {
                 )?;
             }
             FSMState::Time => {
+                let date_time = get_datetime_from_rtc!(rtc, ErrorFlag::DateTime);
+
                 let mut param = ScreenParam::default();
                 param.date_time = Some(date_time.clone());
 
                 self.time.draw(
                     lcd, 
                     display_signal, 
-                    date_time, 
+                    rtc, 
                     &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Set Time"), 
                     param, 
                     Some(|_, confirmed| {
@@ -325,7 +334,7 @@ impl ScreenRoute for ScreenSetConfig {
                 self.enable_dst.draw(
                     lcd, 
                     display_signal, 
-                    date_time, 
+                    rtc, 
                     &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Enable DST?"), 
                     param, 
                     Some(move |_, confirmed| {

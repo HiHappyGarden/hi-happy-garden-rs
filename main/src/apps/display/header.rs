@@ -20,6 +20,8 @@
 
 use alloc::format;
 
+use alloc::sync::Arc;
+use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 use osal_rs::log_error;
 use osal_rs::utils::Result;
@@ -36,6 +38,7 @@ use crate::assets::ic_wifi_no_signal::IC_WIFI_NO_SIGNAL;
 use crate::drivers::date_time::DateTime;
 
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
+use crate::traits::rtc::RTC;
 use crate::traits::signal::Signal;
 use crate::traits::wifi::RSSIStatus::{self, *};
 
@@ -56,7 +59,13 @@ impl Header
         }
     }
 
-    pub(super) fn draw(&mut self, lcd: &mut impl LCDDisplayFn, signal: &mut EventBits, date_time: &DateTime, wifi_enabled: bool) -> Result<()> {
+    pub(super) fn draw(
+        &mut self, 
+        lcd: &mut impl LCDDisplayFn, 
+        signal: &mut EventBits, 
+        rtc: &Arc<Mutex<dyn RTC + 'static>>,
+        wifi_enabled: bool
+    ) -> Result<()> {
         
         let rssi = match RSSIStatus::from_bites( (*signal >> 6) as u8 ) {
             Ok(status) => status,
@@ -65,6 +74,9 @@ impl Header
 
 
         let mut redraw_needed = false;
+        
+
+        let date_time = get_datetime_from_rtc!(rtc, ErrorFlag::DateTime);
 
         if date_time.hour != self.date_time.hour || date_time.minute != self.date_time.minute {
             redraw_needed = true;

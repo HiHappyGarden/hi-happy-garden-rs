@@ -19,7 +19,7 @@
  ***************************************************************************/
 
 #[macro_use]
-mod commons;
+pub(super) mod commons;
 pub mod check;
 mod date_time_editor;
 pub mod date;
@@ -44,7 +44,6 @@ use crate::apps::screen_route::SCREEN_ROUTE;
 use crate::apps::signals::display::{DisplayFlag::{*}, DisplaySignal};
 use crate::apps::signals::error::{ErrorSignal, ErrorFlag};
 use crate::apps::signals::status::StatusSignal;
-use crate::drivers::date_time::DateTime;
 use crate::drivers::platform::ThreadPriority;
 
 use crate::traits::button::{ButtonState::{self, *}, OnClickable};
@@ -98,7 +97,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
             if let Err(e) =  Text::new().draw(
                 lcd, 
                 &mut 0, 
-                &DateTime::default(), 
+                &rtc, 
                 &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Loading..."), 
                 ScreenParam::default(), 
                 Option::None
@@ -120,24 +119,24 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 let mut status_signal = StatusSignal::get();
 
                 
-                //get date time
-                let date_time = rtc.lock().unwrap().get_timestamp().unwrap_or_else(|e| {
-                    log_info!(APP_TAG, "Error getting date time: {:?}", e);
-                    ErrorSignal::set(ErrorFlag::DateTime.into());
-                    0
-                });
+                // //get date time
+                // let date_time = rtc.lock().unwrap().get_timestamp().unwrap_or_else(|e| {
+                //     log_info!(APP_TAG, "Error getting date time: {:?}", e);
+                //     ErrorSignal::set(ErrorFlag::DateTime.into());
+                //     0
+                // });
 
 
-                //convert timestamp to date time
-                let date_time = DateTime::from_timestamp_locale(date_time, true).unwrap_or_else(|e| {
-                    log_info!(APP_TAG, "Error converting timestamp to datetime: {:?}", e);
-                    ErrorSignal::set(ErrorFlag::DateTime.into());
-                    DateTime::default()
-                });
+                // //convert timestamp to date time
+                // let date_time = DateTime::from_timestamp_locale(date_time, true).unwrap_or_else(|e| {
+                //     log_info!(APP_TAG, "Error converting timestamp to datetime: {:?}", e);
+                //     ErrorSignal::set(ErrorFlag::DateTime.into());
+                //     DateTime::default()
+                // });
 
 
                 //build header
-                if let Err(e) =  header.draw(lcd, &mut display_signal, &date_time, *wifi_enabled) {
+                if let Err(e) =  header.draw(lcd, &mut display_signal, &rtc, *wifi_enabled) {
                     if let Error::ReturnWithCode(_) = e {} else {
                         log_info!(APP_TAG, "Error drawing header: {:?}", e);
                         ErrorSignal::set(ErrorFlag::Display.into());
@@ -146,7 +145,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
                 
                 //draw current screen
-                screen_route.draw(lcd, &mut display_signal, &mut status_signal, &date_time).unwrap_or_else(|e| {
+                screen_route.draw(lcd, &mut display_signal, &mut status_signal, &rtc).unwrap_or_else(|e| {
                     log_info!(APP_TAG, "Error drawing screen route: {:?}", e);
                     ErrorSignal::set(ErrorFlag::Display.into());
                 });

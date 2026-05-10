@@ -18,15 +18,17 @@
  *
  ***************************************************************************/
 
-#![allow(dead_code)]
 
 use alloc::format;
+use alloc::sync::Arc;
+use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Error, Result};
 
 use crate::apps::display::date_time_editor::{FieldEditor, FieldEditorConfig};
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::LCDDisplayFn;
+use crate::traits::rtc::RTC;
 use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
 pub struct Date(FieldEditor);
@@ -36,13 +38,13 @@ impl Screen<DateTime> for Date
     fn draw(&mut self, 
         lcd: &mut dyn LCDDisplayFn,
         signal: &mut EventBits, 
-        date_time: &DateTime, 
+        rtc: &Arc<Mutex<dyn RTC + 'static>>, 
         text: &dyn AsSyncStr, 
         param: ScreenParam, 
         callback: ScreenCallback
     ) -> Result<()> {
 
-        self.0.draw(lcd, signal, date_time, text, param, callback)?;
+        self.0.draw(lcd, signal, rtc, text, param, callback)?;
 
         Ok(())
     }

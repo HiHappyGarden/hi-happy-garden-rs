@@ -18,9 +18,8 @@
  *
  ***************************************************************************/
 
-#![allow(dead_code)]
-
-use osal_rs::os::{System, SystemFn};
+use alloc::sync::Arc;
+use osal_rs::os::{Mutex, System, SystemFn};
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Bytes, Error, Result};
 
@@ -28,8 +27,8 @@ use super::commons::{FIRST_ROW_Y, SECOND_ROW_Y, MAX_SIZE, clean_context, scroll_
 use crate::apps::display::commons::SCROLL_DELAY_MS;
 use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
-use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
+use crate::traits::rtc::RTC;
 use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
 const LONG_PRESS_TICK: u32 = 500;
@@ -48,7 +47,7 @@ impl Screen<Bytes<MAX_SIZE>> for Input
     fn draw(&mut self, 
         lcd: &mut dyn LCDDisplayFn,
         signal: &mut EventBits, 
-        _: &DateTime, 
+        _: &Arc<Mutex<dyn RTC + 'static>>,
         text: &dyn AsSyncStr, 
         param: ScreenParam, 
         callback: ScreenCallback

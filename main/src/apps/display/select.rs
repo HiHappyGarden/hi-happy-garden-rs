@@ -21,16 +21,14 @@
 
 use alloc::sync::Arc;
 use osal_rs::os::types::EventBits;
-use osal_rs::os::{Mutex, MutexFn};
+use osal_rs::os::Mutex;
 use osal_rs::utils::{AsSyncStr, Bytes, Error, Result};
 
 use crate::apps::display::commons::{FIRST_ROW_Y, SCROLL_DELAY_MS, SECOND_ROW_Y, clean_context, scroll_text};
-use crate::apps::display::select;
 use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
-use crate::assets::types::Icon;
-use crate::drivers::date_time::DateTime;
-use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
+use crate::traits::lcd_display::LCDDisplayFn;
+use crate::traits::rtc::RTC;
 use crate::traits::screen::{Screen, ScreenCallback, ScreenParam, ScreenSelections, screen_selections_new};
 
 static NO_SELECTIONS: &str = "No selections available";
@@ -46,7 +44,7 @@ impl Screen<ScreenSelections> for Select
     fn draw(&mut self, 
         lcd: &mut dyn LCDDisplayFn,
         signal: &mut EventBits, 
-        date_time: &DateTime, 
+        _: &Arc<Mutex<dyn RTC + 'static>>, 
         text: &dyn AsSyncStr, 
         param: ScreenParam, 
         callback: ScreenCallback

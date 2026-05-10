@@ -23,12 +23,14 @@
 mod set_config;
 
 use alloc::boxed::Box;
+use alloc::sync::Arc;
+use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 
 
 use set_config::ScreenSetConfig;
 use crate::apps::signals::status::StatusFlag;
-use crate::drivers::date_time::DateTime;
+use crate::traits::rtc::RTC;
 use crate::traits::screen::ScreenRoute as ScreenRouteFn;
 use crate::traits::lcd_display::LCDDisplayFn;
 
@@ -52,7 +54,7 @@ impl ScreenRouteFn for ScreenRoute {
         lcd: &mut dyn LCDDisplayFn,
         display_signal: &mut EventBits, 
         status_signal: &mut EventBits, 
-        date_time: &DateTime
+        rtc: &Arc<Mutex<dyn RTC + 'static>>,
     ) -> osal_rs::utils::Result<()> {
         
         match self.fsm_state {
@@ -73,7 +75,7 @@ impl ScreenRouteFn for ScreenRoute {
                     self.current_screen = Some(Box::new(ScreenSetConfig::new()));
                 } else {
                     if let Some(screen) = &mut self.current_screen {
-                        screen.draw(lcd, display_signal, status_signal, date_time)?;
+                        screen.draw(lcd, display_signal, status_signal, rtc)?;
                     }
                 }
 

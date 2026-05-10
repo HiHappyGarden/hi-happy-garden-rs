@@ -18,6 +18,8 @@
  *
  ***************************************************************************/
 
+use alloc::sync::Arc;
+use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Bytes, Result};
 
@@ -25,6 +27,7 @@ use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::drivers::date_time::DateTime;
 use crate::traits::integer::Integer;
 use crate::traits::lcd_display::LCDDisplayFn;
+use crate::traits::rtc::RTC;
 
 pub type ScreenCallback<N = u16> = Option<fn(Option<ScreenParam<N>>, confirmed: bool)>;
 pub type ScreenSelections = [Bytes<{DISPLAY_INPUT_MAX_SIZE}>; 6];
@@ -75,7 +78,7 @@ where N: Integer
      fn draw(&mut self, 
         lcd: &mut dyn LCDDisplayFn,
         signal: &mut EventBits, 
-        date_time: &DateTime, 
+        rtc: &Arc<Mutex<dyn RTC + 'static>>,
         text: &dyn AsSyncStr, 
         param: ScreenParam<N>, 
         callback: ScreenCallback<N>
@@ -91,6 +94,6 @@ where N: Integer
         lcd: &mut dyn LCDDisplayFn,
         display_signal: &mut EventBits, 
         status_signal: &mut EventBits, 
-        date_time: &DateTime
+        rtc: &Arc<Mutex<dyn RTC + 'static>>,
     ) -> Result<()>;
 }
