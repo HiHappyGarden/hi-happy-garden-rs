@@ -21,7 +21,7 @@
 use core::sync::atomic::{AtomicBool, Ordering};
 
 use alloc::sync::Arc;
-use osal_rs::os::Mutex;
+use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Bytes, Result, bytes_to_hex};
 
@@ -210,7 +210,7 @@ impl ScreenRoute for ScreenSetConfig {
 
                         } else {
                             // Skip WiFi config and go to next screen
-                            unsafe { FSM_STATE = FSMState::Serial; }
+                            unsafe { FSM_STATE = FSMState::EmailPasswd; }
                         }
                         UPDATE_DRAW.store(true, Ordering::SeqCst);
                     })
@@ -350,25 +350,10 @@ impl ScreenRoute for ScreenSetConfig {
                 )?;
             }
             FSMState::SetConfig => {
-                let serial = self.serial.get_value().unwrap_or(Bytes::new());
-                let email = self.email.get_value().unwrap_or(Bytes::new());
-                let email_passwd = self.email_passwd.get_value().unwrap_or(Bytes::new());
-                let wifi_enable = self.wifi_enable.get_value().unwrap_or(false);
-                let wifi_ssid = self.wifi_ssid.get_value().unwrap_or(Bytes::new());
-                let wifi_passwd = self.wifi_passwd.get_value().unwrap_or(Bytes::new());
-                let auth = match self.auth.get_value() {
-                    Ok(values) => values
-                        .iter()
-                        .find(|value| !value.is_empty())
-                        .copied()
-                        .unwrap_or(Bytes::<DISPLAY_INPUT_MAX_SIZE>::new()),
-                    Err(_) => Bytes::<DISPLAY_INPUT_MAX_SIZE>::new(),
-                };
-                    
-                    // self.date.get_value().unwrap_or_default();
-                    // self.time.get_value().unwrap_or_default();
-
-                
+                let serial = self.serial.get_value()?;
+                let email = self.email.get_value()?;
+                let email_passwd = self.email_passwd.get_value()?;
+                let wifi_enable = self.wifi_enable.get_value()?;
                 
                 let mut user = User::default();
                 user.set_email(email.as_str());
@@ -376,6 +361,16 @@ impl ScreenRoute for ScreenSetConfig {
                 self.config.get_session().set_user(&user);
                 
                 if wifi_enable {
+                    let wifi_ssid = self.wifi_ssid.get_value()?;
+                    let wifi_passwd = self.wifi_passwd.get_value()?;
+                    let auth = match self.auth.get_value() {
+                        Ok(values) => values
+                            .iter()
+                            .find(|value| !value.is_empty())
+                            .copied()
+                            .unwrap_or(Bytes::<DISPLAY_INPUT_MAX_SIZE>::new()),
+                        Err(_) => Bytes::<DISPLAY_INPUT_MAX_SIZE>::new(),
+                    };
                     self.config.get_wifi_config().set_ssid(wifi_ssid.as_str());
                     self.config.get_wifi_config().set_password(wifi_passwd.as_str());
                     self.config.get_wifi_config().set_auth(match auth.as_str() {
@@ -394,11 +389,20 @@ impl ScreenRoute for ScreenSetConfig {
                     self.config.get_ntp_config_mut().set_server("");
                     self.config.get_ntp_config_mut().set_port(0);
                     self.config.get_ntp_config_mut().set_msg_len(0);
+                    let DateTime{year, month, mday, wday, ..}  = self.date.get_value()?;
+                    let DateTime{hour, minute, second, ..}  = self.time.get_value()?;
+                    let date_time = DateTime::new(year, month, wday, mday, hour, minute, second)?;
+
+                    rtc.lock()?.set_timestamp(date_time.to_timestamp())?;
+
                 }
 
                 DateTime::set_daylight_saving_time(self.enable_dst.get_value().unwrap_or_default());
                 
                 self.config.set_serial(&Bytes::from_as_sync_str(&serial));
+
+
+                Config::save()?;
 
                 unsafe { OLD_FSM_STATE = FSMState::SetConfig; }
                 unsafe { FSM_STATE = FSMState::End; }
