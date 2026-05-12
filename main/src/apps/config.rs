@@ -22,12 +22,13 @@
 use alloc::format;
 use alloc::string::String;
 
+use alloc::vec::Vec;
 use cjson_binding::{from_json, to_json};
 
 use osal_rs::os::{RawMutex, RawMutexFn};
 use osal_rs::utils::Bytes;
 use osal_rs::utils::{Error, Result};
-use osal_rs::{log_info, log_warning};
+use osal_rs::{log_error, log_info, log_warning};
 
 use osal_rs_serde::{Deserialize, Serialize};
 use at_parser_rs::at_quoted as quoted;
@@ -574,10 +575,17 @@ impl Config {
             Err(e) => return Err(e),
         };
 
-        let wifi_json = file.read_with_as_sync_str(true)?;
+        let json = match file.read_with_as_sync_str(true) {
+            Ok(json) => json,
+            Err(e) => {
+                log_error!(APP_TAG, "Failed to read config file, using defaults: {e}");
+                Vec::new()
+            }
+        }; 
+    
 
         // If file is empty or doesn't exist, use defaults
-        if wifi_json.is_empty() {
+        if json.is_empty() {
             log_info!(APP_TAG, "Config file not found or empty, using defaults");
 
             unsafe {
@@ -589,7 +597,7 @@ impl Config {
             return Ok(unsafe { &mut *&raw mut CONFIG });
         }
 
-        let wifi_json = match String::from_utf8(wifi_json) {
+        let json = match String::from_utf8(json) {
             Ok(json) => json,
             Err(e) => {
                 return Err(Error::UnhandledOwned(format!(
@@ -599,7 +607,7 @@ impl Config {
         };
 
 
-        match from_json::<Config>(&wifi_json) {
+        match from_json::<Config>(&json) {
             Ok(config) => {
                 unsafe {
                     CONFIG = config;
