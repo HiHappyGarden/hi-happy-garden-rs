@@ -183,6 +183,11 @@ impl AppMain {
                     }
                     StatusFlag::CheckConfig => Self::check_config(&config, &mut status_current, &mut status_old),
                     StatusFlag::EnableWifi => {
+                        if !config.get_wifi_config().is_enabled() {
+                            log_info!(APP_TAG, "Wifi disabled in config");
+                            set_current_status!(status_old, status_current, StatusFlag::Ready);
+                            continue;
+                        }
                         // Set RTC for wifi
                         (*wifi_ptr).set_rtc((*hardware_ptr).get_rtc());
 

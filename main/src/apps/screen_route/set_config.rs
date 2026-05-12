@@ -382,10 +382,12 @@ impl ScreenRoute for ScreenSetConfig {
                         "WPA3/WPA2" => Auth::Wpa2Wpa3,
                         _ => Auth::Open,
                     });
+                    self.config.get_wifi_config().set_enabled(true);
                 } else {
                     self.config.get_wifi_config().set_ssid("");
                     self.config.get_wifi_config().set_password("");
                     self.config.get_wifi_config().set_auth(Auth::Open);
+                    self.config.get_wifi_config().set_enabled(false);
                     self.config.get_ntp_config_mut().set_server("");
                     self.config.get_ntp_config_mut().set_port(0);
                     self.config.get_ntp_config_mut().set_msg_len(0);
@@ -402,6 +404,11 @@ impl ScreenRoute for ScreenSetConfig {
                 self.config.set_serial(&Bytes::from_as_sync_str(&serial));
 
 
+                self.config.apply_locale();
+                self.config.apply_daylight_saving_time();
+                self.config.apply_ntp();
+                self.config.apply_wifi();
+                self.config.apply_session();
                 Config::save()?;
 
                 unsafe { OLD_FSM_STATE = FSMState::SetConfig; }
