@@ -18,13 +18,14 @@
  *
  ***************************************************************************/
 
+use core::sync::atomic::{AtomicU32, Ordering};
 use core::time::Duration;
 
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use osal_rs::{log_debug, log_info};
 use osal_rs::os::types::StackType;
-use osal_rs::os::{System, Thread, ThreadFn, ThreadParam};
+use osal_rs::os::{MutexFn, System, SystemFn, Thread, ThreadFn, ThreadParam};
 use osal_rs::utils::{Error, Result};
 
 use crate::apps::config::Config;
@@ -34,7 +35,8 @@ use crate::apps::signals::error::ErrorSignal;
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::apps::system_led::SystemLed;
 use crate::apps::wifi::Wifi;
-use crate::drivers::platform::{Hardware, LCDDisplay, ThreadPriority};
+use crate::drivers::date_time::DateTime;
+use crate::drivers::platform::{Hardware, LCDDisplay, ThreadPriority, RTC_MINIMUM_DATE};
 use crate::traits::hardware::HardwareFn;
 use crate::traits::rx_tx::SetOnReceive;
 use crate::traits::signal::Signal;
@@ -43,8 +45,11 @@ use crate::traits::wifi::SetOnWifiChangeStatus;
 
 const APP_TAG: &str = "AppMain";
 const THREAD_NAME: &str = "app_main_trd";
-const STACK_SIZE: StackType = 1_536;
+const STACK_SIZE: StackType = 1_024 * 2; // 2KB stack size for the main thread
 const TICK_INTERVAL_MS: u16 = 100;
+
+static TIMER: AtomicU32 = AtomicU32::new(0);
+static NOW: AtomicU32 = AtomicU32::new(0);
 
 macro_rules! set_current_status {
     ($status_old:expr, $status_current:expr, $status:expr) => {
@@ -133,6 +138,11 @@ impl AppMain {
         .map(|param| param.0 as *mut AppMain) // Get from Option<&AppMainPtr> the usize pointer and convert to *mut AppMain
         .ok_or(Error::Unhandled("Missing AppMain thread param"))? }; // Extract AppMain pointer or return error if missing
 
+        let rtc = me.hardware.get_rtc();
+
+        
+
+        NOW.store((rtc.lock()?.get_timestamp()? - RTC_MINIMUM_DATE ) as u32, Ordering::SeqCst);
 
 
         let config = Config::shared();
@@ -198,8 +208,17 @@ impl AppMain {
                     }
                     StatusFlag::Ready => {
 
+                        let delta  = (rtc.lock()?.get_timestamp()? - RTC_MINIMUM_DATE) as u32 - NOW.load(Ordering::SeqCst);
+
+                        if TIMER.load(Ordering::SeqCst) >= DateTime::MILLIS_PER_MINUTE as u32 {
+                            TIMER.store(0, Ordering::SeqCst);
+                            
+                            log_info!(APP_TAG, "heap_free:{}", System::get_free_heap_size());
+                        } else {
+                            TIMER.fetch_add(delta * 10, Ordering::SeqCst);
+                        }
+
                         StatusSignal::set(StatusFlag::Ready.into());
-                        
                     },
                     StatusFlag::Error => todo!(),
                     StatusFlag::Reset | _  => todo!(),

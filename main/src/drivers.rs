@@ -28,5 +28,7 @@ pub mod platform {
     pub use crate::drivers::plt::uart::*;
 
     pub type LCDDisplay = crate::drivers::lcd_sh1106::LCDSH1106;
+    
+    pub const RTC_MINIMUM_DATE: i64 = crate::drivers::rtc::RTC::MINIMUM_DATE;    
 }
 
