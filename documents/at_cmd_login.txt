@@ -1,8 +1,10 @@
+#login as admin
 AT+SESS=?
 AT+SESS=i,admin@hhg.local,mysecretpassword
 AT+SESS
 AT+SESS?
 
+#login as local user
 AT+USR=?
 AT+USR=passy.linux@zresa.it,12345678
 AT+USR
@@ -15,6 +17,11 @@ AT+WIFI=?
 AT+DST=?
 AT+NTP=?
 
+# reboot
 AT+SYS=?
 AT+SYS=rs
-AT+SYS?
+
+
+# facory reset
+AT+SYS=?
+AT+SYS=rs
