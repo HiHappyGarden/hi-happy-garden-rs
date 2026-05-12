@@ -642,14 +642,14 @@ impl Config {
 
                     let mut file = match Filesystem::open_with_as_sync_str(
                         &file_name,
-                        flags::WRONLY | flags::CREAT,
+                        flags::WRONLY | flags::CREAT | flags::TRUNC,
                     ) {
                         Ok(file) => file,
                         Err(e @ Error::ReturnWithCode(-2)) => {
                             log_info!(APP_TAG, "Failed to open config file: {e}, try to create it");
                             Filesystem::open_with_as_sync_str(
                                 &file_name,
-                                flags::WRONLY | flags::CREAT,
+                                flags::WRONLY | flags::CREAT | flags::TRUNC,
                             )?
                         }
                         Err(e) => return Err(e),
