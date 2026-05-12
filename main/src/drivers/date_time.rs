@@ -56,6 +56,11 @@ impl DateTime {
     pub const SECONDS_PER_HOUR: i64 = 3_600;
     pub const SECONDS_PER_DAY: i64 = 86_400;
 
+    pub const MILLIS_PER_DAY: i64 = Self::SECONDS_PER_DAY * 1_000;
+    pub const MILLIS_PER_HOUR: i64 = Self::SECONDS_PER_HOUR * 1_000;
+    pub const MILLIS_PER_MINUTE: i64 = Self::SECONDS_PER_MINUTE * 1_000;
+    pub const MILLIS_PER_SECOND: i64 = 1_000;
+
     pub fn set_daylight_saving_time(enabled: bool) {
         unsafe {
             DAYLIGHT_SAVING_TIME_ENABLED = enabled;
