@@ -24,4 +24,4 @@ AT+SYS=rs
 
 # facory reset
 AT+SYS=?
-AT+SYS=rs
+AT+SYS=fr
