@@ -60,6 +60,7 @@ impl AtContext<{CMD_SIZE}> for SystemHandler {
             "fr" => {
                 // Factory reset the system
                 Filesystem::remove_recursive("/").map_err(|_| (at_response, AtError::Unhandled("Failed to remove filesystem")))?;
+                Filesystem::umount().map_err(|_| (at_response, AtError::Unhandled("Failed to umount filesystem")))?;
                 Hardware::reset();
             }
             _ => Err((at_response, AtError::InvalidArgs))
