@@ -239,7 +239,8 @@ impl ScreenRoute for ScreenSetConfig {
                 )?;
             }
             FSMState::Passwd => {
-                let param = ScreenParam::default();
+                let mut param = ScreenParam::default();
+                param.input = Some(Bytes::from_as_sync_str(self.config.get_wifi_config().get_password()));
 
                 self.wifi_passwd.draw(
                     lcd, 

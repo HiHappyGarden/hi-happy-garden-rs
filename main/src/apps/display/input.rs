@@ -84,7 +84,11 @@ impl Screen<Bytes<MAX_SIZE>> for Input
             SCROLL_DELAY_MS
         );
 
-        lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
+        if let Err(e) = lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8) {
+            if e != Error::OutOfIndex {
+                return Err(e);
+            }
+        }
 
         //write the input text on the second row, with a '<' marker if the text is wider than the display and is being scrolled, and with a 3px left margin to avoid overlapping with the first column of the display which is not fully visible. The input text should be centered if it fits within the visible area, otherwise it should scroll circularly with a 4-space separator. If secret_mode is enabled, show '*' instead of the actual chars.
         if let Some(input) = &self.input {
@@ -110,26 +114,63 @@ impl Screen<Bytes<MAX_SIZE>> for Input
                     } else {
                         display_buf[1..1 + copy_len].copy_from_slice(&src[..copy_len]);
                     }
-                    lcd.draw_bytes(&display_buf[..1 + copy_len], 0, SECOND_ROW_Y, &FONT_8X8)?;
+                    if let Err(e) = lcd.draw_bytes(&display_buf[..1 + copy_len], 0, SECOND_ROW_Y, &FONT_8X8) {
+                        if e != Error::OutOfIndex {
+                            return Err(e);
+                        }
+                    }
                 } else if self.secret_mode {
                     let masked = [b'*'; 16];
                     let mut display_buf = masked;
                     if self.idx < raw.len() {
                         display_buf[self.idx] = raw[self.idx];
                     }
-                    lcd.draw_bytes(&display_buf[..raw.len()], 3, SECOND_ROW_Y, &FONT_8X8)?;
+                    if let Err(e) = lcd.draw_bytes(&display_buf[..raw.len()], 3, SECOND_ROW_Y, &FONT_8X8) {
+                        if e != Error::OutOfIndex {
+                            return Err(e);
+                        }
+                    }
                 } else {
-                    lcd.draw_bytes(raw, 3, SECOND_ROW_Y, &FONT_8X8)?;
+                    if let Err(e) = lcd.draw_bytes(raw, 3, SECOND_ROW_Y, &FONT_8X8) {
+                        if e != Error::OutOfIndex {
+                            return Err(e);
+                        }
+                    }
                 }
             }
         }
 
-        //self.idx
+        // Keep cursor aligned to what is actually visible on screen.
+        let cursor_col = if let Some(input) = &self.input {
+            let raw_len = input.as_raw_bytes().len();
+            if raw_len >= 16 {
+                let offset = raw_len.saturating_sub(15);
+                if self.idx < offset {
+                    0usize
+                } else {
+                    1usize + (self.idx - offset).min(14)
+                }
+            } else {
+                self.idx.min(raw_len.saturating_sub(1))
+            }
+        } else {
+            0usize
+        };
 
-        let mut x: u8 = 2;
-        x = x.saturating_add((self.idx * 8).try_into().unwrap());
+        let base_x = if self.input.as_ref().is_some_and(|input| input.as_raw_bytes().len() >= 16) {
+            0u16
+        } else {
+            2u16
+        };
 
-        lcd.draw_rect(x, SECOND_ROW_Y + 9, 8, 1, LCDWriteMode::INVERT)?;
+        let max_x = (width as u16).saturating_sub(8);
+        let x = (base_x + (cursor_col as u16 * 8)).min(max_x) as u8;
+
+        if let Err(e) = lcd.draw_rect(x, SECOND_ROW_Y + 9, 8, 1, LCDWriteMode::INVERT) {
+            if e != Error::OutOfIndex {
+                return Err(e);
+            }
+        }
 
         // Callback handling: encoder long press confirms the current input, while regular button long press restores the original input and short press cancels when the buffer becomes empty.
         if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {

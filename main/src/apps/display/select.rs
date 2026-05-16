@@ -37,6 +37,7 @@ pub struct Select
 {
     index: u8,
     selections: Option<ScreenSelections>,
+    result: Option<ScreenSelections>,
 }
 
 impl Screen<ScreenSelections> for Select
@@ -57,10 +58,12 @@ impl Screen<ScreenSelections> for Select
                 Some(selections) => {
                     self.index = 0;
                     self.selections = Some(selections.clone());
+                    self.result = None;
                 }
                 None => {
                     self.index = 0;
                     self.selections = Some(screen_selections_new());
+                    self.result = None;
                 }
             }
         }
@@ -103,27 +106,26 @@ impl Screen<ScreenSelections> for Select
         );
 
         lcd.draw_str(&display_text, x_position, SECOND_ROW_Y, &FONT_8X8)?;
-        
-
         if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
-            if self.selections.as_ref().and_then(|s| s.get(self.index as usize)).is_some() {
+                    if let Some(selected) = self
+                        .selections
+                        .as_ref()
+                        .and_then(|selections| selections.get(self.index as usize))
+                        .filter(|selected| !selected.is_empty())
+                        .copied()
+                    {
+                        let mut selections = screen_selections_new();
+                        selections[self.index as usize] = selected;
+                        self.result = Some(selections);
+
                 if let Some(ref cb) = callback {
                     let mut p = ScreenParam::default();
-                    let s = self.selections.as_ref().and_then(|s| {
-                        let mut selections = s.clone();
-                        
-                        for i in 0..selections.len() {
-                            if i != self.index as usize {
-                                selections[i] = Bytes::new();
-                            }
-                        }
-
-                        Some(selections)
-                    });
+                            p.selects = self.result;
                     cb(Some(p), true);
                 }
                 *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
             } else {
+                        self.result = None;
                 if let Some(ref cb) = callback {
                     cb(None, false);
                 }
@@ -144,7 +146,7 @@ impl Screen<ScreenSelections> for Select
     }
 
     fn get_value(&self) -> Result<ScreenSelections> {
-        self.selections.clone().ok_or(Error::NullPtr)
+        self.result.ok_or(Error::NullPtr)
     }
 
 }
@@ -155,6 +157,7 @@ impl Select {
         Self {
             index: 0,
             selections: None,
+            result: None,
         }
     }
 
