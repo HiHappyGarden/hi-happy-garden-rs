@@ -21,6 +21,7 @@
 #![allow(dead_code)]
 
 mod set_config;
+mod main;
 
 use alloc::boxed::Box;
 use alloc::sync::Arc;
