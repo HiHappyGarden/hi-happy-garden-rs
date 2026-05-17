@@ -118,23 +118,6 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 //get status signal
                 let mut status_signal = StatusSignal::get();
 
-                
-                // //get date time
-                // let date_time = rtc.lock().unwrap().get_timestamp().unwrap_or_else(|e| {
-                //     log_info!(APP_TAG, "Error getting date time: {:?}", e);
-                //     ErrorSignal::set(ErrorFlag::DateTime.into());
-                //     0
-                // });
-
-
-                // //convert timestamp to date time
-                // let date_time = DateTime::from_timestamp_locale(date_time, true).unwrap_or_else(|e| {
-                //     log_info!(APP_TAG, "Error converting timestamp to datetime: {:?}", e);
-                //     ErrorSignal::set(ErrorFlag::DateTime.into());
-                //     DateTime::default()
-                // });
-
-
                 //build header
                 if let Err(e) =  header.draw(lcd, &mut display_signal, &rtc, *wifi_enabled) {
                     if let Error::ReturnWithCode(_) = e {} else {
