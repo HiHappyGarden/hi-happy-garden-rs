@@ -64,12 +64,12 @@ impl Auth {
 
     fn fill_screen_selections() -> ScreenSelections {
         let mut selections = screen_selections_new();
-        selections[0] = Self::Open.as_bytes();
-        selections[1] = Self::Wpa.as_bytes();
-        selections[2] = Self::Wpa2.as_bytes();
-        selections[3] = Self::Wpa2Mixed.as_bytes();
-        selections[4] = Self::Wpa3.as_bytes();
-        selections[5] = Self::Wpa2Wpa3.as_bytes();
+        selections[0] = (Self::Open.as_bytes(), false);
+        selections[1] = (Self::Wpa.as_bytes(), false);
+        selections[2] = (Self::Wpa2.as_bytes(), false);
+        selections[3] = (Self::Wpa2Mixed.as_bytes(), false);
+        selections[4] = (Self::Wpa3.as_bytes(), false);
+        selections[5] = (Self::Wpa2Wpa3.as_bytes(), false);
         selections
     }
 
@@ -367,14 +367,14 @@ impl ScreenRoute for ScreenSetConfig {
                     let auth = match self.auth.get_value() {
                         Ok(values) => values
                             .iter()
-                            .find(|value| !value.is_empty())
+                            .find(|value| value.1)
                             .copied()
-                            .unwrap_or(Bytes::<DISPLAY_INPUT_MAX_SIZE>::new()),
-                        Err(_) => Bytes::<DISPLAY_INPUT_MAX_SIZE>::new(),
+                            .unwrap_or((Bytes::<DISPLAY_INPUT_MAX_SIZE>::new(), false)),
+                        Err(_) => (Bytes::<DISPLAY_INPUT_MAX_SIZE>::new(), false),
                     };
                     self.config.get_wifi_config().set_ssid(wifi_ssid.as_str());
                     self.config.get_wifi_config().set_password(wifi_passwd.as_str());
-                    self.config.get_wifi_config().set_auth(match auth.as_str() {
+                    self.config.get_wifi_config().set_auth(match auth.0.as_str() {
                         "OPEN" => Auth::Open,
                         "WPA" => Auth::Wpa,
                         "WPA2" => Auth::Wpa2,

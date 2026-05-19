@@ -30,16 +30,16 @@ use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
 
 pub type ScreenCallback<N = u16> = Option<fn(Option<ScreenParam<N>>, confirmed: bool)>;
-pub type ScreenSelections = [Bytes<{DISPLAY_INPUT_MAX_SIZE}>; 6];
+pub type ScreenSelections = [(Bytes<{DISPLAY_INPUT_MAX_SIZE}>, bool); 6];
 
 pub const fn screen_selections_new() -> ScreenSelections {
     [
-        Bytes::new(),
-        Bytes::new(),
-        Bytes::new(),
-        Bytes::new(),
-        Bytes::new(),
-        Bytes::new(),
+        (Bytes::new(), false),
+        (Bytes::new(), false),
+        (Bytes::new(), false),
+        (Bytes::new(), false),
+        (Bytes::new(), false),
+        (Bytes::new(), false)
     ]
 }
 
