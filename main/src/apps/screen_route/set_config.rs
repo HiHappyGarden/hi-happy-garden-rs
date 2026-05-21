@@ -62,14 +62,14 @@ impl Auth {
         }
     }
 
-    fn fill_screen_selections() -> ScreenSelections {
+    fn fill_screen_selections(selected: Auth) -> ScreenSelections {
         let mut selections = screen_selections_new();
-        selections[0] = (Self::Open.as_bytes(), false);
-        selections[1] = (Self::Wpa.as_bytes(), false);
-        selections[2] = (Self::Wpa2.as_bytes(), false);
-        selections[3] = (Self::Wpa2Mixed.as_bytes(), false);
-        selections[4] = (Self::Wpa3.as_bytes(), false);
-        selections[5] = (Self::Wpa2Wpa3.as_bytes(), false);
+        selections[0] = (Self::Open.as_bytes(), selected == Self::Open);
+        selections[1] = (Self::Wpa.as_bytes(), selected == Self::Wpa);
+        selections[2] = (Self::Wpa2.as_bytes(), selected == Self::Wpa2);
+        selections[3] = (Self::Wpa2Mixed.as_bytes(), selected == Self::Wpa2Mixed);
+        selections[4] = (Self::Wpa3.as_bytes(), selected == Self::Wpa3);
+        selections[5] = (Self::Wpa2Wpa3.as_bytes(), selected == Self::Wpa2Wpa3);
         selections
     }
 
@@ -161,7 +161,9 @@ impl ScreenRoute for ScreenSetConfig {
                         unsafe { OLD_FSM_STATE = FSM_STATE; }
                         if confirmed {
                             unsafe { FSM_STATE = FSMState::EmailPasswd; }
-                        } 
+                        } else {
+                            unsafe { FSM_STATE = FSMState::Serial; }
+                        }
                         UPDATE_DRAW.store(true, Ordering::SeqCst);
                     })
                 )?;
@@ -181,7 +183,9 @@ impl ScreenRoute for ScreenSetConfig {
                         unsafe { OLD_FSM_STATE = FSM_STATE; }
                         if confirmed {
                             unsafe { FSM_STATE = FSMState::EnableWifi; }
-                        } 
+                        } else {
+                            unsafe { FSM_STATE = FSMState::Email; }
+                        }
                         UPDATE_DRAW.store(true, Ordering::SeqCst);
                     })
                 )?;
@@ -261,7 +265,7 @@ impl ScreenRoute for ScreenSetConfig {
             }
             FSMState::Auth => {
                 let mut param = ScreenParam::default();
-                param.selects = Some(Auth::fill_screen_selections());
+                param.selects = Some(Auth::fill_screen_selections(self.config.get_wifi_config().get_auth()));
 
                 self.auth.draw(
                     lcd, 

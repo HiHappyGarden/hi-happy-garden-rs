@@ -67,7 +67,7 @@ macro_rules! wifi_country {
 }
 
 #[repr(u8)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Auth {
     Open = 0,
     Web = 1,
