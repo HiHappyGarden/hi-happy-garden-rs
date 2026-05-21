@@ -18,6 +18,7 @@
  *
  ***************************************************************************/
 
+use core::any::Any;
 use alloc::sync::Arc;
 use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
@@ -96,4 +97,6 @@ where N: Integer
         status_signal: &mut EventBits, 
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
     ) -> Result<()>;
+
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }

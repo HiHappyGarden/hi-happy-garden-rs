@@ -30,6 +30,7 @@ use osal_rs::os::types::EventBits;
 
 
 use set_config::ScreenSetConfig;
+use crate::apps::screen_route::main::ScreenMain;
 use crate::apps::signals::status::StatusFlag;
 use crate::traits::rtc::RTC;
 use crate::traits::screen::ScreenRoute as ScreenRouteFn;
@@ -67,6 +68,12 @@ impl ScreenRouteFn for ScreenRoute {
                         self.fsm_state = FSMState::SetConfig;
                         self.check_staus_counter = 0;
                     }
+                } else if StatusFlag::Ready.check_signal(*status_signal) {
+                    self.check_staus_counter += 1;
+                    if self.check_staus_counter >= CHECK_STATUS_THRESHOLD {
+                        self.fsm_state = FSMState::Menu;
+                        self.check_staus_counter = 0;
+                    }
                 } else {
                     self.check_staus_counter = 0;
                 }
@@ -76,17 +83,36 @@ impl ScreenRouteFn for ScreenRoute {
                     self.current_screen = Some(Box::new(ScreenSetConfig::new()));
                 } else {
                     if let Some(screen) = &mut self.current_screen {
-                        screen.draw(lcd, display_signal, status_signal, rtc)?;
+                        if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
+                            self.current_screen = None; // Clear the current screen
+                            self.fsm_state = FSMState::Menu; // Move to the next state
+                        }
                     }
                 }
 
             }
             FSMState::Menu => {
-                // Handle Menu state
+                if self.current_screen.is_none() {
+                    self.current_screen = Some(Box::new(ScreenMain::new()));
+                } else {
+                    if let Some(screen) = &mut self.current_screen {
+                        if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
+                            if let Some(screen_main) = screen.as_any_mut().downcast_mut::<ScreenMain>() {
+                                let _selected_screen = screen_main.get_selected_screen();
+                            }
+                            self.current_screen = None; // Clear the current screen
+                            // self.fsm_state = FSMState::Menu; // Move to the next state
+                        }
+                    }
+                }
             }
         }
 
         Ok(())
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn core::any::Any {
+        self
     }
 }
 

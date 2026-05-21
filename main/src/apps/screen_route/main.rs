@@ -18,13 +18,191 @@
  *
  ***************************************************************************/
 
-use crate::apps::{config::Config, display::text::Text};
+use core::any::Any;
+use core::sync::atomic::{AtomicI8, Ordering};
+
+use alloc::sync::Arc;
+use osal_rs::os::Mutex;
+use osal_rs::os::types::EventBits;
+use osal_rs::utils::{Bytes, Error, Result};
+
+use crate::apps::DISPLAY_INPUT_MAX_SIZE;
+use crate::apps::display::text::Text;
+use crate::apps::signals::display::DisplayFlag;
+use crate::traits::lcd_display::LCDDisplayFn;
+use crate::traits::rtc::RTC;
+use crate::traits::screen::{Screen, ScreenParam, ScreenRoute};
+
+static SELECTED_SCREEN: AtomicI8 = AtomicI8::new(-1);
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum FSMState {
+    Info,
+    DateTime,
+    DaylightSavingTime,
+    Wifi,
+    User,
+}
+
+impl From<i8> for FSMState {
+    fn from(value: i8) -> Self {
+        match value {
+            0 => FSMState::Info,
+            1 => FSMState::DateTime,
+            2 => FSMState::DaylightSavingTime,
+            3 => FSMState::Wifi,
+            4 => FSMState::User,
+            _ => FSMState::Info, // Default case
+        }
+    }
+}
+
+impl From<FSMState> for i8 {
+    fn from(state: FSMState) -> Self {
+        match state {
+            FSMState::Info => 0,
+            FSMState::DateTime => 1,
+            FSMState::DaylightSavingTime => 2,
+            FSMState::Wifi => 3,
+            FSMState::User => 4,
+        }
+    }
+}
 
  pub struct ScreenMain {
-    config: &'static mut Config,
-    info: Text,
-    date_time: Text,
-    daylight_saving_time: Text,
-    wifi: Text,
-    user: Text,
+    fsm_state: FSMState,
+    text: Text,
+    value: i8,
+}
+
+impl ScreenRoute for ScreenMain {
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+     fn draw(&mut self, 
+        lcd: &mut dyn LCDDisplayFn,
+        display_signal: &mut EventBits, 
+        _status_signal: &mut EventBits, 
+        rtc: &Arc<Mutex<dyn RTC + 'static>>,
+        
+    ) -> Result<()> {
+
+        match self.fsm_state {
+            FSMState::Info => 
+                self.text.draw(
+                    lcd, 
+                    display_signal, 
+                    rtc, 
+                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Info"), 
+                    ScreenParam::<u16>::default(), 
+                    Some(|_, confirmed| {
+                        if confirmed {
+                            SELECTED_SCREEN.store(FSMState::Info.into(), Ordering::SeqCst);
+                        }
+                    })
+                )?,
+            FSMState::DateTime => self.text.draw(
+                    lcd, 
+                    display_signal, 
+                    rtc, 
+                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Date Time"), 
+                    ScreenParam::<u16>::default(), 
+                    Some(|_, confirmed| {
+                        if confirmed {
+                            SELECTED_SCREEN.store(FSMState::DateTime.into(), Ordering::SeqCst);
+                        } 
+                    })
+                )?,
+            FSMState::DaylightSavingTime => self.text.draw(
+                    lcd, 
+                    display_signal, 
+                    rtc, 
+                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Daylight Saving Time"), 
+                    ScreenParam::<u16>::default(), 
+                    Some(|_, confirmed| {
+                        if confirmed {
+                            SELECTED_SCREEN.store(FSMState::DaylightSavingTime.into(), Ordering::SeqCst);
+                        } 
+                    })
+                )?,
+            FSMState::Wifi => self.text.draw(
+                    lcd, 
+                    display_signal, 
+                    rtc, 
+                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Wifi"), 
+                    ScreenParam::<u16>::default(), 
+                    Some(|_, confirmed| {
+                        if confirmed {
+                            SELECTED_SCREEN.store(FSMState::Wifi.into(), Ordering::SeqCst);
+                        } 
+                    })
+                )?,
+            FSMState::User => self.text.draw(
+                    lcd, 
+                    display_signal, 
+                    rtc, 
+                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("User"), 
+                    ScreenParam::<u16>::default(), 
+                    Some(|_, confirmed| {
+                        if confirmed {
+                            SELECTED_SCREEN.store(FSMState::User.into(), Ordering::SeqCst);
+                        } 
+                    })
+                )?,
+        }
+
+        self.update_input(display_signal);
+
+        if SELECTED_SCREEN.load(Ordering::SeqCst) != -1 {
+            self.value = SELECTED_SCREEN.load(Ordering::SeqCst);
+            SELECTED_SCREEN.store(-1, Ordering::SeqCst);
+            Ok(())
+        } else {
+            Err(Error::ReturnWithCode(1))
+        }
+        
+    }
+}
+
+impl ScreenMain {
+    pub fn new() -> Self {
+        Self {
+            fsm_state: FSMState::Info,
+            text: Text::new(),
+            value: -1,
+        }
+    }
+
+    fn update_input(&mut self, signal: &mut EventBits) {
+
+        if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
+            self.fsm_state = match self.fsm_state {
+                FSMState::Info => FSMState::DateTime,
+                FSMState::DateTime => FSMState::DaylightSavingTime,
+                FSMState::DaylightSavingTime => FSMState::Wifi,
+                FSMState::Wifi => FSMState::User,
+                FSMState::User => FSMState::Info,
+            };
+            *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
+        } else  if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+            self.fsm_state = match self.fsm_state {
+                FSMState::Info => FSMState::User,
+                FSMState::DateTime => FSMState::Info,
+                FSMState::DaylightSavingTime => FSMState::DateTime,
+                FSMState::Wifi => FSMState::DaylightSavingTime,
+                FSMState::User => FSMState::Wifi,
+            };
+            *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn get_selected_screen(&self) -> Option<FSMState> {
+        if self.value != -1 {
+            Some(FSMState::from(self.value))
+        } else {
+            None
+        }
+    }
 }

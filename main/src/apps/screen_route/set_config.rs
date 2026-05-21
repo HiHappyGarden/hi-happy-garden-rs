@@ -18,12 +18,13 @@
  *
  ***************************************************************************/
 
+use core::any::Any;
 use core::sync::atomic::{AtomicBool, Ordering};
 
 use alloc::sync::Arc;
 use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::os::types::EventBits;
-use osal_rs::utils::{Bytes, Result, bytes_to_hex};
+use osal_rs::utils::{Bytes, Error, Result, bytes_to_hex};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::config::Config;
@@ -419,11 +420,14 @@ impl ScreenRoute for ScreenSetConfig {
                 unsafe { OLD_FSM_STATE = FSMState::SetConfig; }
                 unsafe { FSM_STATE = FSMState::End; }
             }
-            FSMState::End => (),
+            FSMState::End => return Ok(())
         }
 
+        Err(Error::ReturnWithCode(1))
+    }
 
-        Ok(())
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
