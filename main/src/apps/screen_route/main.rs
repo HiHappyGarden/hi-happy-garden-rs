@@ -88,6 +88,8 @@ impl ScreenRoute for ScreenMain {
         
     ) -> Result<()> {
 
+        self.update_input(display_signal);
+
         match self.fsm_state {
             FSMState::Info => 
                 self.text.draw(
@@ -152,7 +154,7 @@ impl ScreenRoute for ScreenMain {
                 )?,
         }
 
-        self.update_input(display_signal);
+        
 
         if SELECTED_SCREEN.load(Ordering::SeqCst) != -1 {
             self.value = SELECTED_SCREEN.load(Ordering::SeqCst);

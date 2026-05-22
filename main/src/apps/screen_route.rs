@@ -44,7 +44,14 @@ enum FSMState {
     Init,
     SetConfig,
     Menu,
+    MenuInfo,
+    MenuDateTime,
+    MenuDaylightSavingTime,
+    MenuWifi,
+    MenuUser,
 }
+
+
 pub struct ScreenRoute {
     fsm_state: FSMState,
     check_staus_counter: u8,
@@ -98,7 +105,8 @@ impl ScreenRouteFn for ScreenRoute {
                     if let Some(screen) = &mut self.current_screen {
                         if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
                             if let Some(screen_main) = screen.as_any_mut().downcast_mut::<ScreenMain>() {
-                                let _selected_screen = screen_main.get_selected_screen();
+                                self.check_staus_counter = 0;
+                                let _selected_screen: i8 = screen_main.get_selected_screen();
                             }
                             self.current_screen = None; // Clear the current screen
                             // self.fsm_state = FSMState::Menu; // Move to the next state
@@ -106,6 +114,11 @@ impl ScreenRouteFn for ScreenRoute {
                     }
                 }
             }
+            FSMState::MenuInfo => todo!(),
+            FSMState::MenuDateTime => todo!(),
+            FSMState::MenuDaylightSavingTime => todo!(),
+            FSMState::MenuWifi => todo!(),
+            FSMState::MenuUser => todo!(),
         }
 
         Ok(())
