@@ -123,303 +123,17 @@ impl ScreenRoute for ScreenSetConfig {
         let fsm_state = unsafe { *&raw const FSM_STATE };
         
         match fsm_state {
-            FSMState::Serial => {
-                
-
-                let unique_id = Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str(bytes_to_hex(&Hardware::get_unique_id()).as_str());
-                let unique_id = Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_bytes(&unique_id[..(unique_id.len()/3) * 2]);
-
-                let mut param = ScreenParam::default();
-                param.input = Some(unique_id);
-
-
-                self.serial.draw(
-                    lcd, 
-                    display_signal, 
-                    rtc, 
-                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Serial Number"), 
-                    param, 
-                    Some(|_, confirmed| {
-                        unsafe { OLD_FSM_STATE = FSM_STATE; }
-                        if confirmed {
-                            unsafe { FSM_STATE = FSMState::Email; }
-                        } 
-                        UPDATE_DRAW.store(true, Ordering::SeqCst);
-                    })
-                )?;
-            }
-            FSMState::Email => {
-                let mut param = ScreenParam::<u16>::default();
-                param.input = Some(Bytes::from_as_sync_str(self.config.get_session().get_user_local().get_email()));
-
-                self.email.draw(
-                    lcd, 
-                    display_signal, 
-                    rtc, 
-                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Email"), 
-                    param, 
-                    Some(|_, confirmed| {
-                        unsafe { OLD_FSM_STATE = FSM_STATE; }
-                        if confirmed {
-                            unsafe { FSM_STATE = FSMState::EmailPasswd; }
-                        } else {
-                            unsafe { FSM_STATE = FSMState::Serial; }
-                        }
-                        UPDATE_DRAW.store(true, Ordering::SeqCst);
-                    })
-                )?;
-            }
-            FSMState::EmailPasswd => {
-                let mut param = ScreenParam::<u16>::default();
-                param.input = Some(Bytes::from_as_sync_str(self.config.get_session().get_user_local().get_password()));
-                param.input_secret_mode = Some(true);
-
-                self.email_passwd.draw(
-                    lcd, 
-                    display_signal, 
-                    rtc, 
-                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Password"), 
-                    param, 
-                    Some(|_, confirmed| {
-                        unsafe { OLD_FSM_STATE = FSM_STATE; }
-                        if confirmed {
-                            unsafe { FSM_STATE = FSMState::EnableWifi; }
-                        } else {
-                            unsafe { FSM_STATE = FSMState::Email; }
-                        }
-                        UPDATE_DRAW.store(true, Ordering::SeqCst);
-                    })
-                )?;
-            }
-            FSMState::EnableWifi => {
-                let mut param = ScreenParam::default();
-                param.check = Some(self.wifi_enable.get_value().unwrap_or(false));
-
-                self.wifi_enable.draw(
-                    lcd, 
-                    display_signal, 
-                    rtc, 
-                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Enable WiFi?"), 
-                    param, 
-                    Some(|param, confirmed| {
-                        if confirmed {
-                            unsafe { OLD_FSM_STATE = FSM_STATE; }
-                            match param {
-                                Some(screen_param) => match screen_param.check {
-                                    Some(true) => unsafe { FSM_STATE = FSMState::Ssid; },
-                                    Some(false) => unsafe { FSM_STATE = FSMState::Date; },
-                                    None => unsafe { FSM_STATE = FSMState::Serial; }
-                                },
-                                None => unsafe { FSM_STATE = FSMState::Serial; }
-                            }
-
-                        } else {
-                            // Skip WiFi config and go to next screen
-                            unsafe { FSM_STATE = FSMState::EmailPasswd; }
-                        }
-                        UPDATE_DRAW.store(true, Ordering::SeqCst);
-                    })
-                )?;
-            }
-            FSMState::Ssid => {
-                let mut param = ScreenParam::default();
-                param.input = Some(Bytes::from_as_sync_str(self.config.get_wifi_config().get_ssid()));
-
-                self.wifi_ssid.draw(
-                    lcd, 
-                    display_signal, 
-                    rtc, 
-                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi SSID"), 
-                    param, 
-                    Some(|_, confirmed| {
-                        unsafe { OLD_FSM_STATE = FSM_STATE; }
-                        if confirmed {
-                            unsafe { FSM_STATE = FSMState::Passwd; }
-                        } else {
-                            // Skip WiFi config and go to next screen
-                            unsafe { FSM_STATE = FSMState::EnableWifi; }
-                        }
-                        UPDATE_DRAW.store(true, Ordering::SeqCst);
-                    })
-                )?;
-            }
-            FSMState::Passwd => {
-                let mut param = ScreenParam::default();
-                param.input = Some(Bytes::from_as_sync_str(self.config.get_wifi_config().get_password()));
-
-                self.wifi_passwd.draw(
-                    lcd, 
-                    display_signal, 
-                    rtc, 
-                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi Password"), 
-                    param, 
-                    Some(|_, confirmed| {
-                        unsafe { OLD_FSM_STATE = FSM_STATE; }
-                        if confirmed {
-                            unsafe { FSM_STATE = FSMState::Auth; }
-                        } else {
-                            unsafe { FSM_STATE = FSMState::Ssid; }
-                        }
-                        UPDATE_DRAW.store(true, Ordering::SeqCst);
-                    })
-                )?;
-            }
-            FSMState::Auth => {
-                let mut param = ScreenParam::default();
-                param.selects = Some(Auth::fill_screen_selections(self.config.get_wifi_config().get_auth()));
-
-                self.auth.draw(
-                    lcd, 
-                    display_signal, 
-                    rtc, 
-                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi Auth"), 
-                    param, 
-                    Some(|_, confirmed| {
-                        unsafe { OLD_FSM_STATE = FSM_STATE; }
-                        if confirmed {
-                            unsafe { FSM_STATE = FSMState::EnableDst; }
-                        } else {
-                            unsafe { FSM_STATE = FSMState::Passwd; }
-                        }
-                        UPDATE_DRAW.store(true, Ordering::SeqCst);
-                    })
-                )?;
-            }
-            FSMState::Date => {
-                let date_time = get_datetime_from_rtc!(rtc, ErrorFlag::DateTime);
-
-                let mut param = ScreenParam::default();
-                param.date_time = Some(date_time.clone());
-
-                self.date.draw(
-                    lcd, 
-                    display_signal, 
-                    rtc, 
-                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Set Date"), 
-                    param, 
-                    Some(|_, confirmed| {
-                        unsafe { OLD_FSM_STATE = FSM_STATE; }
-                        if confirmed {
-                            unsafe { FSM_STATE = FSMState::Time; }
-                        } else {
-                            unsafe { FSM_STATE = FSMState::EnableWifi; }
-                        }
-                        UPDATE_DRAW.store(true, Ordering::SeqCst);
-                    })
-                )?;
-            }
-            FSMState::Time => {
-                let date_time = get_datetime_from_rtc!(rtc, ErrorFlag::DateTime);
-
-                let mut param = ScreenParam::default();
-                param.date_time = Some(date_time.clone());
-
-                self.time.draw(
-                    lcd, 
-                    display_signal, 
-                    rtc, 
-                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Set Time"), 
-                    param, 
-                    Some(|_, confirmed| {
-                        unsafe { OLD_FSM_STATE = FSM_STATE; }
-                        if confirmed {
-                            unsafe { FSM_STATE = FSMState::EnableDst; }
-                        } else {
-                            unsafe { FSM_STATE = FSMState::Date; }
-                        }
-                        UPDATE_DRAW.store(true, Ordering::SeqCst);
-                    })
-                )?;
-            }
-            FSMState::EnableDst => {
-                let mut param = ScreenParam::default();
-                param.check = Some(self.enable_dst.get_value().unwrap_or(false));
-    
-                
-
-                self.enable_dst.draw(
-                    lcd, 
-                    display_signal, 
-                    rtc, 
-                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Enable DST?"), 
-                    param, 
-                    Some(move |_, confirmed| {
-                        if confirmed {
-                            // Configuration complete, go back to menu or next step
-                            unsafe { FSM_STATE = FSMState::SetConfig; }
-                        } else {
-                            unsafe { FSM_STATE = OLD_FSM_STATE; }
-                            
-                        }
-                        UPDATE_DRAW.store(true, Ordering::SeqCst);
-                    })
-                )?;
-            }
-            FSMState::SetConfig => {
-                let serial = self.serial.get_value()?;
-                let email = self.email.get_value()?;
-                let email_passwd = self.email_passwd.get_value()?;
-                let wifi_enable = self.wifi_enable.get_value()?;
-                
-                let mut user = User::default();
-                user.set_email(email.as_str());
-                user.set_password(email_passwd.as_str());
-                self.config.get_session().set_user(&user);
-                
-                if wifi_enable {
-                    let wifi_ssid = self.wifi_ssid.get_value()?;
-                    let wifi_passwd = self.wifi_passwd.get_value()?;
-                    let auth = match self.auth.get_value() {
-                        Ok(values) => values
-                            .iter()
-                            .find(|value| value.1)
-                            .copied()
-                            .unwrap_or((Bytes::<DISPLAY_INPUT_MAX_SIZE>::new(), false)),
-                        Err(_) => (Bytes::<DISPLAY_INPUT_MAX_SIZE>::new(), false),
-                    };
-                    self.config.get_wifi_config().set_ssid(wifi_ssid.as_str());
-                    self.config.get_wifi_config().set_password(wifi_passwd.as_str());
-                    self.config.get_wifi_config().set_auth(match auth.0.as_str() {
-                        "OPEN" => Auth::Open,
-                        "WPA" => Auth::Wpa,
-                        "WPA2" => Auth::Wpa2,
-                        "WPA2 MIXED" => Auth::Wpa2Mixed,
-                        "WPA3" => Auth::Wpa3,
-                        "WPA3/WPA2" => Auth::Wpa2Wpa3,
-                        _ => Auth::Open,
-                    });
-                    self.config.get_wifi_config().set_enabled(true);
-                } else {
-                    self.config.get_wifi_config().set_ssid("");
-                    self.config.get_wifi_config().set_password("");
-                    self.config.get_wifi_config().set_auth(Auth::Open);
-                    self.config.get_wifi_config().set_enabled(false);
-                    self.config.get_ntp_config_mut().set_server("");
-                    self.config.get_ntp_config_mut().set_port(0);
-                    self.config.get_ntp_config_mut().set_msg_len(0);
-                    let DateTime{year, month, mday, wday, ..}  = self.date.get_value()?;
-                    let DateTime{hour, minute, second, ..}  = self.time.get_value()?;
-                    let date_time = DateTime::new(year, month, wday, mday, hour, minute, second)?;
-
-                    rtc.lock()?.set_timestamp(date_time.to_timestamp())?;
-
-                }
-
-                DateTime::set_daylight_saving_time(self.enable_dst.get_value().unwrap_or_default());
-                
-                self.config.set_serial(&Bytes::from_as_sync_str(&serial));
-
-
-                self.config.apply_locale();
-                self.config.apply_daylight_saving_time();
-                self.config.apply_ntp();
-                self.config.apply_wifi();
-                self.config.apply_session();
-                Config::save()?;
-
-                unsafe { OLD_FSM_STATE = FSMState::SetConfig; }
-                unsafe { FSM_STATE = FSMState::End; }
-            }
+            FSMState::Serial => self.draw_serial_state(lcd, display_signal, rtc)?,
+            FSMState::Email => self.draw_email_state(lcd, display_signal, rtc)?,
+            FSMState::EmailPasswd => self.draw_email_passwd_state(lcd, display_signal, rtc)?,
+            FSMState::EnableWifi => self.draw_enable_wifi_state(lcd, display_signal, rtc)?,
+            FSMState::Ssid => self.draw_ssid_state(lcd, display_signal, rtc)?,
+            FSMState::Passwd => self.draw_passwd_state(lcd, display_signal, rtc)?,
+            FSMState::Auth => self.draw_auth_state(lcd, display_signal, rtc)?,
+            FSMState::Date => self.draw_date_state(lcd, display_signal, rtc)?,
+            FSMState::Time => self.draw_time_state(lcd, display_signal, rtc)?,
+            FSMState::EnableDst => self.draw_enable_dst_state(lcd, display_signal, rtc)?,
+            FSMState::SetConfig => self.draw_set_config_state(rtc)?,
             FSMState::End => return Ok(())
         }
 
@@ -432,6 +146,374 @@ impl ScreenRoute for ScreenSetConfig {
 }
 
 impl ScreenSetConfig {
+    fn draw_serial_state(
+        &mut self,
+        lcd: &mut dyn LCDDisplayFn,
+        display_signal: &mut EventBits,
+        rtc: &Arc<Mutex<dyn RTC + 'static>>,
+    ) -> Result<()> {
+        let unique_id = Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str(bytes_to_hex(&Hardware::get_unique_id()).as_str());
+        let unique_id = Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_bytes(&unique_id[..(unique_id.len()/3) * 2]);
+
+        let mut param = ScreenParam::default();
+        param.input = Some(unique_id);
+
+        self.serial.draw(
+            lcd,
+            display_signal,
+            rtc,
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Serial Number"),
+            param,
+            Some(|_, confirmed| {
+                unsafe { OLD_FSM_STATE = FSM_STATE; }
+                if confirmed {
+                    unsafe { FSM_STATE = FSMState::Email; }
+                }
+                UPDATE_DRAW.store(true, Ordering::SeqCst);
+            }),
+        )?;
+
+        Ok(())
+    }
+
+    fn draw_email_state(
+        &mut self,
+        lcd: &mut dyn LCDDisplayFn,
+        display_signal: &mut EventBits,
+        rtc: &Arc<Mutex<dyn RTC + 'static>>,
+    ) -> Result<()> {
+        let mut param = ScreenParam::<u16>::default();
+        param.input = Some(Bytes::from_as_sync_str(self.config.get_session().get_user_local().get_email()));
+
+        self.email.draw(
+            lcd,
+            display_signal,
+            rtc,
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Email"),
+            param,
+            Some(|_, confirmed| {
+                unsafe { OLD_FSM_STATE = FSM_STATE; }
+                if confirmed {
+                    unsafe { FSM_STATE = FSMState::EmailPasswd; }
+                } else {
+                    unsafe { FSM_STATE = FSMState::Serial; }
+                }
+                UPDATE_DRAW.store(true, Ordering::SeqCst);
+            }),
+        )?;
+
+        Ok(())
+    }
+
+    fn draw_email_passwd_state(
+        &mut self,
+        lcd: &mut dyn LCDDisplayFn,
+        display_signal: &mut EventBits,
+        rtc: &Arc<Mutex<dyn RTC + 'static>>,
+    ) -> Result<()> {
+        let mut param = ScreenParam::<u16>::default();
+        param.input = Some(Bytes::from_as_sync_str(self.config.get_session().get_user_local().get_password()));
+        param.input_secret_mode = Some(true);
+
+        self.email_passwd.draw(
+            lcd,
+            display_signal,
+            rtc,
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Password"),
+            param,
+            Some(|_, confirmed| {
+                unsafe { OLD_FSM_STATE = FSM_STATE; }
+                if confirmed {
+                    unsafe { FSM_STATE = FSMState::EnableWifi; }
+                } else {
+                    unsafe { FSM_STATE = FSMState::Email; }
+                }
+                UPDATE_DRAW.store(true, Ordering::SeqCst);
+            }),
+        )?;
+
+        Ok(())
+    }
+
+    fn draw_enable_wifi_state(
+        &mut self,
+        lcd: &mut dyn LCDDisplayFn,
+        display_signal: &mut EventBits,
+        rtc: &Arc<Mutex<dyn RTC + 'static>>,
+    ) -> Result<()> {
+        let mut param = ScreenParam::default();
+        param.check = Some(self.wifi_enable.get_value().unwrap_or(false));
+
+        self.wifi_enable.draw(
+            lcd,
+            display_signal,
+            rtc,
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Enable WiFi?"),
+            param,
+            Some(|param, confirmed| {
+                if confirmed {
+                    unsafe { OLD_FSM_STATE = FSM_STATE; }
+                    match param {
+                        Some(screen_param) => match screen_param.check {
+                            Some(true) => unsafe { FSM_STATE = FSMState::Ssid; },
+                            Some(false) => unsafe { FSM_STATE = FSMState::Date; },
+                            None => unsafe { FSM_STATE = FSMState::Serial; }
+                        },
+                        None => unsafe { FSM_STATE = FSMState::Serial; }
+                    }
+                } else {
+                    unsafe { FSM_STATE = FSMState::EmailPasswd; }
+                }
+                UPDATE_DRAW.store(true, Ordering::SeqCst);
+            }),
+        )?;
+
+        Ok(())
+    }
+
+    fn draw_ssid_state(
+        &mut self,
+        lcd: &mut dyn LCDDisplayFn,
+        display_signal: &mut EventBits,
+        rtc: &Arc<Mutex<dyn RTC + 'static>>,
+    ) -> Result<()> {
+        let mut param = ScreenParam::default();
+        param.input = Some(Bytes::from_as_sync_str(self.config.get_wifi_config().get_ssid()));
+
+        self.wifi_ssid.draw(
+            lcd,
+            display_signal,
+            rtc,
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi SSID"),
+            param,
+            Some(|_, confirmed| {
+                unsafe { OLD_FSM_STATE = FSM_STATE; }
+                if confirmed {
+                    unsafe { FSM_STATE = FSMState::Passwd; }
+                } else {
+                    unsafe { FSM_STATE = FSMState::EnableWifi; }
+                }
+                UPDATE_DRAW.store(true, Ordering::SeqCst);
+            }),
+        )?;
+
+        Ok(())
+    }
+
+    fn draw_passwd_state(
+        &mut self,
+        lcd: &mut dyn LCDDisplayFn,
+        display_signal: &mut EventBits,
+        rtc: &Arc<Mutex<dyn RTC + 'static>>,
+    ) -> Result<()> {
+        let mut param = ScreenParam::default();
+        param.input = Some(Bytes::from_as_sync_str(self.config.get_wifi_config().get_password()));
+
+        self.wifi_passwd.draw(
+            lcd,
+            display_signal,
+            rtc,
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi Password"),
+            param,
+            Some(|_, confirmed| {
+                unsafe { OLD_FSM_STATE = FSM_STATE; }
+                if confirmed {
+                    unsafe { FSM_STATE = FSMState::Auth; }
+                } else {
+                    unsafe { FSM_STATE = FSMState::Ssid; }
+                }
+                UPDATE_DRAW.store(true, Ordering::SeqCst);
+            }),
+        )?;
+
+        Ok(())
+    }
+
+    fn draw_auth_state(
+        &mut self,
+        lcd: &mut dyn LCDDisplayFn,
+        display_signal: &mut EventBits,
+        rtc: &Arc<Mutex<dyn RTC + 'static>>,
+    ) -> Result<()> {
+        let mut param = ScreenParam::default();
+        param.selects = Some(Auth::fill_screen_selections(self.config.get_wifi_config().get_auth()));
+
+        self.auth.draw(
+            lcd,
+            display_signal,
+            rtc,
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi Auth"),
+            param,
+            Some(|_, confirmed| {
+                unsafe { OLD_FSM_STATE = FSM_STATE; }
+                if confirmed {
+                    unsafe { FSM_STATE = FSMState::EnableDst; }
+                } else {
+                    unsafe { FSM_STATE = FSMState::Passwd; }
+                }
+                UPDATE_DRAW.store(true, Ordering::SeqCst);
+            }),
+        )?;
+
+        Ok(())
+    }
+
+    fn draw_date_state(
+        &mut self,
+        lcd: &mut dyn LCDDisplayFn,
+        display_signal: &mut EventBits,
+        rtc: &Arc<Mutex<dyn RTC + 'static>>,
+    ) -> Result<()> {
+        let date_time = get_datetime_from_rtc!(rtc, ErrorFlag::DateTime);
+
+        let mut param = ScreenParam::default();
+        param.date_time = Some(date_time.clone());
+
+        self.date.draw(
+            lcd,
+            display_signal,
+            rtc,
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Set Date"),
+            param,
+            Some(|_, confirmed| {
+                unsafe { OLD_FSM_STATE = FSM_STATE; }
+                if confirmed {
+                    unsafe { FSM_STATE = FSMState::Time; }
+                } else {
+                    unsafe { FSM_STATE = FSMState::EnableWifi; }
+                }
+                UPDATE_DRAW.store(true, Ordering::SeqCst);
+            }),
+        )?;
+
+        Ok(())
+    }
+
+    fn draw_time_state(
+        &mut self,
+        lcd: &mut dyn LCDDisplayFn,
+        display_signal: &mut EventBits,
+        rtc: &Arc<Mutex<dyn RTC + 'static>>,
+    ) -> Result<()> {
+        let date_time = get_datetime_from_rtc!(rtc, ErrorFlag::DateTime);
+
+        let mut param = ScreenParam::default();
+        param.date_time = Some(date_time.clone());
+
+        self.time.draw(
+            lcd,
+            display_signal,
+            rtc,
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Set Time"),
+            param,
+            Some(|_, confirmed| {
+                unsafe { OLD_FSM_STATE = FSM_STATE; }
+                if confirmed {
+                    unsafe { FSM_STATE = FSMState::EnableDst; }
+                } else {
+                    unsafe { FSM_STATE = FSMState::Date; }
+                }
+                UPDATE_DRAW.store(true, Ordering::SeqCst);
+            }),
+        )?;
+
+        Ok(())
+    }
+
+    fn draw_enable_dst_state(
+        &mut self,
+        lcd: &mut dyn LCDDisplayFn,
+        display_signal: &mut EventBits,
+        rtc: &Arc<Mutex<dyn RTC + 'static>>,
+    ) -> Result<()> {
+        let mut param = ScreenParam::default();
+        param.check = Some(self.enable_dst.get_value().unwrap_or(false));
+
+        self.enable_dst.draw(
+            lcd,
+            display_signal,
+            rtc,
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Enable DST?"),
+            param,
+            Some(move |_, confirmed| {
+                if confirmed {
+                    unsafe { FSM_STATE = FSMState::SetConfig; }
+                } else {
+                    unsafe { FSM_STATE = OLD_FSM_STATE; }
+                }
+                UPDATE_DRAW.store(true, Ordering::SeqCst);
+            }),
+        )?;
+
+        Ok(())
+    }
+
+    fn draw_set_config_state(&mut self, rtc: &Arc<Mutex<dyn RTC + 'static>>) -> Result<()> {
+        let serial = self.serial.get_value()?;
+        let email = self.email.get_value()?;
+        let email_passwd = self.email_passwd.get_value()?;
+        let wifi_enable = self.wifi_enable.get_value()?;
+
+        let mut user = User::default();
+        user.set_email(email.as_str());
+        user.set_password(email_passwd.as_str());
+        self.config.get_session().set_user(&user);
+
+        if wifi_enable {
+            let wifi_ssid = self.wifi_ssid.get_value()?;
+            let wifi_passwd = self.wifi_passwd.get_value()?;
+            let auth = match self.auth.get_value() {
+                Ok(values) => values
+                    .iter()
+                    .find(|value| value.1)
+                    .copied()
+                    .unwrap_or((Bytes::<DISPLAY_INPUT_MAX_SIZE>::new(), false)),
+                Err(_) => (Bytes::<DISPLAY_INPUT_MAX_SIZE>::new(), false),
+            };
+            self.config.get_wifi_config().set_ssid(wifi_ssid.as_str());
+            self.config.get_wifi_config().set_password(wifi_passwd.as_str());
+            self.config.get_wifi_config().set_auth(match auth.0.as_str() {
+                "OPEN" => Auth::Open,
+                "WPA" => Auth::Wpa,
+                "WPA2" => Auth::Wpa2,
+                "WPA2 MIXED" => Auth::Wpa2Mixed,
+                "WPA3" => Auth::Wpa3,
+                "WPA3/WPA2" => Auth::Wpa2Wpa3,
+                _ => Auth::Open,
+            });
+            self.config.get_wifi_config().set_enabled(true);
+        } else {
+            self.config.get_wifi_config().set_ssid("");
+            self.config.get_wifi_config().set_password("");
+            self.config.get_wifi_config().set_auth(Auth::Open);
+            self.config.get_wifi_config().set_enabled(false);
+            self.config.get_ntp_config_mut().set_server("");
+            self.config.get_ntp_config_mut().set_port(0);
+            self.config.get_ntp_config_mut().set_msg_len(0);
+            let DateTime{year, month, mday, wday, ..} = self.date.get_value()?;
+            let DateTime{hour, minute, second, ..} = self.time.get_value()?;
+            let date_time = DateTime::new(year, month, wday, mday, hour, minute, second)?;
+
+            rtc.lock()?.set_timestamp(date_time.to_timestamp())?;
+        }
+
+        DateTime::set_daylight_saving_time(self.enable_dst.get_value().unwrap_or_default());
+
+        self.config.set_serial(&Bytes::from_as_sync_str(&serial));
+
+        self.config.apply_locale();
+        self.config.apply_daylight_saving_time();
+        self.config.apply_ntp();
+        self.config.apply_wifi();
+        self.config.apply_session();
+        Config::save()?;
+
+        unsafe { OLD_FSM_STATE = FSMState::SetConfig; }
+        unsafe { FSM_STATE = FSMState::End; }
+
+        Ok(())
+    }
+
     pub const fn new() -> Self {
         Self {
             config: Config::shared(),
