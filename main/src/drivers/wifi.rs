@@ -41,6 +41,12 @@ const THREAD_NAME: &str = "wifi_trd";
 const STACK_SIZE: StackType = 2_560; 
 const MAX_ERROR: StackType = 5;
 
+enum WifiFsmControl {
+    Next,
+    Continue,
+    Break,
+}
+
 static mut SSID: Bytes<32> = Bytes::new();
 static mut PASSWORD: Bytes<32> = Bytes::new();
 static mut AUTH: Auth = Auth::Wpa2;
@@ -162,6 +168,188 @@ impl Drop for Wifi {
     }
 }
 
+
+impl Wifi {
+    fn handle_disabled<const N: usize>(
+        gpio: &Gpio<N>,
+        count_error: &mut StackType,
+        on_wifi_change_status: &'static dyn OnWifiChangeStatus,
+    ) -> WifiFsmControl {
+        use WifiStatus::*;
+        gpio.write(&GpioPeripheral::InternalLed, 0);
+        if !INITIALIZED.load(Ordering::Acquire) {
+            log_info!(APP_TAG, "WIFI init");
+            let _ = (WIFI_FN.init)(wifi_country!('I', 'T', 0));
+            (WIFI_FN.enable_sta_mode)(null_mut());
+            INITIALIZED.store(true, Ordering::Release);
+        }
+        System::delay_with_to_tick(Duration::from_millis(2_500));
+        *count_error = 0;
+        unsafe { transition_wifi_status!(Enabled, on_wifi_change_status); }
+        on_wifi_change_status.on_rssi_change(RSSIStatus::Unknown);
+        WifiFsmControl::Next
+    }
+
+    fn handle_enabled<const N: usize>(
+        gpio: &Gpio<N>,
+        count_error: &mut StackType,
+        on_wifi_change_status: &'static dyn OnWifiChangeStatus,
+    ) -> WifiFsmControl {
+        use WifiStatus::*;
+        gpio.write(&GpioPeripheral::InternalLed, 0);
+        (WIFI_FN.enable_sta_mode)(null_mut());
+        *count_error = 0;
+        unsafe { transition_wifi_status!(Connecting, on_wifi_change_status); }
+        on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
+        WifiFsmControl::Next
+    }
+
+    fn handle_connecting<const N: usize>(
+        gpio: &Gpio<N>,
+        count_error: &mut StackType,
+        on_wifi_change_status: &'static dyn OnWifiChangeStatus,
+    ) -> WifiFsmControl {
+        use WifiStatus::*;
+        gpio.write(&GpioPeripheral::InternalLed, 0);
+        let ret = unsafe {
+            (WIFI_FN.connect)(null_mut(), (*&raw const SSID).as_str(), (*&raw const PASSWORD).as_str(), AUTH).unwrap_or(1)
+        };
+        if ret != PICO_OK as i32 {
+            log_error!(APP_TAG, "Error connecting to WiFi, errno: {ret}");
+            unsafe { transition_wifi_status!(Error, on_wifi_change_status); }
+            return WifiFsmControl::Continue;
+        }
+        *count_error = 0;
+        unsafe { transition_wifi_status!(WaitForIp, on_wifi_change_status); }
+        on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
+        WifiFsmControl::Continue
+    }
+
+    fn handle_wait_for_ip<const N: usize>(
+        gpio: &Gpio<N>,
+        link_status: &mut LinkStatus,
+        on_wifi_change_status: &'static dyn OnWifiChangeStatus,
+    ) -> WifiFsmControl {
+        use WifiStatus::*;
+        gpio.write(&GpioPeripheral::InternalLed, 0);
+        unsafe {
+            *link_status = (WIFI_FN.link_status)(null_mut());
+            match *link_status {
+                LinkStatus::Up => {
+                    transition_wifi_status!(Connected, on_wifi_change_status);
+                    on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
+                }
+                LinkStatus::WaitForIp => log_debug!(APP_TAG, "WiFi connected, waiting for DHCP..."),
+                LinkStatus::Down => {
+                    transition_wifi_status!(Error, on_wifi_change_status);
+                }
+                LinkStatus::BadAuth => {
+                    log_debug!(APP_TAG, "WiFi authentication failed");
+                    transition_wifi_status!(Error, on_wifi_change_status);
+                }
+            }
+        }
+        WifiFsmControl::Next
+    }
+
+    fn handle_connected<const N: usize>(
+        gpio: &Gpio<N>,
+        link_status: &mut LinkStatus,
+        rssi_old: &mut i8,
+        on_wifi_change_status: &'static dyn OnWifiChangeStatus,
+    ) -> WifiFsmControl {
+        use WifiStatus::*;
+        unsafe {
+            *link_status = (WIFI_FN.link_status)(null_mut());
+            match *link_status {
+                LinkStatus::Up => {
+                    gpio.write(&GpioPeripheral::InternalLed, 1);
+                    let rssi = if let Ok(rssi) = (WIFI_FN.get_rssi)(null_mut()) {
+                        match rssi {
+                            rssi if rssi >= -50 => Excellent,
+                            rssi if rssi >= -60 => Good,
+                            rssi if rssi >= -70 => Fair,
+                            rssi if rssi >= -80 => Weak,
+                            _ => NoSignal,
+                        }
+                    } else {
+                        Unknown.into()
+                    };
+                    if *rssi_old != rssi.into() {
+                        on_wifi_change_status.on_rssi_change(rssi);
+                        *rssi_old = rssi.into();
+                    }
+                    System::delay_with_to_tick(Duration::from_millis(500));
+                }
+                LinkStatus::WaitForIp => {
+                    transition_wifi_status!(WaitForIp, on_wifi_change_status);
+                }
+                LinkStatus::Down => {
+                    transition_wifi_status!(Error, on_wifi_change_status);
+                }
+                LinkStatus::BadAuth => {
+                    log_debug!(APP_TAG, "WiFi authentication failed");
+                    transition_wifi_status!(Error, on_wifi_change_status);
+                }
+            }
+        }
+        WifiFsmControl::Next
+    }
+
+    fn handle_disconnected<const N: usize>(
+        gpio: &Gpio<N>,
+        on_wifi_change_status: &'static dyn OnWifiChangeStatus,
+    ) -> WifiFsmControl {
+        (WIFI_FN.disable_sta_mode)(null_mut());
+        let _ = (WIFI_FN.drop)(null_mut());
+        INITIALIZED.store(false, Ordering::Release);
+        System::delay_with_to_tick(Duration::from_secs(25));
+        on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
+        gpio.write(&GpioPeripheral::InternalLed, 0);
+        WifiFsmControl::Break
+    }
+
+    fn handle_error(
+        link_status: LinkStatus,
+        count_error: &mut StackType,
+        on_wifi_change_status: &'static dyn OnWifiChangeStatus,
+    ) -> WifiFsmControl {
+        use WifiStatus::*;
+        if *count_error < MAX_ERROR {
+            *count_error += 1;
+            log_error!(APP_TAG, "Error {}/{} retry...", count_error, MAX_ERROR);
+            unsafe {
+                FSM_STATUS_CURRENT = FSM_STATUS_OLD;
+                FSM_STATUS_OLD = Error;
+            }
+            System::delay_with_to_tick(Duration::from_millis(1_000));
+        } else {
+            log_error!(APP_TAG, "Resetting WiFi after {} errors", MAX_ERROR);
+            unsafe {
+                FSM_STATUS_OLD = Error;
+                FSM_STATUS_CURRENT = if link_status == LinkStatus::BadAuth { Disconnected } else { Resetting };
+                let _ = on_wifi_change_status.on_status_change(Error, FSM_STATUS_CURRENT);
+            }
+        }
+        WifiFsmControl::Next
+    }
+
+    fn handle_resetting<const N: usize>(
+        gpio: &Gpio<N>,
+        on_wifi_change_status: &'static dyn OnWifiChangeStatus,
+    ) -> WifiFsmControl {
+        use WifiStatus::*;
+        log_warning!(APP_TAG, "Resetting WiFi wait 5 seconds...");
+        gpio.write(&GpioPeripheral::InternalLed, 0);
+        (WIFI_FN.disable_sta_mode)(null_mut());
+        let _ = (WIFI_FN.drop)(null_mut());
+        INITIALIZED.store(false, Ordering::Release);
+        System::delay_with_to_tick(Duration::from_millis(2_500));
+        unsafe { transition_wifi_status!(Disabled, on_wifi_change_status); }
+        WifiFsmControl::Next
+    }
+}
+
 impl SetOnWifiChangeStatus<'static> for Wifi {
     fn set_on_wifi_change_status(&mut self, on_wifi_change_status: &'static dyn OnWifiChangeStatus) {
         // Check if thread is already running
@@ -190,169 +378,36 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
             unsafe {
                 'no_rtc: loop {
-
-                    
-                        if !ENABLED.load(Ordering::Acquire) {
-                            if FSM_STATUS_CURRENT != Disconnected && FSM_STATUS_CURRENT != Disabled {
-                                transition_wifi_status!(Disconnected, on_wifi_change_status);
-                            } else if FSM_STATUS_CURRENT == Disconnected {
-                                transition_wifi_status!(Disconnected, on_wifi_change_status);
-                                continue;
-                            } if FSM_STATUS_CURRENT == Disabled {
-                                on_wifi_change_status.on_rssi_change(RSSIStatus::Unknown);
-                                System::delay_with_to_tick(Duration::from_millis(1_000));
-                                continue;
-                            }
-                        }
-                    
-
-                    match FSM_STATUS_CURRENT {
-                        Disabled => {
-
-                            gpio.write(&GpioPeripheral::InternalLed, 0);
-
-                            if !INITIALIZED.load(Ordering::Acquire) {
-                                log_info!(APP_TAG, "WIFI init");
-                                let _ = (WIFI_FN.init)(wifi_country!('I', 'T', 0));
-                                (WIFI_FN.enable_sta_mode)(null_mut());
-                                INITIALIZED.store(true, Ordering::Release);
-                            }
-
-                            System::delay_with_to_tick(Duration::from_millis(2_500));
-
-                            count_error = 0;
-                            transition_wifi_status!(Enabled, on_wifi_change_status);
+                    if !ENABLED.load(Ordering::Acquire) {
+                        if FSM_STATUS_CURRENT != Disconnected && FSM_STATUS_CURRENT != Disabled {
+                            transition_wifi_status!(Disconnected, on_wifi_change_status);
+                        } else if FSM_STATUS_CURRENT == Disconnected {
+                            transition_wifi_status!(Disconnected, on_wifi_change_status);
+                            continue;
+                        } if FSM_STATUS_CURRENT == Disabled {
                             on_wifi_change_status.on_rssi_change(RSSIStatus::Unknown);
-                        },
-                        Enabled => {
-                            gpio.write(&GpioPeripheral::InternalLed, 0);
-
-                            (WIFI_FN.enable_sta_mode)(null_mut());
-
-                            count_error = 0;
-                            transition_wifi_status!(Connecting, on_wifi_change_status);
-                            on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
-                        },
-                        Connecting => {
-                            gpio.write(&GpioPeripheral::InternalLed, 0);
-
-                            let ret = (WIFI_FN.connect)(null_mut(), (*&raw const SSID).as_str(), (*&raw const PASSWORD).as_str(), AUTH).unwrap_or(1);
-                            if ret != PICO_OK as i32{
-                                log_error!(APP_TAG, "Error connecting to WiFi, errno: {ret}");
-                                transition_wifi_status!(Error, on_wifi_change_status);
-                                continue 'no_rtc;
-                            }
-
-                            count_error = 0;
-                            transition_wifi_status!(WaitForIp, on_wifi_change_status);
-                            on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
-                            continue 'no_rtc;
-                        },
-                        WaitForIp => {  
-                            gpio.write(&GpioPeripheral::InternalLed, 0);
-
-                            link_status = (WIFI_FN.link_status)(null_mut());
-                            match link_status {
-                                LinkStatus::Up => {
-                                    transition_wifi_status!(Connected, on_wifi_change_status);
-                                    on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
-                                }
-                                LinkStatus::WaitForIp => log_debug!(APP_TAG, "WiFi connected, waiting for DHCP..."),
-                                LinkStatus::Down => {
-                                    transition_wifi_status!(Error, on_wifi_change_status);
-                                }
-                                LinkStatus::BadAuth => {
-                                    log_debug!(APP_TAG, "WiFi authentication failed");
-                                    transition_wifi_status!(Error, on_wifi_change_status);
-                                }
-                            }
+                            System::delay_with_to_tick(Duration::from_millis(1_000));
+                            continue;
+                        }
+                    }
                     
 
-                        }
-                        Connected => {
-                            link_status = (WIFI_FN.link_status)(null_mut());
-                            match link_status {
-                                LinkStatus::Up => {
-                                    gpio.write(&GpioPeripheral::InternalLed, 1);
+                    let ctrl = match FSM_STATUS_CURRENT {
+                        Disabled        => Self::handle_disabled(&gpio, &mut count_error, on_wifi_change_status),
+                        Enabled         => Self::handle_enabled(&gpio, &mut count_error, on_wifi_change_status),
+                        Connecting      => Self::handle_connecting(&gpio, &mut count_error, on_wifi_change_status),
+                        WaitForIp       => Self::handle_wait_for_ip(&gpio, &mut link_status, on_wifi_change_status),
+                        Connected       => Self::handle_connected(&gpio, &mut link_status, &mut rssi_old, on_wifi_change_status),
+                        Disconnected    => Self::handle_disconnected(&gpio, on_wifi_change_status),
+                        Error           => Self::handle_error(link_status, &mut count_error, on_wifi_change_status),
+                        Resetting       => Self::handle_resetting(&gpio, on_wifi_change_status),
+                    };
 
-                                    let rssi =  if let Ok(rssi) = (WIFI_FN.get_rssi)(null_mut()) {
-                                        match rssi {
-                                            rssi if rssi >= -50 => Excellent,
-                                            rssi if rssi >= -60 => Good,
-                                            rssi if rssi >= -70 => Fair,
-                                            rssi if rssi >= -80 => Weak,
-                                            _ => NoSignal,
-                                        }
-                                    } else {
-                                        Unknown.into()
-                                    };
-
-                                    if rssi_old != rssi.into() {
-                                        on_wifi_change_status.on_rssi_change(rssi);
-                                        rssi_old = rssi.into();
-                                    }
-
-                                    System::delay_with_to_tick(Duration::from_millis(500));
-                                }
-                                LinkStatus::WaitForIp => {
-                                    transition_wifi_status!(WaitForIp, on_wifi_change_status);
-                                }
-                                LinkStatus::Down => {
-                                    transition_wifi_status!(Error, on_wifi_change_status);
-                                }
-                                LinkStatus::BadAuth => {
-                                    log_debug!(APP_TAG, "WiFi authentication failed");
-                                    transition_wifi_status!(Error, on_wifi_change_status);
-                                }
-                            }
-                            
-                        },
-                        Disconnected => {
-                            (WIFI_FN.disable_sta_mode)(null_mut());
-                            let _ = (WIFI_FN.drop)(null_mut());
-
-                            INITIALIZED.store(false, Ordering::Release);
-
-                            System::delay_with_to_tick(Duration::from_secs(25));
-
-                            on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
-
-                            gpio.write(&GpioPeripheral::InternalLed, 0);
-
-                            break;
-                        },
-                        Error => {
-                            if count_error < MAX_ERROR {
-                                count_error += 1;
-                                log_error!(APP_TAG, "Error {}/{} retry...", count_error, MAX_ERROR);
-                                FSM_STATUS_CURRENT = FSM_STATUS_OLD;
-                                FSM_STATUS_OLD = Error;
-                                System::delay_with_to_tick(Duration::from_millis(1_000));
-                            } else {
-                                log_error!(APP_TAG, "Resetting WiFi after {} errors", MAX_ERROR);
-                                FSM_STATUS_OLD = Error;
-                                FSM_STATUS_CURRENT = if link_status == LinkStatus::BadAuth { Disconnected } else { Resetting };
-                                let _ = on_wifi_change_status.on_status_change(Error, FSM_STATUS_CURRENT);
-                            }
-                        },
-                        Resetting => {
-                            log_warning!(APP_TAG,"Resetting WiFi wait 5 seconds...");
-
-                            gpio.write(&GpioPeripheral::InternalLed, 0);
-
-                            (WIFI_FN.disable_sta_mode)(null_mut());
-                            let _ = (WIFI_FN.drop)(null_mut());
-
-                            INITIALIZED.store(false, Ordering::Release);
-
-                            System::delay_with_to_tick(Duration::from_millis(2_500));
-
-                            transition_wifi_status!(Disabled, on_wifi_change_status);
-                        },
-
-
+                    match ctrl {
+                        WifiFsmControl::Continue => continue 'no_rtc,
+                        WifiFsmControl::Break    => break,
+                        WifiFsmControl::Next     => {}
                     }
-
 
                     System::delay_with_to_tick(Duration::from_millis(100));
                 }

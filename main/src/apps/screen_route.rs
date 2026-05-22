@@ -67,58 +67,14 @@ impl ScreenRouteFn for ScreenRoute {
     ) -> osal_rs::utils::Result<()> {
         
         match self.fsm_state {
-            FSMState::Init => {
-                // Handle Init state
-                if StatusFlag::CheckConfig.check_signal(*status_signal) {
-                    self.check_staus_counter += 1;
-                    if self.check_staus_counter >= CHECK_STATUS_THRESHOLD {
-                        self.fsm_state = FSMState::SetConfig;
-                        self.check_staus_counter = 0;
-                    }
-                } else if StatusFlag::Ready.check_signal(*status_signal) {
-                    self.check_staus_counter += 1;
-                    if self.check_staus_counter >= CHECK_STATUS_THRESHOLD {
-                        self.fsm_state = FSMState::Menu;
-                        self.check_staus_counter = 0;
-                    }
-                } else {
-                    self.check_staus_counter = 0;
-                }
-            }
-            FSMState::SetConfig => {
-                if self.current_screen.is_none() {
-                    self.current_screen = Some(Box::new(ScreenSetConfig::new()));
-                } else {
-                    if let Some(screen) = &mut self.current_screen {
-                        if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
-                            self.current_screen = None; // Clear the current screen
-                            self.fsm_state = FSMState::Menu; // Move to the next state
-                        }
-                    }
-                }
-
-            }
-            FSMState::Menu => {
-                if self.current_screen.is_none() {
-                    self.current_screen = Some(Box::new(ScreenMain::new()));
-                } else {
-                    if let Some(screen) = &mut self.current_screen {
-                        if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
-                            if let Some(screen_main) = screen.as_any_mut().downcast_mut::<ScreenMain>() {
-                                self.check_staus_counter = 0;
-                                let _selected_screen: i8 = screen_main.get_selected_screen();
-                            }
-                            self.current_screen = None; // Clear the current screen
-                            // self.fsm_state = FSMState::Menu; // Move to the next state
-                        }
-                    }
-                }
-            }
-            FSMState::MenuInfo => todo!(),
-            FSMState::MenuDateTime => todo!(),
-            FSMState::MenuDaylightSavingTime => todo!(),
-            FSMState::MenuWifi => todo!(),
-            FSMState::MenuUser => todo!(),
+            FSMState::Init                      => self.handle_init(status_signal),
+            FSMState::SetConfig                 => self.handle_set_config(lcd, display_signal, status_signal, rtc),
+            FSMState::Menu                      => self.handle_menu(lcd, display_signal, status_signal, rtc),
+            FSMState::MenuInfo                  => self.handle_menu_info(lcd, display_signal, status_signal, rtc),
+            FSMState::MenuDateTime              => self.handle_menu_date_time(lcd, display_signal, status_signal, rtc),
+            FSMState::MenuDaylightSavingTime    => self.handle_menu_daylight_saving_time(lcd, display_signal, status_signal, rtc),
+            FSMState::MenuWifi                  => self.handle_menu_wifi(lcd, display_signal, status_signal, rtc),
+            FSMState::MenuUser                  => self.handle_menu_user(lcd, display_signal, status_signal, rtc),
         }
 
         Ok(())
@@ -130,6 +86,106 @@ impl ScreenRouteFn for ScreenRoute {
 }
 
 impl ScreenRoute {
+    fn handle_init(&mut self, status_signal: &mut EventBits) {
+        if StatusFlag::CheckConfig.check_signal(*status_signal) {
+            self.check_staus_counter += 1;
+            if self.check_staus_counter >= CHECK_STATUS_THRESHOLD {
+                self.fsm_state = FSMState::SetConfig;
+                self.check_staus_counter = 0;
+            }
+        } else if StatusFlag::Ready.check_signal(*status_signal) {
+            self.check_staus_counter += 1;
+            if self.check_staus_counter >= CHECK_STATUS_THRESHOLD {
+                self.fsm_state = FSMState::Menu;
+                self.check_staus_counter = 0;
+            }
+        } else {
+            self.check_staus_counter = 0;
+        }
+    }
+
+    fn handle_set_config(
+        &mut self,
+        lcd: &mut dyn LCDDisplayFn,
+        display_signal: &mut EventBits,
+        status_signal: &mut EventBits,
+        rtc: &Arc<Mutex<dyn RTC + 'static>>,
+    ) {
+        if self.current_screen.is_none() {
+            self.current_screen = Some(Box::new(ScreenSetConfig::new()));
+        } else if let Some(screen) = &mut self.current_screen {
+            if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
+                self.current_screen = None;
+                self.fsm_state = FSMState::Menu;
+            }
+        }
+    }
+
+    fn handle_menu(
+        &mut self,
+        lcd: &mut dyn LCDDisplayFn,
+        display_signal: &mut EventBits,
+        status_signal: &mut EventBits,
+        rtc: &Arc<Mutex<dyn RTC + 'static>>,
+    ) {
+        if self.current_screen.is_none() {
+            self.current_screen = Some(Box::new(ScreenMain::new()));
+        } else if let Some(screen) = &mut self.current_screen {
+            if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
+                if let Some(screen_main) = screen.as_any_mut().downcast_mut::<ScreenMain>() {
+                    self.check_staus_counter = 0;
+                    //let _selected_screen = screen_main.get_selected_screen();
+                }
+                self.current_screen = None;
+            }
+        }
+    }
+
+    fn handle_menu_info(&mut self,
+        _lcd: &mut dyn LCDDisplayFn,
+        _display_signal: &mut EventBits,
+        _status_signal: &mut EventBits,
+        _rtc: &Arc<Mutex<dyn RTC + 'static>>
+    ) { 
+        todo!() 
+    }
+    
+    fn handle_menu_date_time(&mut self,
+        _lcd: &mut dyn LCDDisplayFn,
+        _display_signal: &mut EventBits,
+        _status_signal: &mut EventBits,
+        _rtc: &Arc<Mutex<dyn RTC + 'static>>
+    ) { 
+        todo!() 
+    }
+    
+    fn handle_menu_daylight_saving_time(&mut self,
+        _lcd: &mut dyn LCDDisplayFn,
+        _display_signal: &mut EventBits,
+        _status_signal: &mut EventBits,
+        _rtc: &Arc<Mutex<dyn RTC + 'static>>
+    ) { 
+        todo!() 
+    }
+    
+    fn handle_menu_wifi(&mut self,
+        _lcd: &mut dyn LCDDisplayFn,
+        _display_signal: &mut EventBits,
+        _status_signal: &mut EventBits,
+        _rtc: &Arc<Mutex<dyn RTC + 'static>>
+    ) { 
+        todo!() 
+    }
+    
+    fn handle_menu_user(&mut self,
+        _lcd: &mut dyn LCDDisplayFn,
+        _display_signal: &mut EventBits,
+        _status_signal: &mut EventBits,
+        _rtc: &Arc<Mutex<dyn RTC + 'static>>
+    ) { 
+        todo!() 
+    }
+
     pub const fn new() -> Self {
         Self {
             fsm_state: FSMState::Init,
