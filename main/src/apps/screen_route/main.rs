@@ -76,11 +76,19 @@ impl From<FSMState> for i8 {
 }
 
 impl ScreenRoute for ScreenMain {
+    #[allow(unused)]
+    #[inline]
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 
-     fn draw(&mut self, 
+    #[allow(unused)]
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn draw(&mut self, 
         lcd: &mut dyn LCDDisplayFn,
         display_signal: &mut EventBits, 
         _status_signal: &mut EventBits, 

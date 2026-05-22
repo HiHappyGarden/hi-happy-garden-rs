@@ -23,6 +23,8 @@
 mod set_config;
 mod main;
 
+use core::any::Any;
+
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use osal_rs::os::Mutex;
@@ -51,6 +53,36 @@ enum FSMState {
     MenuUser,
 }
 
+impl From<i8> for FSMState {
+    fn from(value: i8) -> Self {
+        match value {
+            0 => FSMState::Init,
+            1 => FSMState::SetConfig,
+            2 => FSMState::Menu,
+            3 => FSMState::MenuInfo,
+            4 => FSMState::MenuDateTime,
+            5 => FSMState::MenuDaylightSavingTime,
+            6 => FSMState::MenuWifi,
+            7 => FSMState::MenuUser,
+            _ => FSMState::Init, // Default case
+        }
+    }
+}
+
+impl From<FSMState> for i8 {
+    fn from(state: FSMState) -> Self {
+        match state {
+            FSMState::Init => 0,
+            FSMState::SetConfig => 1,
+            FSMState::Menu => 2,
+            FSMState::MenuInfo => 3,
+            FSMState::MenuDateTime => 4,
+            FSMState::MenuDaylightSavingTime => 5,
+            FSMState::MenuWifi => 6,
+            FSMState::MenuUser => 7,
+        }
+    }
+}
 
 pub struct ScreenRoute {
     fsm_state: FSMState,
@@ -80,7 +112,15 @@ impl ScreenRouteFn for ScreenRoute {
         Ok(())
     }
 
-    fn as_any_mut(&mut self) -> &mut dyn core::any::Any {
+    #[allow(unused)]
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[allow(unused)]
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
         self
     }
 }
@@ -133,10 +173,14 @@ impl ScreenRoute {
         } else if let Some(screen) = &mut self.current_screen {
             if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
                 if let Some(screen_main) = screen.as_any_mut().downcast_mut::<ScreenMain>() {
+
+                    let mut main_selected_screen: i8 = (screen_main.get_selected_screen() as Option<main::FSMState>).unwrap_or(main::FSMState::Info).into();
+                    main_selected_screen += 1;
+                    self.fsm_state = FSMState::from(main_selected_screen + <FSMState as Into<i8>>::into(FSMState::Menu));
+                    self.current_screen = None;
                     self.check_staus_counter = 0;
-                    //let _selected_screen = screen_main.get_selected_screen();
+                    
                 }
-                self.current_screen = None;
             }
         }
     }
@@ -147,7 +191,7 @@ impl ScreenRoute {
         _status_signal: &mut EventBits,
         _rtc: &Arc<Mutex<dyn RTC + 'static>>
     ) { 
-        todo!() 
+        todo!("info menu not implemented yet") 
     }
     
     fn handle_menu_date_time(&mut self,
@@ -156,7 +200,7 @@ impl ScreenRoute {
         _status_signal: &mut EventBits,
         _rtc: &Arc<Mutex<dyn RTC + 'static>>
     ) { 
-        todo!() 
+        todo!("date time menu not implemented yet") 
     }
     
     fn handle_menu_daylight_saving_time(&mut self,
@@ -165,7 +209,7 @@ impl ScreenRoute {
         _status_signal: &mut EventBits,
         _rtc: &Arc<Mutex<dyn RTC + 'static>>
     ) { 
-        todo!() 
+        todo!("daylight saving time menu not implemented yet") 
     }
     
     fn handle_menu_wifi(&mut self,
@@ -174,7 +218,7 @@ impl ScreenRoute {
         _status_signal: &mut EventBits,
         _rtc: &Arc<Mutex<dyn RTC + 'static>>
     ) { 
-        todo!() 
+        todo!("WiFi menu not implemented yet") 
     }
     
     fn handle_menu_user(&mut self,
@@ -183,7 +227,7 @@ impl ScreenRoute {
         _status_signal: &mut EventBits,
         _rtc: &Arc<Mutex<dyn RTC + 'static>>
     ) { 
-        todo!() 
+        todo!("User menu not implemented yet") 
     }
 
     pub const fn new() -> Self {

@@ -107,6 +107,7 @@ pub struct ScreenSetConfig {
 }
 
 impl ScreenRoute for ScreenSetConfig {
+
      fn draw(&mut self, 
         lcd: &mut dyn LCDDisplayFn,
         display_signal: &mut EventBits, 
@@ -140,7 +141,15 @@ impl ScreenRoute for ScreenSetConfig {
         Err(Error::ReturnWithCode(1))
     }
 
+    #[allow(unused)]
+    #[inline]
     fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[allow(unused)]
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
         self
     }
 }

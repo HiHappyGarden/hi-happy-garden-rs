@@ -98,5 +98,9 @@ where N: Integer
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
     ) -> Result<()>;
 
+    #[allow(unused)]
     fn as_any_mut(&mut self) -> &mut dyn Any;
+
+    #[allow(unused)]
+    fn as_any(&self) -> &dyn Any;
 }
