@@ -21,7 +21,7 @@
 use alloc::sync::Arc;
 use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::{log_info};
-use osal_rs::utils::Result;
+use osal_rs::utils::{Bytes, Result};
 
 use crate::apps::config::Config;
 use crate::apps::signals::display::DisplaySignal;
@@ -33,11 +33,12 @@ use crate::traits::rtc::RTC;
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
 use crate::traits::wifi::{OnWifiChangeStatus, RSSIStatus, WifiStatus::{self, *}};
-
+use crate::traits::network::IPV6_ADDR_LEN;
 
 const APP_TAG: &str = "AppWifi";
 
 static mut STATUS: WifiStatus = Disabled;
+static mut IP_ADDR: Bytes<IPV6_ADDR_LEN> = Bytes::new();
 
 macro_rules! ntp_sync {
     ($tag:expr, $config:expr) => {
@@ -93,8 +94,11 @@ impl OnWifiChangeStatus for Wifi {
         match status {
             Disabled | Enabled | Connecting | WaitForIp => log_info!(APP_TAG, "Waiting for IP status: {status:?}"),
             Connected => {
-                log_info!(APP_TAG, "Connected ip: {}", Network::dhcp_get_ip_address());
-
+                unsafe {
+                    IP_ADDR = Network::dhcp_get_ip_address();
+                    log_info!(APP_TAG, "Connected ip: {}", (*&raw const IP_ADDR));
+                }
+                
                 let timestamp = ntp_sync!(APP_TAG, config);
                 
 
@@ -140,5 +144,9 @@ impl Wifi {
 
     pub fn set_rtc(&mut self, rtc: Arc<Mutex<dyn RTC + 'static>>) {
         self.0 = Some(rtc);
+    }
+
+    pub fn get_ip_address() -> Bytes<IPV6_ADDR_LEN> {
+        unsafe { (*&raw const IP_ADDR).clone() }
     }
 }

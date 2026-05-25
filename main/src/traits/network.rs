@@ -24,7 +24,7 @@ use core::fmt::Display;
 
 use osal_rs::utils::Bytes;
 
-pub(crate) const IPV6_ADDR_LEN: usize = 40;
+pub const IPV6_ADDR_LEN: usize = 40;
 
 pub trait IpAddress : Display {
     

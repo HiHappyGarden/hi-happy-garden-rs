@@ -20,6 +20,7 @@
 
 #![allow(dead_code)]
 
+mod info;
 mod set_config;
 mod main;
 
@@ -32,6 +33,7 @@ use osal_rs::os::types::EventBits;
 
 
 use set_config::ScreenSetConfig;
+use crate::apps::screen_route::info::ScreenInfo;
 use crate::apps::screen_route::main::ScreenMain;
 use crate::apps::signals::status::StatusFlag;
 use crate::traits::rtc::RTC;
@@ -191,7 +193,14 @@ impl ScreenRoute {
         _status_signal: &mut EventBits,
         _rtc: &Arc<Mutex<dyn RTC + 'static>>
     ) { 
-        todo!("info menu not implemented yet") 
+        if self.current_screen.is_none() {
+            self.current_screen = Some(Box::new(ScreenInfo::new()));
+        } else if let Some(screen) = &mut self.current_screen {
+            if screen.draw(_lcd, _display_signal, _status_signal, _rtc).is_ok() {
+                self.current_screen = None;
+                self.fsm_state = FSMState::Menu;
+            }
+        }
     }
     
     fn handle_menu_date_time(&mut self,
