@@ -65,7 +65,7 @@ macro_rules! set_current_status {
 #[derive(Clone, Copy)]
 struct AppMainPtr(usize);
 
-pub struct AppMain {
+pub(crate) struct AppMain {
     hardware: &'static mut Hardware,
     display: Display<LCDDisplay>,
     wifi: Wifi,
@@ -106,7 +106,7 @@ impl Initializable for AppMain{
 }
 
 impl AppMain {
-    pub fn new(hardware: &'static mut Hardware) -> Self {
+    pub(crate) fn new(hardware: &'static mut Hardware) -> Self {
         
         let display = Display::shared(hardware.get_rtc(), hardware.get_lcd_display());
 

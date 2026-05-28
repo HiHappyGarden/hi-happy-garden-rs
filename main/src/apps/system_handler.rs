@@ -32,7 +32,7 @@ use crate::traits::signal::Signal;
 
 static mut SYSTEM_HANDLER: SystemHandler = SystemHandler;
 
-pub struct SystemHandler;
+pub(in crate::apps) struct SystemHandler;
     
 impl AtContext<{CMD_SIZE}> for SystemHandler {
 
@@ -72,7 +72,7 @@ impl SystemHandler {
     pub const AT_CMD: &'static str = "AT+SYS";
     pub const AT_RESP: &'static str = "+SYS: ";
 
-    pub fn get() -> &'static mut SystemHandler {
+    pub(in crate::apps) fn get() -> &'static mut SystemHandler {
         unsafe { &mut *&raw mut SYSTEM_HANDLER }
     }
 }

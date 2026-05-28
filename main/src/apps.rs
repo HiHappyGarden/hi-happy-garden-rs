@@ -29,6 +29,6 @@ mod system_handler;
 mod system_led;
 mod wifi;
 
-pub use display::DISPLAY_INPUT_MAX_SIZE;
-pub use main::AppMain;
+pub(crate) use display::DISPLAY_INPUT_MAX_SIZE;
+pub(crate) use main::AppMain;
 

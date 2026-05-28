@@ -95,14 +95,14 @@ static mut CONFIG: Config = Config {
 };
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
-pub struct DaylightSavingTime {
-    pub start_month: u8,
-    pub start_day: u8,
-    pub start_hour: u8,
-    pub end_month: u8,
-    pub end_day: u8,
-    pub end_hour: u8,
-    pub enabled: bool,
+pub(in crate::apps) struct DaylightSavingTime {
+    pub(in crate::apps) start_month: u8,
+    pub(in crate::apps) start_day: u8,
+    pub(in crate::apps) start_hour: u8,
+    pub(in crate::apps) end_month: u8,
+    pub(in crate::apps) end_day: u8,
+    pub(in crate::apps) end_hour: u8,
+    pub(in crate::apps) enabled: bool,
 }
 
 impl Default for DaylightSavingTime {
@@ -120,8 +120,8 @@ impl Default for DaylightSavingTime {
 }
 
 impl DaylightSavingTime {
-    pub const AT_CMD: &'static str = "AT+DST";
-    pub const AT_RESP: &'static str = "+DST: ";
+    pub(in crate::apps) const AT_CMD: &'static str = "AT+DST";
+    pub(in crate::apps) const AT_RESP: &'static str = "+DST: ";
 }
 
 impl AtContext<{ CMD_SIZE }> for DaylightSavingTime {
@@ -184,7 +184,7 @@ impl AtContext<{ CMD_SIZE }> for DaylightSavingTime {
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
-pub struct WifiConfig {
+pub(in crate::apps) struct WifiConfig {
     ssid: Bytes<32>,
     password: Bytes<32>,
     auth: Auth,
@@ -203,56 +203,56 @@ impl Default for WifiConfig {
 }
 
 impl WifiConfig {
-    pub const AT_CMD: &'static str = "AT+WIFI";
-    pub const AT_RESP: &'static str = "+WIFI: ";
+    pub(in crate::apps) const AT_CMD: &'static str = "AT+WIFI";
+    pub(in crate::apps) const AT_RESP: &'static str = "+WIFI: ";
 
-    pub fn get_ssid(&self) -> &Bytes<32> {
+    pub(in crate::apps) fn get_ssid(&self) -> &Bytes<32> {
         mutex().lock();
         let ssid = &self.ssid;
         mutex().unlock();
         ssid
     }
 
-    pub fn get_password(&self) -> &Bytes<32> {
+    pub(in crate::apps) fn get_password(&self) -> &Bytes<32> {
         mutex().lock();
         let password = &self.password;
         mutex().unlock();
         password
     }
 
-    pub fn is_enabled(&self) -> bool {
+    pub(in crate::apps) fn is_enabled(&self) -> bool {
         mutex().lock();
         let enabled = self.enabled;
         mutex().unlock();
         enabled
     }
 
-    pub fn get_auth(&self) -> Auth {
+    pub(in crate::apps) fn get_auth(&self) -> Auth {
         mutex().lock();
         let auth = self.auth;
         mutex().unlock();
         auth
     }
 
-    pub fn set_ssid(&mut self, ssid: &str) {
+    pub(in crate::apps) fn set_ssid(&mut self, ssid: &str) {
         mutex().lock();
         self.ssid = Bytes::from_str(ssid);
         mutex().unlock();
     }
 
-    pub fn set_password(&mut self, password: &str) {
+    pub(in crate::apps) fn set_password(&mut self, password: &str) {
         mutex().lock();
         self.password = Bytes::from_str(password);
         mutex().unlock();
     }
 
-    pub fn set_enabled(&mut self, enabled: bool) {
+    pub(in crate::apps) fn set_enabled(&mut self, enabled: bool) {
         mutex().lock();
         self.enabled = enabled;
         mutex().unlock();
     }
 
-    pub fn set_auth(&mut self, auth: Auth) {
+    pub(in crate::apps) fn set_auth(&mut self, auth: Auth) {
         mutex().lock();
         self.auth = auth;
         mutex().unlock();
@@ -300,7 +300,7 @@ impl AtContext<{ CMD_SIZE }> for WifiConfig {
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
-pub struct NtpConfig {
+pub(in crate::apps) struct NtpConfig {
     server: Bytes<64>,
     port: u16,
     msg_len: u16,
@@ -317,43 +317,43 @@ impl Default for NtpConfig {
 }
 
 impl NtpConfig {
-    pub const AT_CMD: &'static str = "AT+NTP";
-    pub const AT_RESP: &'static str = "+NTP: ";
+    pub(in crate::apps) const AT_CMD: &'static str = "AT+NTP";
+    pub(in crate::apps) const AT_RESP: &'static str = "+NTP: ";
 
-    pub fn get_server(&self) -> &Bytes<64> {
+    pub(in crate::apps) fn get_server(&self) -> &Bytes<64> {
         mutex().lock();
         let server = &self.server;
         mutex().unlock();
         server
     }
 
-    pub fn get_port(&self) -> u16 {
+    pub(in crate::apps) fn get_port(&self) -> u16 {
         mutex().lock();
         let port = self.port;
         mutex().unlock();
         port
     }
 
-    pub fn get_msg_len(&self) -> u16 {
+    pub(in crate::apps) fn get_msg_len(&self) -> u16 {
         mutex().lock();
         let msg_len = self.msg_len;
         mutex().unlock();
         msg_len
     }
 
-    pub fn set_server(&mut self, server: &str) {
+    pub(in crate::apps) fn set_server(&mut self, server: &str) {
         mutex().lock();
         self.server = Bytes::from_str(server);
         mutex().unlock();
     }
 
-    pub fn set_port(&mut self, port: u16) {
+    pub(in crate::apps) fn set_port(&mut self, port: u16) {
         mutex().lock();
         self.port = port;
         mutex().unlock();
     }
 
-    pub fn set_msg_len(&mut self, msg_len: u16) {
+    pub(in crate::apps) fn set_msg_len(&mut self, msg_len: u16) {
         mutex().lock();
         self.msg_len = msg_len;
         mutex().unlock();
@@ -396,7 +396,7 @@ impl AtContext<{ CMD_SIZE }> for NtpConfig {
 
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
-pub struct Config {
+pub(in crate::apps) struct Config {
     version: u8,
     serial: Bytes<16>,
     timezone: i16,
@@ -495,8 +495,8 @@ impl AtContext<{ CMD_SIZE }> for Config {
 
 impl Config {
     const FILE_NAME: &'static str = "config.json";
-    pub const AT_CMD: &'static str = "AT+CNF";
-    pub const AT_RESP: &'static str = "+CNF: ";
+    pub(in crate::apps) const AT_CMD: &'static str = "AT+CNF";
+    pub(in crate::apps) const AT_RESP: &'static str = "+CNF: ";
 
     /// Initialize Config with default values from CMake
     fn with_defaults() -> Self {
@@ -514,11 +514,11 @@ impl Config {
         config
     }
 
-    pub fn apply_locale(&self) {
+    pub(in crate::apps) fn apply_locale(&self) {
         DateTime::set_timezone(self.timezone);
     }
 
-    pub fn apply_daylight_saving_time(&self) {
+    pub(in crate::apps) fn apply_daylight_saving_time(&self) {
         DateTime::set_daylight_saving_time_whit_param(
             self.daylight_saving_time.enabled,
             self.daylight_saving_time.start_month,
@@ -530,7 +530,7 @@ impl Config {
         );
     }
 
-    pub fn apply_ntp(&self) {
+    pub(in crate::apps) fn apply_ntp(&self) {
         Network::set_ntp(
             self.ntp.get_server().clone(),
             self.ntp.get_port(),
@@ -538,7 +538,7 @@ impl Config {
         );
     }
 
-    pub fn apply_wifi(&self) {
+    pub(in crate::apps) fn apply_wifi(&self) {
         Wifi::set_config(
             self.wifi.get_ssid().clone(),
             self.wifi.get_password().clone(),
@@ -547,15 +547,15 @@ impl Config {
         );
     }
 
-    pub fn apply_session(&self) {
+    pub(in crate::apps) fn apply_session(&self) {
         self.session.set_user_local();
     }
 
-    pub const fn shared() -> &'static mut Self {
+    pub(in crate::apps) const fn shared() -> &'static mut Self {
         unsafe { &mut *&raw mut CONFIG }
     }
 
-    pub fn load() -> Result<&'static mut Self> {
+    pub(in crate::apps) fn load() -> Result<&'static mut Self> {
         let mut file_name = FileBytes::from_str(FS_CONFIG_DIR);
         file_name.append_str(FS_SEPARATOR_DIR);
         file_name.append_str(Config::FILE_NAME);
@@ -627,7 +627,7 @@ impl Config {
         }
     }
 
-    pub fn save() -> Result<&'static mut Self> {
+    pub(in crate::apps) fn save() -> Result<&'static mut Self> {
         let mut file_name = FileBytes::from_str(FS_CONFIG_DIR);
         file_name.append_str(FS_SEPARATOR_DIR);
         file_name.append_str(Config::FILE_NAME);
@@ -663,68 +663,68 @@ impl Config {
         }
     }
 
-    pub fn get_version(&self) -> u8 {
+    pub(in crate::apps) fn get_version(&self) -> u8 {
         mutex().lock();
         let version = self.version;
         mutex().unlock();
         version
     }
 
-    pub fn get_serial(&self) -> &Bytes<16> {
+    pub(in crate::apps) fn get_serial(&self) -> &Bytes<16> {
         mutex().lock();
         let serial = &self.serial;
         mutex().unlock();
         serial
     }
 
-    pub fn set_serial(&mut self, serial: &Bytes<16>) {
+    pub(in crate::apps) fn set_serial(&mut self, serial: &Bytes<16>) {
         mutex().lock();
         self.serial = serial.clone();
         mutex().unlock();
     }
 
-    pub fn get_timezone(&self) -> i16 {
+    pub(in crate::apps) fn get_timezone(&self) -> i16 {
         mutex().lock();
         let timezone = self.timezone;
         mutex().unlock();
         timezone
     }
 
-    pub fn set_timezone(&mut self, timezone: i16) {
+    pub(in crate::apps) fn set_timezone(&mut self, timezone: i16) {
         mutex().lock();
         self.timezone = timezone;
         mutex().unlock();
     }
 
-    pub fn get_ntp_config(&self) -> &NtpConfig {
+    pub(in crate::apps) fn get_ntp_config(&self) -> &NtpConfig {
         mutex().lock();
         let ntp = &self.ntp;
         mutex().unlock();
         ntp
     }
 
-    pub fn get_ntp_config_mut(&mut self) -> &mut NtpConfig {
+    pub(in crate::apps) fn get_ntp_config_mut(&mut self) -> &mut NtpConfig {
         mutex().lock();
         let ntp = &mut self.ntp;
         mutex().unlock();
         ntp
     }
 
-    pub fn get_daylight_saving_time(&mut self) -> &mut DaylightSavingTime {
+    pub(in crate::apps) fn get_daylight_saving_time(&mut self) -> &mut DaylightSavingTime {
         mutex().lock();
         let dst = &mut self.daylight_saving_time;
         mutex().unlock();
         dst
     }
 
-    pub fn get_wifi_config(&mut self) -> &mut WifiConfig {
+    pub(in crate::apps) fn get_wifi_config(&mut self) -> &mut WifiConfig {
         mutex().lock();
         let wifi = &mut self.wifi;
         mutex().unlock();
         wifi
     }
 
-    pub fn get_session(&mut self) -> &mut Session {
+    pub(in crate::apps) fn get_session(&mut self) -> &mut Session {
         mutex().lock();
         let session = &mut self.session;
         mutex().unlock();

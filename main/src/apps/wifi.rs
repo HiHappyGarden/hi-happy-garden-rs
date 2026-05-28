@@ -72,7 +72,7 @@ macro_rules! ntp_sync {
     };
 }
 
-pub struct Wifi(Option<Arc<Mutex<dyn RTC + 'static>>>);
+pub(in crate::apps) struct Wifi(Option<Arc<Mutex<dyn RTC + 'static>>>);
 
 impl Initializable for Wifi {
     fn init(&mut self) -> Result<()> {
@@ -132,21 +132,21 @@ impl OnWifiChangeStatus for Wifi {
 }
 
 impl Wifi {
-    pub fn shared() -> Self {
+    pub(in crate::apps) fn shared() -> Self {
         Self(None)
     }
 
     #[allow(dead_code)]
     #[inline]
-    pub const fn get_status(&self) -> WifiStatus {
+    pub(in crate::apps) const fn get_status(&self) -> WifiStatus {
         unsafe { STATUS }
     }
 
-    pub fn set_rtc(&mut self, rtc: Arc<Mutex<dyn RTC + 'static>>) {
+    pub(in crate::apps) fn set_rtc(&mut self, rtc: Arc<Mutex<dyn RTC + 'static>>) {
         self.0 = Some(rtc);
     }
 
-    pub fn get_ip_address() -> Bytes<IPV6_ADDR_LEN> {
+    pub(in crate::apps) fn get_ip_address() -> Bytes<IPV6_ADDR_LEN> {
         unsafe { (*&raw const IP_ADDR).clone() }
     }
 }

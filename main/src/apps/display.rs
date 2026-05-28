@@ -61,7 +61,7 @@ const THREAD_NAME: &str = "app_display_trd";
 const STACK_SIZE: StackType = 1_024 * 7;
 const TICK_INTERVAL_MS: u16 = 100;
 
-pub const DISPLAY_INPUT_MAX_SIZE: usize = MAX_SIZE;
+pub(crate) const DISPLAY_INPUT_MAX_SIZE: usize = MAX_SIZE;
 
 static mut ON_RECEIVE: Option<&'static dyn OnReceive> = Option::None;
 

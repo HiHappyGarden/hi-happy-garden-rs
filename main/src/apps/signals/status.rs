@@ -27,7 +27,7 @@ use osal_rs::utils::Bytes;
 use crate::{define_signal, traits::rx_tx::Source};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum StatusFlag {
+pub(in crate::apps) enum StatusFlag {
     None = 0x00,
     Startup = 0x01,
     EnableSystemHandler = 0x02,
@@ -89,7 +89,7 @@ impl From<&Source> for StatusFlag {
 }
 
 impl StatusFlag {
-    pub fn as_str(&self) -> Bytes<24> {
+    pub(in crate::apps) fn as_str(&self) -> Bytes<24> {
         use StatusFlag::*;
         match self {
             None => Bytes::from("None"),
@@ -110,7 +110,7 @@ impl StatusFlag {
         }
     }
 
-    pub fn check_signal(&self, signal: u32) -> bool {
+    pub(in crate::apps) fn check_signal(&self, signal: u32) -> bool {
         let flag_value: u32 = (*self).into();
         (signal & flag_value) == flag_value
     }

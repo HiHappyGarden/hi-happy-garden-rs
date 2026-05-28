@@ -51,7 +51,7 @@ use crate::traits::screen::ScreenRoute as ScreenRouteFn;
 use crate::traits::lcd_display::LCDDisplayFn;
 
 
-pub static mut SCREEN_ROUTE: ScreenRoute = ScreenRoute::new();
+pub(in crate::apps) static mut SCREEN_ROUTE: ScreenRoute = ScreenRoute::new();
 
 const CHECK_STATUS_THRESHOLD: u8 = 5;
 
@@ -97,7 +97,7 @@ impl From<FSMState> for i8 {
     }
 }
 
-pub struct ScreenRoute {
+pub(in crate::apps) struct ScreenRoute {
     fsm_state: FSMState,
     main_fsm_state: MainFSMState,
     check_staus_counter: u8,
@@ -232,7 +232,7 @@ impl ScreenRoute {
         }
     }
 
-    pub const fn new() -> Self {
+    pub(in crate::apps) const fn new() -> Self {
         Self {
             fsm_state: FSMState::Init,
             main_fsm_state: MainFSMState::Info,
