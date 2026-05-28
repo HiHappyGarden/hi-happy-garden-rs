@@ -34,6 +34,13 @@ use crate::traits::rtc::RTC;
 use crate::traits::screen::{Screen, ScreenParam, ScreenRoute};
 
 static SELECTED_SCREEN: AtomicI8 = AtomicI8::new(-1);
+static PENDING_SELECTION: AtomicI8 = AtomicI8::new(-1);
+
+fn select_callback(_: Option<ScreenParam<u16>>, confirmed: bool) {
+    if confirmed {
+        SELECTED_SCREEN.store(PENDING_SELECTION.load(Ordering::SeqCst), Ordering::SeqCst);
+    }
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum FSMState {
@@ -69,6 +76,18 @@ impl From<FSMState> for i8 {
     }
 }
 
+impl FSMState {
+    fn label(self) -> &'static str {
+        match self {
+            FSMState::Info             => "Info",
+            FSMState::DateTime         => "Date Time",
+            FSMState::DaylightSavingTime => "Daylight Saving Time",
+            FSMState::Wifi             => "Wifi",
+            FSMState::User             => "User",
+        }
+    }
+}
+
  pub(super) struct ScreenMain {
     fsm_state: FSMState,
     text: Text,
@@ -98,69 +117,15 @@ impl ScreenRoute for ScreenMain {
 
         self.update_input(display_signal);
 
-        match self.fsm_state {
-            FSMState::Info => 
-                self.text.draw(
-                    lcd, 
-                    display_signal, 
-                    rtc, 
-                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Info"), 
-                    ScreenParam::<u16>::default(), 
-                    Some(|_, confirmed| {
-                        if confirmed {
-                            SELECTED_SCREEN.store(FSMState::Info.into(), Ordering::SeqCst);
-                        }
-                    })
-                )?,
-            FSMState::DateTime => self.text.draw(
-                    lcd, 
-                    display_signal, 
-                    rtc, 
-                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Date Time"), 
-                    ScreenParam::<u16>::default(), 
-                    Some(|_, confirmed| {
-                        if confirmed {
-                            SELECTED_SCREEN.store(FSMState::DateTime.into(), Ordering::SeqCst);
-                        } 
-                    })
-                )?,
-            FSMState::DaylightSavingTime => self.text.draw(
-                    lcd, 
-                    display_signal, 
-                    rtc, 
-                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Daylight Saving Time"), 
-                    ScreenParam::<u16>::default(), 
-                    Some(|_, confirmed| {
-                        if confirmed {
-                            SELECTED_SCREEN.store(FSMState::DaylightSavingTime.into(), Ordering::SeqCst);
-                        } 
-                    })
-                )?,
-            FSMState::Wifi => self.text.draw(
-                    lcd, 
-                    display_signal, 
-                    rtc, 
-                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Wifi"), 
-                    ScreenParam::<u16>::default(), 
-                    Some(|_, confirmed| {
-                        if confirmed {
-                            SELECTED_SCREEN.store(FSMState::Wifi.into(), Ordering::SeqCst);
-                        } 
-                    })
-                )?,
-            FSMState::User => self.text.draw(
-                    lcd, 
-                    display_signal, 
-                    rtc, 
-                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("User"), 
-                    ScreenParam::<u16>::default(), 
-                    Some(|_, confirmed| {
-                        if confirmed {
-                            SELECTED_SCREEN.store(FSMState::User.into(), Ordering::SeqCst);
-                        } 
-                    })
-                )?,
-        }
+        PENDING_SELECTION.store(self.fsm_state.into(), Ordering::SeqCst);
+        self.text.draw(
+            lcd,
+            display_signal,
+            rtc,
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str(self.fsm_state.label()),
+            ScreenParam::<u16>::default(),
+            Some(select_callback),
+        )?;
 
         
 
