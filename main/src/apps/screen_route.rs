@@ -199,7 +199,7 @@ impl ScreenRoute {
     fn handle_menu_info(&mut self,
         _lcd: &mut dyn LCDDisplayFn,
         display_signal: &mut EventBits,
-        _status_signal: &mut EventBits,
+        status_signal: &mut EventBits,
         _rtc: &Arc<Mutex<dyn RTC + 'static>>
     ) { 
         if self.current_screen.is_none() {
@@ -212,7 +212,7 @@ impl ScreenRoute {
             *display_signal &= !BUTTON_MASK;
         }
         if let Some(screen) = &mut self.current_screen {
-            if screen.draw(_lcd, display_signal, _status_signal, _rtc).is_ok() {
+            if screen.draw(_lcd, display_signal, status_signal, _rtc).is_ok() {
                 self.current_screen = None;
                 self.fsm_state = FSMState::Menu;
             }
