@@ -23,6 +23,10 @@
 mod info;
 mod set_config;
 mod main;
+mod date_time;
+mod daylight_saving_time;
+mod wifi;
+mod user;
 
 use core::any::Any;
 
@@ -35,6 +39,10 @@ use osal_rs::os::types::EventBits;
 use set_config::ScreenSetConfig;
 use crate::apps::screen_route::info::ScreenInfo;
 use crate::apps::screen_route::main::ScreenMain;
+use crate::apps::screen_route::date_time::ScreenDateTime;
+use crate::apps::screen_route::daylight_saving_time::ScreenDaylightSavingTime;
+use crate::apps::screen_route::wifi::ScreenWifi;
+use crate::apps::screen_route::user::ScreenUser;
 use crate::apps::signals::display::DisplayFlag;
 use crate::apps::signals::status::StatusFlag;
 use crate::traits::rtc::RTC;
@@ -129,6 +137,12 @@ impl ScreenRouteFn for ScreenRoute {
 }
 
 impl ScreenRoute {
+
+    const BUTTON_MASK: u32 = DisplayFlag::ButtonPressed as u32
+                | DisplayFlag::ButtonReleased as u32
+                | DisplayFlag::EncoderButtonPressed as u32
+                | DisplayFlag::EncoderButtonReleased as u32;
+
     fn handle_init(&mut self, status_signal: &mut EventBits) {
         if StatusFlag::CheckConfig.check_signal(*status_signal) {
             self.check_staus_counter += 1;
@@ -186,11 +200,7 @@ impl ScreenRoute {
                     self.check_staus_counter = 0;
                     // Clear button events so the incoming screen does not see the
                     // same (or bounced) press that triggered this transition.
-                    const BUTTON_MASK: u32 = DisplayFlag::ButtonPressed as u32
-                        | DisplayFlag::ButtonReleased as u32
-                        | DisplayFlag::EncoderButtonPressed as u32
-                        | DisplayFlag::EncoderButtonReleased as u32;
-                    *display_signal &= !BUTTON_MASK;
+                    *display_signal &= !Self::BUTTON_MASK;      
                 }
             }
         }
@@ -205,11 +215,8 @@ impl ScreenRoute {
         if self.current_screen.is_none() {
             self.current_screen = Some(Box::new(ScreenInfo::new()));
             // Clear any button signals that may have bounced from the transition.
-            const BUTTON_MASK: u32 = DisplayFlag::ButtonPressed as u32
-                | DisplayFlag::ButtonReleased as u32
-                | DisplayFlag::EncoderButtonPressed as u32
-                | DisplayFlag::EncoderButtonReleased as u32;
-            *display_signal &= !BUTTON_MASK;
+            *display_signal &= !Self::BUTTON_MASK;
+            *display_signal |= DisplayFlag::Draw as u32;
         }
         if let Some(screen) = &mut self.current_screen {
             if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
@@ -220,39 +227,79 @@ impl ScreenRoute {
     }
     
     fn handle_menu_date_time(&mut self,
-        _lcd: &mut dyn LCDDisplayFn,
-        _display_signal: &mut EventBits,
-        _status_signal: &mut EventBits,
-        _rtc: &Arc<Mutex<dyn RTC + 'static>>
+        lcd: &mut dyn LCDDisplayFn,
+        display_signal: &mut EventBits,
+        status_signal: &mut EventBits,
+        rtc: &Arc<Mutex<dyn RTC + 'static>>
     ) { 
-        todo!("date time menu not implemented yet") 
+        if self.current_screen.is_none() {
+            self.current_screen = Some(Box::new(ScreenDateTime::new()));
+            *display_signal &= !Self::BUTTON_MASK;
+            *display_signal |= DisplayFlag::Draw as u32;
+        }
+        if let Some(screen) = &mut self.current_screen {
+            if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
+                self.current_screen = None;
+                self.fsm_state = FSMState::Menu;
+            }
+        }
     }
     
     fn handle_menu_daylight_saving_time(&mut self,
-        _lcd: &mut dyn LCDDisplayFn,
-        _display_signal: &mut EventBits,
-        _status_signal: &mut EventBits,
-        _rtc: &Arc<Mutex<dyn RTC + 'static>>
+        lcd: &mut dyn LCDDisplayFn,
+        display_signal: &mut EventBits,
+        status_signal: &mut EventBits,
+        rtc: &Arc<Mutex<dyn RTC + 'static>>
     ) { 
-        todo!("daylight saving time menu not implemented yet") 
+        if self.current_screen.is_none() {
+            self.current_screen = Some(Box::new(ScreenDaylightSavingTime::new()));
+            *display_signal &= !Self::BUTTON_MASK;
+            *display_signal |= DisplayFlag::Draw as u32;
+        }
+        if let Some(screen) = &mut self.current_screen {
+            if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
+                self.current_screen = None;
+                self.fsm_state = FSMState::Menu;
+            }
+        }
     }
     
     fn handle_menu_wifi(&mut self,
-        _lcd: &mut dyn LCDDisplayFn,
-        _display_signal: &mut EventBits,
-        _status_signal: &mut EventBits,
-        _rtc: &Arc<Mutex<dyn RTC + 'static>>
+        lcd: &mut dyn LCDDisplayFn,
+        display_signal: &mut EventBits,
+        status_signal: &mut EventBits,
+        rtc: &Arc<Mutex<dyn RTC + 'static>>
     ) { 
-        todo!("WiFi menu not implemented yet") 
+        if self.current_screen.is_none() {
+            self.current_screen = Some(Box::new(ScreenWifi::new()));
+            *display_signal &= !Self::BUTTON_MASK;
+            *display_signal |= DisplayFlag::Draw as u32;
+        }
+        if let Some(screen) = &mut self.current_screen {
+            if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
+                self.current_screen = None;
+                self.fsm_state = FSMState::Menu;
+            }
+        }
     }
     
     fn handle_menu_user(&mut self,
-        _lcd: &mut dyn LCDDisplayFn,
-        _display_signal: &mut EventBits,
-        _status_signal: &mut EventBits,
-        _rtc: &Arc<Mutex<dyn RTC + 'static>>
+        lcd: &mut dyn LCDDisplayFn,
+        display_signal: &mut EventBits,
+        status_signal: &mut EventBits,
+        rtc: &Arc<Mutex<dyn RTC + 'static>>
     ) { 
-        todo!("User menu not implemented yet") 
+        if self.current_screen.is_none() {
+            self.current_screen = Some(Box::new(ScreenUser::new()));
+            *display_signal &= !Self::BUTTON_MASK;
+            *display_signal |= DisplayFlag::Draw as u32;
+        }
+        if let Some(screen) = &mut self.current_screen {
+            if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
+                self.current_screen = None;
+                self.fsm_state = FSMState::Menu;
+            }
+        }
     }
 
     pub const fn new() -> Self {
