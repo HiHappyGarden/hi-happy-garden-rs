@@ -33,8 +33,8 @@ pub(in crate::apps) enum ErrorFlag {
     NTP = 0x01,
     DateTime = 0x02,
     Display = 0x04,
+    #[allow(unused)]
     DisplayHeader = 0x08,
-
 }
 
 impl From<u32> for ErrorFlag {
