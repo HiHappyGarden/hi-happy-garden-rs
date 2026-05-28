@@ -113,11 +113,11 @@ impl ScreenRouteFn for ScreenRoute {
             FSMState::Init                      => self.handle_init(status_signal),
             FSMState::SetConfig                 => self.handle_set_config(lcd, display_signal, status_signal, rtc),
             FSMState::Menu                      => self.handle_menu(lcd, display_signal, status_signal, rtc),
-            FSMState::MenuInfo                  => self.handle_menu_info(lcd, display_signal, status_signal, rtc),
-            FSMState::MenuDateTime              => self.handle_menu_date_time(lcd, display_signal, status_signal, rtc),
-            FSMState::MenuDaylightSavingTime    => self.handle_menu_daylight_saving_time(lcd, display_signal, status_signal, rtc),
-            FSMState::MenuWifi                  => self.handle_menu_wifi(lcd, display_signal, status_signal, rtc),
-            FSMState::MenuUser                  => self.handle_menu_user(lcd, display_signal, status_signal, rtc),
+            FSMState::MenuInfo                  => self.handle_submenu(lcd, display_signal, status_signal, rtc, || Box::new(ScreenInfo::new())),
+            FSMState::MenuDateTime              => self.handle_submenu(lcd, display_signal, status_signal, rtc, || Box::new(ScreenDateTime::new())),
+            FSMState::MenuDaylightSavingTime    => self.handle_submenu(lcd, display_signal, status_signal, rtc, || Box::new(ScreenDaylightSavingTime::new())),
+            FSMState::MenuWifi                  => self.handle_submenu(lcd, display_signal, status_signal, rtc, || Box::new(ScreenWifi::new())),
+            FSMState::MenuUser                  => self.handle_submenu(lcd, display_signal, status_signal, rtc, || Box::new(ScreenUser::new())),
         }
 
         Ok(())
@@ -206,91 +206,16 @@ impl ScreenRoute {
         }
     }
 
-    fn handle_menu_info(&mut self,
+    fn handle_submenu(
+        &mut self,
         lcd: &mut dyn LCDDisplayFn,
         display_signal: &mut EventBits,
         status_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>
-    ) { 
+        rtc: &Arc<Mutex<dyn RTC + 'static>>,
+        build_screen: fn() -> Box<dyn ScreenRouteFn>,
+    ) {
         if self.current_screen.is_none() {
-            self.current_screen = Some(Box::new(ScreenInfo::new()));
-            // Clear any button signals that may have bounced from the transition.
-            *display_signal &= !Self::BUTTON_MASK;
-            *display_signal |= DisplayFlag::Draw as u32;
-        }
-        if let Some(screen) = &mut self.current_screen {
-            if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
-                self.current_screen = None;
-                self.fsm_state = FSMState::Menu;
-            }
-        }
-    }
-    
-    fn handle_menu_date_time(&mut self,
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits,
-        status_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>
-    ) { 
-        if self.current_screen.is_none() {
-            self.current_screen = Some(Box::new(ScreenDateTime::new()));
-            *display_signal &= !Self::BUTTON_MASK;
-            *display_signal |= DisplayFlag::Draw as u32;
-        }
-        if let Some(screen) = &mut self.current_screen {
-            if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
-                self.current_screen = None;
-                self.fsm_state = FSMState::Menu;
-            }
-        }
-    }
-    
-    fn handle_menu_daylight_saving_time(&mut self,
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits,
-        status_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>
-    ) { 
-        if self.current_screen.is_none() {
-            self.current_screen = Some(Box::new(ScreenDaylightSavingTime::new()));
-            *display_signal &= !Self::BUTTON_MASK;
-            *display_signal |= DisplayFlag::Draw as u32;
-        }
-        if let Some(screen) = &mut self.current_screen {
-            if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
-                self.current_screen = None;
-                self.fsm_state = FSMState::Menu;
-            }
-        }
-    }
-    
-    fn handle_menu_wifi(&mut self,
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits,
-        status_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>
-    ) { 
-        if self.current_screen.is_none() {
-            self.current_screen = Some(Box::new(ScreenWifi::new()));
-            *display_signal &= !Self::BUTTON_MASK;
-            *display_signal |= DisplayFlag::Draw as u32;
-        }
-        if let Some(screen) = &mut self.current_screen {
-            if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
-                self.current_screen = None;
-                self.fsm_state = FSMState::Menu;
-            }
-        }
-    }
-    
-    fn handle_menu_user(&mut self,
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits,
-        status_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>
-    ) { 
-        if self.current_screen.is_none() {
-            self.current_screen = Some(Box::new(ScreenUser::new()));
+            self.current_screen = Some(build_screen());
             *display_signal &= !Self::BUTTON_MASK;
             *display_signal |= DisplayFlag::Draw as u32;
         }
