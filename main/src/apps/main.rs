@@ -186,8 +186,7 @@ impl AppMain {
                         // Set hardware callbacks - convert raw pointers to 'static references
                         (*hardware_ptr).set_button_handler(&*display_ptr);
                         (*hardware_ptr).set_encoder_handler(&*display_ptr);
-
-                        Parser::set_system_transmit(&*display_ptr);
+                        
                         (&mut *display_ptr).set_on_receive(&*parser_ptr);
                         set_current_status!(status_old, status_current, StatusFlag::CheckConfig);
                     }

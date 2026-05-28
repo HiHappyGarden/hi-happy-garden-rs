@@ -24,8 +24,7 @@ use osal_rs::utils::Result;
 #[derive(Debug, Clone, Copy)]
 pub enum Source {
     Uart,
-    Mqtt,
-    System
+    Mqtt
 }
 
 

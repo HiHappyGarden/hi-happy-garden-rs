@@ -54,7 +54,6 @@ static mut QUEUE: Option<Queue> = None;
 static mut SOURCE: Option<Source> = None;
 
 static mut UART_CHANNEL: Option<&'static dyn SetTransmit> = None;
-static mut SYSTEM_CHANNEL: Option<&'static dyn SetTransmit> = None;
 static mut MQTT_CHANNEL: Option<&'static dyn SetTransmit> = None;
 
 
@@ -87,7 +86,7 @@ impl OnReceive for Parser {
         for &byte in data {
             match &source {
                 Source::Uart => queue.post_from_isr(&[byte])?,
-                Source::System | Source::Mqtt => queue.post_with_to_tick(&[byte], Duration::from_millis(100))?,
+                Source::Mqtt => queue.post_with_to_tick(&[byte], Duration::from_millis(100))?,
             }
         }
 
@@ -158,7 +157,6 @@ impl Initializable for Parser {
 
                     let channel = match src {
                         Source::Uart => *access_static_option!(UART_CHANNEL),
-                        Source::System => *access_static_option!(SYSTEM_CHANNEL),
                         Source::Mqtt => *access_static_option!(MQTT_CHANNEL),
                     };
 
@@ -261,13 +259,6 @@ impl Parser {
     pub(super) fn set_uart_transmit(transmit: &'static dyn SetTransmit) {
         unsafe {
             UART_CHANNEL = Some(transmit);
-        }
-    }
-
-        #[inline]
-    pub(super) fn set_system_transmit(transmit: &'static dyn SetTransmit) {
-        unsafe {
-            SYSTEM_CHANNEL = Some(transmit);
         }
     }
 

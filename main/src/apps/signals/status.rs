@@ -81,7 +81,6 @@ impl From<&Source> for StatusFlag {
     fn from(source: &Source) -> Self {
         use StatusFlag::*;
         match source {
-            Source::System => SystemCmd,
             Source::Mqtt => MqttCmd,
             Source::Uart => UartCmd,
         }
