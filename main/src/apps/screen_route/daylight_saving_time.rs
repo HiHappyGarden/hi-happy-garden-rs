@@ -45,7 +45,7 @@ enum FSMState {
     End,
 }
 
-pub struct ScreenDaylightSavingTime {
+pub(super) struct ScreenDaylightSavingTime {
     enable_dst: Check,
 }
 
@@ -125,7 +125,7 @@ impl ScreenDaylightSavingTime {
         Ok(())
     }
 
-    pub const fn new() -> Self {
+    pub(super) const fn new() -> Self {
         Self {
             enable_dst: Check::new(),
         }

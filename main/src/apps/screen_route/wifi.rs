@@ -65,7 +65,7 @@ enum FSMState {
     End,
 }
 
-pub struct ScreenWifi {
+pub(super) struct ScreenWifi {
     enable:  Check,
     ssid:    Input,
     passwd:  Input,
@@ -243,7 +243,7 @@ impl ScreenWifi {
         Ok(())
     }
 
-    pub const fn new() -> Self {
+    pub(super) const fn new() -> Self {
         Self {
             enable: Check::new(),
             ssid:   Input::new(),

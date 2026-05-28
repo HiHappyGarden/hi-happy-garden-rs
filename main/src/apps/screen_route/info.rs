@@ -36,7 +36,7 @@ use crate::traits::screen::{Screen, ScreenParam, ScreenRoute};
 
 static BACK: AtomicBool = AtomicBool::new(false);
 
-pub struct ScreenInfo {
+pub(super) struct ScreenInfo {
     text: Text,
 }
 
@@ -90,7 +90,7 @@ impl ScreenRoute for ScreenInfo {
 }
 
 impl ScreenInfo {
-    pub fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             text: Text::new(),
         }

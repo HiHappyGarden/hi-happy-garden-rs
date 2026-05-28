@@ -95,7 +95,7 @@ enum FSMState {
     End,
 }
 
-pub struct ScreenSetConfig {
+pub(super) struct ScreenSetConfig {
     config: &'static mut Config,
     serial: Input,
     email: Input,
@@ -495,7 +495,7 @@ impl ScreenSetConfig {
         Ok(())
     }
 
-    pub const fn new() -> Self {
+    pub(super) const fn new() -> Self {
         Self {
             config: Config::shared(),
             serial: Input::new(),

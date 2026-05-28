@@ -46,7 +46,7 @@ enum FSMState {
     End,
 }
 
-pub struct ScreenUser {
+pub(super) struct ScreenUser {
     email:  Input,
     passwd: Input,
 }
@@ -160,7 +160,7 @@ impl ScreenUser {
         Ok(())
     }
 
-    pub const fn new() -> Self {
+    pub(super) const fn new() -> Self {
         Self {
             email:  Input::new(),
             passwd: Input::new(),

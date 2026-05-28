@@ -48,7 +48,7 @@ enum FSMState {
     End,
 }
 
-pub struct ScreenDateTime {
+pub(super) struct ScreenDateTime {
     date: Date,
     time: Time,
 }
@@ -154,7 +154,7 @@ impl ScreenDateTime {
         Ok(())
     }
 
-    pub const fn new() -> Self {
+    pub(super) const fn new() -> Self {
         Self {
             date: Date::new(),
             time: Time::new(),

@@ -141,7 +141,7 @@ impl ScreenRoute for ScreenMain {
 }
 
 impl ScreenMain {
-    pub fn new(fsm_state: FSMState) -> Self {
+    pub(super) fn new(fsm_state: FSMState) -> Self {
         Self {
             fsm_state,
             text: Text::new(),
@@ -173,7 +173,7 @@ impl ScreenMain {
     }
 
     #[allow(dead_code)]
-    pub fn get_selected_screen(&self) -> Option<FSMState> {
+    pub(super) fn get_selected_screen(&self) -> Option<FSMState> {
         if self.value != -1 {
             Some(FSMState::from(self.value))
         } else {
