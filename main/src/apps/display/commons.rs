@@ -35,7 +35,7 @@ pub(super) const SECOND_ROW_Y: u8 = 45;
 pub(super) const MAX_SIZE: usize = 32;
 
 static LAST_SCROLL_SLOT: AtomicU32 = AtomicU32::new(u32::MAX);
-pub const SCROLL_DELAY_MS: u64 = 200;
+pub(super) const SCROLL_DELAY_MS: u64 = 200;
 
 macro_rules! get_datetime_from_rtc {
 
@@ -53,7 +53,7 @@ macro_rules! get_datetime_from_rtc {
             })
     }};
 }
-pub(crate) use get_datetime_from_rtc;
+pub(in crate::apps) use get_datetime_from_rtc;
 
 pub(super) fn clean_context(lcd: &mut dyn LCDDisplayFn) -> Result<()> 
 {

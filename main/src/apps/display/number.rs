@@ -34,7 +34,7 @@ use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
 use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
-pub struct Number<N>
+pub(super) struct Number<N>
 where
     N: Integer,
 {
@@ -114,7 +114,7 @@ impl<N> Number<N>
 where
     N: Integer,
 {
-    pub const fn new(min: N, max: N) -> Self {
+    pub(super) const fn new(min: N, max: N) -> Self {
         Self { 
             number: None,
             min,

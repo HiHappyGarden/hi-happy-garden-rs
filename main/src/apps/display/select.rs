@@ -33,7 +33,7 @@ use crate::traits::screen::{Screen, ScreenCallback, ScreenParam, ScreenSelection
 
 static NO_SELECTIONS: &str = "No selections available";
 
-pub struct Select 
+pub(in crate::apps) struct Select 
 {
     index: u8,
     selections: Option<ScreenSelections>,
@@ -139,7 +139,7 @@ impl Screen<ScreenSelections> for Select
 
 impl Select {
 
-    pub const fn new() -> Self {
+    pub(in crate::apps) const fn new() -> Self {
         Self {
             index: 0,
             selections: None,

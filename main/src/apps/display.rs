@@ -20,15 +20,15 @@
 
 #[macro_use]
 pub(super) mod commons;
-pub mod check;
+pub(super) mod check;
 mod date_time_editor;
-pub mod date;
+pub(super) mod date;
 mod header;
-pub mod input;
-pub mod number;
-pub mod select;
-pub mod text;
-pub mod time;
+pub(super) mod input;
+pub(super) mod number;
+pub(super) mod select;
+pub(super) mod text;
+pub(super) mod time;
 
 use alloc::sync::Arc;
 use osal_rs::log_info;
@@ -65,7 +65,7 @@ pub const DISPLAY_INPUT_MAX_SIZE: usize = MAX_SIZE;
 
 static mut ON_RECEIVE: Option<&'static dyn OnReceive> = Option::None;
 
-pub struct Display<T>
+pub(super) struct Display<T>
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
     rtc: Arc<Mutex<dyn RTC>>,
@@ -217,7 +217,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static {
 impl<T> Display<T> 
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
-    pub fn shared(rtc: Arc<Mutex<dyn RTC>>, lcd: T) -> Self{
+    pub(super) fn shared(rtc: Arc<Mutex<dyn RTC>>, lcd: T) -> Self{
         Self {
             rtc,
             lcd: Mutex::new_arc(lcd),
@@ -226,7 +226,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         }
     }
 
-    pub fn set_enabled_wifi(&mut self, enabled: bool) {
+    pub(super) fn set_enabled_wifi(&mut self, enabled: bool) {
         match Arc::get_mut(&mut self.wifi_enabled) {
             Some(wifi_enabled) => *wifi_enabled = enabled,
             core::option::Option::None => Arc::make_mut(&mut self.wifi_enabled).clone_from(&Arc::new(enabled)),    

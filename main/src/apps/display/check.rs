@@ -33,7 +33,7 @@ use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use crate::traits::rtc::RTC;
 use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
-pub struct Check 
+pub(in crate::apps) struct Check 
 {
     icon: Icon<120>,
     checked: Option<bool>,
@@ -118,7 +118,7 @@ impl Screen<bool> for Check
 
 impl Check {
 
-    pub const fn new() -> Self {
+    pub(in crate::apps) const fn new() -> Self {
         Self {
             icon: IC_CHECK_OFF,
             checked: None,

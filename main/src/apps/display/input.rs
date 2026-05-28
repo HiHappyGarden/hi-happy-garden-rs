@@ -33,7 +33,7 @@ use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
 const LONG_PRESS_TICK: u32 = 500;
 
-pub struct Input {
+pub(in crate::apps) struct Input {
     input: Option<Bytes<MAX_SIZE>>,
     original_input: Option<Bytes<MAX_SIZE>>,
     idx: usize,
@@ -220,7 +220,7 @@ impl Screen<Bytes<MAX_SIZE>> for Input
 
 impl Input
 {
-    pub const fn new() -> Self {
+    pub(in crate::apps) const fn new() -> Self {
         Self { 
             input: None,
             original_input: None,

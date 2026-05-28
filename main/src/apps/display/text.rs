@@ -32,7 +32,7 @@ use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
 
 
-pub struct Text;
+pub(in crate::apps) struct Text;
 
 
 impl Screen<()> for Text
@@ -126,7 +126,7 @@ impl Screen<()> for Text
 
 impl Text {
 
-    pub const fn new() -> Self {
+    pub(in crate::apps) const fn new() -> Self {
         Self
     }
 

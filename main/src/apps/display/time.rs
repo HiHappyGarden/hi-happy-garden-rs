@@ -31,7 +31,7 @@ use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
 use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
-pub struct Time(FieldEditor);
+pub(in crate::apps) struct Time(FieldEditor);
 
 impl Screen<DateTime> for Time
 {
@@ -56,7 +56,7 @@ impl Screen<DateTime> for Time
   
 
 impl Time {
-    pub const fn new() -> Self {
+    pub(in crate::apps) const fn new() -> Self {
         Self(FieldEditor::new(FieldEditorConfig {
             field_min:    [0, 0, 0],
             field_max_fn: [
