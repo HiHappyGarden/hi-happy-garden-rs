@@ -35,6 +35,7 @@ use osal_rs::os::types::EventBits;
 use set_config::ScreenSetConfig;
 use crate::apps::screen_route::info::ScreenInfo;
 use crate::apps::screen_route::main::ScreenMain;
+use crate::apps::signals::display::DisplayFlag;
 use crate::apps::signals::status::StatusFlag;
 use crate::traits::rtc::RTC;
 use crate::traits::screen::ScreenRoute as ScreenRouteFn;
@@ -155,7 +156,8 @@ impl ScreenRoute {
     ) {
         if self.current_screen.is_none() {
             self.current_screen = Some(Box::new(ScreenSetConfig::new()));
-        } else if let Some(screen) = &mut self.current_screen {
+        }
+        if let Some(screen) = &mut self.current_screen {
             if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
                 self.current_screen = None;
                 self.fsm_state = FSMState::Menu;
@@ -172,7 +174,8 @@ impl ScreenRoute {
     ) {
         if self.current_screen.is_none() {
             self.current_screen = Some(Box::new(ScreenMain::new()));
-        } else if let Some(screen) = &mut self.current_screen {
+        }
+        if let Some(screen) = &mut self.current_screen {
             if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
                 if let Some(screen_main) = screen.as_any_mut().downcast_mut::<ScreenMain>() {
 
@@ -181,7 +184,13 @@ impl ScreenRoute {
                     self.fsm_state = FSMState::from(main_selected_screen + <FSMState as Into<i8>>::into(FSMState::Menu));
                     self.current_screen = None;
                     self.check_staus_counter = 0;
-                    
+                    // Clear button events so the incoming screen does not see the
+                    // same (or bounced) press that triggered this transition.
+                    const BUTTON_MASK: u32 = DisplayFlag::ButtonPressed as u32
+                        | DisplayFlag::ButtonReleased as u32
+                        | DisplayFlag::EncoderButtonPressed as u32
+                        | DisplayFlag::EncoderButtonReleased as u32;
+                    *display_signal &= !BUTTON_MASK;
                 }
             }
         }
@@ -189,14 +198,21 @@ impl ScreenRoute {
 
     fn handle_menu_info(&mut self,
         _lcd: &mut dyn LCDDisplayFn,
-        _display_signal: &mut EventBits,
+        display_signal: &mut EventBits,
         _status_signal: &mut EventBits,
         _rtc: &Arc<Mutex<dyn RTC + 'static>>
     ) { 
         if self.current_screen.is_none() {
             self.current_screen = Some(Box::new(ScreenInfo::new()));
-        } else if let Some(screen) = &mut self.current_screen {
-            if screen.draw(_lcd, _display_signal, _status_signal, _rtc).is_ok() {
+            // Clear any button signals that may have bounced from the transition.
+            const BUTTON_MASK: u32 = DisplayFlag::ButtonPressed as u32
+                | DisplayFlag::ButtonReleased as u32
+                | DisplayFlag::EncoderButtonPressed as u32
+                | DisplayFlag::EncoderButtonReleased as u32;
+            *display_signal &= !BUTTON_MASK;
+        }
+        if let Some(screen) = &mut self.current_screen {
+            if screen.draw(_lcd, display_signal, _status_signal, _rtc).is_ok() {
                 self.current_screen = None;
                 self.fsm_state = FSMState::Menu;
             }

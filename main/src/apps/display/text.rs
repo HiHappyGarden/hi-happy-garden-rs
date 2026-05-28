@@ -112,6 +112,8 @@ impl Screen<()> for Text
             }
         }
 
+        *signal |= DisplayFlag::Draw as u32;
+
         Ok(())
     }
 

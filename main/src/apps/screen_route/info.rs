@@ -81,6 +81,7 @@ impl ScreenRoute for ScreenInfo {
                 )?;
 
         if BACK.load(Ordering::SeqCst) {
+            BACK.store(false, Ordering::SeqCst);
             Ok(())
         } else {
             Err(Error::ReturnWithCode(1))
