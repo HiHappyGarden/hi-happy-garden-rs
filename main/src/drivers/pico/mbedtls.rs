@@ -31,7 +31,7 @@ use crate::drivers::pico::ffi::{aes_mode, hhg_mbedtls_aes_crypt_cbc, hhg_mbedtls
 use crate::drivers::encrypt::{EncryptFn, SHA256_RESULT_BYTES};
 use crate::drivers::plt::ffi::{hhg_pico_sha256_finish, hhg_pico_sha256_start_blocking, hhg_pico_sha256_update_blocking};
 
-pub const ENCRYPT_FN: EncryptFn = EncryptFn {
+pub(crate) const ENCRYPT_FN: EncryptFn = EncryptFn {
     init,
     aes_encrypt,
     aes_decrypt,
@@ -121,7 +121,7 @@ fn aes_decrypt(handler: *mut c_void, key: &[u8], iv: &[u8], cipher: &[u8]) -> Re
 }
 
 #[allow(unused_assignments)]
-pub fn get_sha256(data: &[u8]) -> Result<Bytes<{SHA256_RESULT_BYTES * 2}>> {
+pub(crate) fn get_sha256(data: &[u8]) -> Result<Bytes<{SHA256_RESULT_BYTES * 2}>> {
     let mut hash = Bytes::<SHA256_RESULT_BYTES>::new();
 
     let mut state: *mut c_void = null_mut();

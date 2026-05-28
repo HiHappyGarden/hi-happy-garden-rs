@@ -60,7 +60,7 @@ const PPB_BASE: usize = 0xe0000000;
 #[allow(dead_code)]
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum ThreadPriority {
+pub(crate) enum ThreadPriority {
     None = 0,
     Idle = 1,
     Low = 4,
@@ -99,7 +99,7 @@ impl ThreadPriority {
     }
 }
 
-pub struct Hardware {
+pub(crate) struct Hardware {
     uart: Uart,
     encoder: Encoder,
     button: Button,

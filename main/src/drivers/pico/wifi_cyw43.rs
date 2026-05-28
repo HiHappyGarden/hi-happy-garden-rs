@@ -26,7 +26,7 @@ use crate::drivers::pico::ffi::{hhg_cyw43_arch_deinit, hhg_cyw43_arch_disable_st
 use crate::drivers::pico::ffi::cyw43_auth::{OPEN, WPA_TKIP_PSK, WPA2_AES_PSK, WPA2_MIXED_PSK, WPA3_SAE_AES_PSK, WPA3_WPA2_AES_PSK};
 use crate::drivers::wifi::{Auth, LinkStatus::{self, *}, WifiFn};
 
-pub const WIFI_FN: WifiFn = WifiFn {
+pub(crate) const WIFI_FN: WifiFn = WifiFn {
     init,
     enable_sta_mode,
     disable_sta_mode,

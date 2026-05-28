@@ -30,7 +30,7 @@ use crate::traits::network::{IPV6_ADDR_LEN, IpAddress};
 static mut IP_ADDRES_FOUND: Option<IP4Addr> = None;
 static mut TIMESTAMP: i64 = 0;
 
-pub static NETWORK_FN: NetworkFn = NetworkFn {
+pub(crate) static NETWORK_FN: NetworkFn = NetworkFn {
     dhcp_get_ip_address,
     dhcp_get_binary_ip_address,
     dhcp_supplied_address,

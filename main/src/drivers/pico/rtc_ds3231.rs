@@ -28,7 +28,7 @@ use crate::drivers::rtc::RTCFn;
 use crate::drivers::platform::{I2C_BAUDRATE, I2C0_INSTANCE};
 use crate::drivers::date_time::DateTime;
 
-pub const RTC_DS3231_I2C_ADDRESS: u8 = 0x68;
+pub(crate) const RTC_DS3231_I2C_ADDRESS: u8 = 0x68;
 
 const START_YEAR: i32 = 2000; // DS3231 counts years since 2000
 
@@ -42,7 +42,7 @@ mod registers {
     pub(super) const YEAR: u8 =  0x06;
 }
 
-pub const RTC_FN: RTCFn = RTCFn {
+pub(crate) const RTC_FN: RTCFn = RTCFn {
     init,
     set_timestamp,
     get_timestamp,

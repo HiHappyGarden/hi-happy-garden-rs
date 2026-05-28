@@ -29,18 +29,18 @@ use crate::drivers::i2c::I2CFn;
 use crate::drivers::pico::ffi::{gpio_function_type, hhg_gpio_pull_up, hhg_gpio_set_function, hhg_i2c_deinit, hhg_i2c_init, hhg_i2c0_init_pins_with_func, hhg_i2c1_init_pins_with_func, hhg_i2c_instance, hhg_i2c_read_blocking, hhg_i2c_write_blocking};
 use crate::drivers::plt::ffi::pico_error_codes::{PICO_OK, PICO_ERROR_TIMEOUT, PICO_ERROR_GENERIC};
 
-pub const I2C0_INSTANCE: u8 = 0;
-pub const I2C0_PIN_SDA: u32 = 16;
-pub const I2C0_PIN_SCL: u32 = 17;
+pub(crate) const I2C0_INSTANCE: u8 = 0;
+pub(crate) const I2C0_PIN_SDA: u32 = 16;
+pub(crate) const I2C0_PIN_SCL: u32 = 17;
 
 
-pub const I2C1_INSTANCE: u8 = 1;
-pub const I2C1_PIN_SDA: u32 = 2;
-pub const I2C1_PIN_SCL: u32 = 3;
+pub(crate) const I2C1_INSTANCE: u8 = 1;
+pub(crate) const I2C1_PIN_SDA: u32 = 2;
+pub(crate) const I2C1_PIN_SCL: u32 = 3;
 
-pub const I2C_BAUDRATE: u32 = 100_000;
+pub(crate) const I2C_BAUDRATE: u32 = 100_000;
 
-pub static I2C_FN: I2CFn = I2CFn {
+pub(crate) static I2C_FN: I2CFn = I2CFn {
     init,
     write,
     read,
@@ -50,7 +50,7 @@ pub static I2C_FN: I2CFn = I2CFn {
 };
 
 /// Scan I2C bus for devices (utility function for debugging)
-pub fn scan_i2c(instance: *mut c_void) -> Result<alloc::vec::Vec<u8>> {
+pub(crate) fn scan_i2c(instance: *mut c_void) -> Result<alloc::vec::Vec<u8>> {
     let mut devices = alloc::vec::Vec::new();
     
     for addr in 0x08..=0x77 {

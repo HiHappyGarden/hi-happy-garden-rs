@@ -10,7 +10,7 @@ use crate::drivers::network::IP4Addr;
 
 
 #[repr(C)]
-pub struct pwm_config {
+pub(super) struct pwm_config {
     pub csr: u32,
     pub div: u32,
     pub top: u32,
@@ -38,7 +38,7 @@ pub(super) mod gpio_function_type {
 }
 
 #[repr(C)]
-pub enum pico_error_codes {
+pub(crate) enum pico_error_codes {
     PICO_OK = 0,                                ///< No error; the operation succeeded
     PICO_ERROR_GENERIC = -1,                    ///< An unspecified error occurred
     PICO_ERROR_TIMEOUT = -2,                    ///< The function failed due to timeout
@@ -75,7 +75,7 @@ pub(super) enum gpio_irq_level {
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub enum uart_parity {
+pub(crate) enum uart_parity {
     UART_PARITY_NONE = 0,
     UART_PARITY_EVEN = 1,
     UART_PARITY_ODD = 2,
@@ -83,21 +83,21 @@ pub enum uart_parity {
 
 #[repr(i32)]
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum aes_mode {
+pub(crate) enum aes_mode {
     AES_ENCRYPT = 1,
     AES_DECRYPT = 0,
 }
-pub struct MbedtlsAes (pub *mut c_void);
+pub(super) struct MbedtlsAes (pub *mut c_void);
 
 unsafe impl Send for MbedtlsAes {}
 unsafe impl Sync for MbedtlsAes {}
 
 
 // Type aliases for littlefs types
-pub type LfsSize = u32;
-pub type LfsSsize = i32;
-pub type LfsSoff = i32;
-pub type LfsOff = u32;
+pub(crate) type LfsSize = u32;
+pub(crate) type LfsSsize = i32;
+pub(crate) type LfsSoff = i32;
+pub(crate) type LfsOff = u32;
 
 pub(super) mod cyw43_auth {
     ///< No authorisation required (open)

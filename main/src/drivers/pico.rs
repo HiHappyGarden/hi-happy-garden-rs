@@ -18,16 +18,16 @@
  *
  ***************************************************************************/
 
-pub(crate) mod ffi;
-pub(crate) mod flash;
-pub(crate) mod gpio;
-pub(crate) mod hardware;
-pub(crate) mod i2c;
-pub(crate) mod lwip;
-pub(crate) mod mbedtls;
-pub(crate) mod rtc_ds3231;
-pub(crate) mod uart;
-pub(crate) mod wifi_cyw43;
+pub(super) mod ffi;
+pub(super) mod flash;
+pub(super) mod gpio;
+pub(super) mod hardware;
+pub(super) mod i2c;
+pub(super) mod lwip;
+pub(super) mod mbedtls;
+pub(super) mod rtc_ds3231;
+pub(super) mod uart;
+pub(super) mod wifi_cyw43;
 
 use core::ffi::c_char;
 use osal_rs::os::types::ThreadHandle;

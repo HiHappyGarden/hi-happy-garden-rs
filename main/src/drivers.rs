@@ -21,11 +21,11 @@ mod pico;
 use crate::drivers::pico as plt;
 
 pub mod platform {
-    pub use crate::drivers::plt::flash::*;
-    pub use crate::drivers::plt::gpio::*;
-    pub use crate::drivers::plt::hardware::*;
-    pub use crate::drivers::plt::i2c::*;
-    pub use crate::drivers::plt::uart::*;
+    pub(crate) use crate::drivers::plt::flash::*;
+    pub(crate) use crate::drivers::plt::gpio::*;
+    pub(crate) use crate::drivers::plt::hardware::*;
+    pub(crate) use crate::drivers::plt::i2c::*;
+    pub(crate) use crate::drivers::plt::uart::*;
 
     pub type LCDDisplay = crate::drivers::lcd_sh1106::LCDSH1106;
     

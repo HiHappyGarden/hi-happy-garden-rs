@@ -35,12 +35,12 @@ const APP_TAG: &str = "Flash";
 const READ_BUFFER_SIZE: usize = 512;
 
 
-pub const FS_SEPARATOR_DIR: &str = "/";
-pub const FS_CONFIG_DIR: &str = "/etc";
-pub const FS_DATA_DIR: &str = "/var";
-pub const FS_LOG_DIR: &str = "/var/log";
+pub(crate) const FS_SEPARATOR_DIR: &str = "/";
+pub(crate) const FS_CONFIG_DIR: &str = "/etc";
+pub(crate) const FS_DATA_DIR: &str = "/var";
+pub(crate) const FS_LOG_DIR: &str = "/var/log";
 
-pub mod lfs_errors {
+pub(crate) mod lfs_errors {
     pub const LFS_ERR_OK: i32 =0;    // No error
     pub const LFS_ERR_IO: i32 =-5;   // Error during device operation
     pub const LFS_ERR_CORRUPT: i32 =-84;  // Corrupted
@@ -59,7 +59,7 @@ pub mod lfs_errors {
 }
 
 
-pub const FILE_FN: FileFn = FileFn {
+pub(crate) const FILE_FN: FileFn = FileFn {
     
     open: file_open,
 
@@ -180,7 +180,7 @@ fn file_close(handler: *mut c_void) -> Result<()> {
     Ok(())
 }
 
-pub const DIR_FN: DirFn = DirFn {
+pub(crate) const DIR_FN: DirFn = DirFn {
     read: dir_read,
     seek: dir_seek,
     tell: dir_tell,
@@ -232,7 +232,7 @@ fn dir_close(handler: *mut c_void) -> Result<()> {
 }
 
 
-pub const FILESYSTEM_FN: FilesystemFn = FilesystemFn {
+pub(crate) const FILESYSTEM_FN: FilesystemFn = FilesystemFn {
     mount: filesystem_mount,
 
     umount: filesystem_umount,

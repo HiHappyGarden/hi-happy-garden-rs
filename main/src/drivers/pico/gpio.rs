@@ -30,10 +30,10 @@ use crate::drivers::gpio::{GpioFn, GpioConfig, GpioInputType, InterruptCallback,
 use GpioPeripheral::*;
 use crate::drivers::plt::ffi::hhg_adc_select_input;
 
-pub const GPIO_CONFIG_SIZE: usize = 13;
+pub(crate) const GPIO_CONFIG_SIZE: usize = 13;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum GpioPeripheral {
+pub(crate) enum GpioPeripheral {
     NoUsed,
     EncoderCCW,
     EncoderCW,
@@ -96,7 +96,7 @@ impl FromStr for GpioPeripheral {
 }
 
  
-pub static mut GPIO_CONFIGS: GpioConfigs<'static, GPIO_CONFIG_SIZE> = GpioConfigs::new_with_array([
+pub(crate) static mut GPIO_CONFIGS: GpioConfigs<'static, GPIO_CONFIG_SIZE> = GpioConfigs::new_with_array([
         Some(GpioConfig::new(&EncoderCCW, GpioType::Input(None, 20, GpioInputType::PullDown, 0))),
         Some(GpioConfig::new(&EncoderCW, GpioType::Input(None, 21, GpioInputType::PullDown, 0))),
         Some(GpioConfig::new(&EncoderBtn, GpioType::Input(None, 19, GpioInputType::PullUp, 0))),
@@ -113,7 +113,7 @@ pub static mut GPIO_CONFIGS: GpioConfigs<'static, GPIO_CONFIG_SIZE> = GpioConfig
 ]);
 
 
-pub const GPIO_FN : GpioFn = GpioFn {
+pub(crate) const GPIO_FN : GpioFn = GpioFn {
     init: Some(init),
     input: Some(input),
     input_analog: Some(input_analog),
