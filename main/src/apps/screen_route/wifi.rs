@@ -32,10 +32,11 @@ use crate::apps::display::check::Check;
 use crate::apps::display::input::Input;
 use crate::apps::display::select::Select;
 use crate::apps::signals::display::DisplayFlag;
+use crate::apps::screen_route::auth::{fill_auth_selections, selected_auth_from_selections};
 use crate::drivers::wifi::Auth;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
-use crate::traits::screen::{Screen, ScreenParam, ScreenRoute, ScreenSelections, screen_selections_new};
+use crate::traits::screen::{Screen, ScreenParam, ScreenRoute};
 
 static mut FSM_STATE: FSMState = FSMState::Enable;
 static UPDATE_DRAW: AtomicBool = AtomicBool::new(false);
@@ -48,29 +49,6 @@ enum FSMState {
     AuthType,
     Save,
     End,
-}
-
-fn auth_as_bytes(auth: Auth) -> Bytes<DISPLAY_INPUT_MAX_SIZE> {
-    match auth {
-        Auth::Open     => Bytes::from_str("OPEN"),
-        Auth::Wpa      => Bytes::from_str("WPA"),
-        Auth::Wpa2     => Bytes::from_str("WPA2"),
-        Auth::Wpa2Mixed => Bytes::from_str("WPA2 MIXED"),
-        Auth::Wpa3     => Bytes::from_str("WPA3"),
-        Auth::Wpa2Wpa3 => Bytes::from_str("WPA3/WPA2"),
-        _              => Bytes::default(),
-    }
-}
-
-fn fill_auth_selections(selected: Auth) -> ScreenSelections {
-    let mut s = screen_selections_new();
-    s[0] = (auth_as_bytes(Auth::Open),     selected == Auth::Open);
-    s[1] = (auth_as_bytes(Auth::Wpa),      selected == Auth::Wpa);
-    s[2] = (auth_as_bytes(Auth::Wpa2),     selected == Auth::Wpa2);
-    s[3] = (auth_as_bytes(Auth::Wpa2Mixed),selected == Auth::Wpa2Mixed);
-    s[4] = (auth_as_bytes(Auth::Wpa3),     selected == Auth::Wpa3);
-    s[5] = (auth_as_bytes(Auth::Wpa2Wpa3), selected == Auth::Wpa2Wpa3);
-    s
 }
 
 pub struct ScreenWifi {
@@ -238,19 +216,7 @@ impl ScreenWifi {
             let ssid   = self.ssid.get_value()?;
             let passwd = self.passwd.get_value()?;
             let auth_selections = self.auth.get_value()?;
-            let selected_auth = auth_selections
-                .iter()
-                .find(|v| v.1)
-                .map(|v| match v.0.as_str() {
-                    "OPEN"       => Auth::Open,
-                    "WPA"        => Auth::Wpa,
-                    "WPA2"       => Auth::Wpa2,
-                    "WPA2 MIXED" => Auth::Wpa2Mixed,
-                    "WPA3"       => Auth::Wpa3,
-                    "WPA3/WPA2"  => Auth::Wpa2Wpa3,
-                    _            => Auth::Open,
-                })
-                .unwrap_or(Auth::Open);
+            let selected_auth = selected_auth_from_selections(&auth_selections);
 
             Config::shared().get_wifi_config().set_ssid(ssid.as_str());
             Config::shared().get_wifi_config().set_password(passwd.as_str());

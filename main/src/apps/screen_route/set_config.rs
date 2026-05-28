@@ -38,43 +38,18 @@ use crate::apps::display::time::Time;
 use crate::apps::session::User;
 use crate::apps::signals::display::DisplayFlag;
 use crate::apps::signals::error::ErrorFlag;
+use crate::apps::screen_route::auth::{fill_auth_selections, selected_auth_from_selections};
 use crate::drivers::date_time::DateTime;
 use crate::drivers::platform::Hardware;
 use crate::drivers::wifi::Auth;
 use crate::traits::hardware::HardwareFn;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
-use crate::traits::screen::{Screen, ScreenParam, ScreenRoute, ScreenSelections, screen_selections_new};
+use crate::traits::screen::{Screen, ScreenParam, ScreenRoute};
 
 static mut FSM_STATE: FSMState = FSMState::Serial;
 static mut OLD_FSM_STATE: FSMState = FSMState::Serial;
 static UPDATE_DRAW: AtomicBool = AtomicBool::new(false);
-
-impl Auth {
-    fn as_bytes(&self) -> Bytes<{DISPLAY_INPUT_MAX_SIZE}> {
-        match self {
-            Self::Open => Bytes::from_str("OPEN"),
-            Self::Wpa => Bytes::from_str("WPA"),
-            Self::Wpa2 => Bytes::from_str("WPA2"),
-            Self::Wpa2Mixed => Bytes::from_str("WPA2 MIXED"),
-            Self::Wpa3 => Bytes::from_str("WPA3"),
-            Self::Wpa2Wpa3 => Bytes::from_str("WPA3/WPA2"),
-            _ => Bytes::default(),
-        }
-    }
-
-    fn fill_screen_selections(selected: Auth) -> ScreenSelections {
-        let mut selections = screen_selections_new();
-        selections[0] = (Self::Open.as_bytes(), selected == Self::Open);
-        selections[1] = (Self::Wpa.as_bytes(), selected == Self::Wpa);
-        selections[2] = (Self::Wpa2.as_bytes(), selected == Self::Wpa2);
-        selections[3] = (Self::Wpa2Mixed.as_bytes(), selected == Self::Wpa2Mixed);
-        selections[4] = (Self::Wpa3.as_bytes(), selected == Self::Wpa3);
-        selections[5] = (Self::Wpa2Wpa3.as_bytes(), selected == Self::Wpa2Wpa3);
-        selections
-    }
-
-}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum FSMState {
@@ -345,7 +320,7 @@ impl ScreenSetConfig {
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
     ) -> Result<()> {
         let mut param = ScreenParam::default();
-        param.selects = Some(Auth::fill_screen_selections(self.config.get_wifi_config().get_auth()));
+        param.selects = Some(fill_auth_selections(self.config.get_wifi_config().get_auth()));
 
         self.auth.draw(
             lcd,
@@ -471,25 +446,14 @@ impl ScreenSetConfig {
         if wifi_enable {
             let wifi_ssid = self.wifi_ssid.get_value()?;
             let wifi_passwd = self.wifi_passwd.get_value()?;
-            let auth = match self.auth.get_value() {
-                Ok(values) => values
-                    .iter()
-                    .find(|value| value.1)
-                    .copied()
-                    .unwrap_or((Bytes::<DISPLAY_INPUT_MAX_SIZE>::new(), false)),
-                Err(_) => (Bytes::<DISPLAY_INPUT_MAX_SIZE>::new(), false),
-            };
+            let selected_auth = self
+                .auth
+                .get_value()
+                .map(|values| selected_auth_from_selections(&values))
+                .unwrap_or(Auth::Open);
             self.config.get_wifi_config().set_ssid(wifi_ssid.as_str());
             self.config.get_wifi_config().set_password(wifi_passwd.as_str());
-            self.config.get_wifi_config().set_auth(match auth.0.as_str() {
-                "OPEN" => Auth::Open,
-                "WPA" => Auth::Wpa,
-                "WPA2" => Auth::Wpa2,
-                "WPA2 MIXED" => Auth::Wpa2Mixed,
-                "WPA3" => Auth::Wpa3,
-                "WPA3/WPA2" => Auth::Wpa2Wpa3,
-                _ => Auth::Open,
-            });
+            self.config.get_wifi_config().set_auth(selected_auth);
             self.config.get_wifi_config().set_enabled(true);
         } else {
             self.config.get_wifi_config().set_ssid("");

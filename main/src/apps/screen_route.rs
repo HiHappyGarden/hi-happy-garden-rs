@@ -27,6 +27,7 @@ mod date_time;
 mod daylight_saving_time;
 mod wifi;
 mod user;
+mod auth;
 
 use core::any::Any;
 
