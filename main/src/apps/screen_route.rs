@@ -39,7 +39,7 @@ use osal_rs::os::types::EventBits;
 
 use set_config::ScreenSetConfig;
 use crate::apps::screen_route::info::ScreenInfo;
-use crate::apps::screen_route::main::ScreenMain;
+use crate::apps::screen_route::main::{ScreenMain, FSMState as MainFSMState};
 use crate::apps::screen_route::date_time::ScreenDateTime;
 use crate::apps::screen_route::daylight_saving_time::ScreenDaylightSavingTime;
 use crate::apps::screen_route::wifi::ScreenWifi;
@@ -49,6 +49,7 @@ use crate::apps::signals::status::StatusFlag;
 use crate::traits::rtc::RTC;
 use crate::traits::screen::ScreenRoute as ScreenRouteFn;
 use crate::traits::lcd_display::LCDDisplayFn;
+
 
 pub static mut SCREEN_ROUTE: ScreenRoute = ScreenRoute::new();
 
@@ -98,6 +99,7 @@ impl From<FSMState> for i8 {
 
 pub struct ScreenRoute {
     fsm_state: FSMState,
+    main_fsm_state: MainFSMState,
     check_staus_counter: u8,
     current_screen: Option<Box<dyn ScreenRouteFn>>,
 }
@@ -114,11 +116,11 @@ impl ScreenRouteFn for ScreenRoute {
             FSMState::Init                      => self.handle_init(status_signal),
             FSMState::SetConfig                 => self.handle_set_config(lcd, display_signal, status_signal, rtc),
             FSMState::Menu                      => self.handle_menu(lcd, display_signal, status_signal, rtc),
-            FSMState::MenuInfo                  => self.handle_submenu(lcd, display_signal, status_signal, rtc, || Box::new(ScreenInfo::new())),
-            FSMState::MenuDateTime              => self.handle_submenu(lcd, display_signal, status_signal, rtc, || Box::new(ScreenDateTime::new())),
-            FSMState::MenuDaylightSavingTime    => self.handle_submenu(lcd, display_signal, status_signal, rtc, || Box::new(ScreenDaylightSavingTime::new())),
-            FSMState::MenuWifi                  => self.handle_submenu(lcd, display_signal, status_signal, rtc, || Box::new(ScreenWifi::new())),
-            FSMState::MenuUser                  => self.handle_submenu(lcd, display_signal, status_signal, rtc, || Box::new(ScreenUser::new())),
+            FSMState::MenuInfo                  => self.handle_submenu(lcd, display_signal, status_signal, rtc, MainFSMState::Info, || Box::new(ScreenInfo::new()) ),
+            FSMState::MenuDateTime              => self.handle_submenu(lcd, display_signal, status_signal, rtc, MainFSMState::DateTime, || Box::new(ScreenDateTime::new())),
+            FSMState::MenuDaylightSavingTime    => self.handle_submenu(lcd, display_signal, status_signal, rtc, MainFSMState::DaylightSavingTime, || Box::new(ScreenDaylightSavingTime::new())),
+            FSMState::MenuWifi                  => self.handle_submenu(lcd, display_signal, status_signal, rtc, MainFSMState::Wifi, || Box::new(ScreenWifi::new())),
+            FSMState::MenuUser                  => self.handle_submenu(lcd, display_signal, status_signal, rtc, MainFSMState::User, || Box::new(ScreenUser::new())),
         }
 
         Ok(())
@@ -188,7 +190,7 @@ impl ScreenRoute {
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
     ) {
         if self.current_screen.is_none() {
-            self.current_screen = Some(Box::new(ScreenMain::new()));
+            self.current_screen = Some(Box::new(ScreenMain::new(self.main_fsm_state)));
         }
         if let Some(screen) = &mut self.current_screen {
             if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
@@ -213,6 +215,7 @@ impl ScreenRoute {
         display_signal: &mut EventBits,
         status_signal: &mut EventBits,
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
+        back: MainFSMState,
         build_screen: fn() -> Box<dyn ScreenRouteFn>,
     ) {
         if self.current_screen.is_none() {
@@ -223,6 +226,7 @@ impl ScreenRoute {
         if let Some(screen) = &mut self.current_screen {
             if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
                 self.current_screen = None;
+                self.main_fsm_state = back;
                 self.fsm_state = FSMState::Menu;
             }
         }
@@ -231,6 +235,7 @@ impl ScreenRoute {
     pub const fn new() -> Self {
         Self {
             fsm_state: FSMState::Init,
+            main_fsm_state: MainFSMState::Info,
             check_staus_counter: 0,
             current_screen: None,
         }

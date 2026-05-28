@@ -36,7 +36,7 @@ use crate::traits::screen::{Screen, ScreenParam, ScreenRoute};
 static SELECTED_SCREEN: AtomicI8 = AtomicI8::new(-1);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum FSMState {
+pub(super) enum FSMState {
     Info,
     DateTime,
     DaylightSavingTime,
@@ -69,7 +69,7 @@ impl From<FSMState> for i8 {
     }
 }
 
- pub struct ScreenMain {
+ pub(super) struct ScreenMain {
     fsm_state: FSMState,
     text: Text,
     value: i8,
@@ -176,9 +176,9 @@ impl ScreenRoute for ScreenMain {
 }
 
 impl ScreenMain {
-    pub fn new() -> Self {
+    pub fn new(fsm_state: FSMState) -> Self {
         Self {
-            fsm_state: FSMState::Info,
+            fsm_state,
             text: Text::new(),
             value: -1,
         }
