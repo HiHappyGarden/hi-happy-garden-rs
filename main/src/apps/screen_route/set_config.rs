@@ -51,6 +51,34 @@ static mut FSM_STATE: FSMState = FSMState::Serial;
 static mut OLD_FSM_STATE: FSMState = FSMState::Serial;
 static UPDATE_DRAW: AtomicBool = AtomicBool::new(false);
 
+#[inline]
+fn apply_pending_draw(display_signal: &mut EventBits) {
+    if UPDATE_DRAW.load(Ordering::SeqCst) {
+        UPDATE_DRAW.store(false, Ordering::SeqCst);
+        *display_signal |= DisplayFlag::Draw as u32;
+    }
+}
+
+#[inline]
+fn request_draw() {
+    UPDATE_DRAW.store(true, Ordering::SeqCst);
+}
+
+#[inline]
+fn set_state(next: FSMState) {
+    unsafe { FSM_STATE = next; }
+    request_draw();
+}
+
+#[inline]
+fn set_state_with_old(next: FSMState) {
+    unsafe {
+        OLD_FSM_STATE = FSM_STATE;
+        FSM_STATE = next;
+    }
+    request_draw();
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum FSMState {
     Serial,
@@ -90,11 +118,7 @@ impl ScreenRoute for ScreenSetConfig {
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
         
     ) -> Result<()> {
-
-        if UPDATE_DRAW.load(Ordering::SeqCst) {
-            UPDATE_DRAW.store(false, Ordering::SeqCst);
-            *display_signal |= DisplayFlag::Draw as u32;
-        }
+        apply_pending_draw(display_signal);
 
         let fsm_state = unsafe { *&raw const FSM_STATE };
         
@@ -149,11 +173,11 @@ impl ScreenSetConfig {
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Serial Number"),
             param,
             Some(|_, confirmed| {
-                unsafe { OLD_FSM_STATE = FSM_STATE; }
                 if confirmed {
-                    unsafe { FSM_STATE = FSMState::Email; }
+                    set_state_with_old(FSMState::Email);
+                } else {
+                    request_draw();
                 }
-                UPDATE_DRAW.store(true, Ordering::SeqCst);
             }),
         )?;
 
@@ -176,13 +200,11 @@ impl ScreenSetConfig {
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Email"),
             param,
             Some(|_, confirmed| {
-                unsafe { OLD_FSM_STATE = FSM_STATE; }
                 if confirmed {
-                    unsafe { FSM_STATE = FSMState::EmailPasswd; }
+                    set_state_with_old(FSMState::EmailPasswd);
                 } else {
-                    unsafe { FSM_STATE = FSMState::Serial; }
+                    set_state_with_old(FSMState::Serial);
                 }
-                UPDATE_DRAW.store(true, Ordering::SeqCst);
             }),
         )?;
 
@@ -206,13 +228,11 @@ impl ScreenSetConfig {
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Password"),
             param,
             Some(|_, confirmed| {
-                unsafe { OLD_FSM_STATE = FSM_STATE; }
                 if confirmed {
-                    unsafe { FSM_STATE = FSMState::EnableWifi; }
+                    set_state_with_old(FSMState::EnableWifi);
                 } else {
-                    unsafe { FSM_STATE = FSMState::Email; }
+                    set_state_with_old(FSMState::Email);
                 }
-                UPDATE_DRAW.store(true, Ordering::SeqCst);
             }),
         )?;
 
@@ -239,16 +259,15 @@ impl ScreenSetConfig {
                     unsafe { OLD_FSM_STATE = FSM_STATE; }
                     match param {
                         Some(screen_param) => match screen_param.check {
-                            Some(true) => unsafe { FSM_STATE = FSMState::Ssid; },
-                            Some(false) => unsafe { FSM_STATE = FSMState::Date; },
-                            None => unsafe { FSM_STATE = FSMState::Serial; }
+                            Some(true) => set_state(FSMState::Ssid),
+                            Some(false) => set_state(FSMState::Date),
+                            None => set_state(FSMState::Serial),
                         },
-                        None => unsafe { FSM_STATE = FSMState::Serial; }
+                        None => set_state(FSMState::Serial),
                     }
                 } else {
-                    unsafe { FSM_STATE = FSMState::EmailPasswd; }
+                    set_state(FSMState::EmailPasswd);
                 }
-                UPDATE_DRAW.store(true, Ordering::SeqCst);
             }),
         )?;
 
@@ -271,13 +290,11 @@ impl ScreenSetConfig {
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi SSID"),
             param,
             Some(|_, confirmed| {
-                unsafe { OLD_FSM_STATE = FSM_STATE; }
                 if confirmed {
-                    unsafe { FSM_STATE = FSMState::Passwd; }
+                    set_state_with_old(FSMState::Passwd);
                 } else {
-                    unsafe { FSM_STATE = FSMState::EnableWifi; }
+                    set_state_with_old(FSMState::EnableWifi);
                 }
-                UPDATE_DRAW.store(true, Ordering::SeqCst);
             }),
         )?;
 
@@ -300,13 +317,11 @@ impl ScreenSetConfig {
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi Password"),
             param,
             Some(|_, confirmed| {
-                unsafe { OLD_FSM_STATE = FSM_STATE; }
                 if confirmed {
-                    unsafe { FSM_STATE = FSMState::Auth; }
+                    set_state_with_old(FSMState::Auth);
                 } else {
-                    unsafe { FSM_STATE = FSMState::Ssid; }
+                    set_state_with_old(FSMState::Ssid);
                 }
-                UPDATE_DRAW.store(true, Ordering::SeqCst);
             }),
         )?;
 
@@ -329,13 +344,11 @@ impl ScreenSetConfig {
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi Auth"),
             param,
             Some(|_, confirmed| {
-                unsafe { OLD_FSM_STATE = FSM_STATE; }
                 if confirmed {
-                    unsafe { FSM_STATE = FSMState::EnableDst; }
+                    set_state_with_old(FSMState::EnableDst);
                 } else {
-                    unsafe { FSM_STATE = FSMState::Passwd; }
+                    set_state_with_old(FSMState::Passwd);
                 }
-                UPDATE_DRAW.store(true, Ordering::SeqCst);
             }),
         )?;
 
@@ -360,13 +373,11 @@ impl ScreenSetConfig {
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Set Date"),
             param,
             Some(|_, confirmed| {
-                unsafe { OLD_FSM_STATE = FSM_STATE; }
                 if confirmed {
-                    unsafe { FSM_STATE = FSMState::Time; }
+                    set_state_with_old(FSMState::Time);
                 } else {
-                    unsafe { FSM_STATE = FSMState::EnableWifi; }
+                    set_state_with_old(FSMState::EnableWifi);
                 }
-                UPDATE_DRAW.store(true, Ordering::SeqCst);
             }),
         )?;
 
@@ -391,13 +402,11 @@ impl ScreenSetConfig {
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Set Time"),
             param,
             Some(|_, confirmed| {
-                unsafe { OLD_FSM_STATE = FSM_STATE; }
                 if confirmed {
-                    unsafe { FSM_STATE = FSMState::EnableDst; }
+                    set_state_with_old(FSMState::EnableDst);
                 } else {
-                    unsafe { FSM_STATE = FSMState::Date; }
+                    set_state_with_old(FSMState::Date);
                 }
-                UPDATE_DRAW.store(true, Ordering::SeqCst);
             }),
         )?;
 
@@ -421,11 +430,11 @@ impl ScreenSetConfig {
             param,
             Some(move |_, confirmed| {
                 if confirmed {
-                    unsafe { FSM_STATE = FSMState::SetConfig; }
+                    set_state(FSMState::SetConfig);
                 } else {
                     unsafe { FSM_STATE = OLD_FSM_STATE; }
+                    request_draw();
                 }
-                UPDATE_DRAW.store(true, Ordering::SeqCst);
             }),
         )?;
 
@@ -481,8 +490,7 @@ impl ScreenSetConfig {
         self.config.apply_session();
         Config::save()?;
 
-        unsafe { OLD_FSM_STATE = FSMState::SetConfig; }
-        unsafe { FSM_STATE = FSMState::End; }
+        set_state_with_old(FSMState::End);
 
         Ok(())
     }

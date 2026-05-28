@@ -41,6 +41,20 @@ use crate::traits::screen::{Screen, ScreenParam, ScreenRoute};
 static mut FSM_STATE: FSMState = FSMState::Enable;
 static UPDATE_DRAW: AtomicBool = AtomicBool::new(false);
 
+#[inline]
+fn apply_pending_draw(display_signal: &mut EventBits) {
+    if UPDATE_DRAW.load(Ordering::SeqCst) {
+        UPDATE_DRAW.store(false, Ordering::SeqCst);
+        *display_signal |= DisplayFlag::Draw as u32;
+    }
+}
+
+#[inline]
+fn set_state(next: FSMState) {
+    unsafe { FSM_STATE = next; }
+    UPDATE_DRAW.store(true, Ordering::SeqCst);
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum FSMState {
     Enable,
@@ -66,10 +80,7 @@ impl ScreenRoute for ScreenWifi {
         _status_signal: &mut EventBits,
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
     ) -> Result<()> {
-        if UPDATE_DRAW.load(Ordering::SeqCst) {
-            UPDATE_DRAW.store(false, Ordering::SeqCst);
-            *display_signal |= DisplayFlag::Draw as u32;
-        }
+        apply_pending_draw(display_signal);
 
         match unsafe { *&raw const FSM_STATE } {
             FSMState::Enable   => self.draw_enable_state(lcd, display_signal, rtc)?,
@@ -120,15 +131,14 @@ impl ScreenWifi {
                 if confirmed {
                     match param {
                         Some(p) => match p.check {
-                            Some(true)  => unsafe { FSM_STATE = FSMState::Ssid; },
-                            _           => unsafe { FSM_STATE = FSMState::Save; },
+                            Some(true) => set_state(FSMState::Ssid),
+                            _ => set_state(FSMState::Save),
                         },
-                        None => unsafe { FSM_STATE = FSMState::End; },
+                        None => set_state(FSMState::End),
                     }
                 } else {
-                    unsafe { FSM_STATE = FSMState::End; }
+                    set_state(FSMState::End);
                 }
-                UPDATE_DRAW.store(true, Ordering::SeqCst);
             }),
         )?;
 
@@ -151,8 +161,7 @@ impl ScreenWifi {
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi SSID"),
             param,
             Some(|_, confirmed| {
-                unsafe { FSM_STATE = if confirmed { FSMState::Passwd } else { FSMState::Enable }; }
-                UPDATE_DRAW.store(true, Ordering::SeqCst);
+                set_state(if confirmed { FSMState::Passwd } else { FSMState::Enable });
             }),
         )?;
 
@@ -176,8 +185,7 @@ impl ScreenWifi {
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi Password"),
             param,
             Some(|_, confirmed| {
-                unsafe { FSM_STATE = if confirmed { FSMState::AuthType } else { FSMState::Ssid }; }
-                UPDATE_DRAW.store(true, Ordering::SeqCst);
+                set_state(if confirmed { FSMState::AuthType } else { FSMState::Ssid });
             }),
         )?;
 
@@ -201,8 +209,7 @@ impl ScreenWifi {
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi Auth"),
             param,
             Some(|_, confirmed| {
-                unsafe { FSM_STATE = if confirmed { FSMState::Save } else { FSMState::Passwd }; }
-                UPDATE_DRAW.store(true, Ordering::SeqCst);
+                set_state(if confirmed { FSMState::Save } else { FSMState::Passwd });
             }),
         )?;
 
@@ -232,8 +239,7 @@ impl ScreenWifi {
         Config::shared().apply_wifi();
         Config::save()?;
 
-        unsafe { FSM_STATE = FSMState::End; }
-        UPDATE_DRAW.store(true, Ordering::SeqCst);
+        set_state(FSMState::End);
         Ok(())
     }
 
