@@ -42,7 +42,7 @@ pub(crate) enum GpioPeripheral {
     LedRed,
     LedGreen,
     LedBlue,
-    InternalLed,
+    Cyw43Led,
     InternalTemp,
     Relay1,
     Relay2,
@@ -61,7 +61,7 @@ impl AsSyncStr for GpioPeripheral {
             LedRed => "LedRed",
             LedGreen => "LedGreen",
             LedBlue => "LedBlue",
-            InternalLed => "InternalLed",
+            Cyw43Led => "Cyw43Led",
             InternalTemp => "InternalTemp",
             Relay1 => "Relay1",
             Relay2 => "Relay2",
@@ -84,7 +84,7 @@ impl FromStr for GpioPeripheral {
             "LedRed" => Ok(LedRed),
             "LedGreen" => Ok(LedGreen),
             "LedBlue" => Ok(LedBlue),
-            "InternalLed" => Ok(InternalLed),
+            "Cyw43Led" => Ok(Cyw43Led),
             "InternalTemp" => Ok(InternalTemp),
             "Relay1" => Ok(Relay1),
             "Relay2" => Ok(Relay2),
@@ -104,7 +104,7 @@ pub(crate) static mut GPIO_CONFIGS: GpioConfigs<'static, GPIO_CONFIG_SIZE> = Gpi
         Some(GpioConfig::new(&LedRed, GpioType::OutputPWM(None, 13, 0))),
         Some(GpioConfig::new(&LedGreen, GpioType::OutputPWM(None, 14, 0))),
         Some(GpioConfig::new(&LedBlue, GpioType::OutputPWM(None, 15, 0))),
-        Some(GpioConfig::new(&InternalLed, GpioType::Output(None, 0, 0))),
+        Some(GpioConfig::new(&Cyw43Led, GpioType::Output(None, 0, 0))),
         Some(GpioConfig::new(&InternalTemp, GpioType::InputAnalog(None, 0, 4, 0))),
         Some(GpioConfig::new(&Relay1, GpioType::Output(None, 6, 0))),
         Some(GpioConfig::new(&Relay2, GpioType::Output(None, 7, 0))),
@@ -168,7 +168,7 @@ fn input_analog(config: &GpioConfig, _base: Option<Ptr>, _pin: u32, channel: u32
 
 fn output(config: &GpioConfig, _: Option<Ptr>, pin: u32, default_value: u32) -> Result<()> {
 
-    if config.get_name() == InternalLed.as_str() {
+    if config.get_name() == Cyw43Led.as_str() {
         
         unsafe {
             hhg_cyw43_arch_gpio_put(pin, default_value != 0);
@@ -210,7 +210,7 @@ fn read(config: &GpioConfig, _: Option<Ptr>, input: u32) -> Result<u32> {
         unsafe { hhg_adc_select_input(input) };
         Ok(unsafe {hhg_adc_read() as u32})
 
-    } else if config.get_name() == InternalLed.as_str() {
+    } else if config.get_name() == Cyw43Led.as_str() {
         Ok(unsafe { if hhg_cyw43_arch_gpio_get(input) { 1 } else { 0 } })
     } else {
         Ok(unsafe {hhg_gpio_get(input)} as u32)
@@ -218,7 +218,7 @@ fn read(config: &GpioConfig, _: Option<Ptr>, input: u32) -> Result<u32> {
 }
 
 fn write(config: &GpioConfig, _: Option<Ptr>, pin: u32, state: u32) -> OsalRsBool {
-    if config.get_name() == InternalLed.as_str() {
+    if config.get_name() == Cyw43Led.as_str() {
         unsafe {
             hhg_cyw43_arch_gpio_put(pin, state != 0);
         }
