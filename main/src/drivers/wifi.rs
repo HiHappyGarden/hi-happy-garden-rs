@@ -176,7 +176,7 @@ impl Wifi {
         on_wifi_change_status: &'static dyn OnWifiChangeStatus,
     ) -> WifiFsmControl {
         use WifiStatus::*;
-        gpio.write(&GpioPeripheral::InternalLed, 0);
+        gpio.write(&GpioPeripheral::Cyw43Led, 0);
         if !INITIALIZED.load(Ordering::Acquire) {
             log_info!(APP_TAG, "WIFI init");
             let _ = (WIFI_FN.init)(wifi_country!('I', 'T', 0));
@@ -196,7 +196,7 @@ impl Wifi {
         on_wifi_change_status: &'static dyn OnWifiChangeStatus,
     ) -> WifiFsmControl {
         use WifiStatus::*;
-        gpio.write(&GpioPeripheral::InternalLed, 0);
+        gpio.write(&GpioPeripheral::Cyw43Led, 0);
         (WIFI_FN.enable_sta_mode)(null_mut());
         *count_error = 0;
         unsafe { transition_wifi_status!(Connecting, on_wifi_change_status); }
@@ -210,7 +210,7 @@ impl Wifi {
         on_wifi_change_status: &'static dyn OnWifiChangeStatus,
     ) -> WifiFsmControl {
         use WifiStatus::*;
-        gpio.write(&GpioPeripheral::InternalLed, 0);
+        gpio.write(&GpioPeripheral::Cyw43Led, 0);
         let ret = unsafe {
             (WIFI_FN.connect)(null_mut(), (*&raw const SSID).as_str(), (*&raw const PASSWORD).as_str(), AUTH).unwrap_or(1)
         };
@@ -231,7 +231,7 @@ impl Wifi {
         on_wifi_change_status: &'static dyn OnWifiChangeStatus,
     ) -> WifiFsmControl {
         use WifiStatus::*;
-        gpio.write(&GpioPeripheral::InternalLed, 0);
+        gpio.write(&GpioPeripheral::Cyw43Led, 0);
         unsafe {
             *link_status = (WIFI_FN.link_status)(null_mut());
             match *link_status {
@@ -256,6 +256,7 @@ impl Wifi {
         gpio: &Gpio<N>,
         link_status: &mut LinkStatus,
         rssi_old: &mut i8,
+        led_on: bool,
         on_wifi_change_status: &'static dyn OnWifiChangeStatus,
     ) -> WifiFsmControl {
         use WifiStatus::*;
@@ -263,7 +264,7 @@ impl Wifi {
             *link_status = (WIFI_FN.link_status)(null_mut());
             match *link_status {
                 LinkStatus::Up => {
-                    gpio.write(&GpioPeripheral::InternalLed, 1);
+                    gpio.write(&GpioPeripheral::Cyw43Led, led_on as u32);
                     let rssi = if let Ok(rssi) = (WIFI_FN.get_rssi)(null_mut()) {
                         match rssi {
                             rssi if rssi >= -50 => Excellent,
@@ -305,7 +306,7 @@ impl Wifi {
         INITIALIZED.store(false, Ordering::Release);
         System::delay_with_to_tick(Duration::from_secs(25));
         on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
-        gpio.write(&GpioPeripheral::InternalLed, 0);
+        gpio.write(&GpioPeripheral::Cyw43Led, 0);
         WifiFsmControl::Break
     }
 
@@ -340,7 +341,7 @@ impl Wifi {
     ) -> WifiFsmControl {
         use WifiStatus::*;
         log_warning!(APP_TAG, "Resetting WiFi wait 5 seconds...");
-        gpio.write(&GpioPeripheral::InternalLed, 0);
+        gpio.write(&GpioPeripheral::Cyw43Led, 0);
         (WIFI_FN.disable_sta_mode)(null_mut());
         let _ = (WIFI_FN.drop)(null_mut());
         INITIALIZED.store(false, Ordering::Release);
@@ -367,7 +368,6 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
             let mut count_error = 0;
 
-
             log_debug!(APP_TAG, "Start WIFI FSM");
 
             let mut link_status = LinkStatus::Down;
@@ -375,6 +375,8 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
             let gpio = Gpio::shared();
 
             let mut rssi_old : i8 = Unknown.into();
+
+            let mut led_on = true;
 
             unsafe {
                 'no_rtc: loop {
@@ -397,7 +399,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                         Enabled         => Self::handle_enabled(&gpio, &mut count_error, on_wifi_change_status),
                         Connecting      => Self::handle_connecting(&gpio, &mut count_error, on_wifi_change_status),
                         WaitForIp       => Self::handle_wait_for_ip(&gpio, &mut link_status, on_wifi_change_status),
-                        Connected       => Self::handle_connected(&gpio, &mut link_status, &mut rssi_old, on_wifi_change_status),
+                        Connected       => Self::handle_connected(&gpio, &mut link_status, &mut rssi_old, led_on, on_wifi_change_status),
                         Disconnected    => Self::handle_disconnected(&gpio, on_wifi_change_status),
                         Error           => Self::handle_error(link_status, &mut count_error, on_wifi_change_status),
                         Resetting       => Self::handle_resetting(&gpio, on_wifi_change_status),
@@ -409,6 +411,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                         WifiFsmControl::Next     => {}
                     }
 
+                    led_on = !led_on;
                     System::delay_with_to_tick(Duration::from_millis(100));
                 }
             }
