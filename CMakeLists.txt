@@ -310,11 +310,11 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 target_link_libraries(${PROJECT_NAME} 
         ${RUST_PATH}
         pico_cyw43_arch_lwip_sys_freertos
-        pico_lwip_mbedtls
+        # pico_lwip_mbedtls
         pico_mbedtls
-        pico_lwip_mqtt
+        # pico_lwip_mqtt
         pico_stdlib
-        pico_multicore
+        # pico_multicore
         pico_unique_id
         hardware_gpio
         hardware_pwm

@@ -34,4 +34,5 @@ debug = true
 panic = "abort"
 debug = false
 opt-level = "z"
+codegen-units = 1
 lto = true
