@@ -21,6 +21,7 @@
 #![allow(dead_code)]
 
 mod info;
+mod login;
 mod set_config;
 mod main;
 mod date_time;

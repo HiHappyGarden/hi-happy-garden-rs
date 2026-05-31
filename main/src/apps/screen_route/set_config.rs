@@ -51,34 +51,6 @@ static mut FSM_STATE: FSMState = FSMState::Serial;
 static mut OLD_FSM_STATE: FSMState = FSMState::Serial;
 static UPDATE_DRAW: AtomicBool = AtomicBool::new(false);
 
-#[inline]
-fn apply_pending_draw(display_signal: &mut EventBits) {
-    if UPDATE_DRAW.load(Ordering::SeqCst) {
-        UPDATE_DRAW.store(false, Ordering::SeqCst);
-        *display_signal |= DisplayFlag::Draw as u32;
-    }
-}
-
-#[inline]
-fn request_draw() {
-    UPDATE_DRAW.store(true, Ordering::SeqCst);
-}
-
-#[inline]
-fn set_state(next: FSMState) {
-    unsafe { FSM_STATE = next; }
-    request_draw();
-}
-
-#[inline]
-fn set_state_with_old(next: FSMState) {
-    unsafe {
-        OLD_FSM_STATE = FSM_STATE;
-        FSM_STATE = next;
-    }
-    request_draw();
-}
-
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum FSMState {
     Serial,
@@ -118,7 +90,7 @@ impl ScreenRoute for ScreenSetConfig {
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
         
     ) -> Result<()> {
-        apply_pending_draw(display_signal);
+        Self::apply_pending_draw(display_signal);
 
         let fsm_state = unsafe { *&raw const FSM_STATE };
         
@@ -174,9 +146,9 @@ impl ScreenSetConfig {
             param,
             Some(|_, confirmed| {
                 if confirmed {
-                    set_state_with_old(FSMState::Email);
+                    Self::set_state_with_old(FSMState::Email);
                 } else {
-                    request_draw();
+                    Self::request_draw();
                 }
             }),
         )?;
@@ -201,9 +173,9 @@ impl ScreenSetConfig {
             param,
             Some(|_, confirmed| {
                 if confirmed {
-                    set_state_with_old(FSMState::EmailPasswd);
+                    Self::set_state_with_old(FSMState::EmailPasswd);
                 } else {
-                    set_state_with_old(FSMState::Serial);
+                    Self::set_state_with_old(FSMState::Serial);
                 }
             }),
         )?;
@@ -229,9 +201,9 @@ impl ScreenSetConfig {
             param,
             Some(|_, confirmed| {
                 if confirmed {
-                    set_state_with_old(FSMState::EnableWifi);
+                    Self::set_state_with_old(FSMState::EnableWifi);
                 } else {
-                    set_state_with_old(FSMState::Email);
+                    Self::set_state_with_old(FSMState::Email);
                 }
             }),
         )?;
@@ -259,14 +231,14 @@ impl ScreenSetConfig {
                     unsafe { OLD_FSM_STATE = FSM_STATE; }
                     match param {
                         Some(screen_param) => match screen_param.check {
-                            Some(true) => set_state(FSMState::Ssid),
-                            Some(false) => set_state(FSMState::Date),
-                            None => set_state(FSMState::Serial),
+                            Some(true) => Self::set_state(FSMState::Ssid),
+                            Some(false) => Self::set_state(FSMState::Date),
+                            None => Self::set_state(FSMState::Serial),
                         },
-                        None => set_state(FSMState::Serial),
+                        None => Self::set_state(FSMState::Serial),
                     }
                 } else {
-                    set_state(FSMState::EmailPasswd);
+                    Self::set_state(FSMState::EmailPasswd);
                 }
             }),
         )?;
@@ -291,9 +263,9 @@ impl ScreenSetConfig {
             param,
             Some(|_, confirmed| {
                 if confirmed {
-                    set_state_with_old(FSMState::Passwd);
+                    Self::set_state_with_old(FSMState::Passwd);
                 } else {
-                    set_state_with_old(FSMState::EnableWifi);
+                    Self::set_state_with_old(FSMState::EnableWifi);
                 }
             }),
         )?;
@@ -318,9 +290,9 @@ impl ScreenSetConfig {
             param,
             Some(|_, confirmed| {
                 if confirmed {
-                    set_state_with_old(FSMState::Auth);
+                    Self::set_state_with_old(FSMState::Auth);
                 } else {
-                    set_state_with_old(FSMState::Ssid);
+                    Self::set_state_with_old(FSMState::Ssid);
                 }
             }),
         )?;
@@ -345,9 +317,9 @@ impl ScreenSetConfig {
             param,
             Some(|_, confirmed| {
                 if confirmed {
-                    set_state_with_old(FSMState::EnableDst);
+                    Self::set_state_with_old(FSMState::EnableDst);
                 } else {
-                    set_state_with_old(FSMState::Passwd);
+                    Self::set_state_with_old(FSMState::Passwd);
                 }
             }),
         )?;
@@ -374,9 +346,9 @@ impl ScreenSetConfig {
             param,
             Some(|_, confirmed| {
                 if confirmed {
-                    set_state_with_old(FSMState::Time);
+                    Self::set_state_with_old(FSMState::Time);
                 } else {
-                    set_state_with_old(FSMState::EnableWifi);
+                    Self::set_state_with_old(FSMState::EnableWifi);
                 }
             }),
         )?;
@@ -403,9 +375,9 @@ impl ScreenSetConfig {
             param,
             Some(|_, confirmed| {
                 if confirmed {
-                    set_state_with_old(FSMState::EnableDst);
+                    Self::set_state_with_old(FSMState::EnableDst);
                 } else {
-                    set_state_with_old(FSMState::Date);
+                    Self::set_state_with_old(FSMState::Date);
                 }
             }),
         )?;
@@ -430,10 +402,10 @@ impl ScreenSetConfig {
             param,
             Some(move |_, confirmed| {
                 if confirmed {
-                    set_state(FSMState::SetConfig);
+                    Self::set_state(FSMState::SetConfig);
                 } else {
                     unsafe { FSM_STATE = OLD_FSM_STATE; }
-                    request_draw();
+                    Self::request_draw();
                 }
             }),
         )?;
@@ -490,7 +462,7 @@ impl ScreenSetConfig {
         self.config.apply_session();
         Config::save()?;
 
-        set_state_with_old(FSMState::End);
+        Self::set_state_with_old(FSMState::End);
 
         Ok(())
     }
@@ -510,4 +482,33 @@ impl ScreenSetConfig {
             enable_dst: Check::new(),
         }
     }
+
+    #[inline]
+    fn apply_pending_draw(display_signal: &mut EventBits) {
+        if UPDATE_DRAW.load(Ordering::SeqCst) {
+            UPDATE_DRAW.store(false, Ordering::SeqCst);
+            *display_signal |= DisplayFlag::Draw as u32;
+        }
+    }
+
+    #[inline]
+    fn request_draw() {
+        UPDATE_DRAW.store(true, Ordering::SeqCst);
+    }
+
+    #[inline]
+    fn set_state(next: FSMState) {
+        unsafe { FSM_STATE = next; }
+        Self::request_draw();
+    }
+
+    #[inline]
+    fn set_state_with_old(next: FSMState) {
+        unsafe {
+            OLD_FSM_STATE = FSM_STATE;
+            FSM_STATE = next;
+        }
+        Self::request_draw();
+    }
+
 }
