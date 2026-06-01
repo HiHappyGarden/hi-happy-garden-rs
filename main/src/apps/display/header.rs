@@ -118,6 +118,8 @@ impl Header {
         
         if StatusFlag::UserLogged.check_signal(*status_signal) {
             lcd.draw_bitmap_image(15 + 5, 0, IC_ADMINISTRATOR.0, IC_ADMINISTRATOR.1, &IC_ADMINISTRATOR.2, LCDWriteMode::ADD)?;
+        } else {
+            lcd.draw_rect(15, 0, IC_ADMINISTRATOR.0 + 5, IC_ADMINISTRATOR.1, LCDWriteMode::REMOVE)?;
         }
 
 
