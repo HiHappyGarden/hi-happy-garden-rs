@@ -10,7 +10,7 @@ sudo apt install python3 git tar build-essential cmake gcc-arm-none-eabi libusb-
 
 # Picocom
 ```sh
-picocom --omap crcrlf -b 115200 /dev/ttyACM0
+picocom --omap crcrlf --echo -b 115200 /dev/ttyACM0
 ```
 
 # Default Parameters Configuration via CMake
