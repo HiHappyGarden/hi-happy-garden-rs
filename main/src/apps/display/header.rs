@@ -29,11 +29,13 @@ use osal_rs::utils::Result;
 use crate::apps::signals::display::DisplayFlag;
 use crate::apps::signals::error::{ErrorFlag, ErrorSignal};
 
+use crate::apps::signals::status::StatusFlag;
 use crate::assets::font_5x8::FONT_5X8;
 use crate::assets::ic_wifi_excellent::IC_WIFI_EXCELLENT;
 use crate::assets::ic_wifi_fair::IC_WIFI_FAIR;
 use crate::assets::ic_wifi_good::IC_WIFI_GOOD;
 use crate::assets::ic_wifi_no_signal::IC_WIFI_NO_SIGNAL;
+use crate::assets::ic_administrator::IC_ADMINISTRATOR;
 
 use crate::drivers::date_time::DateTime;
 
@@ -42,15 +44,12 @@ use crate::traits::rtc::RTC;
 use crate::traits::signal::Signal;
 use crate::traits::wifi::RSSIStatus::{self, *};
 
-pub(super) struct Header
-{
+pub(super) struct Header {
     date_time: DateTime,
     rssi_status: RSSIStatus,
 }
 
-impl Header
-{
-
+impl Header {
 
     pub(super) fn new() -> Self {
         Self {
@@ -62,12 +61,13 @@ impl Header
     pub(super) fn draw(
         &mut self, 
         lcd: &mut impl LCDDisplayFn, 
-        signal: &mut EventBits, 
+        display_signal: &mut EventBits, 
+        status_signal: &EventBits,
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
         wifi_enabled: bool
     ) -> Result<()> {
         
-        let rssi = match RSSIStatus::from_bites( (*signal >> 6) as u8 ) {
+        let rssi = match RSSIStatus::from_bites( (*display_signal >> 6) as u8 ) {
             Ok(status) => status,
             Err(_) => RSSIStatus::Unknown,
         };
@@ -102,7 +102,7 @@ impl Header
         lcd.draw_rect(0, header_height, display_width, 1, LCDWriteMode::ADD)?;
 
         if !self.date_time.is_valid() {    
-            *signal |= DisplayFlag::Draw as u32;
+            *display_signal |= DisplayFlag::Draw as u32;
             return Ok(());
         }
 
@@ -116,6 +116,9 @@ impl Header
             NoSignal => lcd.draw_bitmap_image(3, 0, IC_WIFI_NO_SIGNAL.0, IC_WIFI_NO_SIGNAL.1, &IC_WIFI_NO_SIGNAL.2, LCDWriteMode::ADD)?,
         }
         
+        if StatusFlag::UserLogged.check_signal(*status_signal) {
+            lcd.draw_bitmap_image(15 + 5, 0, IC_ADMINISTRATOR.0, IC_ADMINISTRATOR.1, &IC_ADMINISTRATOR.2, LCDWriteMode::ADD)?;
+        }
 
 
         if date_time.is_valid() {
@@ -126,7 +129,7 @@ impl Header
             });
         }
 
-        *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+        *display_signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
         
         Ok(())
     }
