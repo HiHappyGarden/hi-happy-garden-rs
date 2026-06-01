@@ -39,7 +39,9 @@ use osal_rs::os::types::EventBits;
 
 
 use set_config::ScreenSetConfig;
+use crate::apps::config::Config;
 use crate::apps::screen_route::info::ScreenInfo;
+use crate::apps::screen_route::login::ScreenLogin;
 use crate::apps::screen_route::main::{ScreenMain, FSMState as MainFSMState};
 use crate::apps::screen_route::date_time::ScreenDateTime;
 use crate::apps::screen_route::daylight_saving_time::ScreenDaylightSavingTime;
@@ -59,6 +61,7 @@ const CHECK_STATUS_THRESHOLD: u8 = 5;
 enum FSMState {
     Init,
     SetConfig,
+    Login,
     Menu,
     MenuInfo,
     MenuDateTime,
@@ -72,12 +75,13 @@ impl From<i8> for FSMState {
         match value {
             0 => FSMState::Init,
             1 => FSMState::SetConfig,
-            2 => FSMState::Menu,
-            3 => FSMState::MenuInfo,
-            4 => FSMState::MenuDateTime,
-            5 => FSMState::MenuDaylightSavingTime,
-            6 => FSMState::MenuWifi,
-            7 => FSMState::MenuUser,
+            2 => FSMState::Login,
+            3 => FSMState::Menu,
+            4 => FSMState::MenuInfo,
+            5 => FSMState::MenuDateTime,
+            6 => FSMState::MenuDaylightSavingTime,
+            7 => FSMState::MenuWifi,
+            8 => FSMState::MenuUser,
             _ => FSMState::Init, // Default case
         }
     }
@@ -88,21 +92,24 @@ impl From<FSMState> for i8 {
         match state {
             FSMState::Init => 0,
             FSMState::SetConfig => 1,
-            FSMState::Menu => 2,
-            FSMState::MenuInfo => 3,
-            FSMState::MenuDateTime => 4,
-            FSMState::MenuDaylightSavingTime => 5,
-            FSMState::MenuWifi => 6,
-            FSMState::MenuUser => 7,
+            FSMState::Login => 2,
+            FSMState::Menu => 3,
+            FSMState::MenuInfo => 4,
+            FSMState::MenuDateTime => 5,
+            FSMState::MenuDaylightSavingTime => 6,
+            FSMState::MenuWifi => 7,
+            FSMState::MenuUser => 8,
         }
     }
 }
 
 pub(in crate::apps) struct ScreenRoute {
+    config: &'static mut Config,
     fsm_state: FSMState,
     main_fsm_state: MainFSMState,
     check_staus_counter: u8,
     current_screen: Option<Box<dyn ScreenRouteFn>>,
+    has_local_user: bool,
 }
 
 impl ScreenRouteFn for ScreenRoute {
@@ -116,6 +123,7 @@ impl ScreenRouteFn for ScreenRoute {
         match self.fsm_state {
             FSMState::Init                      => self.handle_init(status_signal),
             FSMState::SetConfig                 => self.handle_set_config(lcd, display_signal, status_signal, rtc),
+            FSMState::Login                     => self.handle_login(lcd, display_signal, status_signal, rtc),
             FSMState::Menu                      => self.handle_menu(lcd, display_signal, status_signal, rtc),
             FSMState::MenuInfo                  => self.handle_submenu(lcd, display_signal, status_signal, rtc, MainFSMState::Info, || Box::new(ScreenInfo::new()) ),
             FSMState::MenuDateTime              => self.handle_submenu(lcd, display_signal, status_signal, rtc, MainFSMState::DateTime, || Box::new(ScreenDateTime::new())),
@@ -183,6 +191,25 @@ impl ScreenRoute {
         }
     }
 
+    fn handle_login(
+        &mut self,
+        lcd: &mut dyn LCDDisplayFn,
+        display_signal: &mut EventBits,
+        status_signal: &mut EventBits,
+        rtc: &Arc<Mutex<dyn RTC + 'static>>
+    ) {
+        if self.current_screen.is_none() {
+            self.current_screen = Some(Box::new(ScreenLogin::new()));
+        }
+        if let Some(screen) = &mut self.current_screen {
+            if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
+                self.current_screen = None;
+                self.fsm_state = FSMState::Menu;
+            }
+        }
+        
+    }
+
     fn handle_menu(
         &mut self,
         lcd: &mut dyn LCDDisplayFn,
@@ -196,6 +223,12 @@ impl ScreenRoute {
         if let Some(screen) = &mut self.current_screen {
             if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
                 if let Some(screen_main) = screen.as_any_mut().downcast_mut::<ScreenMain>() {
+
+                    if self.config.get_session().is_set_user_local() {
+                        self.has_local_user = true;
+                    } else {
+                        self.has_local_user = false;
+                    }
 
                     let mut main_selected_screen: i8 = (screen_main.get_selected_screen() as Option<main::FSMState>).unwrap_or(main::FSMState::Info).into();
                     main_selected_screen += 1;
@@ -219,6 +252,12 @@ impl ScreenRoute {
         back: MainFSMState,
         build_screen: fn() -> Box<dyn ScreenRouteFn>,
     ) {
+        if StatusFlag::UserLogged.check_signal(*status_signal) {
+            self.main_fsm_state = back;
+            self.fsm_state = FSMState::Login;
+            return;
+        }
+
         if self.current_screen.is_none() {
             self.current_screen = Some(build_screen());
             *display_signal &= !Self::BUTTON_MASK;
@@ -235,9 +274,11 @@ impl ScreenRoute {
 
     pub(in crate::apps) const fn new() -> Self {
         Self {
+            config: Config::shared(),
             fsm_state: FSMState::Init,
             main_fsm_state: MainFSMState::Info,
             check_staus_counter: 0,
+            has_local_user: false,
             current_screen: None,
         }
     }

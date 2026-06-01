@@ -349,6 +349,11 @@ impl Session {
         self.users[1]
     }
 
+    #[inline]
+    pub fn is_set_user_local(&self) -> bool {
+        self.users[1].email.len() > 0 && self.users[1].password.len() > 0
+    }
+
     pub fn set_system_user(&mut self, email: &str, password: &str) -> Result<()> {
         if email.is_empty() || password.is_empty() {
             return Err(Error::Empty);

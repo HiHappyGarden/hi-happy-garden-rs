@@ -26,7 +26,7 @@ use at_parser_rs::Args;
 use at_parser_rs::context::AtContext;
 use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
-use osal_rs::utils::{Bytes, Result};
+use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::config::Config;
@@ -81,11 +81,10 @@ impl ScreenRoute for ScreenLogin {
             FSMState::Email => self.handle_email(lcd, display_signal, rtc)?,
             FSMState::EmailPasswd => self.handle_email_passwd(lcd, display_signal, rtc)?,
             FSMState::Status => self.handle_status(lcd, display_signal, rtc)?,
-            FSMState::End => self.handle_end(lcd, display_signal, rtc)?,
+            FSMState::End => return Ok(())
         }
-        
 
-        Ok(())
+        Err(Error::ReturnWithCode(1))
     }
 
 }
@@ -207,10 +206,6 @@ impl ScreenLogin {
                         Self::set_state(FSMState::End);
                     })
                 )?;
-
-        
-
-
         Ok(())
     }
 

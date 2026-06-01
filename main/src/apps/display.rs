@@ -119,7 +119,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 let mut status_signal = StatusSignal::get();
 
                 //build header
-                if let Err(e) =  header.draw(lcd, &mut display_signal, &rtc, *wifi_enabled) {
+                if let Err(e) =  header.draw(lcd, &mut display_signal, &status_signal, &rtc, *wifi_enabled) {
                     if let Error::ReturnWithCode(_) = e {} else {
                         log_info!(APP_TAG, "Error drawing header: {:?}", e);
                         ErrorSignal::set(ErrorFlag::Display.into());
