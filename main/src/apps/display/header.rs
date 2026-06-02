@@ -47,14 +47,19 @@ use crate::traits::wifi::RSSIStatus::{self, *};
 pub(super) struct Header {
     date_time: DateTime,
     rssi_status: RSSIStatus,
+    show_admin_icon: bool,
 }
 
 impl Header {
+
+    const FIRST_ICON_X: u8 = 3;
+    const SECOND_ICON_X: u8 = 20;
 
     pub(super) fn new() -> Self {
         Self {
             date_time: DateTime::default(),
             rssi_status: RSSIStatus::Unknown,
+            show_admin_icon: false,
         }
     }
 
@@ -87,6 +92,20 @@ impl Header {
             redraw_needed = true;
         }
 
+        let show_admin_icon = StatusFlag::UserLogged.check_signal(*status_signal);
+        if self.show_admin_icon != show_admin_icon {
+            self.show_admin_icon = show_admin_icon;
+            if self.show_admin_icon {
+                lcd.draw_bitmap_image(Self::SECOND_ICON_X, 0, IC_ADMINISTRATOR.0, IC_ADMINISTRATOR.1, &IC_ADMINISTRATOR.2, LCDWriteMode::ADD)?;
+            } else {
+                lcd.draw_rect(Self::SECOND_ICON_X, 0, IC_ADMINISTRATOR.0, IC_ADMINISTRATOR.1, LCDWriteMode::REMOVE)?;
+            }
+            *display_signal |= DisplayFlag::Draw as u32;
+            redraw_needed = true;
+        }
+            
+        
+
         if !redraw_needed {
             return Ok(()); // No need to redraw if nothing has changed
         }
@@ -101,6 +120,10 @@ impl Header {
 
         lcd.draw_rect(0, header_height, display_width, 1, LCDWriteMode::ADD)?;
 
+        if self.show_admin_icon {
+            lcd.draw_bitmap_image(Self::SECOND_ICON_X, 0, IC_ADMINISTRATOR.0, IC_ADMINISTRATOR.1, &IC_ADMINISTRATOR.2, LCDWriteMode::ADD)?;
+        }
+
         if !self.date_time.is_valid() {    
             *display_signal |= DisplayFlag::Draw as u32;
             return Ok(());
@@ -108,18 +131,12 @@ impl Header {
 
         match self.rssi_status {
             Unknown => if wifi_enabled {
-                //lcd.draw_bitmap_image(3, 0, IC_WIFI_NO_SIGNAL.0, IC_WIFI_NO_SIGNAL.1, &IC_WIFI_NO_SIGNAL.2, LCDWriteMode::ADD)?;
+                //lcd.draw_bitmap_image(Self::FIRST_ICON_X, 0, IC_WIFI_NO_SIGNAL.0, IC_WIFI_NO_SIGNAL.1, &IC_WIFI_NO_SIGNAL.2, LCDWriteMode::ADD)?;
             }
-            Excellent => lcd.draw_bitmap_image(3, 0, IC_WIFI_EXCELLENT.0, IC_WIFI_EXCELLENT.1, &IC_WIFI_EXCELLENT.2, LCDWriteMode::ADD)?,
-            Good => lcd.draw_bitmap_image(3, 0, IC_WIFI_GOOD.0, IC_WIFI_GOOD.1, &IC_WIFI_GOOD.2, LCDWriteMode::ADD)?,
-            Fair | Weak => lcd.draw_bitmap_image(3, 0, IC_WIFI_FAIR.0, IC_WIFI_FAIR.1, &IC_WIFI_FAIR.2, LCDWriteMode::ADD)?,
-            NoSignal => lcd.draw_bitmap_image(3, 0, IC_WIFI_NO_SIGNAL.0, IC_WIFI_NO_SIGNAL.1, &IC_WIFI_NO_SIGNAL.2, LCDWriteMode::ADD)?,
-        }
-        
-        if StatusFlag::UserLogged.check_signal(*status_signal) {
-            lcd.draw_bitmap_image(15 + 5, 0, IC_ADMINISTRATOR.0, IC_ADMINISTRATOR.1, &IC_ADMINISTRATOR.2, LCDWriteMode::ADD)?;
-        } else {
-            lcd.draw_rect(15, 0, IC_ADMINISTRATOR.0 + 5, IC_ADMINISTRATOR.1, LCDWriteMode::REMOVE)?;
+            Excellent => lcd.draw_bitmap_image(Self::FIRST_ICON_X, 0, IC_WIFI_EXCELLENT.0, IC_WIFI_EXCELLENT.1, &IC_WIFI_EXCELLENT.2, LCDWriteMode::ADD)?,
+            Good => lcd.draw_bitmap_image(Self::FIRST_ICON_X, 0, IC_WIFI_GOOD.0, IC_WIFI_GOOD.1, &IC_WIFI_GOOD.2, LCDWriteMode::ADD)?,
+            Fair | Weak => lcd.draw_bitmap_image(Self::FIRST_ICON_X, 0, IC_WIFI_FAIR.0, IC_WIFI_FAIR.1, &IC_WIFI_FAIR.2, LCDWriteMode::ADD)?,
+            NoSignal => lcd.draw_bitmap_image(Self::FIRST_ICON_X, 0, IC_WIFI_NO_SIGNAL.0, IC_WIFI_NO_SIGNAL.1, &IC_WIFI_NO_SIGNAL.2, LCDWriteMode::ADD)?,
         }
 
 
