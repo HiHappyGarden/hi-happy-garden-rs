@@ -68,10 +68,7 @@ impl ScreenRoute for ScreenUser {
             FSMState::Email  => self.draw_email_state(lcd, display_signal, rtc)?,
             FSMState::Passwd => self.draw_passwd_state(lcd, display_signal, rtc)?,
             FSMState::Save   => self.draw_save_state()?,
-            FSMState::End    => {
-                unsafe { FSM_STATE = FSMState::Email; }
-                return Ok(());
-            }
+            FSMState::End    => return Ok(())
         }
 
         Err(Error::ReturnWithCode(1))

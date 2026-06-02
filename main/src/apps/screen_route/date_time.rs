@@ -70,10 +70,8 @@ impl ScreenRoute for ScreenDateTime {
             FSMState::Date => self.draw_date_state(lcd, display_signal, rtc)?,
             FSMState::Time => self.draw_time_state(lcd, display_signal, rtc)?,
             FSMState::Save => self.draw_save_state(rtc)?,
-            FSMState::End => {
-                unsafe { FSM_STATE = FSMState::Date; }
-                return Ok(());
-            }
+            FSMState::End => return Ok(())
+            
         }
 
         Err(Error::ReturnWithCode(1))

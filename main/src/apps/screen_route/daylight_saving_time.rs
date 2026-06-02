@@ -65,10 +65,8 @@ impl ScreenRoute for ScreenDaylightSavingTime {
         match unsafe { *&raw const FSM_STATE } {
             FSMState::Enable => self.draw_enable_state(lcd, display_signal, rtc)?,
             FSMState::Save   => self.draw_save_state()?,
-            FSMState::End    => {
-                unsafe { FSM_STATE = FSMState::Enable; }
-                return Ok(());
-            }
+            FSMState::End    => return Ok(()),
+            
         }
 
         Err(Error::ReturnWithCode(1))

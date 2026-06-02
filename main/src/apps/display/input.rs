@@ -198,14 +198,17 @@ impl Screen<Bytes<MAX_SIZE>> for Input
                     p.input = self.original_input.clone();
                     cb(Some(p), false);
                 }
+                *signal |= DisplayFlag::Draw as u32;
             } else if self.input.as_ref().is_none_or(|input| input.is_empty()) {
                 if let Some(cb) = callback {
                     cb(None, false);
                 }
+                *signal |= DisplayFlag::Draw as u32;
+            } else {
+                *signal |= DisplayFlag::Draw as u32;
             }
             self.button_pressed_tick = 0;
             *signal &= !(DisplayFlag::ButtonReleased as u32);
-            *signal |= DisplayFlag::Draw as u32;
 
         }
 
@@ -271,6 +274,7 @@ impl Input
             let elapsed = System::get_tick_count().wrapping_sub(self.encoder_button_pressed_tick);
             if elapsed >= LONG_PRESS_TICK {
                 // Long press: draw() will confirm the current input through the callback.
+                *signal |= DisplayFlag::Draw as u32;
             } else {
                 if self.seed_input_if_empty() {
                 } else if let Some(mut input) = self.input {
@@ -289,6 +293,7 @@ impl Input
             let elapsed = System::get_tick_count().wrapping_sub(self.button_pressed_tick);
             if elapsed >= LONG_PRESS_TICK {
                 // Long press: draw() will restore the original input through the callback.
+                *signal |= DisplayFlag::Draw as u32;
             } else {
                 if let Some(mut input) = self.input {
                     if !input.is_empty() {

@@ -70,15 +70,15 @@ impl ScreenRoute for ScreenInfo {
         }
 
         self.text.draw(
-                    lcd, 
-                    display_signal, 
-                    rtc, 
-                    &text, 
-                    ScreenParam::<u16>::default(), 
-                    Some(|_, _| {
-                        BACK.store(true, core::sync::atomic::Ordering::Relaxed);
-                    })
-                )?;
+            lcd, 
+            display_signal, 
+            rtc, 
+            &text, 
+            ScreenParam::<u16>::default(), 
+            Some(|_, _| {
+                BACK.store(true, core::sync::atomic::Ordering::Relaxed);
+            })
+        )?;
 
         if BACK.load(Ordering::SeqCst) {
             BACK.store(false, Ordering::SeqCst);

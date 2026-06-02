@@ -32,6 +32,7 @@ use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::config::Config;
 use crate::apps::display::input::Input;
 use crate::apps::display::text::Text;
+use crate::apps::signals::display::DisplayFlag;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
 use crate::traits::screen::{Screen, ScreenParam, ScreenRoute};
@@ -74,6 +75,11 @@ impl ScreenRoute for ScreenLogin {
         _status_signal: &mut EventBits, 
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
     ) -> osal_rs::utils::Result<()> {
+
+        if UPDATE_DRAW.load(Ordering::SeqCst) {
+            UPDATE_DRAW.store(false, Ordering::SeqCst);
+            *display_signal |= DisplayFlag::Draw as u32;
+        }
 
         let fsm_state = unsafe { *&raw const FSM_STATE };
 
@@ -123,7 +129,7 @@ impl ScreenLogin {
             lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Email"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Login Email"),
             param,
             Some(|_, confirmed| {
                 if confirmed {
@@ -144,7 +150,7 @@ impl ScreenLogin {
             lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Password"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Login Password"),
             param,
             Some(|_, confirmed| {
                 if confirmed {

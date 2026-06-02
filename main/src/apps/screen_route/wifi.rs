@@ -88,10 +88,8 @@ impl ScreenRoute for ScreenWifi {
             FSMState::Passwd   => self.draw_passwd_state(lcd, display_signal, rtc)?,
             FSMState::AuthType => self.draw_auth_state(lcd, display_signal, rtc)?,
             FSMState::Save     => self.draw_save_state()?,
-            FSMState::End      => {
-                unsafe { FSM_STATE = FSMState::Enable; }
-                return Ok(());
-            }
+            FSMState::End      => return Ok(())
+            
         }
 
         Err(Error::ReturnWithCode(1))
