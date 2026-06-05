@@ -32,10 +32,11 @@ use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::config::Config;
 use crate::apps::display::input::Input;
 use crate::apps::display::text::Text;
-use crate::apps::signals::display::DisplayFlag;
+use crate::apps::signals::display::{DisplayFlag, DisplaySignal};
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
 use crate::traits::screen::{Screen, ScreenParam, ScreenRoute};
+use crate::traits::signal::Signal;
 
 static mut FSM_STATE: FSMState = FSMState::Email;
 static UPDATE_DRAW: AtomicBool = AtomicBool::new(false);
@@ -187,7 +188,6 @@ impl ScreenLogin {
                 } else {
                     LOGGED.store(false, Ordering::SeqCst);
                 }
-                LOGGED.store(false, Ordering::SeqCst);
             },
             Err(_) => {
                 LOGGED.store(false, Ordering::SeqCst);
@@ -209,7 +209,12 @@ impl ScreenLogin {
                     &text, 
                     ScreenParam::<u16>::default(), 
                     Some(|_, _| {
-                        Self::set_state(FSMState::End);
+                        if LOGGED.load(Ordering::SeqCst) {
+                            Self::set_state(FSMState::End);
+                        } else {
+                            // Reset to email state to allow retry
+                            Self::set_state(FSMState::Email);
+                        }
                     })
                 )?;
         Ok(())
