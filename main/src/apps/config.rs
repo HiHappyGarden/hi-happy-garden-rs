@@ -614,6 +614,8 @@ impl Config {
                 }
 
                 log_info!(APP_TAG, "Config loaded successfully");
+                log_info!(APP_TAG, "{json}");
+
                 Ok(unsafe { &mut *&raw mut CONFIG })
             }
             Err(e) => {
