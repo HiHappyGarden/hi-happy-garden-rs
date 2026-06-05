@@ -47,10 +47,11 @@ use crate::apps::screen_route::date_time::ScreenDateTime;
 use crate::apps::screen_route::daylight_saving_time::ScreenDaylightSavingTime;
 use crate::apps::screen_route::wifi::ScreenWifi;
 use crate::apps::screen_route::user::ScreenUser;
-use crate::apps::signals::display::DisplayFlag;
+use crate::apps::signals::display::{DisplayFlag, DisplaySignal};
 use crate::apps::signals::status::StatusFlag;
 use crate::traits::rtc::RTC;
 use crate::traits::screen::ScreenRoute as ScreenRouteFn;
+use crate::traits::signal::Signal;
 use crate::traits::lcd_display::LCDDisplayFn;
 
 
@@ -155,6 +156,12 @@ impl ScreenRoute {
                 | DisplayFlag::EncoderButtonPressed as u32
                 | DisplayFlag::EncoderButtonReleased as u32;
 
+    #[inline]
+    fn request_redraw(display_signal: &mut EventBits) {
+        *display_signal |= DisplayFlag::Draw as u32;
+        DisplaySignal::set(DisplayFlag::Draw as u32);
+    }
+
     fn handle_init(&mut self, status_signal: &mut EventBits) {
         if StatusFlag::CheckConfig.check_signal(*status_signal) {
             self.check_staus_counter += 1;
@@ -237,7 +244,8 @@ impl ScreenRoute {
                     self.check_staus_counter = 0;
                     // Clear button events so the incoming screen does not see the
                     // same (or bounced) press that triggered this transition.
-                    *display_signal &= !Self::BUTTON_MASK;      
+                    *display_signal &= !Self::BUTTON_MASK;
+                    Self::request_redraw(display_signal);
                 }
             }
         }
@@ -255,6 +263,7 @@ impl ScreenRoute {
         if self.has_local_user && !StatusFlag::UserLogged.check_signal(*status_signal) {
             self.main_fsm_state = back;
             self.fsm_state = FSMState::Login;
+            Self::request_redraw(display_signal);
             return;
         }
 
@@ -268,6 +277,7 @@ impl ScreenRoute {
                 self.current_screen = None;
                 self.main_fsm_state = back;
                 self.fsm_state = FSMState::Menu;
+                Self::request_redraw(display_signal);
             }
         }
     }
