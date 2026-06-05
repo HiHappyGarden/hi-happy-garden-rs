@@ -32,11 +32,10 @@ use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::config::Config;
 use crate::apps::display::input::Input;
 use crate::apps::display::text::Text;
-use crate::apps::signals::display::{DisplayFlag, DisplaySignal};
+use crate::apps::signals::display::DisplayFlag;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
 use crate::traits::screen::{Screen, ScreenParam, ScreenRoute};
-use crate::traits::signal::Signal;
 
 static mut FSM_STATE: FSMState = FSMState::Email;
 static UPDATE_DRAW: AtomicBool = AtomicBool::new(false);
@@ -98,6 +97,10 @@ impl ScreenRoute for ScreenLogin {
 
 impl ScreenLogin {
     pub(super) fn new() -> Self {
+        // Ensure a fresh login flow every time this screen is opened.
+        unsafe { FSM_STATE = FSMState::Email; }
+        UPDATE_DRAW.store(true, Ordering::SeqCst);
+
         Self {
             config: Config::shared(),
             email: Input::new(),
@@ -135,6 +138,8 @@ impl ScreenLogin {
             Some(|_, confirmed| {
                 if confirmed {
                     Self::set_state(FSMState::EmailPasswd);
+                } else {
+                    Self::set_state(FSMState::End);
                 }
             }),
         )?;

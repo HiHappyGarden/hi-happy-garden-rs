@@ -204,7 +204,7 @@ impl ScreenRoute {
         if let Some(screen) = &mut self.current_screen {
             if screen.draw(lcd, display_signal, status_signal, rtc).is_ok() {
                 self.current_screen = None;
-                self.fsm_state = FSMState::Menu;
+                self.fsm_state = FSMState::Init;
             }
         }
         
