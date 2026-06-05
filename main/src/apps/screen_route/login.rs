@@ -126,15 +126,13 @@ impl ScreenLogin {
         display_signal: &mut EventBits, 
         rtc: &Arc<Mutex<dyn RTC + 'static>>
     ) -> Result<()> {
-        let mut param = ScreenParam::<u16>::default();
-        param.input = Some(Bytes::from_as_sync_str(self.config.get_session().get_user_local().get_email()));
 
         self.email.draw(
             lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Login Email"),
-            param,
+            ScreenParam::<u16>::default(),
             Some(|_, confirmed| {
                 if confirmed {
                     Self::set_state(FSMState::EmailPasswd);
@@ -148,16 +146,13 @@ impl ScreenLogin {
     }
 
     fn handle_email_passwd(&mut self, lcd: &mut dyn LCDDisplayFn, display_signal: &mut EventBits, rtc: &Arc<Mutex<dyn RTC + 'static>>) -> Result<()> {
-        let mut param = ScreenParam::<u16>::default();
-        param.input = Some(Bytes::from_as_sync_str(self.config.get_session().get_user_local().get_password()));
-        param.input_secret_mode = Some(true);
-
+        
         self.email_passwd.draw(
             lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Login Password"),
-            param,
+            ScreenParam::<u16>::default(),
             Some(|_, confirmed| {
                 if confirmed {
                     Self::set_state(FSMState::Status);
