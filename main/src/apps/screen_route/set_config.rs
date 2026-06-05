@@ -40,6 +40,7 @@ use crate::apps::signals::display::DisplayFlag;
 use crate::apps::signals::error::ErrorFlag;
 use crate::apps::screen_route::auth::{fill_auth_selections, selected_auth_from_selections};
 use crate::drivers::date_time::DateTime;
+use crate::drivers::encrypt::EncryptGeneric;
 use crate::drivers::platform::Hardware;
 use crate::drivers::wifi::Auth;
 use crate::traits::hardware::HardwareFn;
@@ -421,7 +422,10 @@ impl ScreenSetConfig {
 
         let mut user = User::default();
         user.set_email(email.as_str());
-        user.set_password(email_passwd.as_str());
+
+        let password_hash = EncryptGeneric::get_sha256(email_passwd.to_bytes())?;
+
+        user.set_password(&password_hash.as_str());
         self.config.get_session().set_user(&user);
 
         if wifi_enable {
