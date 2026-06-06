@@ -1,0 +1,89 @@
+/***************************************************************************
+ *
+ * Hi Happy Garden
+ * Copyright (C) 2023/2026 Antonio Salsi <passy.linux@zresa.it>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, see <https://www.gnu.org/licenses/>.
+ *
+ ***************************************************************************/
+
+#![allow(unused)]
+
+use osal_rs::utils::Bytes;
+
+use crate::apps::DISPLAY_INPUT_MAX_SIZE;
+use super::commons::Status;
+
+pub(super) const NOT_SET: u8 = 0;
+const ZONES_SIZE: usize = 4;
+
+pub(super) enum Day {
+    Sunday = 0x01,
+    Monday = 0x02,
+    Tuesday = 0x04,
+    Wednesday = 0x08,
+    Thursday = 0x10,
+    Friday = 0x20,
+    Saturday = 0x40
+} 
+
+pub(super) enum Month {
+    January = 0x01,
+    February = 0x02,
+    March = 0x04,
+    April = 0x08,
+    May = 0x10,
+    June = 0x20,
+    July = 0x40,
+    August = 0x80,
+    September = 0x0100,
+    October = 0x0200,
+    November = 0x0400,
+    December = 0x0800,
+}
+
+pub(super) struct Schedule {
+
+    ///  minute, values allowed 0 - 59
+    pub minute: u8,
+
+    /// hour, values allowed 0 - 23 or NOT_SET (0xFF) for every hour
+    pub hour: u8,
+
+    /// day of week from 0x01 to 0x40 or NOT_SET (0xFF) for every day, otherwise bitmask of Day
+    pub days: u8,
+
+    /// month, values allowed 0x01 to 0x0800 or NOT_SET (0xFFFF) for every month
+    pub month: u16,
+
+    /// description 
+    pub description: Bytes<DISPLAY_INPUT_MAX_SIZE>,
+
+    /// zones associated to the schedule
+    pub zones: [u8; ZONES_SIZE],
+
+    /// status of the zone
+    pub status: Status
+}
+
+impl Schedule {
+
+    pub fn is_active(&self) -> bool {
+        matches!(self.status, Status::ACTIVE)
+    }
+
+    pub fn is_run(&self) -> bool {
+        matches!(self.status, Status::RUN)
+    }
+}

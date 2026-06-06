@@ -18,18 +18,8 @@
  *
  ***************************************************************************/
 
-mod config;
-mod display;
-mod main;
-mod parser;
-mod screen_route;
-mod session;
-mod signals;
-mod sprinkler;
-mod system_handler;
-mod system_led;
-mod wifi;
-
-pub(crate) use display::DISPLAY_INPUT_MAX_SIZE;
-pub(crate) use main::AppMain;
-
+pub(super) enum Status {
+    UNACTIVE,
+    ACTIVE,
+    RUN
+}

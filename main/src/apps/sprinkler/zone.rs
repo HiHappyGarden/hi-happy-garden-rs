@@ -18,18 +18,28 @@
  *
  ***************************************************************************/
 
-mod config;
-mod display;
-mod main;
-mod parser;
-mod screen_route;
-mod session;
-mod signals;
-mod sprinkler;
-mod system_handler;
-mod system_led;
-mod wifi;
+#![allow(unused)]
 
-pub(crate) use display::DISPLAY_INPUT_MAX_SIZE;
-pub(crate) use main::AppMain;
+use osal_rs::utils::Bytes;
+
+use crate::apps::DISPLAY_INPUT_MAX_SIZE;
+use super::commons::Status;
+
+pub(super) struct Zone {
+
+    /// description of zone
+    pub description: Bytes<DISPLAY_INPUT_MAX_SIZE>,
+
+    /// relay number associated to the zone
+    pub relay_number: u8,
+
+    /// watering time in minutes
+    pub watering_time: u8,
+
+    /// for manage order of execution lighter is first then weightier
+    pub weight: u8,
+
+    /// status of the zone
+    pub status: Status
+}
 

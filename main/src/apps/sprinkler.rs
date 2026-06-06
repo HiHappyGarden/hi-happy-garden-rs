@@ -18,18 +18,15 @@
  *
  ***************************************************************************/
 
-mod config;
-mod display;
-mod main;
-mod parser;
-mod screen_route;
-mod session;
-mod signals;
-mod sprinkler;
-mod system_handler;
-mod system_led;
-mod wifi;
+use crate::apps::sprinkler::schedule::Schedule;
 
-pub(crate) use display::DISPLAY_INPUT_MAX_SIZE;
-pub(crate) use main::AppMain;
+mod commons;
+pub(super) mod zone;
+pub(super) mod schedule;
 
+const MAX_SCHEDULES: usize = 4;
+
+pub(super) struct Sprinkler {
+
+    pub schedules: [Schedule; MAX_SCHEDULES]
+}
