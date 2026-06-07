@@ -24,7 +24,7 @@ use osal_rs::os::types::EventBits;
 use osal_rs::os::Mutex;
 use osal_rs::utils::{AsSyncStr, Bytes, Error, Result};
 
-use crate::apps::display::commons::{FIRST_ROW_Y, SCROLL_DELAY_MS, SECOND_ROW_Y, clean_context, scroll_text};
+use crate::apps::display::commons::{FIRST_ROW_Y, SCROLL_DELAY_MS, SECOND_ROW_Y, clean_context, consume_event, has_event, request_draw, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::traits::lcd_display::LCDDisplayFn;
@@ -103,27 +103,24 @@ impl Screen<ScreenSelections> for Select
         );
 
         lcd.draw_str(&display_text, x_position, SECOND_ROW_Y, &FONT_8X8)?;
-        if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
-                if let Some(selected) = self.selections.as_ref() {
-                    let mut p = ScreenParam::default();
-                    p.selects = selected.clone().into();
-                    if let Some(ref cb) = callback {
-                        cb(Some(p), true);
-                    }
-                *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
-            } else {
+        if consume_event(signal, DisplayFlag::EncoderButtonReleased) {
+            if let Some(selected) = self.selections.as_ref() {
+                let mut p = ScreenParam::default();
+                p.selects = selected.clone().into();
                 if let Some(ref cb) = callback {
-                    cb(None, false);
+                    cb(Some(p), true);
                 }
-                *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+            } else if let Some(ref cb) = callback {
+                cb(None, false);
             }
+            request_draw(signal);
         }
 
-        if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
+        if consume_event(signal, DisplayFlag::ButtonReleased) {
             if let Some(ref cb) = callback {
                 cb(None, false);
             }
-            *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+            request_draw(signal);
         }
 
         
@@ -150,12 +147,12 @@ impl Select {
 
         let modulo = self.selections.as_ref().map_or(1, |s| s.len() as u8); // Get the length of selections or default to 1 to avoid division by zero
 
-        if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
+        if consume_event(signal, DisplayFlag::EncoderRotatedClockwise) {
             self.index = self.index.wrapping_add(1) % modulo; // Increment index and wrap around using modulo
-            *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
-        } else  if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+            request_draw(signal); // Set the flag to indicate that the display should be redrawn
+        } else  if consume_event(signal, DisplayFlag::EncoderRotatedCounterClockwise) {
             self.index = self.index.wrapping_sub(1) % modulo; // Decrement index and wrap around using modulo
-            *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
+            request_draw(signal); // Set the flag to indicate that the display should be redrawn
         }
     }
 

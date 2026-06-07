@@ -23,7 +23,7 @@ use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Error, Result};
 
-use crate::apps::display::commons::{FIRST_ROW_Y, ONLY_ONE_ROW_Y, SCROLL_DELAY_MS, SECOND_ROW_Y, clean_context, scroll_text};
+use crate::apps::display::commons::{FIRST_ROW_Y, ONLY_ONE_ROW_Y, SCROLL_DELAY_MS, SECOND_ROW_Y, clean_context, consume_event, request_draw, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::traits::lcd_display::LCDDisplayFn;
@@ -100,19 +100,19 @@ impl Screen<()> for Text
             
         }
 
-        if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        if consume_event(signal, DisplayFlag::EncoderButtonReleased) {
             if let Some(cb) = callback {
                 cb(Option::None, true);
             }
         }
 
-        if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
+        if consume_event(signal, DisplayFlag::ButtonReleased) {
             if let Some(cb) = callback {
                 cb(Option::None, false);
             }
         }
 
-        *signal |= DisplayFlag::Draw as u32;
+        request_draw(signal);
 
         Ok(())
     }

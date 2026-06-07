@@ -23,7 +23,7 @@ use osal_rs::os::{Mutex, System, SystemFn};
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Bytes, Error, Result};
 
-use super::commons::{FIRST_ROW_Y, SECOND_ROW_Y, MAX_SIZE, clean_context, scroll_text};
+use super::commons::{FIRST_ROW_Y, SECOND_ROW_Y, MAX_SIZE, clean_context, consume_event, request_draw, scroll_text};
 use crate::apps::display::commons::SCROLL_DELAY_MS;
 use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
@@ -235,46 +235,50 @@ impl Input
     }
 
     fn update_input(&mut self, signal: &mut EventBits) {
-        if *signal & DisplayFlag::ButtonPressed as u32 != 0 {
+        let adjust_current_char = |input: &mut Self, clockwise: bool| {
+            if input.seed_input_if_empty() {
+                return;
+            }
+
+            if let Some(current_input) = input.input.as_mut() {
+                let current = current_input[input.idx];
+                current_input[input.idx] = if clockwise {
+                    if current >= 0xFF {
+                        b' '
+                    } else {
+                        current + 1
+                    }
+                } else if current <= b' ' {
+                    0xFF
+                } else {
+                    current - 1
+                };
+            }
+        };
+
+        if consume_event(signal, DisplayFlag::ButtonPressed) {
             self.button_pressed_tick = System::get_tick_count();
-            *signal &= !(DisplayFlag::ButtonPressed as u32);
         }
 
-        //encoder rotattion
-        if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
-            if self.seed_input_if_empty() {
-            } else if let Some(current) = self.input.as_ref() {
-                let next_char = if current[self.idx] >= 0xFF {
-                    b' ' // wrap from 255 back to 32 (space)
-                } else {
-                    current[self.idx] + 1
-                };
-                self.input.as_mut().unwrap()[self.idx] = next_char;
-            }
-            *signal |= DisplayFlag::Draw as u32;
+        // encoder rotation
+        if consume_event(signal, DisplayFlag::EncoderRotatedClockwise) {
+            adjust_current_char(self, true);
+            request_draw(signal);
         
-        } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
-            if self.seed_input_if_empty() {
-            } else if let Some(current) = self.input.as_ref() {
-                let prev_char = if current[self.idx] <= b' ' {
-                    0xFF // wrap from 32 (space) back to 255
-                } else {
-                    current[self.idx] - 1
-                };
-                self.input.as_mut().unwrap()[self.idx] = prev_char;
-            }
-            *signal |= DisplayFlag::Draw as u32;
+        } else if consume_event(signal, DisplayFlag::EncoderRotatedCounterClockwise) {
+            adjust_current_char(self, false);
+            request_draw(signal);
         }
          
-        if *signal & DisplayFlag::EncoderButtonPressed as u32 != 0 {
-            //pressing the encoder button doesn't immediately trigger an action, we wait for the release to determine if it was a short or long press, but we still need to record the tick count at the moment of the press to measure the duration later
+        if consume_event(signal, DisplayFlag::EncoderButtonPressed) {
+            // Pressing the encoder button does not immediately trigger an action.
+            // We wait for the release to determine if it was a short or long press.
             self.encoder_button_pressed_tick = System::get_tick_count();
-            *signal &= !(DisplayFlag::EncoderButtonPressed as u32); 
-        } else if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        } else if consume_event(signal, DisplayFlag::EncoderButtonReleased) {
             let elapsed = System::get_tick_count().wrapping_sub(self.encoder_button_pressed_tick);
             if elapsed >= LONG_PRESS_TICK {
                 // Long press: draw() will confirm the current input through the callback.
-                *signal |= DisplayFlag::Draw as u32;
+                request_draw(signal);
             } else {
                 if self.seed_input_if_empty() {
                 } else if let Some(mut input) = self.input {
@@ -287,13 +291,13 @@ impl Input
                     }
                     self.input = Some(input);
                 }
-                *signal |= DisplayFlag::Draw as u32;
+                request_draw(signal);
             }
-        } else if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
+        } else if consume_event(signal, DisplayFlag::ButtonReleased) {
             let elapsed = System::get_tick_count().wrapping_sub(self.button_pressed_tick);
             if elapsed >= LONG_PRESS_TICK {
                 // Long press: draw() will restore the original input through the callback.
-                *signal |= DisplayFlag::Draw as u32;
+                request_draw(signal);
             } else {
                 if let Some(mut input) = self.input {
                     if !input.is_empty() {
@@ -303,7 +307,7 @@ impl Input
                     }
                     self.input = Some(input);
                 }
-                *signal |= DisplayFlag::Draw as u32;
+                request_draw(signal);
             }
         } 
     }

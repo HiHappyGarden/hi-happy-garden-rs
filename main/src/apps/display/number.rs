@@ -26,7 +26,7 @@ use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Error, Result};
 
-use crate::apps::display::commons::{FIRST_ROW_Y, SCROLL_DELAY_MS, SECOND_ROW_Y, clean_context, scroll_text};
+use crate::apps::display::commons::{FIRST_ROW_Y, SCROLL_DELAY_MS, SECOND_ROW_Y, clean_context, consume_event, request_draw, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::traits::integer::Integer;
@@ -86,7 +86,7 @@ where
 
         lcd.draw_str(&to_show, x_position, SECOND_ROW_Y, &FONT_8X8)?;
 
-        if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        if consume_event(signal, DisplayFlag::EncoderButtonReleased) {
             self.result = self.number;
             if let Some(cb) = callback {
                 let param = self.result.map(|n| { let mut p = ScreenParam::default(); p.number = Some(n); p });
@@ -94,7 +94,7 @@ where
             }
         }
 
-        if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
+        if consume_event(signal, DisplayFlag::ButtonReleased) {
             if let Some(cb) = callback {
                 let param = self.number.map(|n| { let mut p = ScreenParam::default(); p.number = Some(n); p });
                 cb(param, false);
@@ -124,22 +124,22 @@ where
     }
 
     fn update_number(&mut self, signal: &mut EventBits) {
-        if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
+        if consume_event(signal, DisplayFlag::EncoderRotatedClockwise) {
             if let Some(current) = self.number {
                 let new_value = current + N::one();
                 self.number = Some(if new_value > self.max { self.min } else { new_value });
             } else {
                 self.number = Some(self.min);
             }  
-            *signal |= DisplayFlag::Draw as u32;
-        } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+            request_draw(signal);
+        } else if consume_event(signal, DisplayFlag::EncoderRotatedCounterClockwise) {
             if let Some(current) = self.number {
                 let new_value = current - N::one();
                 self.number = Some(if new_value < self.min { self.max } else { new_value });
             } else {
                 self.number = Some(self.max);
             }
-            *signal |= DisplayFlag::Draw as u32;
+            request_draw(signal);
         } 
     }
 }

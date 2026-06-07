@@ -23,7 +23,7 @@ use osal_rs::os::types::EventBits;
 use osal_rs::os::Mutex;
 use osal_rs::utils::{AsSyncStr, Error, Result};
 
-use crate::apps::display::commons::{FIRST_ROW_Y, SCROLL_DELAY_MS, SECOND_ROW_Y, clean_context, scroll_text};
+use crate::apps::display::commons::{FIRST_ROW_Y, SCROLL_DELAY_MS, SECOND_ROW_Y, clean_context, consume_event, has_event, request_draw, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::assets::ic_check_off::IC_CHECK_OFF;
@@ -80,7 +80,7 @@ impl Screen<bool> for Check
 
         lcd.draw_bitmap_image((width  / 2 ) - (self.icon.0 / 2), SECOND_ROW_Y, self.icon.0, self.icon.1, &self.icon.2, LCDWriteMode::ADD)?;
 
-        if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        if consume_event(signal, DisplayFlag::EncoderButtonReleased) {
             if self.icon.2 == IC_CHECK_ON.2 {
                 self.checked = Some(true);
                 if let Some(ref cb) = callback {
@@ -88,7 +88,6 @@ impl Screen<bool> for Check
                     p.check = self.checked;
                     cb(Some(p), true);
                 }
-                *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
             } else {
                 self.checked = Some(false);
                 if let Some(ref cb) = callback {
@@ -96,15 +95,15 @@ impl Screen<bool> for Check
                     p.check = self.checked;
                     cb(Some(p), true);
                 }
-                *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
             };
+            request_draw(signal); // Set the flag to indicate that the display should be redrawn 
         }
 
-        if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
+        if consume_event(signal, DisplayFlag::ButtonReleased) {
             if let Some(ref cb) = callback {
                 cb(None, false);
             }
-            *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+            request_draw(signal); // Set the flag to indicate that the display should be redrawn 
         }
 
         Ok(())
@@ -126,13 +125,13 @@ impl Check {
     }
 
     fn update_icon(&mut self, signal: &mut EventBits) {
-        if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 || *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+        if has_event(*signal, DisplayFlag::EncoderRotatedClockwise) || has_event(*signal, DisplayFlag::EncoderRotatedCounterClockwise) {
             self.icon = if self.icon.2 == IC_CHECK_OFF.2 {
                 IC_CHECK_ON
             } else {
                 IC_CHECK_OFF
             };
-            *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
+            request_draw(signal); // Set the flag to indicate that the display should be redrawn
         }
     }
 }

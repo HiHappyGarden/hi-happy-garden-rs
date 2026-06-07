@@ -24,7 +24,7 @@ use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Result};
 
-use crate::apps::display::commons::{FIRST_ROW_Y, SCROLL_DELAY_MS, SECOND_ROW_Y, clean_context, scroll_text};
+use crate::apps::display::commons::{FIRST_ROW_Y, SCROLL_DELAY_MS, SECOND_ROW_Y, clean_context, consume_event, has_event, request_draw, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
 use crate::apps::signals::error::ErrorFlag;
 use crate::assets::font_8x8::FONT_8X8;
@@ -88,9 +88,9 @@ impl FieldEditor {
             _ => return,
         };
 
-        let delta: i32 = if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
+        let delta: i32 = if consume_event(signal, DisplayFlag::EncoderRotatedClockwise) {
             1
-        } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+        } else if consume_event(signal, DisplayFlag::EncoderRotatedCounterClockwise) {
             -1
         } else {
             return;
@@ -110,7 +110,7 @@ impl FieldEditor {
             } else {
                 val + delta
             });
-            *signal |= DisplayFlag::Draw as u32;
+            request_draw(signal);
         }
     }
 
@@ -138,10 +138,10 @@ impl FieldEditor {
         if self.fields[0].is_none() || self.fields[1].is_none() || self.fields[2].is_none() {
             let (f1, f2, f3) = (self.config.extractor)(&current_date_time);
             self.fields = [Some(f1), Some(f2), Some(f3)];
-            *signal |= DisplayFlag::Draw as u32;
+            request_draw(signal);
         }
 
-        if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        if consume_event(signal, DisplayFlag::EncoderButtonReleased) {
             self.step = match self.step {
                 Step::Exit   => Step::Field1,
                 Step::Field1 => Step::Field2,
@@ -149,10 +149,10 @@ impl FieldEditor {
                 Step::Field3 => Step::End,
                 Step::End    => Step::End,
             };
-            *signal |= DisplayFlag::Draw as u32;
+            request_draw(signal);
         }
 
-        if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
+        if consume_event(signal, DisplayFlag::ButtonReleased) {
             self.step = match self.step {
                 Step::Exit   => Step::Exit,
                 Step::Field1 => Step::Exit,
@@ -160,12 +160,12 @@ impl FieldEditor {
                 Step::Field3 => Step::Field2,
                 Step::End    => Step::Field3,
             };
-            *signal |= DisplayFlag::Draw as u32;
+            request_draw(signal);
         }
 
         self.update_field(signal);
 
-        if *signal & DisplayFlag::Draw as u32 == 0 {
+        if !has_event(*signal, DisplayFlag::Draw) {
             return Ok(());
         }
 
@@ -210,7 +210,7 @@ impl FieldEditor {
             )?;
         }
 
-        if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        if has_event(*signal, DisplayFlag::EncoderButtonReleased) {
             if self.step == Step::End {
                 self.result = (self.config.builder)(f[0], f[1], f[2]).ok();
                 if let Some(cb) = callback {
@@ -221,7 +221,7 @@ impl FieldEditor {
             }
         }
 
-        if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
+        if has_event(*signal, DisplayFlag::ButtonReleased) {
             if self.step == Step::Exit {
                 if let Some(cb) = callback {
                     let mut p = ScreenParam::default();
