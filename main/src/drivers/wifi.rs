@@ -107,7 +107,7 @@ impl From<u8> for Auth {
 
 impl Serialize for Auth {
     #[inline]
-    fn serialize<S: osal_rs_serde::Serializer>(&self, name: &str, serializer: &mut S) -> core::result::Result<(), S::Error> {
+    fn serialize<S: osal_rs_serde::Serializer>(&self, name: &str, serializer: &mut S) -> Result<(), S::Error> {
         serializer.serialize_u8(name, *self as u8)?;
         Ok(())
     }
@@ -115,7 +115,7 @@ impl Serialize for Auth {
 
 impl Deserialize for Auth {
     #[inline]
-    fn deserialize<D: osal_rs_serde::Deserializer>(deserializer: &mut D, name: &str) -> core::result::Result<Self, D::Error> {
+    fn deserialize<D: osal_rs_serde::Deserializer>(deserializer: &mut D, name: &str) -> Result<Self, D::Error> {
         Ok(Auth::from(deserializer.deserialize_u8(name)?))
     }
 }

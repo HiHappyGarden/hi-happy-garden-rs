@@ -18,15 +18,16 @@
  *
  ***************************************************************************/
 
-#![allow(unused)]
-
 use osal_rs::utils::Bytes;
+use osal_rs_serde::{Deserialize, Serialize};
 
-use crate::apps::DISPLAY_INPUT_MAX_SIZE;
+use crate::apps::{DISPLAY_INPUT_MAX_SIZE, sprinkler::zone::Zone};
 use super::commons::Status;
 
 pub(super) const NOT_SET: u8 = 0;
 const ZONES_SIZE: usize = 4;
+
+ #[allow(dead_code)]
 
 pub(super) enum Day {
     Sunday = 0x01,
@@ -38,6 +39,7 @@ pub(super) enum Day {
     Saturday = 0x40
 } 
 
+ #[allow(dead_code)]
 pub(super) enum Month {
     January = 0x01,
     February = 0x02,
@@ -53,6 +55,7 @@ pub(super) enum Month {
     December = 0x0800,
 }
 
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub(super) struct Schedule {
 
     ///  minute, values allowed 0 - 59
@@ -71,19 +74,33 @@ pub(super) struct Schedule {
     pub description: Bytes<DISPLAY_INPUT_MAX_SIZE>,
 
     /// zones associated to the schedule
-    pub zones: [u8; ZONES_SIZE],
+    pub zones: [Zone; ZONES_SIZE],
 
-    /// status of the zone
+    /// status of the schedule
     pub status: Status
 }
 
-impl Schedule {
-
-    pub fn is_active(&self) -> bool {
-        matches!(self.status, Status::ACTIVE)
-    }
-
-    pub fn is_run(&self) -> bool {
-        matches!(self.status, Status::RUN)
+impl Default for Schedule {
+    fn default() -> Self {
+        Self {
+            minute: 0,
+            hour: 0,
+            days: NOT_SET,
+            month: NOT_SET as u16,
+            description: Bytes::new(),
+            zones: [Zone::default(); ZONES_SIZE],
+            status: Status::UNACTIVE
+        }
     }
 }
+
+// impl Schedule {
+
+//     pub fn is_active(&self) -> bool {
+//         matches!(self.status, Status::ACTIVE)
+//     }
+
+//     pub fn is_run(&self) -> bool {
+//         matches!(self.status, Status::RUN)
+//     }
+// }

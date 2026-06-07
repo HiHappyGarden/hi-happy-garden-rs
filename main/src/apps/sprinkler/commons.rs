@@ -18,8 +18,48 @@
  *
  ***************************************************************************/
 
+use osal_rs_serde::{Deserialize, Serialize};
+
+ #[derive(Debug, Copy, Clone)]
 pub(super) enum Status {
     UNACTIVE,
     ACTIVE,
     RUN
 }
+
+impl From<u8> for Status {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => Status::UNACTIVE,
+            1 => Status::ACTIVE,
+            2 => Status::RUN,
+            _ => Status::UNACTIVE
+        }
+    }
+}
+
+impl From<Status> for u8 {
+    fn from(value: Status) -> Self {
+        match value {
+            Status::UNACTIVE => 0,
+            Status::ACTIVE => 1,
+            Status::RUN => 2,
+        }
+    }
+}
+
+impl Serialize for Status {
+    #[inline]
+    fn serialize<S: osal_rs_serde::Serializer>(&self, name: &str, serializer: &mut S) -> Result<(), S::Error> {
+        serializer.serialize_u8(name, (*self).into())?;
+        Ok(())
+    }
+}
+
+impl Deserialize for Status {
+    #[inline]
+    fn deserialize<D: osal_rs_serde::Deserializer>(deserializer: &mut D, name: &str) -> Result<Self, D::Error> {
+        Ok(Status::from(deserializer.deserialize_u8(name)?))
+    }
+}
+

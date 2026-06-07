@@ -566,7 +566,7 @@ impl Config {
         ) {
             Ok(file) => file,
             Err(e @ Error::ReturnWithCode(-2)) => {
-                log_info!(APP_TAG, "Failed to open config file: {e}, try to create it");
+                log_warning!(APP_TAG, "Failed to open config file: {e}, try to create it");
                 Filesystem::open_with_as_sync_str(
                     &file_name,
                     flags::WRONLY | flags::CREAT,

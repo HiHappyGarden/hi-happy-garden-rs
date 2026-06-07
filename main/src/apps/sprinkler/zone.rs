@@ -18,13 +18,13 @@
  *
  ***************************************************************************/
 
-#![allow(unused)]
-
 use osal_rs::utils::Bytes;
+use osal_rs_serde::{Deserialize, Serialize};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use super::commons::Status;
 
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub(super) struct Zone {
 
     /// description of zone
@@ -43,3 +43,14 @@ pub(super) struct Zone {
     pub status: Status
 }
 
+impl Default for Zone {
+    fn default() -> Self {
+        Self {
+            description: Bytes::new(),
+            relay_number: 0,
+            watering_time: 0,
+            weight: 0,
+            status: Status::UNACTIVE
+        }
+    }
+}
