@@ -37,6 +37,7 @@ pub(super) const MAX_SIZE: usize = 32;
 static LAST_SCROLL_SLOT: AtomicU32 = AtomicU32::new(u32::MAX);
 pub(super) const SCROLL_DELAY_MS: u64 = 200;
 
+#[inline]
 pub(super) fn has_event(signal: EventBits, flag: DisplayFlag) -> bool {
     signal & flag as u32 != 0
 }
@@ -50,6 +51,7 @@ pub(super) fn consume_event(signal: &mut EventBits, flag: DisplayFlag) -> bool {
     }
 }
 
+#[inline]
 pub(super) fn request_draw(signal: &mut EventBits) {
     *signal |= DisplayFlag::Draw as u32;
 }
