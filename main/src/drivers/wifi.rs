@@ -26,7 +26,7 @@ use osal_rs::{log_debug, log_error, log_info, log_warning};
 use osal_rs::os::{System, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
 use osal_rs::utils::{Bytes, Result};
-use osal_rs_serde::{Deserialize, Serialize};
+use osal_rs_serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::drivers::gpio::Gpio;
 use crate::drivers::pico::ffi::pico_error_codes::PICO_OK;
 use crate::traits::state::Initializable;
@@ -107,7 +107,7 @@ impl From<u8> for Auth {
 
 impl Serialize for Auth {
     #[inline]
-    fn serialize<S: osal_rs_serde::Serializer>(&self, name: &str, serializer: &mut S) -> Result<(), S::Error> {
+    fn serialize<S: Serializer>(&self, name: &str, serializer: &mut S) -> Result<(), S::Error> {
         serializer.serialize_u8(name, *self as u8)?;
         Ok(())
     }
@@ -115,7 +115,7 @@ impl Serialize for Auth {
 
 impl Deserialize for Auth {
     #[inline]
-    fn deserialize<D: osal_rs_serde::Deserializer>(deserializer: &mut D, name: &str) -> Result<Self, D::Error> {
+    fn deserialize<D: Deserializer>(deserializer: &mut D, name: &str) -> Result<Self, D::Error> {
         Ok(Auth::from(deserializer.deserialize_u8(name)?))
     }
 }
