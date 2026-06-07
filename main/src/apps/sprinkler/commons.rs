@@ -18,7 +18,7 @@
  *
  ***************************************************************************/
 
-use osal_rs_serde::{Deserialize, Serialize};
+use osal_rs_serde::{Deserialize, Deserializer, Serialize, Serializer};
 
  #[derive(Debug, Copy, Clone)]
 pub(super) enum Status {
@@ -50,7 +50,7 @@ impl From<Status> for u8 {
 
 impl Serialize for Status {
     #[inline]
-    fn serialize<S: osal_rs_serde::Serializer>(&self, name: &str, serializer: &mut S) -> Result<(), S::Error> {
+    fn serialize<S: Serializer>(&self, name: &str, serializer: &mut S) -> Result<(), S::Error> {
         serializer.serialize_u8(name, (*self).into())?;
         Ok(())
     }
@@ -58,7 +58,7 @@ impl Serialize for Status {
 
 impl Deserialize for Status {
     #[inline]
-    fn deserialize<D: osal_rs_serde::Deserializer>(deserializer: &mut D, name: &str) -> Result<Self, D::Error> {
+    fn deserialize<D: Deserializer>(deserializer: &mut D, name: &str) -> Result<Self, D::Error> {
         Ok(Status::from(deserializer.deserialize_u8(name)?))
     }
 }
