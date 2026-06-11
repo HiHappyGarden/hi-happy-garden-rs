@@ -25,7 +25,7 @@ use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use super::commons::Status;
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
-pub(super) struct Zone {
+pub(in crate::apps) struct Zone {
 
     /// description of zone
     pub description: Bytes<DISPLAY_INPUT_MAX_SIZE>,

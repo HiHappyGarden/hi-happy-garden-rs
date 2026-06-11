@@ -24,12 +24,12 @@ use osal_rs_serde::{Deserialize, Serialize};
 use crate::apps::{DISPLAY_INPUT_MAX_SIZE, sprinkler::zone::Zone};
 use super::commons::Status;
 
-pub(super) const NOT_SET: u8 = 0;
+pub(in crate::apps) const NOT_SET: u8 = 0;
 const ZONES_SIZE: usize = 4;
 
  #[allow(dead_code)]
 
-pub(super) enum Day {
+pub(in crate::apps) enum Day {
     Sunday = 0x01,
     Monday = 0x02,
     Tuesday = 0x04,
@@ -40,7 +40,7 @@ pub(super) enum Day {
 } 
 
  #[allow(dead_code)]
-pub(super) enum Month {
+pub(in crate::apps) enum Month {
     January = 0x01,
     February = 0x02,
     March = 0x04,
@@ -56,7 +56,7 @@ pub(super) enum Month {
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
-pub(super) struct Schedule {
+pub(in crate::apps) struct Schedule {
 
     ///  minute, values allowed 0 - 59
     pub minute: u8,

@@ -24,7 +24,7 @@
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
-use cjson_binding::from_json;
+use cjson_binding::{from_json, to_json};
 use osal_rs::{log_error, log_info, log_warning};
 use osal_rs::utils::{Error, Result};
 use osal_rs_serde::{Deserialize, Serialize};
@@ -35,14 +35,14 @@ use crate::drivers::platform::{FS_CONFIG_DIR, FS_SEPARATOR_DIR};
 use crate::traits::state::Initializable;
 
 mod commons;
-pub(super) mod zone;
-pub(super) mod schedule;
+pub(in crate::apps) mod zone;
+pub(in crate::apps) mod schedule;
 
 const APP_TAG: &str = "AppSprinkler";
 const MAX_SCHEDULES: usize = 4;
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
-pub(super) struct Sprinkler {
+pub(in crate::apps) struct Sprinkler {
 
     pub schedules: [Schedule; MAX_SCHEDULES]
 }
@@ -51,6 +51,7 @@ impl Initializable for Sprinkler {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init app config");
         
+        self.load()?;
 
         Ok(())
     }
@@ -69,13 +70,13 @@ impl Sprinkler {
     pub(in crate::apps) const AT_CMD: &'static str = "AT+CNF";
     pub(in crate::apps) const AT_RESP: &'static str = "+CNF: ";
 
-    pub(super) fn new() -> Self {
+    pub(in crate::apps) fn new() -> Self {
         Self {
             schedules: [Schedule::default(); MAX_SCHEDULES]
         }
     }
 
-    pub(super) fn load(&mut self) -> Result<()> {
+    pub(in crate::apps) fn load(&mut self) -> Result<()> {
         let mut file_name = FileBytes::from_str(FS_CONFIG_DIR);
         file_name.append_str(FS_SEPARATOR_DIR);
         file_name.append_str(Sprinkler::FILE_NAME);
@@ -109,7 +110,7 @@ impl Sprinkler {
 
             self.schedules = Sprinkler::default().schedules;
 
-            Self::save()?;
+            self.save()?;
 
             return Ok(());
         }
@@ -136,16 +137,47 @@ impl Sprinkler {
                 log_warning!(APP_TAG, "Using default config values err: {e}");
                 self.schedules = Sprinkler::default().schedules;
 
-                Self::save()?;
+                self.save()?;
 
                 Ok(())
             }
         }
     }
 
-    pub(super) fn save() -> Result<()> {
-        log_info!(APP_TAG, "Save app config");
-        Ok(())
+    pub(in crate::apps) fn save(&self) -> Result<()> {
+        let mut file_name = FileBytes::from_str(FS_CONFIG_DIR);
+        file_name.append_str(FS_SEPARATOR_DIR);
+        file_name.append_str(Sprinkler::FILE_NAME);
+
+   
+        to_json(&self.schedules)
+        .map_err(|e| {
+            Error::UnhandledOwned(format!("Failed to serialize config to JSON: {e}"))
+        })
+        .and_then(|json| {
+            let json_bytes = json.into_bytes();
+
+            let mut file = match Filesystem::open_with_as_sync_str(
+                &file_name,
+                flags::WRONLY | flags::CREAT | flags::TRUNC,
+            ) {
+                Ok(file) => file,
+                Err(e @ Error::ReturnWithCode(-2)) => {
+                    log_info!(APP_TAG, "Failed to open config file: {e}, try to create it");
+                    Filesystem::open_with_as_sync_str(
+                        &file_name,
+                        flags::WRONLY | flags::CREAT | flags::TRUNC,
+                    )?
+                }
+                Err(e) => return Err(e),
+            };
+
+            file.write(&json_bytes, true)?;
+
+            log_info!(APP_TAG, "Config saved successfully");
+            Ok(())
+        })
+        
     }
 
 }

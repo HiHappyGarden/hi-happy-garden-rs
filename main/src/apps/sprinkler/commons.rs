@@ -21,7 +21,7 @@
 use osal_rs_serde::{Deserialize, Deserializer, Serialize, Serializer};
 
  #[derive(Debug, Copy, Clone)]
-pub(super) enum Status {
+pub(in crate::apps) enum Status {
     UNACTIVE,
     ACTIVE,
     RUN
