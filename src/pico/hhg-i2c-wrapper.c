@@ -18,14 +18,19 @@
  *
  ***************************************************************************/
 
+
+
 #include <pico/types.h>
 #include <pico/error.h>
 #include <pico/binary_info.h>
+#include <pico/platform.h>
 #include <hardware/i2c.h>
 #include <hardware/dma.h>
 #include <hardware/gpio.h>
 #include <hardware/regs/i2c.h>
-#include <stdlib.h>
+
+extern void * pvPortMalloc(size_t xWantedSize);
+extern void vPortFree(void *pv);
 
 
 void* hhg_i2c_instance(uint8_t i2c_num) {
@@ -70,7 +75,7 @@ int hhg_i2c_write_blocking_dma(void *i2c, uint8_t addr, const uint8_t *src, size
         return i2c_write_blocking(instance, addr, src, len, nostop);
     }
 
-    uint16_t *tx_cmd = (uint16_t *)malloc(sizeof(uint16_t) * len);
+    uint16_t *tx_cmd = (uint16_t *)pvPortMalloc(sizeof(uint16_t) * len);
     if (tx_cmd == NULL) {
         return i2c_write_blocking(instance, addr, src, len, nostop);
     }
@@ -92,7 +97,7 @@ int hhg_i2c_write_blocking_dma(void *i2c, uint8_t addr, const uint8_t *src, size
 
     int dma_ch = dma_claim_unused_channel(false);
     if (dma_ch < 0) {
-        free(tx_cmd);
+        vPortFree(tx_cmd);
         return i2c_write_blocking(instance, addr, src, len, nostop);
     }
 
@@ -118,7 +123,7 @@ int hhg_i2c_write_blocking_dma(void *i2c, uint8_t addr, const uint8_t *src, size
     if (abort_reason) {
         instance->hw->clr_tx_abrt;
         instance->restart_on_next = false;
-        free(tx_cmd);
+        vPortFree(tx_cmd);
 
         if (abort_reason & I2C_IC_TX_ABRT_SOURCE_ABRT_7B_ADDR_NOACK_BITS) {
             return PICO_ERROR_GENERIC;
@@ -137,7 +142,7 @@ int hhg_i2c_write_blocking_dma(void *i2c, uint8_t addr, const uint8_t *src, size
     }
 
     instance->restart_on_next = nostop;
-    free(tx_cmd);
+    vPortFree(tx_cmd);
 
     return (int)len;
 }
