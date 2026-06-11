@@ -12,6 +12,7 @@ mod relays;
 pub mod rgb_led;
 mod rtc;
 mod uart;
+mod timer;
 pub(super) mod wifi;
 
 #[cfg(feature = "pico")]
