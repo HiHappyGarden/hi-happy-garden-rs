@@ -347,7 +347,7 @@ impl LCDSH1106 {
         buffer[1..=len].copy_from_slice(&data[..len]);
         
         if let Some(i2c) = &self.i2c {
-            i2c.write(&buffer[..=len])
+            i2c.write_dma(&buffer[..=len])
         } else {
             Err(Error::InvalidType)
         }

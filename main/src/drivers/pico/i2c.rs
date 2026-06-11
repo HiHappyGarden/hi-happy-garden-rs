@@ -26,7 +26,7 @@ use core::ffi::c_void;
 use osal_rs::utils::{Error, Result};
 
 use crate::drivers::i2c::I2CFn;
-use crate::drivers::pico::ffi::{gpio_function_type, hhg_gpio_pull_up, hhg_gpio_set_function, hhg_i2c_deinit, hhg_i2c_init, hhg_i2c0_init_pins_with_func, hhg_i2c1_init_pins_with_func, hhg_i2c_instance, hhg_i2c_read_blocking, hhg_i2c_write_blocking};
+use crate::drivers::pico::ffi::{gpio_function_type, hhg_gpio_pull_up, hhg_gpio_set_function, hhg_i2c_deinit, hhg_i2c_init, hhg_i2c0_init_pins_with_func, hhg_i2c1_init_pins_with_func, hhg_i2c_instance, hhg_i2c_read_blocking, hhg_i2c_write_blocking, hhg_i2c_write_blocking_dma};
 use crate::drivers::plt::ffi::pico_error_codes::{PICO_OK, PICO_ERROR_TIMEOUT, PICO_ERROR_GENERIC};
 
 pub(crate) const I2C0_INSTANCE: u8 = 0;
@@ -43,6 +43,7 @@ pub(crate) const I2C_BAUDRATE: u32 = 100_000;
 pub(crate) static I2C_FN: I2CFn = I2CFn {
     init,
     write,
+    write_dma,
     read,
     write_and_read,
     scan_i2c,
@@ -139,6 +140,29 @@ fn write(instance: *mut c_void, address: u8, data: &[u8]) -> Result<()> {
             } else if res == PICO_ERROR_GENERIC as i32 {
                 Err(Error::UnhandledOwned(format!(
                     "I2C write generic error (addr: 0x{:02X}) - Device not responding",
+                    address
+                )))
+            } else {
+                Err(Error::ReturnWithCode(res))
+            }
+        } else {
+            Ok(())
+        }
+    }
+}
+
+fn write_dma(instance: *mut c_void, address: u8, data: &[u8]) -> Result<()> {
+    unsafe {
+        let res = hhg_i2c_write_blocking_dma(instance, address, data.as_ptr(), data.len(), false);
+        if res < 0 {
+            if res == PICO_ERROR_TIMEOUT as i32 {
+                Err(Error::UnhandledOwned(format!(
+                    "I2C DMA write timeout (addr: 0x{:02X})",
+                    address
+                )))
+            } else if res == PICO_ERROR_GENERIC as i32 {
+                Err(Error::UnhandledOwned(format!(
+                    "I2C DMA write generic error (addr: 0x{:02X}) - Device not responding",
                     address
                 )))
             } else {

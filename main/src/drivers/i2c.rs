@@ -37,6 +37,7 @@ const APP_TAG: &str = "I2C";
 pub struct I2CFn {
     pub init: fn(u8, u32) -> Result<*mut c_void>, //i2c_instance, baudrate
     pub write: fn(*mut c_void, u8, data: &[u8]) -> Result<()>, //instance, address, data
+    pub write_dma: fn(*mut c_void, u8, data: &[u8]) -> Result<()>, //instance, address, data (DMA when supported)
     pub read: fn(*mut c_void, u8, buffer: &mut [u8]) -> Result<()>, //instance, address, buffer
     pub write_and_read: fn(*mut c_void, u8, data: &[u8], buffer: &mut [u8]) -> (Result<()>, Result<()>), //instance, address, data, buffer
     pub scan_i2c: fn(*mut c_void) -> Result<Vec<u8>>, //instance
@@ -88,6 +89,12 @@ pub struct I2CFn {
     #[inline]
     pub fn write(&self, data: &[u8]) -> Result<()> {
         (I2C_FN.write)(self.instance, self.address, data)
+    }
+
+    #[allow(unused)]
+    #[inline]
+    pub fn write_dma(&self, data: &[u8]) -> Result<()> {
+        (I2C_FN.write_dma)(self.instance, self.address, data)
     }
 
     #[allow(unused)]

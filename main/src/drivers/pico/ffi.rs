@@ -325,6 +325,7 @@ unsafe extern "C" {
     pub(super) fn hhg_i2c0_init_pins_with_func();
     pub(super) fn hhg_i2c1_init_pins_with_func();
     pub(super) fn hhg_i2c_write_blocking(i2c: *mut c_void, addr: u8, src: *const u8, len: usize, nostop: bool) -> i32;
+    pub(super) fn hhg_i2c_write_blocking_dma(i2c: *mut c_void, addr: u8, src: *const u8, len: usize, nostop: bool) -> i32;
     pub(super) fn hhg_i2c_read_blocking(i2c: *mut c_void, addr: u8, dst: *mut u8, len: usize, nostop: bool) -> i32;
     pub(super) fn hhg_i2c_deinit(i2c: *mut c_void);
     
