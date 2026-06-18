@@ -18,10 +18,20 @@
  *
  ***************************************************************************/
 
-use core::ffi::c_void;
+#include <stdio.h>
+#include "pico/stdlib.h"
 
- pub struct TimerFn {
-    pub add_repeating_timer_ms: fn (delay_ms: i32, callback: extern "C" fn(*mut c_void), user_data: *mut c_void, out: *mut c_void) -> bool,
-    pub cancel_repeating_timer: fn (timer: *mut c_void) -> bool
+bool hhg_add_repeating_timer_ms(int32_t delay_ms, void (*callback)(void *), void *user_data, void *out) {
+    if (out == NULL) {
+        return false;
+    }
+    return add_repeating_timer_ms(delay_ms, (repeating_timer_callback_t)callback, user_data, (repeating_timer_t *)out);
 }
 
+
+bool hhg_cancel_repeating_timer(void *timer) {
+    if (timer == NULL) {
+        return false;
+    }
+    return cancel_repeating_timer((repeating_timer_t *)timer);
+}

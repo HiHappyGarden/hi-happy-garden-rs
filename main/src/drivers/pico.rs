@@ -22,6 +22,7 @@ pub(super) mod ffi;
 pub(super) mod flash;
 pub(super) mod gpio;
 pub(super) mod hardware;
+pub(super) mod hw_timer;
 pub(super) mod i2c;
 pub(super) mod lwip;
 pub(super) mod mbedtls;

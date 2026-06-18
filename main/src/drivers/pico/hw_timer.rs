@@ -18,10 +18,10 @@
  *
  ***************************************************************************/
 
-use core::ffi::c_void;
 
- pub struct TimerFn {
-    pub add_repeating_timer_ms: fn (delay_ms: i32, callback: extern "C" fn(*mut c_void), user_data: *mut c_void, out: *mut c_void) -> bool,
-    pub cancel_repeating_timer: fn (timer: *mut c_void) -> bool
-}
+use crate::drivers::timer::TimerFn;
 
+// const TIMER_FN : TimerFn = TimerFn {
+//     add_repeating_timer_ms: crate::drivers::pico::ffi::hhg_add_repeating_timer_ms,
+//     cancel_repeating_timer: crate::drivers::pico::ffi::hhg_cancel_repeating_timer,
+// };

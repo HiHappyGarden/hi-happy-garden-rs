@@ -395,4 +395,7 @@ unsafe extern "C" {
 
     pub(super) fn hhg_powman_timer_set_ms(time_ms: c_ulonglong);
     pub(super) fn hhg_powman_timer_get_ms() -> c_ulonglong;
+
+    pub(super) fn hhg_add_repeating_timer_ms(delay_ms: c_int, callback: extern "C" fn(*mut c_void), user_data: *mut c_void, out: *mut c_void) -> bool;
+    pub(super) fn hhg_cancel_repeating_timer(timer: *mut c_void) -> bool;
 }
