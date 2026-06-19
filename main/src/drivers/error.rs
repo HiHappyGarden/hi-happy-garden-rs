@@ -18,15 +18,13 @@
  *
  ***************************************************************************/
 
-#![allow(dead_code)]
+
 
 use core::fmt::Error;
 use core::fmt::{Display, Formatter};
 use osal_rs::utils::Result;
 
 use crate::define_signal;
-
-const APP_TAG: &str = "HardwareErrorSignal";
 
 define_signal!(HardwareErrorSignal, HARDWARE_ERROR_SIGNAL);
 

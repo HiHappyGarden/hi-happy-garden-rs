@@ -220,8 +220,4 @@ impl ScreenLogin {
         Ok(())
     }
 
-    fn handle_end(&mut self, _lcd: &mut dyn LCDDisplayFn, _display_signal: &mut EventBits, _rtc: &Arc<Mutex<dyn RTC + 'static>>) -> Result<()> {
-        
-        Ok(())
-    }
 }

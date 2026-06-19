@@ -18,7 +18,6 @@
  *
  ***************************************************************************/
 
- #![allow(dead_code)]
 
 use core::ffi::{CStr, c_int, c_void};
 
@@ -31,7 +30,6 @@ use crate::drivers::pico::ffi::{
 };
 use crate::drivers::filesystem::{DirFn, FileFn, FilesystemFn};
 
-const APP_TAG: &str = "Flash";
 const READ_BUFFER_SIZE: usize = 512;
 
 
@@ -40,6 +38,7 @@ pub(crate) const FS_CONFIG_DIR: &str = "/etc";
 pub(crate) const FS_DATA_DIR: &str = "/var";
 pub(crate) const FS_LOG_DIR: &str = "/var/log";
 
+#[allow(dead_code)]
 pub(crate) mod lfs_errors {
     pub const LFS_ERR_OK: i32 =0;    // No error
     pub const LFS_ERR_IO: i32 =-5;   // Error during device operation

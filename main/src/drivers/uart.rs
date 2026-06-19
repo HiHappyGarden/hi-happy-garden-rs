@@ -17,7 +17,6 @@
  * with this program; if not, see <https://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
-#![allow(dead_code)]
 
 use osal_rs::log_info;
 use osal_rs::utils::{Ptr, Result};
@@ -27,8 +26,8 @@ use crate::traits::state::Initializable;
 use crate::drivers::platform::{UART_FN, UART_CONFIG}; 
 
 const APP_TAG: &str = "Uart";
-const SOURCE: &str = "UART";
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum UartParity {
     None,
@@ -36,6 +35,7 @@ pub enum UartParity {
     Odd,
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum UartStopBits {
     Half,
@@ -44,6 +44,7 @@ pub enum UartStopBits {
     Two,
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum UartDataBits {
     Five,
@@ -53,6 +54,7 @@ pub enum UartDataBits {
     Nine,
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum UartFlowControl {
     None,
@@ -63,7 +65,7 @@ pub enum UartFlowControl {
 // const UART_QUEUE_SIZE: UBaseType = 8;
 // static mut UART_QUEUE: Option<Queue> = None;
 
-
+#[allow(dead_code)]
 #[derive(Clone, Copy)]
 pub(in crate::drivers) struct UartConfig {
     pub(in crate::drivers) name: &'static str,
@@ -78,7 +80,7 @@ pub(in crate::drivers) struct UartConfig {
 unsafe impl Sync for UartConfig {}
 unsafe impl Send for UartConfig {}
 
-
+#[allow(dead_code)]
 #[derive(Clone)]
 pub(in crate::drivers) struct UartFn {
     pub(in crate::drivers) init: fn(&UartConfig) -> Result<()>,
@@ -89,7 +91,6 @@ pub(in crate::drivers) struct UartFn {
 
 #[derive(Clone)]
 pub struct Uart {
-    functions: &'static UartFn,
     config: &'static UartConfig,
 }
 
@@ -99,9 +100,9 @@ unsafe impl Send for Uart {}
 impl Initializable for Uart {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init uart");
-        
-        (self.functions.init)(&self.config)?;
-
+        unsafe {
+            (UART_FN.init)(&self.config)?;
+        }
         Ok(())
     }
 }
@@ -109,16 +110,15 @@ impl Initializable for Uart {
 
 impl SetTransmit for Uart {
     fn transmit(&self, data: &[u8]) -> usize {
-        (self.functions.transmit)(data)
+        unsafe {
+            (UART_FN.transmit)(data)
+        }
     }
 }
 
 impl Uart {
     pub fn shared() -> Self {
         Self { 
-            functions: unsafe {
-                &*&raw mut UART_FN
-            },
             config: unsafe {
                 &*&raw mut UART_CONFIG
             }

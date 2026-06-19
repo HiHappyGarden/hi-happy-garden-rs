@@ -18,8 +18,6 @@
  *
  ***************************************************************************/
 
-#![allow(dead_code)]
-
 use osal_rs::utils::Result;
 
 
@@ -35,7 +33,7 @@ pub enum LCDWriteMode
     INVERT = 2,
 }
 
-
+#[allow(dead_code)]
 /// Trait for LCD display operations
 pub trait LCDDisplayFn : Sync + Send {
 

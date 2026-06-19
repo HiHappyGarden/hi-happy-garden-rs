@@ -18,13 +18,12 @@
  *
  ***************************************************************************/
 
-#![allow(dead_code)]
 
 use osal_rs::os::types::{EventBits, TickType};
 use osal_rs::utils::Result;
 
 
-
+#[allow(dead_code)]
 pub trait Signal {
 
     fn get() -> EventBits;

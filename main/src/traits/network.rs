@@ -18,7 +18,6 @@
  *
  ***************************************************************************/
 
-#![allow(dead_code)]
 
 use core::fmt::Display;
 
@@ -26,6 +25,7 @@ use osal_rs::utils::Bytes;
 
 pub const IPV6_ADDR_LEN: usize = 40;
 
+#[allow(dead_code)]
 pub trait IpAddress : Display {
     
     fn is_ipv4(&self, bytes: Bytes<IPV6_ADDR_LEN>) -> bool {

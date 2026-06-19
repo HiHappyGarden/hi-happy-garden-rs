@@ -18,7 +18,7 @@
  *
  ***************************************************************************/
 
-#![allow(dead_code)]
+
 
 ///! Display signal for display updates and interactions.
 

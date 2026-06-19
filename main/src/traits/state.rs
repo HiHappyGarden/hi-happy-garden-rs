@@ -17,8 +17,6 @@
  * with this program; if not, see <https://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
- 
-#![allow(dead_code)]
 
 use osal_rs::utils::Result;
 
@@ -31,6 +29,7 @@ pub trait Initializable {
 
 pub trait Deinitializable {
     
+    #[allow(dead_code)]
     fn deinit(&mut self) -> Result<()>;
     
 }

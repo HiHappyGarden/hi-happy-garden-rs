@@ -17,7 +17,6 @@
  * with this program; if not, see <https://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
-#![allow(dead_code)]
 
 use crate::traits::button::ButtonState;
 
@@ -29,7 +28,11 @@ pub enum EncoderDirection {
 
 pub trait SetRotatableAndClickable<'a> {
      fn set_on_rotate_and_click(&mut self, rotable_and_clickable: &'a dyn OnRotatableAndClickable);
+     
+     #[allow(dead_code)]
      fn get_state(&self) -> ButtonState;
+
+     #[allow(dead_code)]
      fn get_position(&self) -> i32;
 }
 

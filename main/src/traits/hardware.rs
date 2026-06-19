@@ -31,9 +31,10 @@ use crate::traits::wifi::SetOnWifiChangeStatus;
 
 pub trait HardwareFn<'a> : RelaysFn + SetOnWifiChangeStatus<'a> + SetOnReceive<'a> + SetTransmit {
 
-    #![allow(dead_code)]
+    #[allow(dead_code)]
     const SAMPLES: u8 = 20;
 
+    #[allow(dead_code)]
     #[inline(always)]
     fn temperature_conversion(value: u32) -> f32 {
         let voltage = 3.3f32 / (1 << 12) as f32 * value as f32;
@@ -44,6 +45,7 @@ pub trait HardwareFn<'a> : RelaysFn + SetOnWifiChangeStatus<'a> + SetOnReceive<'
 
     fn set_encoder_handler(&mut self, rotate_and_click: &'a dyn OnRotatableAndClickable);
 
+    #[allow(dead_code)]
     fn get_temperature(&self) -> f32;
 
     fn get_unique_id() -> [u8; 8];

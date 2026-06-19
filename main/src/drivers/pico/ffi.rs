@@ -2,7 +2,6 @@
 
 
 #![allow(non_camel_case_types)]
-#![allow(dead_code)]
 
 use core::ffi::{c_uchar, c_ushort, c_char, c_int, c_uint, c_ulonglong, c_void};
 
@@ -19,6 +18,7 @@ pub(super) struct pwm_config {
 pub(super) const GPIO_OUT: bool = true;
 pub(super) const GPIO_IN: bool = false;  
 
+#[allow(dead_code)]
 pub(super) mod gpio_function_type {
     pub const GPIO_FUNC_HSTX: u32 = 0;
     pub const GPIO_FUNC_SPI: u32 = 1;
@@ -37,6 +37,7 @@ pub(super) mod gpio_function_type {
     pub const GPIO_FUNC_NULL: u32 = 0x1f;
 }
 
+#[allow(dead_code)]
 #[repr(C)]
 pub(crate) enum pico_error_codes {
     PICO_OK = 0,                                ///< No error; the operation succeeded
@@ -87,6 +88,8 @@ pub(crate) enum aes_mode {
     AES_ENCRYPT = 1,
     AES_DECRYPT = 0,
 }
+
+#[allow(dead_code)]
 pub(super) struct MbedtlsAes (pub *mut c_void);
 
 unsafe impl Send for MbedtlsAes {}
@@ -138,7 +141,7 @@ pub(super) mod cyw43_status {
     pub const CYW43_LINK_BADAUTH: i32 = -3;
 }
 
-
+#[allow(dead_code)]
 pub(super) mod lwip_ip_addr_type {
   /** IPv4 */
   pub const IPADDR_TYPE_V4: u8 = 0;
@@ -148,6 +151,7 @@ pub(super) mod lwip_ip_addr_type {
   pub const IPADDR_TYPE_ANY: u8 = 46;
 }
 
+#[allow(dead_code)]
 #[repr(i8)]
 pub(super) enum err_enum {
 /** No error, everything OK. */
@@ -255,6 +259,7 @@ pub(super) struct udp_pcb {
     pub recv_arg: *mut c_void,
 }
 
+#[allow(dead_code)]
 unsafe extern "C" {
     pub(super) fn hhg_gpio_init(gpio: u32);
     pub(super) fn hhg_gpio_set_dir(gpio: u32, out: bool);
@@ -396,6 +401,6 @@ unsafe extern "C" {
     pub(super) fn hhg_powman_timer_set_ms(time_ms: c_ulonglong);
     pub(super) fn hhg_powman_timer_get_ms() -> c_ulonglong;
 
-    pub(super) fn hhg_add_repeating_timer_ms(delay_ms: c_int, callback: extern "C" fn(*mut c_void), user_data: *mut c_void, out: *mut c_void) -> bool;
+    pub(super) fn hhg_add_repeating_timer_ms(delay_ms: c_int, callback: extern "C" fn(*mut c_void), user_data: *mut c_void, out: *mut *mut c_void) -> bool;
     pub(super) fn hhg_cancel_repeating_timer(timer: *mut c_void) -> bool;
 }

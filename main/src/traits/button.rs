@@ -17,7 +17,6 @@
  * with this program; if not, see <https://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
-#![allow(dead_code)]
 
 
 #[derive(PartialEq, Eq)]
@@ -30,6 +29,8 @@
  
  pub trait SetClickable<'a> {
      fn set_on_click(&mut self, clicclable: &'a dyn OnClickable);
+
+     #[allow(dead_code)]
      fn get_state(&self) -> ButtonState;
  }
 

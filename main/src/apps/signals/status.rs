@@ -18,7 +18,7 @@
  *
  ***************************************************************************/
 
-#![allow(dead_code)]
+
 
 use osal_rs::utils::Bytes;
 
@@ -88,6 +88,7 @@ impl From<&Source> for StatusFlag {
 }
 
 impl StatusFlag {
+    #[allow(dead_code)]
     pub(in crate::apps) fn as_str(&self) -> Bytes<24> {
         use StatusFlag::*;
         match self {
