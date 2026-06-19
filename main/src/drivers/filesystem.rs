@@ -217,7 +217,7 @@ pub(in crate::drivers) struct FilesystemFn {
     pub(in crate::drivers) open_dir: fn (path: &str) -> Result<*mut c_void>,
 
     /// Get error message for error code
-    pub err_msg: fn (err: i32) -> &'static str
+    pub(in crate::drivers) err_msg: fn (err: i32) -> &'static str
 }
 
 
