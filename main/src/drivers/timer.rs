@@ -18,10 +18,42 @@
  *
  ***************************************************************************/
 
+#![allow(dead_code)]
+
+use core::any::Any;
 use core::ffi::c_void;
 
- pub struct TimerFn {
-    pub add_repeating_timer_ms: fn (delay_ms: i32, callback: extern "C" fn(*mut c_void), user_data: *mut c_void, out: *mut c_void) -> bool,
-    pub cancel_repeating_timer: fn (timer: *mut c_void) -> bool
+use osal_rs::utils::Result;
+
+use crate::drivers::pico::hw_timer::TIMER_FN;
+
+
+
+ pub(in crate::drivers) struct TimerFn {
+    pub(in crate::drivers) add_repeating_ms: fn (delay_ms: i32, user_data: &dyn Any, callback: extern "C" fn(*mut c_void)) -> Result<Timer>,
+    pub(in crate::drivers) cancel: fn (timer: Timer)
 }
 
+pub struct Timer {
+    instance: *mut c_void,
+}
+
+impl Timer {
+    pub(in crate::drivers) fn new(instance: *mut c_void) -> Self {
+        Timer { 
+            instance 
+        }
+    }
+
+    pub(in crate::drivers) fn get_instance(&self) -> *mut c_void {
+        self.instance
+    }
+
+    pub fn add_repeating_ms(delay_ms: i32, user_data: &dyn Any, callback: extern "C" fn(*mut c_void)) -> Result<Self> {
+        (TIMER_FN.add_repeating_ms)(delay_ms, user_data, callback)
+    }
+
+    pub fn cancel(self) {
+        (TIMER_FN.cancel)(self);
+    }
+}

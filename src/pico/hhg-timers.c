@@ -21,11 +21,25 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 
-bool hhg_add_repeating_timer_ms(int32_t delay_ms, void (*callback)(void *), void *user_data, void *out) {
+
+extern void * pvPortMalloc( size_t xWantedSize );
+extern void vPortFree( void * pv );
+
+
+bool hhg_add_repeating_timer_ms(int32_t delay_ms, void (*callback)(void *), void *user_data, void **out) {
     if (out == NULL) {
         return false;
     }
-    return add_repeating_timer_ms(delay_ms, (repeating_timer_callback_t)callback, user_data, (repeating_timer_t *)out);
+
+    if (*out) {
+        vPortFree(*out);
+    }
+    *out = pvPortMalloc(sizeof(repeating_timer_t));
+    if (*out == NULL) {
+        return false;
+    }
+
+    return add_repeating_timer_ms(delay_ms, (repeating_timer_callback_t)callback, user_data, (repeating_timer_t *)*out);
 }
 
 
@@ -33,5 +47,9 @@ bool hhg_cancel_repeating_timer(void *timer) {
     if (timer == NULL) {
         return false;
     }
-    return cancel_repeating_timer((repeating_timer_t *)timer);
+    bool rc = cancel_repeating_timer((repeating_timer_t *)timer);
+
+    vPortFree((repeating_timer_t *)timer);
+
+    return rc;
 }
