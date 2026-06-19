@@ -126,95 +126,95 @@ pub mod flags {
 }
 
 #[derive(Clone, Debug)]
-pub struct FileFn {
+pub(in crate::drivers) struct FileFn {
     //Open file
-    pub open: fn (path: &str, flags: i32) -> Result<()>,
+    pub(in crate::drivers) open: fn (path: &str, flags: i32) -> Result<()>,
 
     /// Write data to the file
-    pub write: fn (handler: *mut c_void, buffer: &[u8]) -> Result<isize>,
+    pub(in crate::drivers) write: fn (handler: *mut c_void, buffer: &[u8]) -> Result<isize>,
 
     /// Read data from the file
-    pub read: fn (handler: *mut c_void) -> Result<Vec<u8>>, 
+    pub(in crate::drivers) read: fn (handler: *mut c_void) -> Result<Vec<u8>>, 
 
     /// Rewind file position to the beginning
-    pub rewind: fn (handler: *mut c_void) -> Result<()>,
+    pub(in crate::drivers) rewind: fn (handler: *mut c_void) -> Result<()>,
 
     /// Seek to a position in the file
-    pub seek: fn (handler: *mut c_void, offset: i32, whence: i32) -> Result<isize>,
+    pub(in crate::drivers) seek: fn (handler: *mut c_void, offset: i32, whence: i32) -> Result<isize>,
 
     /// Get current position in the file
-    pub tell: fn (handler: *mut c_void) -> Result<isize>,
+    pub(in crate::drivers) tell: fn (handler: *mut c_void) -> Result<isize>,
 
     /// Truncate file to specified size
-    pub truncate: fn (handler: *mut c_void, size: u32) -> Result<()>,
+    pub(in crate::drivers) truncate: fn (handler: *mut c_void, size: u32) -> Result<()>,
 
     /// Flush file buffers
-    pub flush: fn (handler: *mut c_void) -> Result<()>,
+    pub(in crate::drivers) flush: fn (handler: *mut c_void) -> Result<()>,
 
     /// Get file size
-    pub size: fn (handler: *mut c_void) -> Result<isize>,
+    pub(in crate::drivers) size: fn (handler: *mut c_void) -> Result<isize>,
 
     ///Close file
-    pub close: fn (handler: *mut c_void) -> Result<()>,
+    pub(in crate::drivers) close: fn (handler: *mut c_void) -> Result<()>,
 }
 
 #[derive(Clone, Debug)]
-pub struct DirFn {
+pub(in crate::drivers) struct DirFn {
     /// Read next entry in the directory
-    pub read: fn (handler: *mut c_void, type_: &mut u8, size: &mut u32, name: &mut [u8]) -> c_int,
+    pub(in crate::drivers) read: fn (handler: *mut c_void, type_: &mut u8, size: &mut u32, name: &mut [u8]) -> c_int,
 
     /// Seek to a position in the directory
-    pub seek: fn (handler: *mut c_void, offset: u32) -> Result<()>,
+    pub(in crate::drivers) seek: fn (handler: *mut c_void, offset: u32) -> Result<()>,
 
     /// Get current position in the directory
-    pub tell: fn (handler: *mut c_void) -> Result<i32>,
+    pub(in crate::drivers) tell: fn (handler: *mut c_void) -> Result<i32>,
     
     /// Rewind directory position to the beginning
-    pub rewind: fn (handler: *mut c_void) -> Result<()>,
+    pub(in crate::drivers) rewind: fn (handler: *mut c_void) -> Result<()>,
 
     /// Close Dir
-    pub close: fn (handler: *mut c_void) -> Result<()>,
+    pub(in crate::drivers) close: fn (handler: *mut c_void) -> Result<()>,
 }
 
 
 #[derive(Clone, Debug)]
-pub struct FilesystemFn {
+pub(in crate::drivers) struct FilesystemFn {
     
     /// Mount the filesystem
-    pub mount: fn (format: bool) -> Result<()>,
+    pub(in crate::drivers) mount: fn (format: bool) -> Result<()>,
 
     /// Unmount the filesystem
-    pub umount: fn () -> Result<()>,
+    pub(in crate::drivers) umount: fn () -> Result<()>,
 
     /// Open a file
-    pub open: fn (path: &str, flags: i32) -> Result<*mut c_void>,
+    pub(in crate::drivers) open: fn (path: &str, flags: i32) -> Result<*mut c_void>,
 
     /// Remove a file or directory
-    pub remove: fn (path: &str) -> Result<()>,
+    pub(in crate::drivers) remove: fn (path: &str) -> Result<()>,
 
     /// Rename a file or directory
-    pub rename: fn (old_path: &str, new_path: &str) -> Result<()>,
+    pub(in crate::drivers) rename: fn (old_path: &str, new_path: &str) -> Result<()>,
 
     /// Get filesystem statistics
-    pub stat_fs: fn (block_size: &mut u32, block_count: &mut u32, blocks_used: &mut u32) -> Result<()>,
+    pub(in crate::drivers) stat_fs: fn (block_size: &mut u32, block_count: &mut u32, blocks_used: &mut u32) -> Result<()>,
 
     /// Get file statistics
-    pub stat: fn (path: &str, type_: &mut u8, size: &mut u32, name: &mut [u8]) -> Result<i32>,
+    pub(in crate::drivers) stat: fn (path: &str, type_: &mut u8, size: &mut u32, name: &mut [u8]) -> Result<i32>,
 
     /// Get extended attribute
-    pub get_attr: fn (path: &str, type_: u8, buffer: &mut [u8]) -> Result<i32>,
+    pub(in crate::drivers) get_attr: fn (path: &str, type_: u8, buffer: &mut [u8]) -> Result<i32>,
 
     /// Set extended attribute
-    pub set_attr: fn (path: &str, type_: u8, buffer: &[u8]) -> Result<()>,
+    pub(in crate::drivers) set_attr: fn (path: &str, type_: u8, buffer: &[u8]) -> Result<()>,
 
     /// Remove extended attribute
-    pub remove_attr: fn (path: &str, type_: u8) -> Result<()>,
+    pub(in crate::drivers) remove_attr: fn (path: &str, type_: u8) -> Result<()>,
 
     /// Create a directory
-    pub mkdir: fn (path: &str) -> Result<()>,
+    pub(in crate::drivers) mkdir: fn (path: &str) -> Result<()>,
 
     /// Open a directory
-    pub open_dir: fn (path: &str) -> Result<*mut c_void>,
+    pub(in crate::drivers) open_dir: fn (path: &str) -> Result<*mut c_void>,
 
     /// Get error message for error code
     pub err_msg: fn (err: i32) -> &'static str

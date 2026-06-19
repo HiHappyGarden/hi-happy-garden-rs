@@ -40,7 +40,7 @@ pub(crate) const I2C1_PIN_SCL: u32 = 3;
 
 pub(crate) const I2C_BAUDRATE: u32 = 100_000;
 
-pub(crate) static I2C_FN: I2CFn = I2CFn {
+pub(in crate::drivers) static I2C_FN: I2CFn = I2CFn {
     init,
     write,
     write_dma,

@@ -105,19 +105,19 @@ impl AsSyncStr for GpioNameEmpty {
 
 
 #[derive(Clone)]
-pub struct GpioFn {
-    pub init: Option<fn() -> Result<()>>,
-    pub input: Option<fn(&GpioConfig, Option<Ptr>, u32, GpioInputType, u32) -> Result<()>>,
-    pub input_analog: Option<fn(&GpioConfig, Option<Ptr>, u32, u32, u32) -> Result<()>>,
-    pub output: Option<fn(&GpioConfig, Option<Ptr>, u32, u32) -> Result<()>>,
-    pub output_pwm: Option<fn(&GpioConfig, Option<Ptr>, u32, u32) -> Result<()>>,
-    pub peripheral: Option<fn(&GpioConfig, Option<Ptr>, u32, GpioPeripheralData) -> Result<()>>,
-    pub deinit: Option<fn() -> Result<()>>,
-    pub read: Option<fn(&GpioConfig, Option<Ptr>, u32) -> Result<u32>>,
-    pub write: Option<fn(&GpioConfig, Option<Ptr>, u32, u32) -> OsalRsBool>,
-    pub set_pwm: Option<fn(&GpioConfig, Option<Ptr>, u32, u32) -> OsalRsBool>,
-    pub set_interrupt: Option<fn(&GpioConfig, Option<Ptr>, u32, InterruptType, InterruptCallback, bool) -> OsalRsBool>,
-    pub enable_interrupt: Option<fn(&GpioConfig, Option<Ptr>, u32, bool) -> OsalRsBool>,
+pub(in crate::drivers) struct GpioFn {
+    pub(in crate::drivers) init: Option<fn() -> Result<()>>,
+    pub(in crate::drivers) input: Option<fn(&GpioConfig, Option<Ptr>, u32, GpioInputType, u32) -> Result<()>>,
+    pub(in crate::drivers) input_analog: Option<fn(&GpioConfig, Option<Ptr>, u32, u32, u32) -> Result<()>>,
+    pub(in crate::drivers) output: Option<fn(&GpioConfig, Option<Ptr>, u32, u32) -> Result<()>>,
+    pub(in crate::drivers) output_pwm: Option<fn(&GpioConfig, Option<Ptr>, u32, u32) -> Result<()>>,
+    pub(in crate::drivers) peripheral: Option<fn(&GpioConfig, Option<Ptr>, u32, GpioPeripheralData) -> Result<()>>,
+    pub(in crate::drivers) deinit: Option<fn() -> Result<()>>,
+    pub(in crate::drivers) read: Option<fn(&GpioConfig, Option<Ptr>, u32) -> Result<u32>>,
+    pub(in crate::drivers) write: Option<fn(&GpioConfig, Option<Ptr>, u32, u32) -> OsalRsBool>,
+    pub(in crate::drivers) set_pwm: Option<fn(&GpioConfig, Option<Ptr>, u32, u32) -> OsalRsBool>,
+    pub(in crate::drivers) set_interrupt: Option<fn(&GpioConfig, Option<Ptr>, u32, InterruptType, InterruptCallback, bool) -> OsalRsBool>,
+    pub(in crate::drivers) enable_interrupt: Option<fn(&GpioConfig, Option<Ptr>, u32, bool) -> OsalRsBool>,
 }
 
 unsafe impl Send for GpioFn {}

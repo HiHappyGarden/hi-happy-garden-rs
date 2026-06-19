@@ -34,14 +34,14 @@ use crate::drivers::platform::I2C_FN;
 const APP_TAG: &str = "I2C";
 
 #[allow(unused)]
-pub struct I2CFn {
-    pub init: fn(u8, u32) -> Result<*mut c_void>, //i2c_instance, baudrate
-    pub write: fn(*mut c_void, u8, data: &[u8]) -> Result<()>, //instance, address, data
-    pub write_dma: fn(*mut c_void, u8, data: &[u8]) -> Result<()>, //instance, address, data (DMA when supported)
-    pub read: fn(*mut c_void, u8, buffer: &mut [u8]) -> Result<()>, //instance, address, buffer
-    pub write_and_read: fn(*mut c_void, u8, data: &[u8], buffer: &mut [u8]) -> (Result<()>, Result<()>), //instance, address, data, buffer
-    pub scan_i2c: fn(*mut c_void) -> Result<Vec<u8>>, //instance
-    pub drop: fn(*mut c_void), //instance
+pub(in crate::drivers) struct I2CFn {
+    pub(in crate::drivers) init: fn(u8, u32) -> Result<*mut c_void>, //i2c_instance, baudrate
+    pub(in crate::drivers) write: fn(*mut c_void, u8, data: &[u8]) -> Result<()>, //instance, address, data
+    pub(in crate::drivers) write_dma: fn(*mut c_void, u8, data: &[u8]) -> Result<()>, //instance, address, data (DMA when supported)
+    pub(in crate::drivers) read: fn(*mut c_void, u8, buffer: &mut [u8]) -> Result<()>, //instance, address, buffer
+    pub(in crate::drivers) write_and_read: fn(*mut c_void, u8, data: &[u8], buffer: &mut [u8]) -> (Result<()>, Result<()>), //instance, address, data, buffer
+    pub(in crate::drivers) scan_i2c: fn(*mut c_void) -> Result<Vec<u8>>, //instance
+    pub(in crate::drivers) drop: fn(*mut c_void), //instance
 }
 
 #[derive(Clone)]

@@ -29,18 +29,18 @@ use crate::traits::state::Initializable;
 const APP_TAG: &str = "RTC";
 
 #[derive(Clone, Debug)]
-pub struct RTCFn {
-    pub init: fn (&mut I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<()>,
+pub(in crate::drivers) struct RTCFn {
+    pub(in crate::drivers) init: fn (&mut I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<()>,
 
-    pub set_timestamp: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: u64),
-
-    #[allow(unused)]
-    pub get_timestamp: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> u64,
+    pub(in crate::drivers) set_timestamp: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: u64),
 
     #[allow(unused)]
-    pub set_rtc_timestamp: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: i64) -> Result<()>,
+    pub(in crate::drivers) get_timestamp: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> u64,
 
-    pub get_rtc_timestamp: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<i64>, 
+    #[allow(unused)]
+    pub(in crate::drivers) set_rtc_timestamp: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>, timestamp: i64) -> Result<()>,
+
+    pub(in crate::drivers) get_rtc_timestamp: fn (&I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<i64>, 
 }
 
 pub struct RTC (Option<I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>>);

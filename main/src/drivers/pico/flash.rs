@@ -59,7 +59,7 @@ pub(crate) mod lfs_errors {
 }
 
 
-pub(crate) const FILE_FN: FileFn = FileFn {
+pub(in crate::drivers) const FILE_FN: FileFn = FileFn {
     
     open: file_open,
 
@@ -180,7 +180,7 @@ fn file_close(handler: *mut c_void) -> Result<()> {
     Ok(())
 }
 
-pub(crate) const DIR_FN: DirFn = DirFn {
+pub(in crate::drivers) const DIR_FN: DirFn = DirFn {
     read: dir_read,
     seek: dir_seek,
     tell: dir_tell,
@@ -232,7 +232,7 @@ fn dir_close(handler: *mut c_void) -> Result<()> {
 }
 
 
-pub(crate) const FILESYSTEM_FN: FilesystemFn = FilesystemFn {
+pub(in crate::drivers) const FILESYSTEM_FN: FilesystemFn = FilesystemFn {
     mount: filesystem_mount,
 
     umount: filesystem_umount,

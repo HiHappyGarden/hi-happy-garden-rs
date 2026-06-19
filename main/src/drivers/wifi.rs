@@ -129,14 +129,14 @@ pub enum LinkStatus {
 } 
 
 
-pub struct WifiFn {
-    pub init: fn(u32) -> Result<*mut c_void>,
-    pub enable_sta_mode: fn(*mut c_void),
-    pub disable_sta_mode: fn(*mut c_void),
-    pub connect: fn(*mut c_void, ssid: &str, password: &str, auth: Auth) -> Result<i32>,
-    pub link_status: fn(*mut c_void) -> LinkStatus,
-    pub get_rssi: fn(*mut c_void) -> Result<i32>,
-    pub drop: fn(*mut c_void),
+pub(in crate::drivers) struct WifiFn {
+    pub(in crate::drivers) init: fn(u32) -> Result<*mut c_void>,
+    pub(in crate::drivers) enable_sta_mode: fn(*mut c_void),
+    pub(in crate::drivers) disable_sta_mode: fn(*mut c_void),
+    pub(in crate::drivers) connect: fn(*mut c_void, ssid: &str, password: &str, auth: Auth) -> Result<i32>,
+    pub(in crate::drivers) link_status: fn(*mut c_void) -> LinkStatus,
+    pub(in crate::drivers) get_rssi: fn(*mut c_void) -> Result<i32>,
+    pub(in crate::drivers) drop: fn(*mut c_void),
 }
 
 pub struct Wifi {

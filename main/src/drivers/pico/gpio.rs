@@ -113,7 +113,7 @@ pub(crate) static mut GPIO_CONFIGS: GpioConfigs<'static, GPIO_CONFIG_SIZE> = Gpi
 ]);
 
 
-pub(crate) const GPIO_FN : GpioFn = GpioFn {
+pub(in crate::drivers) const GPIO_FN : GpioFn = GpioFn {
     init: Some(init),
     input: Some(input),
     input_analog: Some(input_analog),

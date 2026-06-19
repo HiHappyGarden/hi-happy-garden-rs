@@ -29,12 +29,12 @@ use crate::drivers::pico::mbedtls::ENCRYPT_FN;
 const APP_TAG: &str = "Encrypt";
 pub const SHA256_RESULT_BYTES: usize = 32;
 
-pub struct EncryptFn {
-    pub init: fn() -> Result<*mut c_void>,
-    pub aes_encrypt: fn(handler: *mut c_void, key: &[u8], iv: &[u8], plain: &[u8]) -> Result<Vec<u8>>,
-    pub aes_decrypt: fn(handler: *mut c_void, key: &[u8], iv: &[u8], cipher: &[u8]) -> Result<Vec<u8>>,
-    pub get_sha256: fn(data: &[u8]) -> Result<Bytes<{SHA256_RESULT_BYTES * 2}>>,
-    pub drop: fn(*mut c_void),
+pub(in crate::drivers) struct EncryptFn {
+    pub(in crate::drivers) init: fn() -> Result<*mut c_void>,
+    pub(in crate::drivers) aes_encrypt: fn(handler: *mut c_void, key: &[u8], iv: &[u8], plain: &[u8]) -> Result<Vec<u8>>,
+    pub(in crate::drivers) aes_decrypt: fn(handler: *mut c_void, key: &[u8], iv: &[u8], cipher: &[u8]) -> Result<Vec<u8>>,
+    pub(in crate::drivers) get_sha256: fn(data: &[u8]) -> Result<Bytes<{SHA256_RESULT_BYTES * 2}>>,
+    pub(in crate::drivers) drop: fn(*mut c_void),
 }
 
 #[derive(Clone, Copy)]

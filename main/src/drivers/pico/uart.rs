@@ -30,14 +30,14 @@ use crate::traits::rx_tx::Source;
 const TX_PIN: u32 = 0;
 const RX_PIN: u32 = 1;
 
-pub static mut UART_FN: UartFn = UartFn {
+pub(in crate::drivers) static mut UART_FN: UartFn = UartFn {
     init,
     transmit,
     add_listener: None,
     deinit,
 };
 
-pub static mut UART_CONFIG: UartConfig = UartConfig {
+pub(in crate::drivers) static mut UART_CONFIG: UartConfig = UartConfig {
     name : &"Uart",
     base: null_mut(),
     baudrate: 115200,

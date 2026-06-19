@@ -31,7 +31,7 @@ use crate::drivers::pico::ffi::{aes_mode, hhg_mbedtls_aes_crypt_cbc, hhg_mbedtls
 use crate::drivers::encrypt::{EncryptFn, SHA256_RESULT_BYTES};
 use crate::drivers::plt::ffi::{hhg_pico_sha256_finish, hhg_pico_sha256_start_blocking, hhg_pico_sha256_update_blocking};
 
-pub(crate) const ENCRYPT_FN: EncryptFn = EncryptFn {
+pub(in crate::drivers) const ENCRYPT_FN: EncryptFn = EncryptFn {
     init,
     aes_encrypt,
     aes_decrypt,

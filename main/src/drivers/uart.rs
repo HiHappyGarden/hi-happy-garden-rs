@@ -65,14 +65,14 @@ pub enum UartFlowControl {
 
 
 #[derive(Clone, Copy)]
-pub struct UartConfig {
-    pub name: &'static str,
-    pub base: Ptr,
-    pub baudrate: u32,
-    pub data_bits: UartDataBits,
-    pub stop_bits: UartStopBits,
-    pub parity: UartParity,
-    pub flow_control: UartFlowControl,
+pub(in crate::drivers) struct UartConfig {
+    pub(in crate::drivers) name: &'static str,
+    pub(in crate::drivers) base: Ptr,
+    pub(in crate::drivers) baudrate: u32,
+    pub(in crate::drivers) data_bits: UartDataBits,
+    pub(in crate::drivers) stop_bits: UartStopBits,
+    pub(in crate::drivers) parity: UartParity,
+    pub(in crate::drivers) flow_control: UartFlowControl,
 }
 
 unsafe impl Sync for UartConfig {}
@@ -80,11 +80,11 @@ unsafe impl Send for UartConfig {}
 
 
 #[derive(Clone)]
-pub struct UartFn {
-    pub init: fn(&UartConfig) -> Result<()>,
-    pub transmit: fn(data: &[u8]) -> usize,
-    pub add_listener: Option<&'static dyn OnReceive>,
-    pub deinit: fn(&UartConfig) -> Result<()>,
+pub(in crate::drivers) struct UartFn {
+    pub(in crate::drivers) init: fn(&UartConfig) -> Result<()>,
+    pub(in crate::drivers) transmit: fn(data: &[u8]) -> usize,
+    pub(in crate::drivers) add_listener: Option<&'static dyn OnReceive>,
+    pub(in crate::drivers) deinit: fn(&UartConfig) -> Result<()>,
 }
 
 #[derive(Clone)]
