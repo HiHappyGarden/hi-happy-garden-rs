@@ -26,7 +26,7 @@ pub mod platform {
     pub(crate) use crate::drivers::plt::gpio::*;
     pub(crate) use crate::drivers::plt::hardware::*;
     pub(crate) use crate::drivers::plt::i2c::*;
-    pub(crate) use crate::drivers::plt::uart::*;
+    pub(in crate::drivers) use crate::drivers::plt::uart::*;
 
     pub type LCDDisplay = crate::drivers::lcd_sh1106::LCDSH1106;
     
