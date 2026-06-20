@@ -587,7 +587,7 @@ impl Config {
 
         // If file is empty or doesn't exist, use defaults
         if json.is_empty() {
-            log_info!(APP_TAG, "Config file not found or empty, using defaults");
+            log_warning!(APP_TAG, "Config file not found or empty, using defaults");
 
             unsafe {
                 CONFIG = Self::with_defaults();
@@ -649,7 +649,7 @@ impl Config {
                     ) {
                         Ok(file) => file,
                         Err(e @ Error::ReturnWithCode(-2)) => {
-                            log_info!(APP_TAG, "Failed to open config file: {e}, try to create it");
+                            log_warning!(APP_TAG, "Failed to open config file: {e}, try to create it");
                             Filesystem::open_with_as_sync_str(
                                 &file_name,
                                 flags::WRONLY | flags::CREAT | flags::TRUNC,
