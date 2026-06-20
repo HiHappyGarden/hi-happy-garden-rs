@@ -33,6 +33,7 @@ use crate::apps::display::Display;
 use crate::apps::parser::Parser;
 use crate::apps::signals::error::ErrorSignal;
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
+use crate::apps::sprinkler::Sprinkler;
 use crate::apps::system_led::SystemLed;
 use crate::apps::wifi::Wifi;
 use crate::drivers::date_time::DateTime;
@@ -71,6 +72,7 @@ pub(crate) struct AppMain {
     wifi: Wifi,
     parser: Parser,
     system_led: SystemLed,
+    sprinkler: Sprinkler,
     thread: Option<Thread>
 }
 
@@ -94,12 +96,17 @@ impl Initializable for AppMain{
         self.wifi.init()?;
         self.display.init()?;
         self.display.set_enabled_wifi(config.get_wifi_config().is_enabled());
+        self.sprinkler.init()?;
+
 
         //main FSM thread
-        let app_param = AppMainPtr(self as *mut Self as usize); // Pass AppMain pointer as usize to thread
+        let app_param = AppMainPtr((&raw const self) as usize); // Pass AppMain pointer as usize to thread
         let mut thread = Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::BelowHigh);
 
         self.thread = Some(thread.spawn(Some(Arc::new(app_param)), Self::thread_handler)?);
+
+
+        self.sprinkler.start();
 
         Ok(())
     }
@@ -116,6 +123,7 @@ impl AppMain {
             wifi: Wifi::shared(),
             parser: Parser::shared(),
             system_led: SystemLed::new(),
+            sprinkler: Sprinkler::new(),
             thread: None,  
         }
     }
@@ -212,7 +220,7 @@ impl AppMain {
                         if TIMER.load(Ordering::SeqCst) >= DateTime::MILLIS_PER_MINUTE as u32 {
                             TIMER.store(0, Ordering::SeqCst);
                             
-                            log_info!(APP_TAG, "heap_free:{}", System::get_free_heap_size());
+                            log_info!(APP_TAG, "timestamp: {}, heap_free:{}", rtc.lock()?.get_timestamp()?, System::get_free_heap_size());
                         } else {
                             TIMER.fetch_add(delta * 10, Ordering::SeqCst);
                         }

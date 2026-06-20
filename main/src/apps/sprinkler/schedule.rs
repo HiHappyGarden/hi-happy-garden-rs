@@ -21,7 +21,8 @@
 use osal_rs::utils::Bytes;
 use osal_rs_serde::{Deserialize, Serialize};
 
-use crate::apps::{DISPLAY_INPUT_MAX_SIZE, sprinkler::zone::Zone};
+use crate::apps::DISPLAY_INPUT_MAX_SIZE;
+use crate::apps::sprinkler::zone::Zone;
 use super::commons::Status;
 
 pub(in crate::apps) const NOT_SET: u8 = 0;

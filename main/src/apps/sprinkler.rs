@@ -25,7 +25,9 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 use cjson_binding::{from_json, to_json};
-use osal_rs::{log_error, log_info, log_warning};
+use osal_rs::os::Thread;
+use osal_rs::os::types::StackType;
+use osal_rs::{access_static_option, log_error, log_info, log_warning};
 use osal_rs::utils::{Error, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
@@ -41,11 +43,18 @@ pub(in crate::apps) mod schedule;
 const APP_TAG: &str = "AppSprinkler";
 const MAX_SCHEDULES: usize = 4;
 
+// static mut THREAD: Option<Thread> = None;
+// const THREAD_NAME: &str = "app_sprinkler_trd";
+// const STACK_SIZE: StackType = 1_024;
+// const TICK_INTERVAL_MS: u16 = 100;
+
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub(in crate::apps) struct Sprinkler {
-
-    pub schedules: [Schedule; MAX_SCHEDULES]
+    schedules: [Schedule; MAX_SCHEDULES]
 }
+
+#[derive(Clone, Copy)]
+struct SprinklerPtr(usize);
 
 impl Initializable for Sprinkler {
     fn init(&mut self) -> Result<()> {
@@ -106,7 +115,7 @@ impl Sprinkler {
 
         // If file is empty or doesn't exist, use defaults
         if json.is_empty() {
-            log_info!(APP_TAG, "Sprinkler file not found or empty, using defaults");
+            log_warning!(APP_TAG, "Sprinkler file not found or empty, using defaults");
 
             self.schedules = Sprinkler::default().schedules;
 
@@ -150,7 +159,7 @@ impl Sprinkler {
         file_name.append_str(Sprinkler::FILE_NAME);
 
    
-        to_json(&self.schedules)
+        to_json(self)
         .map_err(|e| {
             Error::UnhandledOwned(format!("Failed to serialize config to JSON: {e}"))
         })
@@ -163,7 +172,7 @@ impl Sprinkler {
             ) {
                 Ok(file) => file,
                 Err(e @ Error::ReturnWithCode(-2)) => {
-                    log_info!(APP_TAG, "Failed to open config file: {e}, try to create it");
+                    log_warning!(APP_TAG, "Failed to open config file: {e}, try to create it");
                     Filesystem::open_with_as_sync_str(
                         &file_name,
                         flags::WRONLY | flags::CREAT | flags::TRUNC,
@@ -180,4 +189,10 @@ impl Sprinkler {
         
     }
 
+    pub(in crate::apps) fn start(&mut self) {
+        log_info!(APP_TAG, "Starting Sprinkler app");
+
+        // let thread = access_static_option!(THREAD);
+        // let app_param = SprinklerPtr( (&raw const self) as usize ); 
+    }
 }
