@@ -30,8 +30,6 @@ use crate::drivers::pico::ffi::{
 };
 use crate::drivers::filesystem::{DirFn, FileFn, FilesystemFn};
 
-const READ_BUFFER_SIZE: usize = 512;
-
 
 pub(crate) const FS_SEPARATOR_DIR: &str = "/";
 pub(crate) const FS_CONFIG_DIR: &str = "/etc";
@@ -107,9 +105,18 @@ fn file_write(handler: *mut c_void, buffer: &[u8]) -> Result<isize> {
 }
 
 fn file_read(handler: *mut c_void) -> Result<Vec<u8>> {
+    let size = unsafe { hhg_flash_size(handler) };
+    if size < 0 {
+        return Err(Error::ReturnWithCode(size));
+    }
+    let size = size as usize;
 
-    let mut buffer = Vec::<u8>::with_capacity(READ_BUFFER_SIZE);
-    buffer.resize(READ_BUFFER_SIZE, 0u8);
+    if size == 0 {
+        return Ok(Vec::new());
+    }
+
+    let mut buffer = Vec::<u8>::with_capacity(size);
+    buffer.resize(size, 0u8);
 
     let len = unsafe {
         hhg_flash_read(
@@ -119,7 +126,7 @@ fn file_read(handler: *mut c_void) -> Result<Vec<u8>> {
         )
     };
 
-    Ok( buffer[..len as usize].to_vec())
+    Ok(buffer[..len as usize].to_vec())
 }
 
 fn file_rewind(handler: *mut c_void) -> Result<()> {
