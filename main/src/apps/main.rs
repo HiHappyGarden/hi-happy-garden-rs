@@ -100,7 +100,7 @@ impl Initializable for AppMain{
 
 
         //main FSM thread
-        let app_param = AppMainPtr((&raw const self) as usize); // Pass AppMain pointer as usize to thread
+        let app_param = AppMainPtr(self as *mut Self as usize); // Pass AppMain pointer as usize to thread
         let mut thread = Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::BelowHigh);
 
         self.thread = Some(thread.spawn(Some(Arc::new(app_param)), Self::thread_handler)?);
