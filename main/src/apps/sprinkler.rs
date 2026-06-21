@@ -58,7 +58,7 @@ struct SprinklerPtr(usize);
 
 impl Initializable for Sprinkler {
     fn init(&mut self) -> Result<()> {
-        log_info!(APP_TAG, "Init app config");
+        log_info!(APP_TAG, "Init app sprinkler");
         
         self.load()?;
 
@@ -111,7 +111,8 @@ impl Sprinkler {
                 log_error!(APP_TAG, "Failed to read sprinkler file, using defaults: {e}");
                 Vec::new()
             }
-        }; 
+        };
+        drop(file);
 
         // If file is empty or doesn't exist, use defaults
         if json.is_empty() {

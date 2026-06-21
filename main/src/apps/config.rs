@@ -582,8 +582,8 @@ impl Config {
                 log_error!(APP_TAG, "Failed to read config file, using defaults: {e}");
                 Vec::new()
             }
-        }; 
-    
+        };
+        drop(file);
 
         // If file is empty or doesn't exist, use defaults
         if json.is_empty() {
