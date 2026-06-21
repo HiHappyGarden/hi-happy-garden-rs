@@ -274,7 +274,7 @@ impl File {
 
                 let buffer_sha256 = EncryptGeneric::get_sha256(buffer)?;
 
-                let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), flags::WRONLY | flags::CREAT)?;
+                let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), flags::WRONLY | flags::CREAT | flags::TRUNC)?;
                 file_sha.write_with_as_sync_str(&buffer_sha256, false)?;
             }
 
@@ -291,7 +291,7 @@ impl File {
                 let mut buffer_sha_file =  self.name.clone();
                 buffer_sha_file.append_str(".sha256");
                 let buffer_sha256 = EncryptGeneric::get_sha256(buffer)?;
-                let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), flags::WRONLY | flags::CREAT)?;
+                let mut file_sha = Filesystem::open(buffer_sha_file.as_str(), flags::WRONLY | flags::CREAT | flags::TRUNC)?;
                 file_sha.write_with_as_sync_str(&buffer_sha256, false)?;
             }
 
