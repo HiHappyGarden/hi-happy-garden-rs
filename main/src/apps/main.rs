@@ -106,8 +106,6 @@ impl Initializable for AppMain{
         self.thread = Some(thread.spawn(Some(Arc::new(app_param)), Self::thread_handler)?);
 
 
-        self.sprinkler.start();
-
         Ok(())
     }
 }
@@ -216,6 +214,8 @@ impl AppMain {
                     StatusFlag::Ready => {
 
                         let delta  = (rtc.lock()?.get_timestamp()? - RTC_MINIMUM_DATE) as u32 - NOW.load(Ordering::SeqCst);
+
+                        me.sprinkler.start();
 
                         if TIMER.load(Ordering::SeqCst) >= DateTime::MILLIS_PER_MINUTE as u32 {
                             TIMER.store(0, Ordering::SeqCst);

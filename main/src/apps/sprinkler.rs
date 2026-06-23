@@ -50,7 +50,8 @@ const MAX_SCHEDULES: usize = 4;
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub(in crate::apps) struct Sprinkler {
-    schedules: [Schedule; MAX_SCHEDULES]
+    schedules: [Schedule; MAX_SCHEDULES],
+    thread_started: bool
 }
 
 #[derive(Clone, Copy)]
@@ -69,7 +70,8 @@ impl Initializable for Sprinkler {
 impl Default for Sprinkler {
     fn default() -> Self {
         Self {
-            schedules: [Schedule::default(); MAX_SCHEDULES]
+            schedules: [Schedule::default(); MAX_SCHEDULES],
+            thread_started: false
         }
     }
 }
@@ -79,10 +81,9 @@ impl Sprinkler {
     pub(in crate::apps) const AT_CMD: &'static str = "AT+CNF";
     pub(in crate::apps) const AT_RESP: &'static str = "+CNF: ";
 
+    #[inline]
     pub(in crate::apps) fn new() -> Self {
-        Self {
-            schedules: [Schedule::default(); MAX_SCHEDULES]
-        }
+        Self::default()
     }
 
     pub(in crate::apps) fn load(&mut self) -> Result<()> {
@@ -191,7 +192,12 @@ impl Sprinkler {
     }
 
     pub(in crate::apps) fn start(&mut self) {
+        if self.thread_started {
+            return;
+        }
         log_info!(APP_TAG, "Starting Sprinkler app");
+
+        self.thread_started = true;
 
         // let thread = access_static_option!(THREAD);
         // let app_param = SprinklerPtr( (&raw const self) as usize ); 
