@@ -260,7 +260,7 @@ impl ScreenRoute {
         back: MainFSMState,
         build_screen: fn() -> Box<dyn ScreenRouteFn>,
     ) {
-        if self.has_local_user && !StatusFlag::UserLogged.check_signal(*status_signal) {
+        if self.has_local_user && !StatusFlag::UserLogged.check_signal(*status_signal) && MainFSMState::Info != back {
             self.main_fsm_state = back;
             self.fsm_state = FSMState::Login;
             Self::request_redraw(display_signal);
