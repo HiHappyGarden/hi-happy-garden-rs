@@ -21,6 +21,8 @@
 #![allow(dead_code)]
 
 
+use core::sync::atomic::{AtomicBool, Ordering};
+
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -32,6 +34,7 @@ use osal_rs_serde::{Deserialize, Serialize};
 
 use crate::apps::sprinkler::commons::Status;
 use crate::apps::sprinkler::schedule::Schedule;
+use crate::apps::sprinkler::zone::Zone;
 use crate::drivers::date_time::DateTime;
 use crate::drivers::filesystem::{FileBytes, Filesystem, flags};
 use crate::drivers::platform::{FS_CONFIG_DIR, FS_SEPARATOR_DIR};
@@ -46,10 +49,11 @@ const MAX_SCHEDULES: usize = 4;
 
 const MUTEX: Option<RawMutex> = None;
 
+static DISBURSEMENT_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
+
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub(in crate::apps) struct Sprinkler {
-    schedules: [Schedule; MAX_SCHEDULES],
-    disbursement_in_progress: bool
+    schedules: [Schedule; MAX_SCHEDULES]
 }
 
 #[derive(Clone, Copy)]
@@ -69,7 +73,6 @@ impl Default for Sprinkler {
     fn default() -> Self {
         Self {
             schedules: [Schedule::default(); MAX_SCHEDULES],
-            disbursement_in_progress: false
         }
     }
 }
@@ -190,14 +193,14 @@ impl Sprinkler {
     }
 
     pub(in crate::apps) fn check(&mut self, now: DateTime) {
-        if self.disbursement_in_progress {
+        if DISBURSEMENT_IN_PROGRESS.load(Ordering::Relaxed) {
             return;
         }
 
 
         for schedule in self.schedules.iter_mut() {
             if schedule.executable(&now) {
-                self.disbursement_in_progress = true;
+                DISBURSEMENT_IN_PROGRESS.store(true, Ordering::Relaxed);
                 schedule.status = Status::RUN;
                 for zone in schedule.zones.iter() {
 
