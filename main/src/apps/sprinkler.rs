@@ -25,13 +25,14 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 use cjson_binding::{from_json, to_json};
-use osal_rs::os::Thread;
-use osal_rs::os::types::StackType;
-use osal_rs::{access_static_option, log_error, log_info, log_warning};
+use osal_rs::os::RawMutex;
+use osal_rs::{log_error, log_info, log_warning};
 use osal_rs::utils::{Error, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
+use crate::apps::sprinkler::commons::Status;
 use crate::apps::sprinkler::schedule::Schedule;
+use crate::drivers::date_time::DateTime;
 use crate::drivers::filesystem::{FileBytes, Filesystem, flags};
 use crate::drivers::platform::{FS_CONFIG_DIR, FS_SEPARATOR_DIR};
 use crate::traits::state::Initializable;
@@ -43,15 +44,12 @@ pub(in crate::apps) mod schedule;
 const APP_TAG: &str = "AppSprinkler";
 const MAX_SCHEDULES: usize = 4;
 
-// static mut THREAD: Option<Thread> = None;
-// const THREAD_NAME: &str = "app_sprinkler_trd";
-// const STACK_SIZE: StackType = 1_024;
-// const TICK_INTERVAL_MS: u16 = 100;
+const MUTEX: Option<RawMutex> = None;
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub(in crate::apps) struct Sprinkler {
     schedules: [Schedule; MAX_SCHEDULES],
-    thread_started: bool
+    disbursement_in_progress: bool
 }
 
 #[derive(Clone, Copy)]
@@ -71,7 +69,7 @@ impl Default for Sprinkler {
     fn default() -> Self {
         Self {
             schedules: [Schedule::default(); MAX_SCHEDULES],
-            thread_started: false
+            disbursement_in_progress: false
         }
     }
 }
@@ -191,15 +189,22 @@ impl Sprinkler {
         
     }
 
-    pub(in crate::apps) fn start(&mut self) {
-        if self.thread_started {
+    pub(in crate::apps) fn check(&mut self, now: DateTime) {
+        if self.disbursement_in_progress {
             return;
         }
-        log_info!(APP_TAG, "Starting Sprinkler app");
 
-        self.thread_started = true;
 
-        // let thread = access_static_option!(THREAD);
-        // let app_param = SprinklerPtr( (&raw const self) as usize ); 
+        for schedule in self.schedules.iter_mut() {
+            if schedule.executable(&now) {
+                self.disbursement_in_progress = true;
+                schedule.status = Status::RUN;
+                for zone in schedule.zones.iter() {
+
+                }
+                break;
+            }  
+        }
+
     }
 }

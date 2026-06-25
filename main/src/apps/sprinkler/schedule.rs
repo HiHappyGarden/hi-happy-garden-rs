@@ -18,18 +18,18 @@
  *
  ***************************************************************************/
 
-use osal_rs::utils::Bytes;
+use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::sprinkler::zone::Zone;
+use crate::drivers::date_time::DateTime;
 use super::commons::Status;
 
-pub(in crate::apps) const NOT_SET: u8 = 0;
 const ZONES_SIZE: usize = 4;
 
  #[allow(dead_code)]
-
+ #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(in crate::apps) enum Day {
     Sunday = 0x01,
     Monday = 0x02,
@@ -40,35 +40,130 @@ pub(in crate::apps) enum Day {
     Saturday = 0x40
 } 
 
+impl Day {
+    fn map(value: u8) -> [Option<Self>; 7] {
+        use Day::*;
+        
+        let mut ret = [None; 7];
+
+        for idx in 0u8..7 {
+            if value & (1 << idx) > 0 {
+                ret[idx as usize] = match idx {
+                    0 => Some(Sunday),
+                    1 => Some(Monday),
+                    2 => Some(Tuesday),
+                    3 => Some(Wednesday),
+                    4 => Some(Thursday),
+                    5 => Some(Friday),
+                    6 => Some(Saturday),
+                    _ => None
+                }
+            } else {
+                ret[idx as usize] = None;
+            }
+        }
+
+        ret
+    }
+}
+
+impl From<Day> for u8 {
+    fn from(value: Day) -> Self {
+        match value {
+            Day::Sunday => 0,
+            Day::Monday => 1,
+            Day::Tuesday => 2,
+            Day::Wednesday => 3,
+            Day::Thursday => 4,
+            Day::Friday => 5,
+            Day::Saturday => 6
+        }
+    }
+}
+
  #[allow(dead_code)]
+ #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(in crate::apps) enum Month {
-    January = 0x01,
-    February = 0x02,
-    March = 0x04,
-    April = 0x08,
-    May = 0x10,
-    June = 0x20,
-    July = 0x40,
-    August = 0x80,
+    January = 0x0001,
+    February = 0x0002,
+    March = 0x0004,
+    April = 0x0008,
+    May = 0x0010,
+    June = 0x0020,
+    July = 0x0040,
+    August = 0x0080,
     September = 0x0100,
     October = 0x0200,
     November = 0x0400,
     December = 0x0800,
 }
 
+impl From<Month> for u8 {
+    fn from(value: Month) -> Self {
+        match value {
+            Month::January => 0,
+            Month::February => 1,
+            Month::March => 2,
+            Month::April => 3,
+            Month::May => 4,
+            Month::June => 5,
+            Month::July => 6,
+            Month::August => 7,
+            Month::September => 8,
+            Month::October => 9,
+            Month::November => 10,
+            Month::December => 11
+        }
+    }
+}
+
+impl Month {
+    fn map(value: u16) -> [Option<Self>; 12] {
+        use Month::*;
+        
+        let mut ret = [None; 12];
+
+        for idx in 0u16..12 {
+            if value & (1 << idx) > 0 {
+                ret[idx as usize] = match idx {
+                    0 => Some(January),
+                    1 => Some(February),
+                    2 => Some(March),
+                    3 => Some(April),
+                    4 => Some(May),
+                    5 => Some(June),
+                    6 => Some(July),
+                    7 => Some(August),
+                    8 => Some(September),
+                    9 => Some(October),
+                    10 => Some(November),
+                    11 => Some(December),
+                    _ => None
+                }
+            } else {
+                ret[idx as usize] = None;
+            }
+        }
+
+        ret
+    }
+}
+
+
+
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub(in crate::apps) struct Schedule {
 
-    ///  minute, values allowed 0 - 59
+    ///  minute, values allowed 1 - 60 or NOT_SET (0) for every minute real value is minute - 1
     pub minute: u8,
 
-    /// hour, values allowed 0 - 23 or NOT_SET (0xFF) for every hour
+    /// hour, values allowed 1 - 24 or NOT_SET (0) for every hour real value is hour - 1
     pub hour: u8,
 
-    /// day of week from 0x01 to 0x40 or NOT_SET (0xFF) for every day, otherwise bitmask of Day
+    /// day of week from 0x01 to 0x40 or NOT_SET (0) for every day, otherwise bitmask of Day
     pub days: u8,
 
-    /// month, values allowed 0x01 to 0x0800 or NOT_SET (0xFFFF) for every month
+    /// month, values allowed 0x01 to 0x0800 or NOT_SET (0) for every month
     pub month: u16,
 
     /// description 
@@ -86,8 +181,8 @@ impl Default for Schedule {
         Self {
             minute: 0,
             hour: 0,
-            days: NOT_SET,
-            month: NOT_SET as u16,
+            days: Schedule::NOT_SET,
+            month: Schedule::NOT_SET as u16,
             description: Bytes::new(),
             zones: [Zone::default(); ZONES_SIZE],
             status: Status::UNACTIVE
@@ -95,13 +190,71 @@ impl Default for Schedule {
     }
 }
 
-// impl Schedule {
+impl Schedule {
 
-//     pub fn is_active(&self) -> bool {
-//         matches!(self.status, Status::ACTIVE)
-//     }
+    pub(in crate::apps) const NOT_SET: u8 = 0x00;
 
-//     pub fn is_run(&self) -> bool {
-//         matches!(self.status, Status::RUN)
-//     }
-// }
+    pub(in super) fn executable(&mut self, now: &DateTime) -> bool {
+        if self.status == Status::RUN {
+            return false;
+        }
+        
+        let mut check = [true; 4];
+
+        if self.month != Schedule::NOT_SET as u16 {
+            let months = Month::map(self.month);
+            for month in months.iter() {
+                check[0] = false;
+                if let Some(m) = month {
+                    if <Month as Into<u8>>::into(*m)  == now.month {
+                        check[0] = true;
+                        break;
+                    }
+                }
+            }
+        } else {
+            check[0] = true;
+        }
+
+        if self.days != Schedule::NOT_SET {
+            let days = Day::map(self.days);
+            for day in days.iter() {
+                check[1] = false;
+                if let Some(d) = day {
+                    if <Day as Into<u8>>::into(*d) == now.wday {
+                        check[1] = true;
+                        break;
+                    }
+                }
+            }
+        } else {
+            check[1] = true;
+        }
+
+        if self.hour != Schedule::NOT_SET {
+            if self.hour - 1 == now.hour {
+                check[2] = true;
+            } else {
+                check[2] = false;
+            }
+        } else {
+            check[2] = true;
+        }
+
+        if self.minute != Schedule::NOT_SET {
+            if self.minute - 1 == now.minute {
+                check[3] = true;
+            } else {
+                check[3] = false;
+            }
+        } else {
+            check[3] = true;
+        }
+
+        if check.iter().all(|&x| x) {
+            true
+        } else {
+            false
+        }
+    }
+}
