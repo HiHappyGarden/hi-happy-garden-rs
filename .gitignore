@@ -43,3 +43,5 @@ cmake-build-release
 cmake-build-relwithdebinfo
 documents/.$hw_scheme.drawio.dtmp
 build-host/cJSON
+
+.claude
