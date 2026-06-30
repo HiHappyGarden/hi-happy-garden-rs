@@ -34,7 +34,6 @@ use osal_rs_serde::{Deserialize, Serialize};
 
 use crate::apps::sprinkler::commons::Status;
 use crate::apps::sprinkler::schedule::Schedule;
-use crate::apps::sprinkler::zone::Zone;
 use crate::drivers::date_time::DateTime;
 use crate::drivers::filesystem::{FileBytes, Filesystem, flags};
 use crate::drivers::platform::{FS_CONFIG_DIR, FS_SEPARATOR_DIR};
@@ -202,7 +201,7 @@ impl Sprinkler {
             if schedule.executable(&now) {
                 DISBURSEMENT_IN_PROGRESS.store(true, Ordering::Relaxed);
                 schedule.status = Status::RUN;
-                for zone in schedule.zones.iter() {
+                for _zone in schedule.zones.iter() {
 
                 }
                 break;
