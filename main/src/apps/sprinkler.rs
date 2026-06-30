@@ -26,17 +26,22 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
+use at_parser_rs::{AtError, AtResult};
+use at_parser_rs::context::AtContext;
 use cjson_binding::{from_json, to_json};
 use osal_rs::os::RawMutex;
 use osal_rs::{log_error, log_info, log_warning};
 use osal_rs::utils::{Error, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
+use crate::apps::parser::{CMD_SIZE, NOT_LOGGED_RESPONSE, at_cmd_response};
+use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::apps::sprinkler::commons::Status;
 use crate::apps::sprinkler::schedule::Schedule;
 use crate::drivers::date_time::DateTime;
 use crate::drivers::filesystem::{FileBytes, Filesystem, flags};
 use crate::drivers::platform::{FS_CONFIG_DIR, FS_SEPARATOR_DIR};
+use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
 
 mod commons;
@@ -76,10 +81,33 @@ impl Default for Sprinkler {
     }
 }
 
+impl AtContext<{ CMD_SIZE }> for Sprinkler {
+    fn exec(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+
+        Ok(at_cmd_response!(at_response; ""))
+    }
+
+    fn query(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+        Ok(at_cmd_response!(at_response; ""))
+    }
+
+    #[inline]
+    fn test(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+        Ok(at_cmd_response!(at_response; "serial,<value> | timezone,<value> | save | load"))
+    }
+
+    fn set(&mut self, at_response: &'static str, _args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
+        if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
+            return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE)));
+        }
+        Ok(at_cmd_response!(at_response; ""))
+    }
+}
+
 impl Sprinkler {
     const FILE_NAME: &'static str = "sprinkler.json";
-    pub(in crate::apps) const AT_CMD: &'static str = "AT+CNF";
-    pub(in crate::apps) const AT_RESP: &'static str = "+CNF: ";
+    pub(in crate::apps) const AT_CMD: &'static str = "AT+SPK";
+    pub(in crate::apps) const AT_RESP: &'static str = "+SPK: ";
 
     #[inline]
     pub(in crate::apps) fn new() -> Self {
@@ -207,6 +235,5 @@ impl Sprinkler {
                 break;
             }  
         }
-
     }
 }

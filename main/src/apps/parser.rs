@@ -21,16 +21,18 @@
 use core::str::from_utf8;
 use core::time::Duration;
 
+use alloc::sync::Arc;
 use at_parser_rs::AtError;
 use at_parser_rs::context::AtContext;
 use at_parser_rs::parser::AtParser;
 use osal_rs::{access_static_option, log_error, log_info};
-use osal_rs::os::{Queue, QueueFn, Thread, ThreadFn};
+use osal_rs::os::{Mutex, MutexFn, Queue, QueueFn, Thread, ThreadFn};
 use osal_rs::os::types::{StackType, TickType, UBaseType};
 use osal_rs::utils::{Error, Result};
 
 use crate::apps::config::{Config, DaylightSavingTime, WifiConfig, NtpConfig};
 use crate::apps::session::{Session, User};
+use crate::apps::sprinkler::Sprinkler;
 use crate::apps::system_handler::SystemHandler;
 use crate::drivers::platform::ThreadPriority;
 use crate::traits::rx_tx::{OnReceive, SetTransmit, Source};
@@ -56,6 +58,7 @@ static mut SOURCE: Option<Source> = None;
 static mut UART_CHANNEL: Option<&'static dyn SetTransmit> = None;
 static mut MQTT_CHANNEL: Option<&'static dyn SetTransmit> = None;
 
+static mut SPRINKLER: Option<Arc<Mutex<Sprinkler>>> = None;
 
 pub(super) const CMD_SIZE : usize = 96;
 
@@ -73,9 +76,7 @@ macro_rules! clear_buffer {
     };
 }
 
-pub(super) struct Parser {
-    thread: Thread,
-}
+pub(super) struct Parser (Thread);
 
 impl OnReceive for Parser {
     fn on_receive(&self, source: Source, data: &[u8]) -> Result<()> {
@@ -111,9 +112,20 @@ impl Initializable for Parser {
             return Err(Error::OutOfMemory)
         }
 
-        self.thread = self.thread.spawn_simple(move || {
-            
+        let sprinkler = access_static_option!(SPRINKLER).clone();
+
+
+        self.0 = self.0.spawn_simple(move || {
+
             let mut parser: AtParser<dyn AtContext<CMD_SIZE>, CMD_SIZE> = AtParser::new();
+
+            let mut sprinkler = match sprinkler.lock() {
+                Ok(sprinkler) => sprinkler,
+                Err(_) => {
+                    log_error!(APP_TAG, "Error locking sprinkler");
+                    return;
+                }
+            };
 
             let commands: &mut [(&str, &str, &mut dyn AtContext<CMD_SIZE>)] = &mut [
                 (Config::AT_CMD, Config::AT_RESP, Config::shared()),
@@ -123,6 +135,7 @@ impl Initializable for Parser {
                 (DaylightSavingTime::AT_CMD, DaylightSavingTime::AT_RESP, Config::shared().get_daylight_saving_time()),
                 (WifiConfig::AT_CMD, WifiConfig::AT_RESP, Config::shared().get_wifi_config()),
                 (NtpConfig::AT_CMD, NtpConfig::AT_RESP, Config::shared().get_ntp_config_mut()),
+                (Sprinkler::AT_CMD, Sprinkler::AT_RESP, &mut *sprinkler),
             ];
 
             parser.set_commands(commands);
@@ -271,8 +284,12 @@ impl Parser {
 
     #[inline]
     pub(super) fn shared() -> Self {
-        Self {
-            thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),
+        Self (Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal))
+    }
+
+    pub(super) fn set_sprinkler(sprinkler: Arc<Mutex<Sprinkler>>) {
+        unsafe {
+            SPRINKLER = Some(sprinkler);
         }
     }
 }
