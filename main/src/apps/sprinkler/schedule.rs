@@ -26,7 +26,7 @@ use crate::apps::sprinkler::zone::Zone;
 use crate::drivers::date_time::DateTime;
 use super::commons::Status;
 
-const ZONES_SIZE: usize = 4;
+pub(in crate::apps) const ZONES_SIZE: usize = 4;
 
  #[allow(dead_code)]
  #[derive(Debug, Copy, Clone, PartialEq, Eq)]

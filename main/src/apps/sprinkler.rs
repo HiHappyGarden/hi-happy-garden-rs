@@ -37,12 +37,15 @@ use osal_rs_serde::{Deserialize, Serialize};
 use crate::apps::parser::{CMD_SIZE, NOT_LOGGED_RESPONSE, at_cmd_response};
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::apps::sprinkler::commons::Status;
-use crate::apps::sprinkler::schedule::Schedule;
+use crate::apps::sprinkler::schedule::{Schedule, ZONES_SIZE};
+use crate::apps::sprinkler::zone::Zone;
+use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::drivers::date_time::DateTime;
 use crate::drivers::filesystem::{FileBytes, Filesystem, flags};
 use crate::drivers::platform::{FS_CONFIG_DIR, FS_SEPARATOR_DIR};
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
+use osal_rs::utils::Bytes;
 
 mod commons;
 pub(in crate::apps) mod zone;
@@ -90,13 +93,48 @@ impl AtContext<{ CMD_SIZE }> for Sprinkler {
 
     #[inline]
     fn test(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
-        Ok(at_cmd_response!(at_response; "schedule,<value> | zone,<value> | save"))
+        Ok(at_cmd_response!(at_response;
+            "schedule,insert,<index>,[minute],[hour],[days],[month],[description] | \
+             schedule,delete,<index> | \
+             zone,<schedule_index>,insert,<index>,<watering_time>,[weight],[description] | \
+             zone,<schedule_index>,delete,<zone_index> | \
+             save"))
     }
 
-    fn set(&mut self, at_response: &'static str, _args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
+    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
         if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
             return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE)));
         }
+
+        let cmd = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
+        match cmd.as_ref() {
+            "schedule" => {
+                let op = args.get(1).ok_or((at_response, AtError::InvalidArgs))?;
+                match op.as_ref() {
+                    "insert" => self.insert_schedule(at_response, &args)?,
+                    "delete" => self.delete_schedule(at_response, &args)?,
+                    _ => return Err((at_response, AtError::InvalidArgs)),
+                }
+            }
+            "zone" => {
+                let schedule_index: usize = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+                let schedule = self.schedules.get_mut(schedule_index)
+                    .ok_or((at_response, AtError::Unhandled("schedule index out of bounds")))?;
+
+                let op = args.get(2).ok_or((at_response, AtError::InvalidArgs))?;
+                match op.as_ref() {
+                    "insert" => insert_zone(at_response, schedule, &args)?,
+                    "delete" => delete_zone(at_response, schedule, &args)?,
+                    _ => return Err((at_response, AtError::InvalidArgs)),
+                }
+            }
+            "save" => {
+                self.save().map_err(|_| (at_response, AtError::Unhandled("Save error")))?;
+            }
+            _ => return Err((at_response, AtError::InvalidArgs)),
+        }
+
         Ok(at_cmd_response!(at_response; ""))
     }
 }
@@ -230,7 +268,106 @@ impl Sprinkler {
 
                 }
                 break;
-            }  
+            }
         }
     }
+
+    fn insert_schedule(&mut self, at_response: &'static str, args: &at_parser_rs::Args) -> core::result::Result<(), (&'static str, AtError<'static>)> {
+        let index: usize = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
+            .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+
+        let slot = self.schedules.get_mut(index)
+            .ok_or((at_response, AtError::Unhandled("schedule index out of bounds")))?;
+        if slot.status != Status::UNACTIVE {
+            return Err((at_response, AtError::Unhandled("schedule index already occupied")));
+        }
+
+        let minute: u8 = match args.get(3).filter(|arg| !arg.is_empty()) {
+            Some(arg) => arg.parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+            None => Schedule::NOT_SET,
+        };
+        let hour: u8 = match args.get(4).filter(|arg| !arg.is_empty()) {
+            Some(arg) => arg.parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+            None => Schedule::NOT_SET,
+        };
+        let days: u8 = match args.get(5).filter(|arg| !arg.is_empty()) {
+            Some(arg) => arg.parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+            None => Schedule::NOT_SET,
+        };
+        let month: u16 = match args.get(6).filter(|arg| !arg.is_empty()) {
+            Some(arg) => arg.parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+            None => Schedule::NOT_SET as u16,
+        };
+        let description = args.get(7).unwrap_or_default();
+        if description.len() > DISPLAY_INPUT_MAX_SIZE {
+            return Err((at_response, AtError::Unhandled("description too long")));
+        }
+
+        slot.minute = minute;
+        slot.hour = hour;
+        slot.days = days;
+        slot.month = month;
+        slot.description = Bytes::from_str(description.as_ref());
+        slot.zones = [Zone::default(); ZONES_SIZE];
+        slot.status = Status::ACTIVE;
+
+        Ok(())
+    }
+
+    fn delete_schedule(&mut self, at_response: &'static str, args: &at_parser_rs::Args) -> core::result::Result<(), (&'static str, AtError<'static>)> {
+        let index: usize = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
+            .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+
+        let schedule = self.schedules.get_mut(index)
+            .ok_or((at_response, AtError::Unhandled("schedule index out of bounds")))?;
+
+        *schedule = Schedule::default();
+
+        Ok(())
+    }
+}
+
+fn insert_zone(at_response: &'static str, schedule: &mut Schedule, args: &at_parser_rs::Args) -> core::result::Result<(), (&'static str, AtError<'static>)> {
+    let index: usize = args.get(3).ok_or((at_response, AtError::InvalidArgs))?
+        .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+
+    let slot = schedule.zones.get_mut(index)
+        .ok_or((at_response, AtError::Unhandled("zone index out of bounds")))?;
+    if slot.status != Status::UNACTIVE {
+        return Err((at_response, AtError::Unhandled("zone index already occupied")));
+    }
+
+    let relay_number = u8::try_from(index).map_err(|_| (at_response, AtError::InvalidArgs))?;
+    let watering_time: u8 = args.get(4).ok_or((at_response, AtError::InvalidArgs))?
+        .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+    let weight: u8 = match args.get(5).filter(|arg| !arg.is_empty()) {
+        Some(arg) => arg.parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+        None => 0,
+    };
+    let description = args.get(6).unwrap_or_default();
+    if description.len() > DISPLAY_INPUT_MAX_SIZE {
+        return Err((at_response, AtError::Unhandled("description too long")));
+    }
+
+    *slot = Zone {
+        description: Bytes::from_str(description.as_ref()),
+        relay_number,
+        watering_time,
+        weight,
+        status: Status::ACTIVE,
+    };
+
+    Ok(())
+}
+
+fn delete_zone(at_response: &'static str, schedule: &mut Schedule, args: &at_parser_rs::Args) -> core::result::Result<(), (&'static str, AtError<'static>)> {
+    let index: usize = args.get(3).ok_or((at_response, AtError::InvalidArgs))?
+        .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+
+    let zone = schedule.zones.get_mut(index)
+        .ok_or((at_response, AtError::Unhandled("zone index out of bounds")))?;
+
+    *zone = Zone::default();
+
+    Ok(())
 }
