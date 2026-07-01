@@ -58,6 +58,9 @@ const MUTEX: Option<RawMutex> = None;
 
 static DISBURSEMENT_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 
+/// Index of the schedule returned by `query`, set via `AT+SPK=select,<index>`
+static SELECTED_SCHEDULE: core::sync::atomic::AtomicUsize = core::sync::atomic::AtomicUsize::new(0);
+
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub(in crate::apps) struct Sprinkler {
     schedules: [Schedule; MAX_SCHEDULES]
@@ -82,18 +85,33 @@ impl Default for Sprinkler {
 }
 
 impl AtContext<{ CMD_SIZE }> for Sprinkler {
-    fn exec(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
-
-        Ok(at_cmd_response!(at_response; ""))
-    }
-
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
-        Ok(at_cmd_response!(at_response; ""))
+        if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
+            return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE)));
+        }
+
+        let index = SELECTED_SCHEDULE.load(Ordering::Relaxed);
+        let schedule = self.schedules.get(index)
+            .ok_or((at_response, AtError::Unhandled("selected schedule index out of bounds")))?;
+
+        let mut response = Bytes::<{ CMD_SIZE }>::new();
+        use core::fmt::Write;
+        let _ = write!(response, "{index}:{},{},{},{},{}\r\n",
+            schedule.minute, schedule.hour, schedule.days, schedule.month,
+            <Status as Into<u8>>::into(schedule.status));
+
+        for (zone_index, zone) in schedule.zones.iter().enumerate() {
+            let _ = write!(response, "{zone_index}:{},{},{},{}\r\n",
+                zone.relay_number, zone.watering_time, zone.weight,
+                <Status as Into<u8>>::into(zone.status));
+        }
+
+        Ok((at_response, response))
     }
 
     #[inline]
     fn test(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
-        Ok(at_cmd_response!(at_response; "schedule,insert,<index>,[minute],[hour],[days],[month],[description] | schedule,delete,<index> | zone,<schedule_index>,insert,<index>,<watering_time>,[weight],[description] | zone,<schedule_index>,delete,<zone_index> | save"))
+        Ok(at_cmd_response!(at_response; "select,<index> | schedule,insert,<index>,[minute],[hour],[days],[month],[description] | schedule,delete,<index> | zone,<schedule_index>,insert,<index>,<watering_time>,[weight],[description] | zone,<schedule_index>,delete,<zone_index> | save"))
     }
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
@@ -103,6 +121,14 @@ impl AtContext<{ CMD_SIZE }> for Sprinkler {
 
         let cmd = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
         match cmd.as_ref() {
+            "select" => {
+                let index: usize = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+                if index >= self.schedules.len() {
+                    return Err((at_response, AtError::Unhandled("schedule index out of bounds")));
+                }
+                SELECTED_SCHEDULE.store(index, Ordering::Relaxed);
+            }
             "schedule" => {
                 let op = args.get(1).ok_or((at_response, AtError::InvalidArgs))?;
                 match op.as_ref() {
