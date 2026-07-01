@@ -112,14 +112,11 @@ impl Initializable for Parser {
             return Err(Error::OutOfMemory)
         }
 
-        let sprinkler = access_static_option!(SPRINKLER).clone();
-
-
         self.0 = self.0.spawn_simple(move || {
 
             let mut parser: AtParser<dyn AtContext<CMD_SIZE>, CMD_SIZE> = AtParser::new();
 
-            let mut sprinkler = match sprinkler.lock() {
+            let mut sprinkler = match access_static_option!(SPRINKLER).lock() {
                 Ok(sprinkler) => sprinkler,
                 Err(_) => {
                     log_error!(APP_TAG, "Error locking sprinkler");

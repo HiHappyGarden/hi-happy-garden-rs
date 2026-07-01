@@ -60,9 +60,6 @@ pub(in crate::apps) struct Sprinkler {
     schedules: [Schedule; MAX_SCHEDULES]
 }
 
-#[derive(Clone, Copy)]
-struct SprinklerPtr(usize);
-
 impl Initializable for Sprinkler {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init app sprinkler");
@@ -93,7 +90,7 @@ impl AtContext<{ CMD_SIZE }> for Sprinkler {
 
     #[inline]
     fn test(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
-        Ok(at_cmd_response!(at_response; "serial,<value> | timezone,<value> | save | load"))
+        Ok(at_cmd_response!(at_response; "schedule,<value> | zone,<value> | save"))
     }
 
     fn set(&mut self, at_response: &'static str, _args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
