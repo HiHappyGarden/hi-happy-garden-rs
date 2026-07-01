@@ -269,7 +269,7 @@ impl AtContext<{ CMD_SIZE }> for WifiConfig {
 
     #[inline]
     fn test(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
-        Ok(at_cmd_response!(at_response; "<ssid>,<password>,<auth(0-6)>,<enabled(0|1)>"))
+        Ok(at_cmd_response!(at_response; "<ssid>,<password>,<auth 0-6>,<enabled 0|1>"))
     }
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
