@@ -93,12 +93,7 @@ impl AtContext<{ CMD_SIZE }> for Sprinkler {
 
     #[inline]
     fn test(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
-        Ok(at_cmd_response!(at_response;
-            "schedule,insert,<index>,[minute],[hour],[days],[month],[description] | \
-             schedule,delete,<index> | \
-             zone,<schedule_index>,insert,<index>,<watering_time>,[weight],[description] | \
-             zone,<schedule_index>,delete,<zone_index> | \
-             save"))
+        Ok(at_cmd_response!(at_response; "schedule,insert,<index>,[minute],[hour],[days],[month],[description] | schedule,delete,<index> | zone,<schedule_index>,insert,<index>,<watering_time>,[weight],[description] | zone,<schedule_index>,delete,<zone_index> | save"))
     }
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
