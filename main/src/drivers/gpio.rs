@@ -26,7 +26,7 @@ use core::ops::{Index, IndexMut};
 use alloc::str;
 use alloc::sync::Arc;
 
-use osal_rs::os::RawMutex;
+use osal_rs::os::{RawMutex, RawMutexFn};
 use osal_rs::{log_info, log_warning};
 use osal_rs::utils::{AsSyncStr, Error, OsalRsBool, Ptr, Result};
 
@@ -252,9 +252,10 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
 
 
     pub fn write(&self, name: &dyn AsSyncStr, state: u32) -> OsalRsBool {
-
+        self.mutex.lock();
+        
         if let Some(config) = &self.configs[name] {
-            match &config.get_io_type() {
+            let result = match &config.get_io_type() {
                 GpioType::Output(base, pin, _) => 
                     
                     match &GPIO_FN.write {
@@ -262,19 +263,26 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
                         None => OsalRsBool::False,
                     }
 
+                    
+                    
                 ,
                 _ => OsalRsBool::False,
-            }
+            };
+
+            self.mutex.unlock();
+            result
         } else {
+            self.mutex.unlock();
             OsalRsBool::False
         }
 
     }
 
     pub fn read(&self, name: &dyn AsSyncStr) -> Result<u32> {
-        
+        self.mutex.lock();
+
         if let Some(config) = &self.configs[name] {
-            match &config.get_io_type() {
+            let result = match &config.get_io_type() {
                 GpioType::Input(base, pin, _, _) => {
                     if let Some(read) = &GPIO_FN.read {
                         read(&config, *base, *pin).map_err(|_| Error::Unhandled("GPIO Read Error"))
@@ -290,17 +298,24 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
                     }
                 }
                 _ => Err(Error::InvalidType),
-            }
+            };
+
+            self.mutex.unlock();
+            
+            result
         } else {
+            self.mutex.unlock();
             Err(Error::NotFound)
         }
         
     }
 
     pub fn set_pwm(&self, name: &dyn AsSyncStr, pwm_duty_cycle: u16) -> OsalRsBool {
+        self.mutex.lock();
 
         if let Some(config) = &self.configs[name] {
-            match &config.get_io_type() {
+
+            let result = match &config.get_io_type() {
                 GpioType::OutputPWM(base, pin,_) => 
                     if let Some(set_pwm) = &GPIO_FN.set_pwm {
                         set_pwm(&config, *base, *pin, pwm_duty_cycle as u32)
@@ -309,8 +324,12 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
                     }
                 ,
                 _ => OsalRsBool::False,
-            }
+            };
+
+            self.mutex.unlock();
+            result
         } else {
+            self.mutex.unlock();
             OsalRsBool::False
         }
         
@@ -324,42 +343,43 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
         callback: InterruptCallback
     ) -> OsalRsBool {
 
-
+        self.mutex.lock();
 
         if let Some(config) = &mut self.configs[name] {
-            match &config.get_io_type() {
+            let result = match &config.get_io_type() {
                 GpioType::Input(base, pin, _, _) => {
-                    
 
-                    
-
-                    let ret : OsalRsBool;
-                    if let Some(set_interrupt) = &GPIO_FN.set_interrupt {
+                    let ret = if let Some(set_interrupt) = &GPIO_FN.set_interrupt {
                         log_info!(APP_TAG, "Interrupt:{} type:{:?} enabled:{enable}", name.as_str(), irq_type);
-                        ret = set_interrupt(&config, *base, *pin, irq_type.clone(), callback, enable);
-                    
+                        set_interrupt(&config, *base, *pin, irq_type.clone(), callback, enable)
                     } else {
-                        return OsalRsBool::False
-                    } 
+                        OsalRsBool::False
+                    };
 
                     if ret == OsalRsBool::False {
-                        return ret;
+                        ret
+                    } else {
+                        config.irq = Some(InterruptConfig::new(irq_type, enable, callback));
+                        OsalRsBool::True
                     }
-                    config.irq = Some(InterruptConfig::new(irq_type, enable, callback));
-                    OsalRsBool::True
                 },
                 _ => OsalRsBool::False,
-            }
+            };
+
+            self.mutex.unlock();
+            result
         } else {
+            self.mutex.unlock();
             OsalRsBool::False
         }
-    
+
     }
 
     pub fn enable_interrupt(&mut self, name: &dyn AsSyncStr, enable: bool) -> OsalRsBool {
+        self.mutex.lock();
 
         if let Some(config) = &mut self.configs[name] {
-            match &config.get_io_type() {
+            let result = match &config.get_io_type() {
                 GpioType::Input(base, pin, _, _) => {
                     
                     let config_clone = config.clone();
@@ -368,20 +388,18 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
 
                             log_info!(APP_TAG, "Interrupt: {} enabled:{enable}", name.as_str());
 
-
-                            let ret : OsalRsBool;
-                            if let Some(enable_interrupt) = &GPIO_FN.enable_interrupt {
-                                ret = enable_interrupt(&config_clone, *base, *pin, enable);
+                            let ret = if let Some(enable_interrupt) = &GPIO_FN.enable_interrupt {
+                                enable_interrupt(&config_clone, *base, *pin, enable)
                             } else {
-                                return OsalRsBool::False
-                            } 
+                                OsalRsBool::False
+                            };
 
                             if ret == OsalRsBool::False {
-                                return ret;
+                                ret
+                            } else {
+                                irq.enable = enable;
+                                OsalRsBool::True
                             }
-
-                            irq.enable = enable;
-                            OsalRsBool::True
                         }
                         None => OsalRsBool::False,
                     }
@@ -389,8 +407,13 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
                     
                 },
                 _ => OsalRsBool::False,
-            }
+            };
+
+
+            self.mutex.unlock();
+            result
         } else {
+            self.mutex.unlock();
             OsalRsBool::False
         }
 
