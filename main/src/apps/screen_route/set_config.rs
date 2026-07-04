@@ -254,7 +254,7 @@ impl ScreenSetConfig {
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
     ) -> Result<()> {
         let mut param = ScreenParam::default();
-        param.input = Some(Bytes::from_as_sync_str(self.config.get_wifi_config().get_ssid()));
+        param.input = Some(Bytes::from_as_sync_str(&self.config.get_wifi_config().get_ssid()));
 
         self.wifi_ssid.draw(
             lcd,
@@ -281,7 +281,7 @@ impl ScreenSetConfig {
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
     ) -> Result<()> {
         let mut param = ScreenParam::default();
-        param.input = Some(Bytes::from_as_sync_str(self.config.get_wifi_config().get_password()));
+        param.input = Some(Bytes::from_as_sync_str(&self.config.get_wifi_config().get_password()));
 
         self.wifi_passwd.draw(
             lcd,

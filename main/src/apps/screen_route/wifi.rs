@@ -150,7 +150,7 @@ impl ScreenWifi {
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
     ) -> Result<()> {
         let mut param = ScreenParam::default();
-        param.input = Some(Bytes::from_as_sync_str(Config::shared().get_wifi_config().get_ssid()));
+        param.input = Some(Bytes::from_as_sync_str(&Config::shared().get_wifi_config().get_ssid()));
 
         self.ssid.draw(
             lcd,
@@ -173,7 +173,7 @@ impl ScreenWifi {
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
     ) -> Result<()> {
         let mut param = ScreenParam::default();
-        param.input = Some(Bytes::from_as_sync_str(Config::shared().get_wifi_config().get_password()));
+        param.input = Some(Bytes::from_as_sync_str(&Config::shared().get_wifi_config().get_password()));
         param.input_secret_mode = Some(true);
 
         self.passwd.draw(

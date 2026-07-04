@@ -92,7 +92,7 @@ impl ScreenDaylightSavingTime {
         display_signal: &mut EventBits,
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
     ) -> Result<()> {
-        let current = Config::shared().get_daylight_saving_time().enabled;
+        let current = Config::shared().get_daylight_saving_time().is_enabled();
         let mut param = ScreenParam::default();
         param.check = Some(self.enable_dst.get_value().unwrap_or(current));
 
@@ -114,7 +114,7 @@ impl ScreenDaylightSavingTime {
     fn draw_save_state(&mut self) -> Result<()> {
         let enabled = self.enable_dst.get_value().unwrap_or(false);
         DateTime::set_daylight_saving_time(enabled);
-        Config::shared().get_daylight_saving_time().enabled = enabled;
+        Config::shared().get_daylight_saving_time().set_enabled(enabled);
         Config::shared().apply_daylight_saving_time();
         Config::save()?;
 
