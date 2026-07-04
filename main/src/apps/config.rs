@@ -70,10 +70,11 @@ const fn mutex() -> &'static RawMutex {
 
 // The mutex is recursive: nested acquisitions from the same task
 // (e.g. AtContext::set -> apply_* -> getters) are safe.
-struct ConfigLock(&'static RawMutex);
+// Shared with session.rs, whose data lives inside CONFIG.
+pub(in crate::apps) struct ConfigLock(&'static RawMutex);
 
 impl ConfigLock {
-    fn acquire() -> Self {
+    pub(in crate::apps) fn acquire() -> Self {
         let mutex = mutex();
         mutex.lock();
         Self(mutex)
