@@ -123,9 +123,37 @@ pub(in crate::drivers) struct GpioFn {
 unsafe impl Send for GpioFn {}
 unsafe impl Sync for GpioFn {}
 
+// Single mutex shared by every Gpio instance: it protects the global
+// GPIO_CONFIGS, so a per-instance mutex would not provide mutual exclusion.
+static mut MUTEX: Option<RawMutex> = None;
+
+fn mutex() -> &'static RawMutex {
+    unsafe {
+        match &*&raw const MUTEX {
+            Some(mutex) => mutex,
+            None => panic!("GPIO mutex is not initialized"),
+        }
+    }
+}
+
+struct GpioLock(&'static RawMutex);
+
+impl GpioLock {
+    fn acquire() -> Self {
+        let mutex = mutex();
+        mutex.lock();
+        Self(mutex)
+    }
+}
+
+impl Drop for GpioLock {
+    fn drop(&mut self) {
+        self.0.unlock();
+    }
+}
+
 pub struct Gpio<const GPIO_CONFIG_SIZE: usize> {
     configs: &'static mut GpioConfigs<'static, GPIO_CONFIG_SIZE>,
-    mutex: RawMutex,
 }
 
 unsafe impl<const GPIO_CONFIG_SIZE: usize> Send for Gpio<GPIO_CONFIG_SIZE> {}
@@ -136,6 +164,8 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<GPIO_CONFIG_SIZE> {
     fn init(&mut self) -> Result<()> {
         
         log_info!(APP_TAG, "Init GPIO");
+
+        let _lock = GpioLock::acquire();
 
         if let Some(init) = &GPIO_FN.init {
             init()?;
@@ -217,7 +247,9 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<GPIO_CONFIG_SIZE> {
 impl<const GPIO_CONFIG_SIZE: usize> Deinitializable for Gpio<GPIO_CONFIG_SIZE> {
 
     fn deinit(&mut self) -> Result<()> {
-       
+
+        let _lock = GpioLock::acquire();
+
         if let Some(deinit) = &GPIO_FN.deinit {
             deinit()?;
         } else {
@@ -232,19 +264,21 @@ impl<const GPIO_CONFIG_SIZE: usize> Deinitializable for Gpio<GPIO_CONFIG_SIZE> {
 impl Gpio<{GPIO_CONFIG_SIZE}> {
     pub fn shared() -> Self {
 
-        let mutex = match RawMutex::new() {
-            Ok(mutex) => mutex,
-            Err(_) => panic!("Failed to create GPIO mutex"),
-        };
+        // First call happens during single-threaded hardware init,
+        // before any other task can contend on the mutex creation.
+        unsafe {
+            if (&*&raw const MUTEX).is_none() {
+                let mutex = match RawMutex::new() {
+                    Ok(mutex) => mutex,
+                    Err(_) => panic!("Failed to create GPIO mutex"),
+                };
+                MUTEX = Some(mutex);
+            }
+        }
 
         Self {
             configs:  unsafe { &mut *(&raw mut GPIO_CONFIGS ) },
-            mutex
         }
-    }
-
-    pub fn get_mutex(&self) -> &RawMutex {
-        &self.mutex
     }
 }
 
@@ -252,37 +286,31 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
 
 
     pub fn write(&self, name: &dyn AsSyncStr, state: u32) -> OsalRsBool {
-        self.mutex.lock();
-        
+        let _lock = GpioLock::acquire();
+
         if let Some(config) = &self.configs[name] {
-            let result = match &config.get_io_type() {
-                GpioType::Output(base, pin, _) => 
-                    
+            match &config.get_io_type() {
+                GpioType::Output(base, pin, _) =>
+
                     match &GPIO_FN.write {
                         Some(write) => write(&config, *base, *pin, state),
                         None => OsalRsBool::False,
                     }
 
-                    
-                    
                 ,
                 _ => OsalRsBool::False,
-            };
-
-            self.mutex.unlock();
-            result
+            }
         } else {
-            self.mutex.unlock();
             OsalRsBool::False
         }
 
     }
 
     pub fn read(&self, name: &dyn AsSyncStr) -> Result<u32> {
-        self.mutex.lock();
+        let _lock = GpioLock::acquire();
 
         if let Some(config) = &self.configs[name] {
-            let result = match &config.get_io_type() {
+            match &config.get_io_type() {
                 GpioType::Input(base, pin, _, _) => {
                     if let Some(read) = &GPIO_FN.read {
                         read(&config, *base, *pin).map_err(|_| Error::Unhandled("GPIO Read Error"))
@@ -298,25 +326,20 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
                     }
                 }
                 _ => Err(Error::InvalidType),
-            };
-
-            self.mutex.unlock();
-            
-            result
+            }
         } else {
-            self.mutex.unlock();
             Err(Error::NotFound)
         }
-        
+
     }
 
     pub fn set_pwm(&self, name: &dyn AsSyncStr, pwm_duty_cycle: u16) -> OsalRsBool {
-        self.mutex.lock();
+        let _lock = GpioLock::acquire();
 
         if let Some(config) = &self.configs[name] {
 
-            let result = match &config.get_io_type() {
-                GpioType::OutputPWM(base, pin,_) => 
+            match &config.get_io_type() {
+                GpioType::OutputPWM(base, pin,_) =>
                     if let Some(set_pwm) = &GPIO_FN.set_pwm {
                         set_pwm(&config, *base, *pin, pwm_duty_cycle as u32)
                     } else {
@@ -324,15 +347,11 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
                     }
                 ,
                 _ => OsalRsBool::False,
-            };
-
-            self.mutex.unlock();
-            result
+            }
         } else {
-            self.mutex.unlock();
             OsalRsBool::False
         }
-        
+
     }
 
     pub fn set_interrupt(
@@ -343,10 +362,10 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
         callback: InterruptCallback
     ) -> OsalRsBool {
 
-        self.mutex.lock();
+        let _lock = GpioLock::acquire();
 
         if let Some(config) = &mut self.configs[name] {
-            let result = match &config.get_io_type() {
+            match &config.get_io_type() {
                 GpioType::Input(base, pin, _, _) => {
 
                     let ret = if let Some(set_interrupt) = &GPIO_FN.set_interrupt {
@@ -364,24 +383,20 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
                     }
                 },
                 _ => OsalRsBool::False,
-            };
-
-            self.mutex.unlock();
-            result
+            }
         } else {
-            self.mutex.unlock();
             OsalRsBool::False
         }
 
     }
 
     pub fn enable_interrupt(&mut self, name: &dyn AsSyncStr, enable: bool) -> OsalRsBool {
-        self.mutex.lock();
+        let _lock = GpioLock::acquire();
 
         if let Some(config) = &mut self.configs[name] {
-            let result = match &config.get_io_type() {
+            match &config.get_io_type() {
                 GpioType::Input(base, pin, _, _) => {
-                    
+
                     let config_clone = config.clone();
                     match &mut config.irq {
                         Some(irq) => {
@@ -404,16 +419,11 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
                         None => OsalRsBool::False,
                     }
 
-                    
+
                 },
                 _ => OsalRsBool::False,
-            };
-
-
-            self.mutex.unlock();
-            result
+            }
         } else {
-            self.mutex.unlock();
             OsalRsBool::False
         }
 

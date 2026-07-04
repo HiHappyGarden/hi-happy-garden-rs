@@ -22,7 +22,7 @@ use core::sync::atomic::{AtomicI32, AtomicU32, AtomicBool, Ordering};
 
 use osal_rs::{access_static_option, log_error, log_info, log_warning};
 use osal_rs::os::types::{StackType, TickType};
-use osal_rs::os::{EventGroup, EventGroupFn, RawMutexFn, System, SystemFn, Thread, ThreadFn};
+use osal_rs::os::{EventGroup, EventGroupFn, System, SystemFn, Thread, ThreadFn};
 use osal_rs::utils::{Error, OsalRsBool, Result};
 
 use crate::drivers::gpio::{InterruptType};
@@ -166,7 +166,6 @@ impl Initializable for Encoder {
 
         let mut gpio = Gpio::shared();
 
-        gpio.get_mutex().lock();
         if gpio.set_interrupt(&self.gpio_ccw_ref, InterruptType::BothEdge, true, encoder_ccw_isr) == OsalRsBool::False {
             log_error!(APP_TAG, "Error setting CCW interrupt");
             return Err(Error::NotFound);
@@ -189,9 +188,6 @@ impl Initializable for Encoder {
             log_error!(APP_TAG, "Error creating encoder event group");
             return Err(Error::OutOfMemory)
         }
-
-        gpio.get_mutex().unlock();
-
 
         Ok(())
     }

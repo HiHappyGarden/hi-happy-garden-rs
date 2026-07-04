@@ -23,7 +23,7 @@ use core::str;
 use core::sync::atomic::{AtomicU32, AtomicBool, Ordering};
 
 use osal_rs::os::types::{StackType, TickType};
-use osal_rs::os::{EventGroup, EventGroupFn, RawMutexFn, System, SystemFn, Thread, ThreadFn};
+use osal_rs::os::{EventGroup, EventGroupFn, System, SystemFn, Thread, ThreadFn};
 use osal_rs::utils::{Error, OsalRsBool, Result};
 use osal_rs::{access_static_option, log_error, log_info, log_warning};
 
@@ -141,12 +141,10 @@ impl Initializable for Button {
 
         let mut gpio = Gpio::shared();
 
-        gpio.get_mutex().lock();
         if gpio.set_interrupt(&self.gpio_ref, InterruptType::BothEdge, true, button_isr) == OsalRsBool::False {
             log_error!(APP_TAG, "Error setting button interrupt");
             return Err(Error::NotFound);
         }
-        gpio.get_mutex().unlock();
 
 
         if let Ok(event_group) = EventGroup::new() {
