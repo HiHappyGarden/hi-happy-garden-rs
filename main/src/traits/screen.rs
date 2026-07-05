@@ -44,6 +44,7 @@ pub const fn screen_selections_new() -> ScreenSelections {
     ]
 }
 
+#[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct ScreenParam<N = u16> 
 where N: Integer

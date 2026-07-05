@@ -18,8 +18,6 @@
  *
  ***************************************************************************/
 
-#![allow(dead_code)]
-
 use alloc::format;
 use alloc::sync::Arc;
 use osal_rs::os::Mutex;
@@ -34,6 +32,7 @@ use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
 use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
+ #[allow(dead_code)]
 pub(super) struct Number<N>
 where
     N: Integer,
@@ -109,7 +108,7 @@ where
     }
 }
 
-
+#[allow(dead_code)]
 impl<N> Number<N>
 where
     N: Integer,
