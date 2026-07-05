@@ -29,7 +29,6 @@ use alloc::vec::Vec;
 use at_parser_rs::{AtError, AtResult};
 use at_parser_rs::context::AtContext;
 use cjson_binding::{from_json, to_json};
-use osal_rs::os::RawMutex;
 use osal_rs::{log_error, log_info, log_warning};
 use osal_rs::utils::{Error, Result};
 use osal_rs_serde::{Deserialize, Serialize};
@@ -53,8 +52,6 @@ pub(in crate::apps) mod schedule;
 
 const APP_TAG: &str = "AppSprinkler";
 const MAX_SCHEDULES: usize = 4;
-
-const MUTEX: Option<RawMutex> = None;
 
 static DISBURSEMENT_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 
