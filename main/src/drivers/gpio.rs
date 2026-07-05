@@ -27,7 +27,7 @@ use alloc::str;
 use alloc::sync::Arc;
 
 use osal_rs::os::{RawMutex, RawMutexFn};
-use osal_rs::{log_info, log_warning};
+use osal_rs::{access_static_option, log_info, log_warning};
 use osal_rs::utils::{AsSyncStr, Error, OsalRsBool, Ptr, Result};
 
 
@@ -127,20 +127,12 @@ unsafe impl Sync for GpioFn {}
 // GPIO_CONFIGS, so a per-instance mutex would not provide mutual exclusion.
 static mut MUTEX: Option<RawMutex> = None;
 
-fn mutex() -> &'static RawMutex {
-    unsafe {
-        match &*&raw const MUTEX {
-            Some(mutex) => mutex,
-            None => panic!("GPIO mutex is not initialized"),
-        }
-    }
-}
 
 struct GpioLock(&'static RawMutex);
 
 impl GpioLock {
     fn acquire() -> Self {
-        let mutex = mutex();
+        let mutex = access_static_option!(MUTEX);
         mutex.lock();
         Self(mutex)
     }

@@ -28,7 +28,7 @@ use cjson_binding::{from_json, to_json};
 use osal_rs::os::{RawMutex, RawMutexFn};
 use osal_rs::utils::Bytes;
 use osal_rs::utils::{Error, Result};
-use osal_rs::{log_error, log_info, log_warning};
+use osal_rs::{access_static_option, log_error, log_info, log_warning};
 
 use osal_rs_serde::{Deserialize, Serialize};
 use at_parser_rs::at_quoted as quoted;
@@ -59,23 +59,11 @@ const APP_TAG: &str = "AppConfig";
 
 static mut MUTEX: Option<RawMutex> = None;
 
-const fn mutex() -> &'static RawMutex {
-    unsafe {
-        match &*&raw const MUTEX {
-            Some(mutex) => mutex,
-            None => panic!("MUTEX_HANDLER is not initialized"),
-        }
-    }
-}
-
-// The mutex is recursive: nested acquisitions from the same task
-// (e.g. AtContext::set -> apply_* -> getters) are safe.
-// Shared with session.rs, whose data lives inside CONFIG.
 pub(in crate::apps) struct ConfigLock(&'static RawMutex);
 
 impl ConfigLock {
     pub(in crate::apps) fn acquire() -> Self {
-        let mutex = mutex();
+        let mutex = access_static_option!(MUTEX);
         mutex.lock();
         Self(mutex)
     }
