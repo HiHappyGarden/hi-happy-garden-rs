@@ -19,16 +19,16 @@
  ***************************************************************************/
 
 
-
-mod info;
-mod login;
-mod set_config;
-mod main;
+mod auth;
 mod date_time;
 mod daylight_saving_time;
-mod wifi;
+mod info;
+mod login;
+mod main;
+mod set_config;
+mod sprinkler;
 mod user;
-mod auth;
+mod wifi;
 
 use core::any::Any;
 
