@@ -32,6 +32,7 @@ use crate::traits::rtc::RTC;
 use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
 
 const LONG_PRESS_TICK: u32 = 500;
+const DEFAULT_CHAR: &str = "a";
 
 pub(in crate::apps) struct Input {
     input: Option<Bytes<MAX_SIZE>>,
@@ -60,7 +61,7 @@ impl Screen<Bytes<MAX_SIZE>> for Input
             self.input = Some(Bytes::from_as_sync_str(&input));
             self.original_input = Some(Bytes::from_as_sync_str(&input));
             if input.is_empty() {
-                self.input = Some(Bytes::from_str("a"));
+                self.input = Some(Bytes::from_str(DEFAULT_CHAR));
                 self.idx = 0;
             } else {
                 self.idx = input.len().saturating_sub(1);
@@ -282,7 +283,7 @@ impl Input
                     if self.idx + 1 < current_len {
                         self.idx += 1;
                     } else if current_len < input.size() {
-                        let _ = input.push_char('a');
+                        let _ = input.push_char(DEFAULT_CHAR.chars().next().unwrap());
                         self.idx = input.len().saturating_sub(1);
                     }
                     self.input = Some(input);
@@ -315,7 +316,7 @@ impl Input
         };
 
         if needs_seed {
-            self.input = Some(Bytes::from_str("a"));
+            self.input = Some(Bytes::from_str(DEFAULT_CHAR));
             self.idx = 0;
             true
         } else {
