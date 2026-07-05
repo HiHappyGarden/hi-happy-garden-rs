@@ -93,8 +93,9 @@ impl Initializable for AppMain{
         self.system_led.init()?;
         self.parser.init()?;
         self.wifi.init()?;
-        self.display.init()?;
+        self.display.set_splinker(Arc::clone(&self.sprinkler));
         self.display.set_enabled_wifi(config.get_wifi_config().is_enabled());
+        self.display.init()?;
         self.sprinkler.lock()?.init()?;
 
 

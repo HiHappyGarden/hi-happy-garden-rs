@@ -49,6 +49,7 @@ pub(super) enum FSMState {
     DaylightSavingTime,
     Wifi,
     User,
+    Sprinkler,
 }
 
 impl From<i8> for FSMState {
@@ -59,6 +60,7 @@ impl From<i8> for FSMState {
             2 => FSMState::DaylightSavingTime,
             3 => FSMState::Wifi,
             4 => FSMState::User,
+            5 => FSMState::Sprinkler,
             _ => FSMState::Info, // Default case
         }
     }
@@ -72,6 +74,7 @@ impl From<FSMState> for i8 {
             FSMState::DaylightSavingTime => 2,
             FSMState::Wifi => 3,
             FSMState::User => 4,
+            FSMState::Sprinkler => 5,
         }
     }
 }
@@ -84,6 +87,7 @@ impl FSMState {
             FSMState::DaylightSavingTime => "Daylight Saving Time",
             FSMState::Wifi             => "Wifi",
             FSMState::User             => "User",
+            FSMState::Sprinkler        => "Sprinkler",
         }
     }
 }
@@ -157,16 +161,18 @@ impl ScreenMain {
                 FSMState::DateTime => FSMState::DaylightSavingTime,
                 FSMState::DaylightSavingTime => FSMState::Wifi,
                 FSMState::Wifi => FSMState::User,
-                FSMState::User => FSMState::Info,
+                FSMState::User => FSMState::Sprinkler,
+                FSMState::Sprinkler => FSMState::Info,
             };
             *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
         } else  if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
             self.fsm_state = match self.fsm_state {
-                FSMState::Info => FSMState::User,
+                FSMState::Info => FSMState::Sprinkler,
                 FSMState::DateTime => FSMState::Info,
                 FSMState::DaylightSavingTime => FSMState::DateTime,
                 FSMState::Wifi => FSMState::DaylightSavingTime,
                 FSMState::User => FSMState::Wifi,
+                FSMState::Sprinkler => FSMState::User,
             };
             *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
         }

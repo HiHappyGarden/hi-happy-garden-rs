@@ -33,14 +33,12 @@ use crate::traits::screen::{Screen, ScreenCallback, ScreenParam, ScreenSelection
 
 static NO_SELECTIONS: &str = "No selections available";
 
-pub(in crate::apps) struct Select 
-{
+pub(in crate::apps) struct Select {
     index: u8,
     selections: Option<ScreenSelections>,
 }
 
-impl Screen<ScreenSelections> for Select
-{
+impl Screen<ScreenSelections> for Select {
     fn draw(&mut self, 
         lcd: &mut dyn LCDDisplayFn,
         signal: &mut EventBits, 

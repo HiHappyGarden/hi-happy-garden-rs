@@ -20,9 +20,51 @@
 
 #![allow(dead_code)]
 
+use alloc::sync::Arc;
+use osal_rs::os::{Mutex, types::EventBits};
+
+use crate::{apps::{display::select::Select, sprinkler::Sprinkler}, traits::{lcd_display::LCDDisplayFn, rtc::RTC, screen::ScreenRoute}};
+
+static mut FSM_STATE: FSMState = FSMState::Schedule;
+
 enum FSMState {
     Schedule,
     Zone,
     End,
 }
 
+pub(super) struct ScreenSprinkler {
+    sprinkler: Arc<Mutex<Sprinkler>>,
+    schedule: Select,
+    zone: Select
+}
+
+impl ScreenRoute for ScreenSprinkler {
+    fn draw(&mut self, 
+        _lcd: &mut dyn LCDDisplayFn,
+        _display_signal: &mut EventBits, 
+        _status_signal: &mut EventBits, 
+        _rtc: &Arc<Mutex<dyn RTC + 'static>>,
+    ) -> osal_rs::utils::Result<()> {
+        todo!()
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn core::any::Any {
+        todo!()
+    }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        todo!()
+    }
+}
+
+impl ScreenSprinkler {
+    pub fn new(sprinkler: Arc<Mutex<Sprinkler>>) -> Self {
+        Self {
+            sprinkler,
+            schedule: Select::new(),
+            zone: Select::new()
+        }
+    }
+    
+}

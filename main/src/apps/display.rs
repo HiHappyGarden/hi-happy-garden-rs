@@ -34,16 +34,17 @@ use alloc::sync::Arc;
 use osal_rs::log_info;
 use osal_rs::os::{EventGroup, Mutex, MutexFn, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
-use osal_rs::utils::{Bytes, Error};
+use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::apps::display::header::Header;
 use crate::apps::display::commons::MAX_SIZE;
 
 use crate::apps::display::text::Text;
-use crate::apps::screen_route::SCREEN_ROUTE;
+use crate::apps::screen_route::{SCREEN_ROUTE, ScreenRoute  as ScreenRouteApp};
 use crate::apps::signals::display::{DisplayFlag::{*}, DisplaySignal};
 use crate::apps::signals::error::{ErrorSignal, ErrorFlag};
 use crate::apps::signals::status::StatusSignal;
+use crate::apps::sprinkler::Sprinkler;
 use crate::drivers::platform::ThreadPriority;
 
 use crate::traits::button::{ButtonState::{self, *}, OnClickable};
@@ -77,7 +78,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 impl<T> Initializable for Display<T>
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
-    fn init(&mut self) -> osal_rs::utils::Result<()> {
+    fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init app display");
 
 
@@ -222,14 +223,19 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
             rtc,
             lcd: Mutex::new_arc(lcd),
             wifi_enabled: Arc::new(true),
-            thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::BelowHigh),
+            thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::BelowHigh)
         }
     }
 
     pub(super) fn set_enabled_wifi(&mut self, enabled: bool) {
         match Arc::get_mut(&mut self.wifi_enabled) {
             Some(wifi_enabled) => *wifi_enabled = enabled,
-            core::option::Option::None => Arc::make_mut(&mut self.wifi_enabled).clone_from(&Arc::new(enabled)),    
+            Option::None => Arc::make_mut(&mut self.wifi_enabled).clone_from(&Arc::new(enabled)),    
         }
+    }
+
+    #[inline]
+    pub(super) fn set_splinker(&mut self, sprinkler: Arc<Mutex<Sprinkler>>) {
+        ScreenRouteApp::set_sprinkler(sprinkler);
     }
 }
