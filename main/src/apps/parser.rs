@@ -26,7 +26,7 @@ use at_parser_rs::AtError;
 use at_parser_rs::context::AtContext;
 use at_parser_rs::parser::AtParser;
 use osal_rs::{access_static_option, log_error, log_info};
-use osal_rs::os::{Mutex, MutexFn, Queue, QueueFn, Thread, ThreadFn};
+use osal_rs::os::{Mutex, MutexFn, Queue, QueueFn, System, Thread, ThreadFn};
 use osal_rs::os::types::{StackType, TickType, UBaseType};
 use osal_rs::utils::{Error, Result};
 
@@ -116,6 +116,19 @@ impl Initializable for Parser {
 
             let mut parser: AtParser<dyn AtContext<CMD_SIZE>, CMD_SIZE> = AtParser::new();
 
+            unsafe {
+                loop {
+                    match &*&raw const SPRINKLER {
+                        Some(sprinkler) => {
+                            if sprinkler.lock().is_ok() {
+                                break;
+                            }
+                        }
+                        None => {}
+                    }
+                    System::delay_with_to_tick(Duration::from_millis(100));
+                };
+            };
             let mut sprinkler = match access_static_option!(SPRINKLER).lock() {
                 Ok(sprinkler) => sprinkler,
                 Err(_) => {
