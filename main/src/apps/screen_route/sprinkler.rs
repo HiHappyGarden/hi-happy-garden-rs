@@ -46,15 +46,15 @@ impl ScreenRoute for ScreenSprinkler {
         _status_signal: &mut EventBits, 
         _rtc: &Arc<Mutex<dyn RTC + 'static>>,
     ) -> osal_rs::utils::Result<()> {
-        todo!()
+        todo!("implement draw for ScreenSprinkler");
     }
 
     fn as_any_mut(&mut self) -> &mut dyn core::any::Any {
-        todo!()
+        todo!("implement as_any_mut for ScreenSprinkler");
     }
 
     fn as_any(&self) -> &dyn core::any::Any {
-        todo!()
+        todo!("implement as_any for ScreenSprinkler");
     }
 }
 

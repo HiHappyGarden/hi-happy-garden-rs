@@ -129,7 +129,7 @@ impl AppMain {
     fn check_config(config: &Config, status_current: &mut StatusFlag, status_old: &mut StatusFlag) {
         let serial = config.get_serial();
         if serial.is_empty() {
-            //TODO: handle error, maybe set status to Error and log it
+            todo!("handle error, maybe set status to Error and log it");
         } else {
             set_current_status!(*status_old, *status_current, StatusFlag::EnableWifi);
         }
@@ -229,8 +229,8 @@ impl AppMain {
 
                         StatusSignal::set(StatusFlag::Ready.into());
                     },
-                    StatusFlag::Error => todo!(),
-                    StatusFlag::Reset | _  => todo!(),
+                    StatusFlag::Error => todo!("handle error, maybe set status to Error and log it"),
+                    StatusFlag::Reset | _  => todo!("handle reset, maybe set status to Reset and log it"),
                 
                 }
                 System::delay_with_to_tick(Duration::from_millis(TICK_INTERVAL_MS.into()));
