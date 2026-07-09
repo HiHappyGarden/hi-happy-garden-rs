@@ -50,7 +50,7 @@ pub(in crate::apps) mod zone;
 pub(in crate::apps) mod schedule;
 
 const APP_TAG: &str = "AppSprinkler";
-const MAX_SCHEDULES: usize = 4;
+pub(in crate::apps) const SCHEDULES_SIZE: usize = 4;
 
 static DISBURSEMENT_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 
@@ -59,7 +59,7 @@ static SELECTED_SCHEDULE: core::sync::atomic::AtomicUsize = core::sync::atomic::
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub(in crate::apps) struct Sprinkler {
-    schedules: [Schedule; MAX_SCHEDULES]
+    schedules: [Schedule; SCHEDULES_SIZE]
 }
 
 impl Initializable for Sprinkler {
@@ -75,7 +75,7 @@ impl Initializable for Sprinkler {
 impl Default for Sprinkler {
     fn default() -> Self {
         Self {
-            schedules: [Schedule::default(); MAX_SCHEDULES],
+            schedules: [Schedule::default(); SCHEDULES_SIZE],
         }
     }
 }

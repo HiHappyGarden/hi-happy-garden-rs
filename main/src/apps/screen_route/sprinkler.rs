@@ -21,9 +21,15 @@
 #![allow(dead_code)]
 
 use alloc::sync::Arc;
-use osal_rs::os::{Mutex, types::EventBits};
+use osal_rs::os::Mutex;
+use osal_rs::os::types::EventBits;
 
-use crate::{apps::{display::select::Select, sprinkler::Sprinkler}, traits::{lcd_display::LCDDisplayFn, rtc::RTC, screen::ScreenRoute}};
+use crate::apps::display::select::Select;
+use crate::apps::sprinkler::schedule::ZONES_SIZE;
+use crate::apps::sprinkler::{SCHEDULES_SIZE, Sprinkler};
+use crate::traits::lcd_display::LCDDisplayFn;
+use crate::traits::rtc::RTC;
+use crate::traits::screen::ScreenRoute;
 
 static mut FSM_STATE: FSMState = FSMState::Schedule;
 
@@ -35,8 +41,8 @@ enum FSMState {
 
 pub(super) struct ScreenSprinkler {
     sprinkler: Arc<Mutex<Sprinkler>>,
-    schedule: Select,
-    zone: Select
+    schedule: Select<{SCHEDULES_SIZE}>,
+    zone: Select<{ZONES_SIZE}>,
 }
 
 impl ScreenRoute for ScreenSprinkler {
