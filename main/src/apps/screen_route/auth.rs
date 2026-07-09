@@ -47,7 +47,7 @@ pub(super) fn fill_auth_selections(selected: Auth) -> ScreenSelections {
     selections
 }
 
-pub(super) fn selected_auth_from_selections(selections: &ScreenSelections) -> Auth {
+pub(super) fn selected_auth_from_selections(selections: &ScreenSelections<6>) -> Auth {
     selections
         .iter()
         .find(|entry| entry.1)

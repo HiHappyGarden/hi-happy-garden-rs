@@ -33,19 +33,19 @@ use crate::traits::screen::{Screen, ScreenCallback, ScreenParam, ScreenSelection
 
 static NO_SELECTIONS: &str = "No selections available";
 
-pub(in crate::apps) struct Select {
+pub(in crate::apps) struct Select<const N: usize = 6> {
     index: u8,
-    selections: Option<ScreenSelections>,
+    selections: Option<ScreenSelections<N>>,
 }
 
-impl Screen<ScreenSelections> for Select {
-    fn draw(&mut self, 
+impl<const N: usize> Screen<ScreenSelections<N>, u16, N> for Select<N> {
+    fn draw(&mut self,
         lcd: &mut dyn LCDDisplayFn,
-        signal: &mut EventBits, 
-        _: &Arc<Mutex<dyn RTC + 'static>>, 
-        text: &dyn AsSyncStr, 
-        param: ScreenParam, 
-        callback: ScreenCallback
+        signal: &mut EventBits,
+        _: &Arc<Mutex<dyn RTC + 'static>>,
+        text: &dyn AsSyncStr,
+        param: ScreenParam<u16, N>,
+        callback: ScreenCallback<u16, N>
     ) -> Result<()> {
 
         clean_context(lcd)?;
@@ -129,13 +129,14 @@ impl Screen<ScreenSelections> for Select {
         
     }
 
-    fn get_value(&self) -> Result<ScreenSelections> {
+    #[inline]
+    fn get_value(&self) -> Result<ScreenSelections<N>> {
         self.selections.clone().ok_or(Error::NullPtr)
     }
 
 }
 
-impl Select {
+impl<const N: usize> Select<N> {
 
     pub(in crate::apps) const fn new() -> Self {
         Self {

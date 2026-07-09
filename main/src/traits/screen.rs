@@ -30,23 +30,16 @@ use crate::traits::integer::Integer;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
 
-pub type ScreenCallback<N = u16> = Option<fn(Option<ScreenParam<N>>, confirmed: bool)>;
-pub type ScreenSelections = [(Bytes<{DISPLAY_INPUT_MAX_SIZE}>, bool); 6];
+pub type ScreenCallback<N = u16, const N_SELECTS: usize = 6> = Option<fn(Option<ScreenParam<N, N_SELECTS>>, confirmed: bool)>;
+pub type ScreenSelections<const N: usize = 6> = [(Bytes<{DISPLAY_INPUT_MAX_SIZE}>, bool); N];
 
-pub const fn screen_selections_new() -> ScreenSelections {
-    [
-        (Bytes::new(), false),
-        (Bytes::new(), false),
-        (Bytes::new(), false),
-        (Bytes::new(), false),
-        (Bytes::new(), false),
-        (Bytes::new(), false)
-    ]
+pub const fn screen_selections_new<const N: usize>() -> ScreenSelections<N> {
+    [(Bytes::new(), false); N]
 }
 
 #[allow(unused)]
 #[derive(Debug, Clone)]
-pub struct ScreenParam<N = u16> 
+pub struct ScreenParam<N = u16, const N_SELECTS: usize = 6> 
 where N: Integer
 {
     pub check: Option<bool>,
@@ -54,11 +47,11 @@ where N: Integer
     pub input_secret_mode: Option<bool>,
     pub number: Option<N>,
     pub date_time: Option<DateTime>,
-    pub selects: Option<ScreenSelections>,
+    pub selects: Option<ScreenSelections<N_SELECTS>>,
 }
 
 
-impl<N> Default for ScreenParam<N>
+impl<N, const N_SELECTS: usize> Default for ScreenParam<N, N_SELECTS>
 where N: Integer
 {
     fn default() -> Self {
@@ -74,16 +67,16 @@ where N: Integer
 }
 
 
-pub trait Screen<T, N = u16>
+pub trait Screen<T, N = u16, const N_SELECTS: usize = 6>
 where N: Integer
 {
-     fn draw(&mut self, 
+     fn draw(&mut self,
         lcd: &mut dyn LCDDisplayFn,
-        signal: &mut EventBits, 
+        signal: &mut EventBits,
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
-        text: &dyn AsSyncStr, 
-        param: ScreenParam<N>, 
-        callback: ScreenCallback<N>
+        text: &dyn AsSyncStr,
+        param: ScreenParam<N, N_SELECTS>,
+        callback: ScreenCallback<N, N_SELECTS>
     ) -> Result<()>;
 
     fn get_value(&self) -> Result<T>;
