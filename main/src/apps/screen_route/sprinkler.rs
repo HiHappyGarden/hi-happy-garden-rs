@@ -25,11 +25,11 @@ use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 
 use crate::apps::display::select::Select;
-use crate::apps::sprinkler::schedule::ZONES_SIZE;
+use crate::apps::sprinkler::schedule::{ZONES_SIZE};
 use crate::apps::sprinkler::{SCHEDULES_SIZE, Sprinkler};
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
-use crate::traits::screen::ScreenRoute;
+use crate::traits::screen::{ScreenRoute};
 
 static mut FSM_STATE: FSMState = FSMState::Schedule;
 
@@ -66,11 +66,20 @@ impl ScreenRoute for ScreenSprinkler {
 
 impl ScreenSprinkler {
     pub fn new(sprinkler: Arc<Mutex<Sprinkler>>) -> Self {
-        Self {
+        
+        //let mut schedule = screen_selections_new::<4usize>::();
+        
+        
+        
+        let mut ret = Self {
             sprinkler,
             schedule: Select::new(),
             zone: Select::new()
-        }
+        };
+
+
+
+        ret
     }
     
 }
