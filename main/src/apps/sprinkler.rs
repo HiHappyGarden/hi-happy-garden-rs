@@ -65,6 +65,8 @@ impl Initializable for Sprinkler {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init app sprinkler");
         
+        self.reinit();
+
         self.load()?;
 
         Ok(())
@@ -88,9 +90,16 @@ impl AtContext<{ CMD_SIZE }> for Sprinkler {
             <Status as Into<u8>>::into(schedule.status));
 
         for (zone_index, zone) in schedule.zones.iter().enumerate() {
-            let _ = write!(response, "{zone_index}:{},{},{},{}\r\n",
-                zone.relay_number, zone.watering_time, zone.weight,
-                <Status as Into<u8>>::into(zone.status));
+
+            if let Some(zone) = zone {
+                let _ = write!(response, "{zone_index}:{},{},{},{}\r\n",
+                    zone.relay_number, zone.watering_time, zone.weight,
+                    <Status as Into<u8>>::into(zone.status));
+            } else {
+                let _ = write!(response, "{zone_index}:0,0,0,{}\r\n",
+                    <Status as Into<u8>>::into(Status::UNACTIVE));
+            }
+
         }
 
         Ok((at_response, response))
@@ -161,9 +170,18 @@ impl Sprinkler {
     pub(in crate::apps) const AT_CMD: &'static str = "AT+SPK";
     pub(in crate::apps) const AT_RESP: &'static str = "+SPK: ";
 
-    #[inline]
     pub(in crate::apps) fn new() -> Self {
-        Self { schedules: [Schedule::new(); Schedule::SIZE] }
+        Schedule::set_enable_counter(true);
+        let ret = Self {
+            schedules: [Schedule::new(); Schedule::SIZE]
+        };
+        Schedule::set_enable_counter(false);
+        ret
+    }
+
+    #[inline]
+    fn reinit(&mut self) {
+        self.schedules.iter_mut().for_each(| schedule | *schedule = Schedule::new());
     }
 
     pub(in crate::apps) fn load(&mut self) -> Result<()> {
@@ -325,12 +343,7 @@ impl Sprinkler {
         slot.days = days;
         slot.month = month;
         slot.description = Bytes::from_str(description.as_ref());
-        slot.zones = [
-                Zone::new(ZoneRelay::Relay1),
-                Zone::new(ZoneRelay::Relay2),
-                Zone::new(ZoneRelay::Relay3),
-                Zone::new(ZoneRelay::Relay4)
-            ];
+        slot.zones = [None; Zone::SIZE];
         slot.status = Status::ACTIVE;
 
         Ok(())
@@ -353,31 +366,32 @@ fn insert_zone(at_response: &'static str, schedule: &mut Schedule, args: &at_par
     let index: usize = args.get(3).ok_or((at_response, AtError::InvalidArgs))?
         .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
 
-    let slot = schedule.zones.get_mut(index)
-        .ok_or((at_response, AtError::Unhandled("zone index out of bounds")))?;
-    if slot.status != Status::UNACTIVE {
-        return Err((at_response, AtError::Unhandled("zone index already occupied")));
-    }
+    // let slot = schedule.zones.get_mut(index).map(|s| s.as_mut()).ok_or((at_response, AtError::Unhandled("zone index out of bounds")))?;
 
-    let relay_number = u8::try_from(index).map_err(|_| (at_response, AtError::InvalidArgs))?;
-    let watering_time: u8 = args.get(4).ok_or((at_response, AtError::InvalidArgs))?
-        .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
-    let weight: u8 = match args.get(5).filter(|arg| !arg.is_empty()) {
-        Some(arg) => arg.parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
-        None => 0,
-    };
-    let description = args.get(6).unwrap_or_default();
-    if description.len() > DISPLAY_INPUT_MAX_SIZE {
-        return Err((at_response, AtError::Unhandled("description too long")));
-    }
 
-    *slot = Zone {
-        description: Bytes::from_str(description.as_ref()),
-        relay_number: ZoneRelay::from(relay_number),
-        watering_time,
-        weight,
-        status: Status::ACTIVE,
-    };
+    // if slot.status != Status::RUN {
+    //     return Err((at_response, AtError::Unhandled("zone run")));
+    // }
+
+    // let relay_number = u8::try_from(index).map_err(|_| (at_response, AtError::InvalidArgs))?;
+    // let watering_time: u8 = args.get(4).ok_or((at_response, AtError::InvalidArgs))?
+    //     .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+    // let weight: u8 = match args.get(5).filter(|arg| !arg.is_empty()) {
+    //     Some(arg) => arg.parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+    //     None => 0,
+    // };
+    // let description = args.get(6).unwrap_or_default();
+    // if description.len() > DISPLAY_INPUT_MAX_SIZE {
+    //     return Err((at_response, AtError::Unhandled("description too long")));
+    // }
+
+    // *slot = Zone {
+    //     description: Bytes::from_str(description.as_ref()),
+    //     relay_number: ZoneRelay::from(relay_number),
+    //     watering_time,
+    //     weight,
+    //     status: Status::ACTIVE,
+    // };
 
     Ok(())
 }
@@ -389,13 +403,13 @@ fn delete_zone(at_response: &'static str, schedule: &mut Schedule, args: &at_par
     let zone = schedule.zones.get_mut(index)
         .ok_or((at_response, AtError::Unhandled("zone index out of bounds")))?;
 
-    *zone = Zone::new(match index {
-        1 => ZoneRelay::Relay1,
-        2 => ZoneRelay::Relay2,
-        3 => ZoneRelay::Relay3,
-        4 => ZoneRelay::Relay4,
-        _ => return Err((at_response, AtError::Unhandled("zone index out of bounds"))),
-    });
+    // *zone = Zone::new(match index {
+    //     1 => ZoneRelay::Relay0,
+    //     2 => ZoneRelay::Relay1,
+    //     3 => ZoneRelay::Relay2,
+    //     4 => ZoneRelay::Relay3,
+    //     _ => return Err((at_response, AtError::Unhandled("zone index out of bounds"))),
+    // });
 
     Ok(())
 }

@@ -18,13 +18,19 @@
  *
  ***************************************************************************/
 
+use core::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+
 use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
-use crate::apps::sprinkler::zone::{Zone, ZoneRelay};
+use crate::apps::sprinkler::zone::Zone;
 use crate::drivers::date_time::DateTime;
 use super::commons::Status;
+
+static COUNTER: AtomicU8 = AtomicU8::new(0);
+static ENABLE_COUNTER: AtomicBool = AtomicBool::new(true);
+
 
  #[allow(dead_code)]
  #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -168,7 +174,7 @@ pub(in crate::apps) struct Schedule {
     pub description: Bytes<DISPLAY_INPUT_MAX_SIZE>,
 
     /// zones associated to the schedule
-    pub zones: [Zone; Zone::SIZE],
+    pub zones: [Option<Zone>; Zone::SIZE],
 
     /// status of the schedule
     pub status: Status
@@ -180,17 +186,27 @@ impl Schedule {
     pub(super) const NOT_SET: u8 = 0x00;
 
     pub(in crate::apps) fn new() -> Self {
+
+        let mut description = Bytes::new();
+
+        if ENABLE_COUNTER.load(Ordering::Relaxed) {
+            description.format(format_args!("Schedule {}", COUNTER.load(Ordering::Relaxed)));
+            COUNTER.fetch_add(1, Ordering::Relaxed);
+        } else {
+            description.format(format_args!("Schedule"));
+        }
+
         Self {
             minute: 0,
             hour: 0,
             days: Schedule::NOT_SET,
             month: Schedule::NOT_SET as u16,
-            description: Bytes::new(),
+            description,
             zones: [
-                Zone::new(ZoneRelay::Relay1),
-                Zone::new(ZoneRelay::Relay2),
-                Zone::new(ZoneRelay::Relay3),
-                Zone::new(ZoneRelay::Relay4)
+                None,
+                None,
+                None,
+                None
             ],
             status: Status::UNACTIVE
         }
@@ -258,5 +274,9 @@ impl Schedule {
         } else {
             false
         }
+    }
+
+    pub(super) fn set_enable_counter(enable: bool) {
+        ENABLE_COUNTER.store(enable, Ordering::Relaxed);
     }
 }
