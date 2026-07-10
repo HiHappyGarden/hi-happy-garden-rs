@@ -26,8 +26,6 @@ use crate::apps::sprinkler::zone::Zone;
 use crate::drivers::date_time::DateTime;
 use super::commons::Status;
 
-pub(in crate::apps) const ZONES_SIZE: usize = 4;
-
  #[allow(dead_code)]
  #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(in crate::apps) enum Day {
@@ -170,7 +168,7 @@ pub(in crate::apps) struct Schedule {
     pub description: Bytes<DISPLAY_INPUT_MAX_SIZE>,
 
     /// zones associated to the schedule
-    pub zones: [Zone; ZONES_SIZE],
+    pub zones: [Zone; Zone::SIZE],
 
     /// status of the schedule
     pub status: Status
@@ -184,7 +182,7 @@ impl Default for Schedule {
             days: Schedule::NOT_SET,
             month: Schedule::NOT_SET as u16,
             description: Bytes::new(),
-            zones: [Zone::default(); ZONES_SIZE],
+            zones: [Zone::default(); Zone::SIZE],
             status: Status::UNACTIVE
         }
     }
@@ -192,6 +190,7 @@ impl Default for Schedule {
 
 impl Schedule {
 
+    pub(in crate::apps) const SIZE: usize = 4;
     pub(in crate::apps) const NOT_SET: u8 = 0x00;
 
     pub(in super) fn executable(&mut self, now: &DateTime) -> bool {

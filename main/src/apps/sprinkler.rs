@@ -35,7 +35,7 @@ use osal_rs_serde::{Deserialize, Serialize};
 use crate::apps::parser::{CMD_SIZE, NOT_LOGGED_RESPONSE, at_cmd_response};
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::apps::sprinkler::commons::Status;
-use crate::apps::sprinkler::schedule::{Schedule, ZONES_SIZE};
+use crate::apps::sprinkler::schedule::{Schedule};
 use crate::apps::sprinkler::zone::Zone;
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::drivers::date_time::DateTime;
@@ -50,7 +50,6 @@ pub(in crate::apps) mod zone;
 pub(in crate::apps) mod schedule;
 
 const APP_TAG: &str = "AppSprinkler";
-pub(in crate::apps) const SCHEDULES_SIZE: usize = 4;
 
 static DISBURSEMENT_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 
@@ -59,7 +58,7 @@ static SELECTED_SCHEDULE: core::sync::atomic::AtomicUsize = core::sync::atomic::
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub(in crate::apps) struct Sprinkler {
-    schedules: [Schedule; SCHEDULES_SIZE]
+    schedules: [Schedule; Schedule::SIZE]
 }
 
 impl Initializable for Sprinkler {
@@ -75,7 +74,7 @@ impl Initializable for Sprinkler {
 impl Default for Sprinkler {
     fn default() -> Self {
         Self {
-            schedules: [Schedule::default(); SCHEDULES_SIZE],
+            schedules: [Schedule::default(); Schedule::SIZE],
         }
     }
 }
@@ -325,7 +324,7 @@ impl Sprinkler {
         slot.days = days;
         slot.month = month;
         slot.description = Bytes::from_str(description.as_ref());
-        slot.zones = [Zone::default(); ZONES_SIZE];
+        slot.zones = [Zone::default(); Zone::SIZE];
         slot.status = Status::ACTIVE;
 
         Ok(())

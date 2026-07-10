@@ -54,3 +54,7 @@ impl Default for Zone {
         }
     }
 }
+
+impl Zone {
+    pub(in crate::apps) const SIZE: usize = 4;
+}
