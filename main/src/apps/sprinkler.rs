@@ -36,7 +36,7 @@ use crate::apps::parser::{CMD_SIZE, NOT_LOGGED_RESPONSE, at_cmd_response};
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::apps::sprinkler::commons::Status;
 use crate::apps::sprinkler::schedule::{Schedule};
-use crate::apps::sprinkler::zone::Zone;
+use crate::apps::sprinkler::zone::{Zone, ZoneRelay};
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::drivers::date_time::DateTime;
 use crate::drivers::filesystem::{FileBytes, Filesystem, flags};
@@ -68,14 +68,6 @@ impl Initializable for Sprinkler {
         self.load()?;
 
         Ok(())
-    }
-}
-
-impl Default for Sprinkler {
-    fn default() -> Self {
-        Self {
-            schedules: [Schedule::default(); Schedule::SIZE],
-        }
     }
 }
 
@@ -155,6 +147,15 @@ impl AtContext<{ CMD_SIZE }> for Sprinkler {
     }
 }
 
+
+impl Default for Sprinkler {
+
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Sprinkler {
     const FILE_NAME: &'static str = "sprinkler.json";
     pub(in crate::apps) const AT_CMD: &'static str = "AT+SPK";
@@ -162,7 +163,7 @@ impl Sprinkler {
 
     #[inline]
     pub(in crate::apps) fn new() -> Self {
-        Self::default()
+        Self { schedules: [Schedule::new(); Schedule::SIZE] }
     }
 
     pub(in crate::apps) fn load(&mut self) -> Result<()> {
@@ -198,7 +199,7 @@ impl Sprinkler {
         if json.is_empty() {
             log_warning!(APP_TAG, "Sprinkler file not found or empty, using defaults");
 
-            self.schedules = Sprinkler::default().schedules;
+            self.schedules = Sprinkler::new().schedules;
 
             self.save()?;
 
@@ -225,7 +226,7 @@ impl Sprinkler {
             }
             Err(e) => {
                 log_warning!(APP_TAG, "Using default config values err: {e}");
-                self.schedules = Sprinkler::default().schedules;
+                self.schedules = Sprinkler::new().schedules;
 
                 self.save()?;
 
@@ -324,7 +325,12 @@ impl Sprinkler {
         slot.days = days;
         slot.month = month;
         slot.description = Bytes::from_str(description.as_ref());
-        slot.zones = [Zone::default(); Zone::SIZE];
+        slot.zones = [
+                Zone::new(ZoneRelay::Relay1),
+                Zone::new(ZoneRelay::Relay2),
+                Zone::new(ZoneRelay::Relay3),
+                Zone::new(ZoneRelay::Relay4)
+            ];
         slot.status = Status::ACTIVE;
 
         Ok(())
@@ -337,7 +343,7 @@ impl Sprinkler {
         let schedule = self.schedules.get_mut(index)
             .ok_or((at_response, AtError::Unhandled("schedule index out of bounds")))?;
 
-        *schedule = Schedule::default();
+        *schedule = Schedule::new();
 
         Ok(())
     }
@@ -367,7 +373,7 @@ fn insert_zone(at_response: &'static str, schedule: &mut Schedule, args: &at_par
 
     *slot = Zone {
         description: Bytes::from_str(description.as_ref()),
-        relay_number,
+        relay_number: ZoneRelay::from(relay_number),
         watering_time,
         weight,
         status: Status::ACTIVE,
@@ -383,7 +389,13 @@ fn delete_zone(at_response: &'static str, schedule: &mut Schedule, args: &at_par
     let zone = schedule.zones.get_mut(index)
         .ok_or((at_response, AtError::Unhandled("zone index out of bounds")))?;
 
-    *zone = Zone::default();
+    *zone = Zone::new(match index {
+        1 => ZoneRelay::Relay1,
+        2 => ZoneRelay::Relay2,
+        3 => ZoneRelay::Relay3,
+        4 => ZoneRelay::Relay4,
+        _ => return Err((at_response, AtError::Unhandled("zone index out of bounds"))),
+    });
 
     Ok(())
 }

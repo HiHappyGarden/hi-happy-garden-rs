@@ -18,36 +18,117 @@
  *
  ***************************************************************************/
 
-use osal_rs::utils::Bytes;
-use osal_rs_serde::{Deserialize, Serialize};
+use core::fmt::{Display, Formatter};
 
-use crate::apps::DISPLAY_INPUT_MAX_SIZE;
+use osal_rs::utils::Bytes;
+use osal_rs_serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+use crate::{apps::DISPLAY_INPUT_MAX_SIZE, drivers::platform::GpioPeripheral};
 use super::commons::Status;
+use ZoneRelay::*;
+
+#[repr(u8)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub(in crate::apps) enum ZoneRelay {
+    Relay1,
+    Relay2,
+    Relay3,
+    Relay4,
+}
+
+impl From<ZoneRelay> for &str {
+    fn from(value: ZoneRelay) -> Self {
+        match value {
+            Relay1 => "Relay 1",
+            Relay2 => "Relay 2",
+            Relay3 => "Relay 3",
+            Relay4 => "Relay 4",
+        }
+    }
+}
+
+impl Display for ZoneRelay {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", <ZoneRelay as Into<&str>>::into(*self))
+    }
+}
+
+
+impl From<u8> for ZoneRelay {
+    fn from(value: u8) -> Self {
+        match value {
+            1 => Relay1,
+            2 => Relay2,
+            3 => Relay3,
+            4 => Relay4,
+            _ => Relay1
+        }
+    }
+}
+
+impl From<ZoneRelay> for u8 {
+    fn from(value: ZoneRelay) -> Self {
+        match value {
+            Relay1 => 1,
+            Relay2 => 2,
+            Relay3 => 3,
+            Relay4 => 4
+        }
+    }
+}
+
+impl From<ZoneRelay> for GpioPeripheral {
+    fn from(value: ZoneRelay) -> Self {
+        match value {
+            Relay1 => GpioPeripheral::Relay1,
+            Relay2 => GpioPeripheral::Relay2,
+            Relay3 => GpioPeripheral::Relay3,
+            Relay4 => GpioPeripheral::Relay4
+        }
+    }
+}
+
+
+impl Serialize for ZoneRelay {
+    #[inline]
+    fn serialize<S: Serializer>(&self, name: &str, serializer: &mut S) -> Result<(), S::Error> {
+        Ok(serializer.serialize_u8(name, *self as u8)?)
+    }
+}
+
+impl Deserialize for ZoneRelay {
+    #[inline]
+    fn deserialize<D: Deserializer>(deserializer: &mut D, name: &str) -> Result<Self, D::Error> {
+        Ok(ZoneRelay::from(deserializer.deserialize_u8(name)?))
+    }
+}
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub(in crate::apps) struct Zone {
 
     /// description of zone
-    pub description: Bytes<DISPLAY_INPUT_MAX_SIZE>,
+    pub(in crate::apps) description: Bytes<DISPLAY_INPUT_MAX_SIZE>,
 
     /// relay number associated to the zone
-    pub relay_number: u8,
+    pub(in crate::apps) relay_number: ZoneRelay,
 
     /// watering time in minutes
-    pub watering_time: u8,
+    pub(in crate::apps) watering_time: u8,
 
     /// for manage order of execution lighter is first then weightier
-    pub weight: u8,
+    pub(in crate::apps) weight: u8,
 
     /// status of the zone
-    pub status: Status
+    pub(in crate::apps) status: Status
 }
 
-impl Default for Zone {
-    fn default() -> Self {
+impl Zone {
+    pub(in crate::apps) const SIZE: usize = 4;
+
+    pub(in crate::apps) fn new(relay_number: ZoneRelay) -> Self {
         Self {
-            description: Bytes::new(),
-            relay_number: 0,
+            description: Bytes::from_str(relay_number.into()),
+            relay_number,
             watering_time: 0,
             weight: 0,
             status: Status::UNACTIVE
@@ -55,6 +136,9 @@ impl Default for Zone {
     }
 }
 
-impl Zone {
-    pub(in crate::apps) const SIZE: usize = 4;
+impl Display for Zone {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            write!(f, "{}", self.description.as_str()
+        )
+    }
 }

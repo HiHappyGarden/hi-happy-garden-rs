@@ -22,7 +22,7 @@ use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
-use crate::apps::sprinkler::zone::Zone;
+use crate::apps::sprinkler::zone::{Zone, ZoneRelay};
 use crate::drivers::date_time::DateTime;
 use super::commons::Status;
 
@@ -174,24 +174,27 @@ pub(in crate::apps) struct Schedule {
     pub status: Status
 }
 
-impl Default for Schedule {
-    fn default() -> Self {
+impl Schedule {
+
+    pub(in crate::apps) const SIZE: usize = 4;
+    pub(super) const NOT_SET: u8 = 0x00;
+
+    pub(in crate::apps) fn new() -> Self {
         Self {
             minute: 0,
             hour: 0,
             days: Schedule::NOT_SET,
             month: Schedule::NOT_SET as u16,
             description: Bytes::new(),
-            zones: [Zone::default(); Zone::SIZE],
+            zones: [
+                Zone::new(ZoneRelay::Relay1),
+                Zone::new(ZoneRelay::Relay2),
+                Zone::new(ZoneRelay::Relay3),
+                Zone::new(ZoneRelay::Relay4)
+            ],
             status: Status::UNACTIVE
         }
     }
-}
-
-impl Schedule {
-
-    pub(in crate::apps) const SIZE: usize = 4;
-    pub(in crate::apps) const NOT_SET: u8 = 0x00;
 
     pub(in super) fn executable(&mut self, now: &DateTime) -> bool {
         if self.status == Status::RUN {
