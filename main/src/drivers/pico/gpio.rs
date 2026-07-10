@@ -44,10 +44,10 @@ pub(crate) enum GpioPeripheral {
     LedBlue,
     Cyw43Led,
     InternalTemp,
+    Relay0,
     Relay1,
     Relay2,
     Relay3,
-    Relay4,
 }
  
 impl AsSyncStr for GpioPeripheral {
@@ -63,10 +63,10 @@ impl AsSyncStr for GpioPeripheral {
             LedBlue => "LedBlue",
             Cyw43Led => "Cyw43Led",
             InternalTemp => "InternalTemp",
-            Relay1 => "Relay1",
-            Relay2 => "Relay2",
-            Relay3 => "Relay3",
-            Relay4 => "Relay4",
+            Relay0 => "Relay1",
+            Relay1 => "Relay2",
+            Relay2 => "Relay3",
+            Relay3 => "Relay4",
         }
     }
 }
@@ -86,10 +86,10 @@ impl FromStr for GpioPeripheral {
             "LedBlue" => Ok(LedBlue),
             "Cyw43Led" => Ok(Cyw43Led),
             "InternalTemp" => Ok(InternalTemp),
-            "Relay1" => Ok(Relay1),
-            "Relay2" => Ok(Relay2),
-            "Relay3" => Ok(Relay3),
-            "Relay4" => Ok(Relay4),
+            "Relay1" => Ok(Relay0),
+            "Relay2" => Ok(Relay1),
+            "Relay3" => Ok(Relay2),
+            "Relay4" => Ok(Relay3),
             _ => Err(Error::NotFound)
         }
     }
@@ -106,10 +106,10 @@ pub(crate) static mut GPIO_CONFIGS: GpioConfigs<'static, GPIO_CONFIG_SIZE> = Gpi
         Some(GpioConfig::new(&LedBlue, GpioType::OutputPWM(None, 15, 0))),
         Some(GpioConfig::new(&Cyw43Led, GpioType::Output(None, 0, 0))),
         Some(GpioConfig::new(&InternalTemp, GpioType::InputAnalog(None, 0, 4, 0))),
-        Some(GpioConfig::new(&Relay1, GpioType::Output(None, 6, 0))),
-        Some(GpioConfig::new(&Relay2, GpioType::Output(None, 7, 0))),
-        Some(GpioConfig::new(&Relay3, GpioType::Output(None, 8, 0))),
-        Some(GpioConfig::new(&Relay4, GpioType::Output(None, 9, 0))),
+        Some(GpioConfig::new(&Relay0, GpioType::Output(None, 6, 0))),
+        Some(GpioConfig::new(&Relay1, GpioType::Output(None, 7, 0))),
+        Some(GpioConfig::new(&Relay2, GpioType::Output(None, 8, 0))),
+        Some(GpioConfig::new(&Relay3, GpioType::Output(None, 9, 0))),
 ]);
 
 
