@@ -27,9 +27,9 @@ pub trait Relays {
   fn set_relay_state(&self, relay_index: GpioPeripheral, state: bool) -> OsalRsBool;
 
   fn turn_off_all_relays(&self) {
+      self.set_relay_state(GpioPeripheral::Relay0, false);
       self.set_relay_state(GpioPeripheral::Relay1, false);
       self.set_relay_state(GpioPeripheral::Relay2, false);
       self.set_relay_state(GpioPeripheral::Relay3, false);
-      self.set_relay_state(GpioPeripheral::Relay4, false);
   }
 }

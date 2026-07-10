@@ -49,7 +49,7 @@ impl RaleayFn for Relays {
         use GpioPeripheral::*;
 
         match relay_index {
-            Relay1 | Relay2 | Relay3 | Relay4 => {
+            Relay0 | Relay1 | Relay2 | Relay3 => {
                 self.0.write(&relay_index, if state { 1 } else { 0 });
                 OsalRsBool::True
             }
