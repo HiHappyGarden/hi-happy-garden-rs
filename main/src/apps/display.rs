@@ -40,11 +40,10 @@ use crate::apps::display::header::Header;
 use crate::apps::display::commons::MAX_SIZE;
 
 use crate::apps::display::text::Text;
-use crate::apps::screen_route::{SCREEN_ROUTE, ScreenRoute  as ScreenRouteApp};
+use crate::apps::screen_route::SCREEN_ROUTE;
 use crate::apps::signals::display::{DisplayFlag::{*}, DisplaySignal};
 use crate::apps::signals::error::{ErrorSignal, ErrorFlag};
 use crate::apps::signals::status::StatusSignal;
-use crate::apps::sprinkler::Sprinkler;
 use crate::drivers::platform::ThreadPriority;
 
 use crate::traits::button::{ButtonState::{self, *}, OnClickable};
@@ -234,8 +233,4 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         }
     }
 
-    #[inline]
-    pub(super) fn set_splinker(&mut self, sprinkler: Arc<Mutex<Sprinkler>>) {
-        ScreenRouteApp::set_sprinkler(sprinkler);
-    }
 }

@@ -24,7 +24,7 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use osal_rs::{log_debug, log_info};
 use osal_rs::os::types::StackType;
-use osal_rs::os::{Mutex, MutexFn, System, Thread, ThreadFn, ThreadParam};
+use osal_rs::os::{MutexFn, System, Thread, ThreadFn, ThreadParam};
 use osal_rs::utils::{Error, Result};
 
 use crate::apps::config::Config;
@@ -32,7 +32,6 @@ use crate::apps::display::Display;
 use crate::apps::parser::Parser;
 use crate::apps::signals::error::ErrorSignal;
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
-use crate::apps::sprinkler::Sprinkler;
 use crate::apps::system_led::SystemLed;
 use crate::apps::wifi::Wifi;
 use crate::drivers::date_time::DateTime;
@@ -71,7 +70,6 @@ pub(crate) struct AppMain {
     wifi: Wifi,
     parser: Parser,
     system_led: SystemLed,
-    sprinkler: Arc<Mutex<Sprinkler>>,
     thread: Option<Thread>
 }
 
@@ -93,10 +91,9 @@ impl Initializable for AppMain{
         self.system_led.init()?;
         self.parser.init()?;
         self.wifi.init()?;
-        self.display.set_splinker(Arc::clone(&self.sprinkler));
         self.display.set_enabled_wifi(config.get_wifi_config().is_enabled());
         self.display.init()?;
-        self.sprinkler.lock()?.init()?;
+        // self.sprinkler.lock()?.init()?;
 
 
         //main FSM thread
@@ -121,7 +118,7 @@ impl AppMain {
             wifi: Wifi::shared(),
             parser: Parser::shared(),
             system_led: SystemLed::new(),
-            sprinkler: Mutex::new_arc(Sprinkler::new()),
+            // sprinkler: Mutex::new_arc(Sprinkler::new()),
             thread: None,
         }
     }
@@ -164,7 +161,6 @@ impl AppMain {
             let wifi_ptr = &raw mut me.wifi;
             let parser_ptr = &raw mut me.parser;
             let hardware_ptr = &raw mut me.hardware;
-            let sprinkler_ptr = &raw const me.sprinkler;
 
             loop {
                 match status_current {
@@ -185,7 +181,7 @@ impl AppMain {
                     StatusFlag::EnableParser => {
                         // Set transmit function pointer on parser 
                         Parser::set_uart_transmit(*hardware_ptr);
-                        Parser::set_sprinkler(Arc::clone(&*sprinkler_ptr));
+                        // Parser::set_sprinkler(Arc::clone(&*sprinkler_ptr));
                         (*hardware_ptr).set_on_receive(&*parser_ptr);
 
                         set_current_status!(status_old, status_current, StatusFlag::EnableDisplay);
@@ -215,17 +211,9 @@ impl AppMain {
                     }
                     StatusFlag::Ready => {
 
-                        let now: DateTime = DateTime::from_timestamp(rtc.lock()?.get_timestamp()?)?;
+                        let _now: DateTime = DateTime::from_timestamp(rtc.lock()?.get_timestamp()?)?;
 
-                        me.sprinkler.lock()?.check(now);
-
-                        // if TIMER.load(Ordering::SeqCst) >= DateTime::MILLIS_PER_MINUTE as u32 {
-                        //     TIMER.store(0, Ordering::SeqCst);
-                            
-                        //     log_info!(APP_TAG, "timestamp: {}, delta{}, heap_free:{}", rtc.lock()?.get_timestamp()?, delta, System::get_free_heap_size());
-                        // } else {
-                        //     TIMER.fetch_add(delta * 10, Ordering::SeqCst);
-                        // }
+                        // me.sprinkler.lock()?.check(now);
 
                         StatusSignal::set(StatusFlag::Ready.into());
                     },

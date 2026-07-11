@@ -18,20 +18,33 @@
  *
  ***************************************************************************/
 
+#![allow(dead_code)]
+
 use core::fmt::{Display, Formatter};
 
-use osal_rs::utils::Bytes;
+use osal_rs::{access_static_option, log_info};
+use osal_rs::os::RawMutex;
+use osal_rs::os::RawMutexGuard;
+use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::drivers::platform::GpioPeripheral;
+use crate::traits::state::Initializable;
 use super::commons::Status;
 use ZoneRelay::*;
 
-static mut ZONE_RELAY_1: Zone = Zone::new();
-static mut ZONE_RELAY_2: Zone = Zone::new();
-static mut ZONE_RELAY_3: Zone = Zone::new();
-static mut ZONE_RELAY_4: Zone = Zone::new();
+static mut ZONES: [Zone; Zone::SIZE] = [
+    Zone::new(Relay0),
+    Zone::new(Relay1),
+    Zone::new(Relay2),
+    Zone::new(Relay3)
+];
+
+static mut MUTEX: Option<RawMutex> = None;
+
+const APP_TAG: &str = "Zone";
+
 
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -115,7 +128,7 @@ pub(in crate::apps) struct Zone {
     pub(in crate::apps) description: Bytes<DISPLAY_INPUT_MAX_SIZE>,
 
     /// relay number associated to the zone
-    pub(in crate::apps) relay_number: ZoneRelay,
+    pub(in crate::apps) zone_relay: ZoneRelay,
 
     /// watering time in minutes
     pub(in crate::apps) watering_time: u8,
@@ -134,13 +147,27 @@ impl Display for Zone {
     }
 }
 
+impl Initializable for Zone {
+    fn init(&mut self) -> Result<()> {
+        log_info!(APP_TAG, "Init Zone");
+
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+
+        self.description.push(self.zone_relay.into())?;
+        self.status = Status::UNACTIVE;
+        
+
+        Ok(())
+    }
+} 
+
 impl Zone {
     pub(in crate::apps) const SIZE: usize = 4;
 
-    pub(in crate::apps) const fn new() -> Self {
+    pub(super) const fn new(zone_relay: ZoneRelay) -> Self {
         Self {
             description: Bytes::new(),
-            relay_number: ZoneRelay::Relay0,
+            zone_relay,
             watering_time: 0,
             weight: 0,
             status: Status::UNACTIVE

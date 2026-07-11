@@ -27,7 +27,6 @@ use osal_rs::os::types::EventBits;
 use crate::apps::display::select::Select;
 use crate::apps::sprinkler::schedule::Schedule;
 use crate::apps::sprinkler::zone::Zone;
-use crate::apps::sprinkler::Sprinkler;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
 use crate::traits::screen::{ScreenRoute};
@@ -41,7 +40,6 @@ enum FSMState {
 }
 
 pub(super) struct ScreenSprinkler {
-    sprinkler: Arc<Mutex<Sprinkler>>,
     schedule: Select<{Schedule::SIZE}>,
     zone: Select<{Zone::SIZE}>,
 }
@@ -66,21 +64,11 @@ impl ScreenRoute for ScreenSprinkler {
 }
 
 impl ScreenSprinkler {
-    pub fn new(sprinkler: Arc<Mutex<Sprinkler>>) -> Self {
-        
-        //let mut schedule = screen_selections_new::<4usize>::();
-        
-        
-        
-        let mut ret = Self {
-            sprinkler,
+    pub fn new() -> Self {
+        Self {
             schedule: Select::new(),
             zone: Select::new()
-        };
-
-
-
-        ret
+        }
     }
     
 }

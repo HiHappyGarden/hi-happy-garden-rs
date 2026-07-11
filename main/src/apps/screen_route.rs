@@ -34,7 +34,6 @@ use core::any::Any;
 
 use alloc::boxed::Box;
 use alloc::sync::Arc;
-use osal_rs::access_static_option;
 use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 
@@ -46,12 +45,10 @@ use crate::apps::screen_route::login::ScreenLogin;
 use crate::apps::screen_route::main::{ScreenMain, FSMState as MainFSMState};
 use crate::apps::screen_route::date_time::ScreenDateTime;
 use crate::apps::screen_route::daylight_saving_time::ScreenDaylightSavingTime;
-use crate::apps::screen_route::sprinkler::ScreenSprinkler;
 use crate::apps::screen_route::wifi::ScreenWifi;
 use crate::apps::screen_route::user::ScreenUser;
 use crate::apps::signals::display::{DisplayFlag, DisplaySignal};
 use crate::apps::signals::status::StatusFlag;
-use crate::apps::sprinkler::Sprinkler;
 use crate::traits::rtc::RTC;
 use crate::traits::screen::ScreenRoute as ScreenRouteFn;
 use crate::traits::signal::Signal;
@@ -59,7 +56,6 @@ use crate::traits::lcd_display::LCDDisplayFn;
 
 
 pub(in crate::apps) static mut SCREEN_ROUTE: ScreenRoute = ScreenRoute::new();
-pub(in crate::apps) static mut SPRINKLER: Option<Arc<Mutex<Sprinkler>>> = None;
 
 const CHECK_STATUS_THRESHOLD: u8 = 5;
 
@@ -73,7 +69,7 @@ enum FSMState {
     MenuDaylightSavingTime,
     MenuWifi,
     MenuUser,
-    MenuSprinkler,
+    // MenuSprinkler,
 }
 
 impl From<i8> for FSMState {
@@ -88,7 +84,7 @@ impl From<i8> for FSMState {
             6 => FSMState::MenuDaylightSavingTime,
             7 => FSMState::MenuWifi,
             8 => FSMState::MenuUser,
-            9 => FSMState::MenuSprinkler,
+            // 9 => FSMState::MenuSprinkler,
             _ => FSMState::Init, // Default case
         }
     }
@@ -106,7 +102,7 @@ impl From<FSMState> for i8 {
             FSMState::MenuDaylightSavingTime => 6,
             FSMState::MenuWifi => 7,
             FSMState::MenuUser => 8,
-            FSMState::MenuSprinkler => 9,
+            // FSMState::MenuSprinkler => 9,
         }
     }
 }
@@ -138,7 +134,7 @@ impl ScreenRouteFn for ScreenRoute {
             FSMState::MenuDaylightSavingTime    => self.handle_submenu(lcd, display_signal, status_signal, rtc, MainFSMState::DaylightSavingTime, || Box::new(ScreenDaylightSavingTime::new())),
             FSMState::MenuWifi                  => self.handle_submenu(lcd, display_signal, status_signal, rtc, MainFSMState::Wifi, || Box::new(ScreenWifi::new())),
             FSMState::MenuUser                  => self.handle_submenu(lcd, display_signal, status_signal, rtc, MainFSMState::User, || Box::new(ScreenUser::new())),
-            FSMState::MenuSprinkler             => self.handle_submenu(lcd, display_signal, status_signal, rtc, MainFSMState::Sprinkler, || Box::new(ScreenSprinkler::new(Arc::clone(access_static_option!(SPRINKLER))))),
+            //FSMState::MenuSprinkler             => self.handle_submenu(lcd, display_signal, status_signal, rtc, MainFSMState::Sprinkler, || Box::new(ScreenSprinkler::new(Arc::clone(access_static_option!(SPRINKLER))))),
         }
 
         Ok(())
@@ -301,9 +297,4 @@ impl ScreenRoute {
         }
     }
 
-    pub(in crate::apps) fn set_sprinkler(sprinkler: Arc<Mutex<Sprinkler>>) {
-        unsafe {
-            SPRINKLER = Some(sprinkler);
-        }
-    }
 }

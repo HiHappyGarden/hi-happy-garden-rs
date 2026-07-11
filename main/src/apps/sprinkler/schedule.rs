@@ -18,8 +18,6 @@
  *
  ***************************************************************************/
 
-use core::sync::atomic::{AtomicBool, AtomicU8, Ordering};
-
 use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
@@ -28,9 +26,12 @@ use crate::apps::sprinkler::zone::Zone;
 use crate::drivers::date_time::DateTime;
 use super::commons::Status;
 
-static COUNTER: AtomicU8 = AtomicU8::new(0);
-static ENABLE_COUNTER: AtomicBool = AtomicBool::new(true);
-
+static mut SCHEDULES: [Schedule; Schedule::SIZE] = [
+    Schedule::new(),
+    Schedule::new(),
+    Schedule::new(),
+    Schedule::new()
+];
 
  #[allow(dead_code)]
  #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -185,23 +186,13 @@ impl Schedule {
     pub(in crate::apps) const SIZE: usize = 4;
     pub(super) const NOT_SET: u8 = 0x00;
 
-    pub(in crate::apps) fn new() -> Self {
-
-        let mut description = Bytes::new();
-
-        if ENABLE_COUNTER.load(Ordering::Relaxed) {
-            description.format(format_args!("Schedule {}", COUNTER.load(Ordering::Relaxed)));
-            COUNTER.fetch_add(1, Ordering::Relaxed);
-        } else {
-            description.format(format_args!("Schedule"));
-        }
-
+    pub(super) const fn new() -> Self {
         Self {
             minute: 0,
             hour: 0,
             days: Schedule::NOT_SET,
             month: Schedule::NOT_SET as u16,
-            description,
+            description: Bytes::new(),
             zones: [
                 None,
                 None,
@@ -276,7 +267,4 @@ impl Schedule {
         }
     }
 
-    pub(super) fn set_enable_counter(enable: bool) {
-        ENABLE_COUNTER.store(enable, Ordering::Relaxed);
-    }
 }
