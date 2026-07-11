@@ -26,7 +26,8 @@ use core::ops::{Index, IndexMut};
 use alloc::str;
 use alloc::sync::Arc;
 
-use osal_rs::os::{RawMutex, RawMutexFn};
+use osal_rs::os::RawMutex;
+use osal_rs::os::RawMutexGuard;
 use osal_rs::{access_static_option, log_info, log_warning};
 use osal_rs::utils::{AsSyncStr, Error, OsalRsBool, Ptr, Result};
 
@@ -127,23 +128,6 @@ unsafe impl Sync for GpioFn {}
 // GPIO_CONFIGS, so a per-instance mutex would not provide mutual exclusion.
 static mut MUTEX: Option<RawMutex> = None;
 
-
-struct GpioLock(&'static RawMutex);
-
-impl GpioLock {
-    fn acquire() -> Self {
-        let mutex = access_static_option!(MUTEX);
-        mutex.lock();
-        Self(mutex)
-    }
-}
-
-impl Drop for GpioLock {
-    fn drop(&mut self) {
-        self.0.unlock();
-    }
-}
-
 pub struct Gpio<const GPIO_CONFIG_SIZE: usize> {
     configs: &'static mut GpioConfigs<'static, GPIO_CONFIG_SIZE>,
 }
@@ -157,7 +141,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<GPIO_CONFIG_SIZE> {
         
         log_info!(APP_TAG, "Init GPIO");
 
-        let _lock = GpioLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         if let Some(init) = &GPIO_FN.init {
             init()?;
@@ -240,7 +224,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Deinitializable for Gpio<GPIO_CONFIG_SIZE> {
 
     fn deinit(&mut self) -> Result<()> {
 
-        let _lock = GpioLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         if let Some(deinit) = &GPIO_FN.deinit {
             deinit()?;
@@ -278,7 +262,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
 
 
     pub fn write(&self, name: &dyn AsSyncStr, state: u32) -> OsalRsBool {
-        let _lock = GpioLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         if let Some(config) = &self.configs[name] {
             match &config.get_io_type() {
@@ -299,7 +283,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
     }
 
     pub fn read(&self, name: &dyn AsSyncStr) -> Result<u32> {
-        let _lock = GpioLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         if let Some(config) = &self.configs[name] {
             match &config.get_io_type() {
@@ -326,7 +310,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
     }
 
     pub fn set_pwm(&self, name: &dyn AsSyncStr, pwm_duty_cycle: u16) -> OsalRsBool {
-        let _lock = GpioLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         if let Some(config) = &self.configs[name] {
 
@@ -354,7 +338,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
         callback: InterruptCallback
     ) -> OsalRsBool {
 
-        let _lock = GpioLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         if let Some(config) = &mut self.configs[name] {
             match &config.get_io_type() {
@@ -383,7 +367,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
     }
 
     pub fn enable_interrupt(&mut self, name: &dyn AsSyncStr, enable: bool) -> OsalRsBool {
-        let _lock = GpioLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         if let Some(config) = &mut self.configs[name] {
             match &config.get_io_type() {

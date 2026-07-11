@@ -24,11 +24,11 @@ use alloc::sync::Arc;
 use at_parser_rs::{AtError, AtResult, at_quoted};
 use at_parser_rs::context::AtContext;
 use osal_rs::{access_static_option, log_error, log_info, log_warning};
-use osal_rs::os::{Timer, TimerFn, ToTick};
+use osal_rs::os::{RawMutexGuard, Timer, TimerFn, ToTick};
 use osal_rs::utils::{Bytes, Error, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
-use crate::apps::config::{Config, ConfigLock};
+use crate::apps::config::{Config, MUTEX};
 use crate::apps::parser::{CMD_SIZE, NOT_LOGGED_RESPONSE, at_cmd_response};
 use crate::drivers::encrypt::{EncryptGeneric, SHA256_RESULT_BYTES};
 use crate::traits::signal::Signal;
@@ -113,7 +113,7 @@ impl User {
 impl AtContext<{CMD_SIZE}> for User {
 
     fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         if unsafe { USER_LOGGED }.is_none() {
             return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE.into())));
@@ -129,7 +129,7 @@ impl AtContext<{CMD_SIZE}> for User {
     }
 
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         if unsafe { USER_LOGGED }.is_none() {
             return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE.into())));
@@ -143,7 +143,7 @@ impl AtContext<{CMD_SIZE}> for User {
     } 
     
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, {CMD_SIZE}> {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         if unsafe { USER_LOGGED }.is_none() {
             return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE.into())));
@@ -201,7 +201,7 @@ pub(super) struct Session {
 impl AtContext<{CMD_SIZE}> for Session {
 
     fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         let user_tmp = unsafe { &*&raw mut USER_TMP };
         match user_tmp {
@@ -219,7 +219,7 @@ impl AtContext<{CMD_SIZE}> for Session {
     }
 
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         let logged = unsafe { *&raw const USER_LOGGED };
         if logged.is_some() { 
@@ -236,7 +236,7 @@ impl AtContext<{CMD_SIZE}> for Session {
     }
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, {CMD_SIZE}> {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         let arg0 = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
 
@@ -338,7 +338,7 @@ impl Session {
     // Called from the AT parser task (under lock, recursion is safe)
     // and from the session timeout timer task (unlocked entry point).
     fn logout() {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         unsafe { USER_LOGGED = None; }
         User::get_local().clear();
@@ -349,22 +349,22 @@ impl Session {
     }
 
     pub fn set_user(&mut self, user: &User) {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.users[1] = *user;
     }
 
     pub fn set_user_local(&self) {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         unsafe { USER_LOCAL = self.users[1]; }
     }
 
     pub fn get_user_local(&self) -> User {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.users[1]
     }
 
     pub fn is_set_user_local(&self) -> bool {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.users[1].email.len() > 0 && self.users[1].password.len() > 0
     }
 
@@ -372,7 +372,7 @@ impl Session {
         if email.is_empty() || password.is_empty() {
             return Err(Error::Empty);
         }
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.users[0].email = Bytes::from_str(email);
         self.users[0].password = Bytes::from_str(password);
         Ok(())

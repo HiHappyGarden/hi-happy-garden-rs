@@ -25,7 +25,8 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use cjson_binding::{from_json, to_json};
 
-use osal_rs::os::{RawMutex, RawMutexFn};
+use osal_rs::os::RawMutex;
+use osal_rs::os::RawMutexGuard;
 use osal_rs::utils::Bytes;
 use osal_rs::utils::{Error, Result};
 use osal_rs::{access_static_option, log_error, log_info, log_warning};
@@ -57,23 +58,8 @@ use defaults::*;
 
 const APP_TAG: &str = "AppConfig";
 
-static mut MUTEX: Option<RawMutex> = None;
+pub(super) static mut MUTEX: Option<RawMutex> = None;
 
-pub(in crate::apps) struct ConfigLock(&'static RawMutex);
-
-impl ConfigLock {
-    pub(in crate::apps) fn acquire() -> Self {
-        let mutex = access_static_option!(MUTEX);
-        mutex.lock();
-        Self(mutex)
-    }
-}
-
-impl Drop for ConfigLock {
-    fn drop(&mut self) {
-        self.0.unlock();
-    }
-}
 
 static mut CONFIG: Config = Config {
     version: 0,
@@ -132,19 +118,19 @@ impl DaylightSavingTime {
     pub(in crate::apps) const AT_RESP: &'static str = "+DST: ";
 
     pub(in crate::apps) fn is_enabled(&self) -> bool {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.enabled
     }
 
     pub(in crate::apps) fn set_enabled(&mut self, enabled: bool) {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.enabled = enabled;
     }
 }
 
 impl AtContext<{ CMD_SIZE }> for DaylightSavingTime {
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         let mut response = Bytes::<{ CMD_SIZE }>::new();
         response.format(format_args!("{},{},{},{},{},{},{}",
             self.start_month, self.start_day, self.start_hour,
@@ -164,7 +150,7 @@ impl AtContext<{ CMD_SIZE }> for DaylightSavingTime {
         }
         let cmd = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
 
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         match cmd.as_ref() {
             "start_month" =>
@@ -229,42 +215,42 @@ impl WifiConfig {
     pub(in crate::apps) const AT_RESP: &'static str = "+WIFI: ";
 
     pub(in crate::apps) fn get_ssid(&self) -> Bytes<32> {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.ssid
     }
 
     pub(in crate::apps) fn get_password(&self) -> Bytes<32> {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.password
     }
 
     pub(in crate::apps) fn is_enabled(&self) -> bool {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.enabled
     }
 
     pub(in crate::apps) fn get_auth(&self) -> Auth {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.auth
     }
 
     pub(in crate::apps) fn set_ssid(&mut self, ssid: &str) {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.ssid = Bytes::from_str(ssid);
     }
 
     pub(in crate::apps) fn set_password(&mut self, password: &str) {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.password = Bytes::from_str(password);
     }
 
     pub(in crate::apps) fn set_enabled(&mut self, enabled: bool) {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.enabled = enabled;
     }
 
     pub(in crate::apps) fn set_auth(&mut self, auth: Auth) {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.auth = auth;
     }
 }
@@ -272,7 +258,7 @@ impl WifiConfig {
 impl AtContext<{ CMD_SIZE }> for WifiConfig {
     
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         Ok(at_cmd_response!(at_response; quoted!(self.ssid.as_str()), <Auth as Into<u8>>::into(self.auth), self.enabled as u8))
     }
 
@@ -298,7 +284,7 @@ impl AtContext<{ CMD_SIZE }> for WifiConfig {
         let enabled: u8 = args.get(3).ok_or((at_response, AtError::InvalidArgs))?
             .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
 
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         self.ssid = Bytes::from_str(ssid.as_ref());
         self.password = Bytes::from_str(password.as_ref());
@@ -333,39 +319,39 @@ impl NtpConfig {
     pub(in crate::apps) const AT_RESP: &'static str = "+NTP: ";
 
     pub(in crate::apps) fn get_server(&self) -> Bytes<64> {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.server
     }
 
     pub(in crate::apps) fn get_port(&self) -> u16 {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.port
     }
 
     pub(in crate::apps) fn get_msg_len(&self) -> u16 {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.msg_len
     }
 
     pub(in crate::apps) fn set_server(&mut self, server: &str) {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.server = Bytes::from_str(server);
     }
 
     pub(in crate::apps) fn set_port(&mut self, port: u16) {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.port = port;
     }
 
     pub(in crate::apps) fn set_msg_len(&mut self, msg_len: u16) {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.msg_len = msg_len;
     }
 }
 
 impl AtContext<{ CMD_SIZE }> for NtpConfig {
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         Ok(at_cmd_response!(at_response; quoted!(self.server.as_str()), self.port, self.msg_len))
     }
 
@@ -387,7 +373,7 @@ impl AtContext<{ CMD_SIZE }> for NtpConfig {
         let msg_len: u16 = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
             .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
 
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         self.server = Bytes::from_str(server.as_ref());
         self.port = port;
@@ -454,7 +440,7 @@ impl AtContext<{ CMD_SIZE }> for Config {
     }
 
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         Ok(at_cmd_response!(at_response; quoted!(self.serial.as_str()), self.timezone))
     }
 
@@ -469,7 +455,7 @@ impl AtContext<{ CMD_SIZE }> for Config {
         }
         let cmd = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
 
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         match cmd.as_ref() {
             "serial" => {
@@ -524,12 +510,12 @@ impl Config {
     }
 
     pub(in crate::apps) fn apply_locale(&self) {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         DateTime::set_timezone(self.timezone);
     }
 
     pub(in crate::apps) fn apply_daylight_saving_time(&self) {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         DateTime::set_daylight_saving_time_whit_param(
             self.daylight_saving_time.enabled,
             self.daylight_saving_time.start_month,
@@ -542,7 +528,7 @@ impl Config {
     }
 
     pub(in crate::apps) fn apply_ntp(&self) {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         Network::set_ntp(
             self.ntp.server,
             self.ntp.port,
@@ -551,7 +537,7 @@ impl Config {
     }
 
     pub(in crate::apps) fn apply_wifi(&self) {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         Wifi::set_config(
             self.wifi.ssid,
             self.wifi.password,
@@ -561,7 +547,7 @@ impl Config {
     }
 
     pub(in crate::apps) fn apply_session(&self) {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.session.set_user_local();
     }
 
@@ -570,7 +556,7 @@ impl Config {
     }
 
     pub(in crate::apps) fn load() -> Result<&'static mut Self> {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         let mut file_name = FileBytes::from_str(FS_CONFIG_DIR);
         file_name.append_str(FS_SEPARATOR_DIR);
@@ -646,7 +632,7 @@ impl Config {
     }
 
     pub(in crate::apps) fn save() -> Result<&'static mut Self> {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         let mut file_name = FileBytes::from_str(FS_CONFIG_DIR);
         file_name.append_str(FS_SEPARATOR_DIR);
@@ -685,34 +671,34 @@ impl Config {
 
     #[allow(dead_code)]
     pub(in crate::apps) fn get_version(&self) -> u8 {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.version
     }
 
     pub(in crate::apps) fn get_serial(&self) -> Bytes<16> {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.serial
     }
 
     pub(in crate::apps) fn set_serial(&mut self, serial: &Bytes<16>) {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.serial = serial.clone();
     }
 
     #[allow(dead_code)]
     pub(in crate::apps) fn get_timezone(&self) -> i16 {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.timezone
     }
 
     #[allow(dead_code)]
     pub(in crate::apps) fn set_timezone(&mut self, timezone: i16) {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.timezone = timezone;
     }
 
     pub(in crate::apps) fn get_ntp_config(&self) -> NtpConfig {
-        let _lock = ConfigLock::acquire();
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.ntp
     }
 
