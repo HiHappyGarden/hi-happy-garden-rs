@@ -25,7 +25,9 @@ use osal_rs_serde::{Deserialize, Serialize};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::sprinkler::zone::{ZoneController, ZoneRelay};
+use crate::apps::utils::load;
 use crate::drivers::date_time::DateTime;
+use crate::drivers::platform::FS_CONFIG_DIR;
 use crate::traits::state::Initializable;
 use super::commons::Status;
 
@@ -164,7 +166,7 @@ impl Month {
 
 
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Copy, Clone, Serialize, Deserialize)]
 pub(in crate::apps) struct Schedule {
 
     ///  minute, values allowed 1 - 60 or NOT_SET (0) for every minute real value is minute - 1
@@ -262,7 +264,7 @@ impl Schedule {
     }
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Copy, Clone, Serialize, Deserialize)]
 pub(in crate::apps) struct ScheduleController([Schedule; ScheduleController::SIZE]);
 
 
@@ -280,6 +282,8 @@ impl Initializable for ScheduleController {
                 count += 1;
             }
         }
+
+        *self = load::<ScheduleController>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, ScheduleController::FILE_NAME)?;
         
         Ok(())
     }
@@ -295,8 +299,8 @@ impl<'a> IntoIterator for &'a mut ScheduleController {
 }
 
 impl ScheduleController {
-    
     pub(in crate::apps) const SIZE: usize = 4;
+    const FILE_NAME: &'static str = "schedules.json";
 
     pub(in crate::apps) fn shared() -> &'static mut Self {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));

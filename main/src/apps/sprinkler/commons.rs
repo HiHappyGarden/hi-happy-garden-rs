@@ -20,8 +20,9 @@
 
 use osal_rs_serde::{Deserialize, Deserializer, Serialize, Serializer};
 
- #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+ #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub(in crate::apps) enum Status {
+    #[default]
     UNACTIVE,
     ACTIVE,
     RUN

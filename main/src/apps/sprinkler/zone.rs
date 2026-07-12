@@ -29,7 +29,8 @@ use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
-use crate::drivers::platform::GpioPeripheral;
+use crate::apps::utils::load;
+use crate::drivers::platform::{FS_CONFIG_DIR, GpioPeripheral};
 use crate::traits::state::Initializable;
 use super::commons::Status;
 use ZoneRelay::*;
@@ -47,8 +48,9 @@ const APP_TAG: &str = "Zone";
 
 
 #[repr(u8)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub(in crate::apps) enum ZoneRelay {
+    #[default]
     Relay0,
     Relay1,
     Relay2,
@@ -121,7 +123,7 @@ impl Deserialize for ZoneRelay {
     }
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Copy, Clone, Serialize, Deserialize)]
 pub(in crate::apps) struct Zone {
 
     /// description of zone
@@ -160,7 +162,7 @@ impl Zone {
     } 
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Copy, Clone, Serialize, Deserialize)]
 pub(in crate::apps) struct ZoneController([Zone; ZoneController::SIZE]);
 
 
@@ -178,12 +180,16 @@ impl Initializable for ZoneController {
             }
         }
         
+        
+        *self = load::<ZoneController>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, ZoneController::FILE_NAME)?;
+
         Ok(())
     }
 }
 
 impl ZoneController {
     pub(in crate::apps) const SIZE: usize = 4;
+    const FILE_NAME: &'static str = "zones.json";
 
     pub(super) fn shared() -> &'static mut Self {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
