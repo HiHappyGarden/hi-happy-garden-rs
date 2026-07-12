@@ -21,7 +21,7 @@
 use at_parser_rs::{AtError, AtResult};
 use at_parser_rs::context::AtContext;
 
-use crate::apps::parser::{CMD_SIZE, NOT_LOGGED_RESPONSE, at_cmd_response};
+use crate::apps::parser::{Parser, at_cmd_response};
 use crate::apps::signals::error::ErrorSignal;
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::drivers::error::HardwareErrorSignal;
@@ -34,22 +34,22 @@ static mut SYSTEM_HANDLER: SystemHandler = SystemHandler;
 
 pub(in crate::apps) struct SystemHandler;
     
-impl AtContext<{CMD_SIZE}> for SystemHandler {
+impl AtContext<{Parser::CMD_SIZE}> for SystemHandler {
 
     #[inline]
-    fn query(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+    fn query(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
         Ok(at_cmd_response!(at_response; HardwareErrorSignal::get(), ErrorSignal::get(), StatusSignal::get()))
     }
 
     #[inline]
     /// rb = reboot, fr = factory reset, hwe = hardware error, e = error, s = status,
-    fn test(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
+    fn test(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
         Ok(at_cmd_response!(at_response; "<rs|fr|hwe|e|s>"))
     }
 
-    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
+    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { Parser::CMD_SIZE }> {
         if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
-            return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE)));
+            return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
         }
         let cmd = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
         match cmd.as_ref() {

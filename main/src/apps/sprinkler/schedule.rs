@@ -18,12 +18,15 @@
  *
  ***************************************************************************/
 
+use at_parser_rs::{Args, AtError, AtResult};
+use at_parser_rs::context::AtContext;
 use osal_rs::{access_static_option, log_info};
 use osal_rs::os::{RawMutex, RawMutexGuard};
 use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
+use crate::apps::parser::Parser;
 use crate::apps::sprinkler::zone::{ZoneController, ZoneRelay};
 use crate::apps::utils::deserialize_file;
 use crate::drivers::date_time::DateTime;
@@ -41,7 +44,7 @@ static mut SHARED: ScheduleController = ScheduleController ([
 
 static mut MUTEX: Option<RawMutex> = None;
 
-const APP_TAG: &str = "Zone";
+const APP_TAG: &str = "ZoneController";
 
  #[allow(dead_code)]
  #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -298,8 +301,28 @@ impl<'a> IntoIterator for &'a mut ScheduleController {
     }
 }
 
+impl AtContext<{Parser::CMD_SIZE}> for ScheduleController {
+    fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
+        Err((at_response, AtError::NotSupported))
+    }
+
+    fn query(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
+        Err((at_response, AtError::NotSupported))
+    }
+
+    fn test(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
+        Err((at_response, AtError::NotSupported))
+    }
+
+    fn set(&mut self, at_response: &'static str, _args: Args) -> AtResult<'_, {Parser::CMD_SIZE}> {
+        Err((at_response, AtError::NotSupported))
+    }
+}
+
 impl ScheduleController {
     pub(in crate::apps) const SIZE: usize = 4;
+    pub(in crate::apps) const AT_CMD: &'static str = "AT+SCH";
+    pub(in crate::apps) const AT_RESP: &'static str = "+SCH: ";
     const FILE_NAME: &'static str = "schedules.json";
 
     pub(in crate::apps) fn shared() -> &'static mut Self {

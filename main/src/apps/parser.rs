@@ -31,6 +31,8 @@ use osal_rs::utils::{Error, Result};
 
 use crate::apps::config::{Config, DaylightSavingTime, WifiConfig, NtpConfig};
 use crate::apps::session::{Session, User};
+use crate::apps::sprinkler::schedule::ScheduleController;
+use crate::apps::sprinkler::zone::ZoneController;
 use crate::apps::system_handler::SystemHandler;
 use crate::drivers::platform::ThreadPriority;
 use crate::traits::rx_tx::{OnReceive, SetTransmit, Source};
@@ -45,7 +47,6 @@ const STACK_SIZE: StackType = 2_048;
 const NEW_LINE: &str = "\r\n";
 const OK_RESPONSE: &str = "OK";
 const KO_RESPONSE: &str = "KO";
-pub(super) const NOT_LOGGED_RESPONSE: &str = "KO: Not logged in";
 
 const BUFFER_SIZE: usize = 256;
 const QUEUE_SIZE: UBaseType = BUFFER_SIZE as UBaseType;
@@ -56,11 +57,9 @@ static mut SOURCE: Option<Source> = None;
 static mut UART_CHANNEL: Option<&'static dyn SetTransmit> = None;
 static mut MQTT_CHANNEL: Option<&'static dyn SetTransmit> = None;
 
-pub(super) const CMD_SIZE : usize = 96;
-
 macro_rules! at_cmd_response {
     ($at_resp:expr; $($args:expr),+) => {
-        at_parser_rs::at_response!(crate::apps::parser::CMD_SIZE, $at_resp; $($args),+)
+        at_parser_rs::at_response!(crate::apps::parser::Parser::CMD_SIZE, $at_resp; $($args),+)
     };
 }
 pub(super) use at_cmd_response;
@@ -110,7 +109,7 @@ impl Initializable for Parser {
 
         self.0 = self.0.spawn_simple(move || {
 
-            let mut parser: AtParser<dyn AtContext<CMD_SIZE>, CMD_SIZE> = AtParser::new();
+            let mut parser: AtParser<dyn AtContext<{Parser::CMD_SIZE}>, {Parser::CMD_SIZE}> = AtParser::new();
 
             // unsafe {
             //     loop {
@@ -133,7 +132,7 @@ impl Initializable for Parser {
             //     }
             // };
 
-            let commands: &mut [(&str, &str, &mut dyn AtContext<CMD_SIZE>)] = &mut [
+            let commands: &mut [(&str, &str, &mut dyn AtContext<{Parser::CMD_SIZE}>)] = &mut [
                 (Config::AT_CMD, Config::AT_RESP, Config::shared()),
                 (Session::AT_CMD, Session::AT_RESP, Config::shared().get_session()),
                 (User::AT_CMD, User::AT_RESP, User::get_local()),
@@ -141,7 +140,8 @@ impl Initializable for Parser {
                 (DaylightSavingTime::AT_CMD, DaylightSavingTime::AT_RESP, Config::shared().get_daylight_saving_time()),
                 (WifiConfig::AT_CMD, WifiConfig::AT_RESP, Config::shared().get_wifi_config()),
                 (NtpConfig::AT_CMD, NtpConfig::AT_RESP, Config::shared().get_ntp_config_mut()),
-                // (Sprinkler::AT_CMD, Sprinkler::AT_RESP, &mut *sprinkler),
+                (ScheduleController::AT_CMD, ScheduleController::AT_RESP, ScheduleController::shared()),
+                (ZoneController::AT_CMD, ZoneController::AT_RESP, ZoneController::shared()),
             ];
 
             parser.set_commands(commands);
@@ -273,6 +273,9 @@ impl Initializable for Parser {
 }
 
 impl Parser {
+    pub(super) const NOT_LOGGED_RESPONSE: &str = "KO: Not logged in";
+    pub(super) const CMD_SIZE : usize = 96;
+
 
     #[inline]
     pub(super) fn set_uart_transmit(transmit: &'static dyn SetTransmit) {

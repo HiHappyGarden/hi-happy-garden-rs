@@ -29,7 +29,7 @@ use osal_rs::utils::{Bytes, Error, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
 use crate::apps::config::{Config, MUTEX};
-use crate::apps::parser::{CMD_SIZE, NOT_LOGGED_RESPONSE, at_cmd_response};
+use crate::apps::parser::{Parser, at_cmd_response};
 use crate::drivers::encrypt::{EncryptGeneric, SHA256_RESULT_BYTES};
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
@@ -110,13 +110,13 @@ impl User {
     }
 }
 
-impl AtContext<{CMD_SIZE}> for User {
+impl AtContext<{Parser::CMD_SIZE}> for User {
 
-    fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
+    fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         if unsafe { USER_LOGGED }.is_none() {
-            return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE.into())));
+            return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE.into())));
         }
 
         let email = self.email.clone();
@@ -128,25 +128,25 @@ impl AtContext<{CMD_SIZE}> for User {
         Ok(at_cmd_response!(at_response; email))
     }
 
-    fn query(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
+    fn query(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         if unsafe { USER_LOGGED }.is_none() {
-            return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE.into())));
+            return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE.into())));
         }
         Ok(at_cmd_response!(at_response; at_quoted!(self.email.as_str())))
     }
 
     #[inline]
-    fn test(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
+    fn test(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
         Ok(at_cmd_response!(at_response; "<email>,<password>"))
     } 
     
-    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, {CMD_SIZE}> {
+    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, {Parser::CMD_SIZE}> {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         if unsafe { USER_LOGGED }.is_none() {
-            return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE.into())));
+            return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE.into())));
         }
 
         let arg0 = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
@@ -198,16 +198,16 @@ pub(super) struct Session {
     users: [User; Session::MAX_USERS],
 }
 
-impl AtContext<{CMD_SIZE}> for Session {
+impl AtContext<{Parser::CMD_SIZE}> for Session {
 
-    fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
+    fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         let user_tmp = unsafe { &*&raw mut USER_TMP };
         match user_tmp {
             User{email, password} if email.len() == 0 || password.len() == 0 => {
                 if unsafe { USER_LOGGED }.is_none() {
-                    return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE.into())));
+                    return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE.into())));
                 }
                 Self::logout();
                 Ok(at_cmd_response!(at_response; ""))
@@ -218,7 +218,7 @@ impl AtContext<{CMD_SIZE}> for Session {
 
     }
 
-    fn query(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
+    fn query(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         let logged = unsafe { *&raw const USER_LOGGED };
@@ -231,11 +231,11 @@ impl AtContext<{CMD_SIZE}> for Session {
     }
 
     #[inline]
-    fn test(&mut self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
+    fn test(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
         Ok(at_cmd_response!(at_response; "<i|o>,<email>,<password>"))
     }
 
-    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, {CMD_SIZE}> {
+    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, {Parser::CMD_SIZE}> {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         let arg0 = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
@@ -308,7 +308,7 @@ impl Session {
         Self { users: [User::new(); Session::MAX_USERS] }
     }
 
-    fn login(&self, at_response: &'static str) -> AtResult<'_, {CMD_SIZE}> {
+    fn login(&self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
         let user_tmp = unsafe { USER_TMP }.clone();
 
         if user_tmp.email.len() == 0 || user_tmp.password.len() == 0 {

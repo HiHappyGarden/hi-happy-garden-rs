@@ -28,7 +28,7 @@ use osal_rs::{access_static_option, log_info};
 use osal_rs_serde::{Deserialize, Serialize};
 use at_parser_rs::at_quoted as quoted;
 
-use crate::apps::parser::{CMD_SIZE, NOT_LOGGED_RESPONSE, at_cmd_response};
+use crate::apps::parser::{Parser, at_cmd_response};
 use crate::apps::session::Session;
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::apps::utils::{deserialize_file, serialize_file};
@@ -122,10 +122,10 @@ impl DaylightSavingTime {
     }
 }
 
-impl AtContext<{ CMD_SIZE }> for DaylightSavingTime {
-    fn query(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+impl AtContext<{ Parser::CMD_SIZE }> for DaylightSavingTime {
+    fn query(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
-        let mut response = Bytes::<{ CMD_SIZE }>::new();
+        let mut response = Bytes::<{ Parser::CMD_SIZE }>::new();
         response.format(format_args!("{},{},{},{},{},{},{}",
             self.start_month, self.start_day, self.start_hour,
             self.end_month, self.end_day, self.end_hour,
@@ -134,13 +134,13 @@ impl AtContext<{ CMD_SIZE }> for DaylightSavingTime {
     }
 
     #[inline]
-    fn test(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+    fn test(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
         Ok(at_cmd_response!(at_response; "start_month,<value> | start_day,<value> | start_hour,<value> | end_month,<value> | end_day,<value> | end_hour,<value> | enabled,<0|1>"))
     }
 
-    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
+    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { Parser::CMD_SIZE }> {
         if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
-            return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE)));
+            return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
         }
         let cmd = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
 
@@ -249,21 +249,21 @@ impl WifiConfig {
     }
 }
 
-impl AtContext<{ CMD_SIZE }> for WifiConfig {
+impl AtContext<{ Parser::CMD_SIZE }> for WifiConfig {
     
-    fn query(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+    fn query(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         Ok(at_cmd_response!(at_response; quoted!(self.ssid.as_str()), <Auth as Into<u8>>::into(self.auth), self.enabled as u8))
     }
 
     #[inline]
-    fn test(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+    fn test(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
         Ok(at_cmd_response!(at_response; "<ssid>,<password>,<auth 0-6>,<enabled 0|1>"))
     }
 
-    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
+    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { Parser::CMD_SIZE }> {
         if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
-            return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE)));
+            return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
         }
         let ssid = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
         if ssid.len() > 32 {
@@ -343,20 +343,20 @@ impl NtpConfig {
     }
 }
 
-impl AtContext<{ CMD_SIZE }> for NtpConfig {
-    fn query(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+impl AtContext<{ Parser::CMD_SIZE }> for NtpConfig {
+    fn query(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         Ok(at_cmd_response!(at_response; quoted!(self.server.as_str()), self.port, self.msg_len))
     }
 
     #[inline]
-    fn test(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+    fn test(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
         Ok(at_cmd_response!(at_response; "<server>,<port>,<msg_len>"))
     }
 
-    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
+    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { Parser::CMD_SIZE }> {
         if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
-            return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE)));
+            return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
         }
         let server = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
         if server.len() > 64 {
@@ -432,25 +432,25 @@ impl Initializable for Config {
     }
 }
 
-impl AtContext<{ CMD_SIZE }> for Config {
-    fn exec(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+impl AtContext<{ Parser::CMD_SIZE }> for Config {
+    fn exec(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
         Config::save().map_err(|_| (at_response, AtError::Unhandled("Save error")))?;
         Ok(at_cmd_response!(at_response; ""))
     }
 
-    fn query(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+    fn query(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         Ok(at_cmd_response!(at_response; quoted!(self.serial.as_str()), self.timezone))
     }
 
     #[inline]
-    fn test(&mut self, at_response: &'static str) -> AtResult<'_, { CMD_SIZE }> {
+    fn test(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
         Ok(at_cmd_response!(at_response; "serial,<value> | timezone,<value> | save | load"))
     }
 
-    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { CMD_SIZE }> {
+    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { Parser::CMD_SIZE }> {
         if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
-            return Err((at_response, AtError::Unhandled(NOT_LOGGED_RESPONSE)));
+            return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
         }
         let cmd = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
 

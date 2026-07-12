@@ -22,6 +22,8 @@
 
 use core::fmt::{Display, Formatter};
 
+use at_parser_rs::context::AtContext;
+use at_parser_rs::{Args, AtError, AtResult};
 use osal_rs::{access_static_option, log_info};
 use osal_rs::os::RawMutex;
 use osal_rs::os::RawMutexGuard;
@@ -29,6 +31,7 @@ use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
+use crate::apps::parser::Parser;
 use crate::apps::utils::deserialize_file;
 use crate::drivers::platform::{FS_CONFIG_DIR, GpioPeripheral};
 use crate::traits::state::Initializable;
@@ -44,7 +47,7 @@ static mut SHARED: ZoneController = ZoneController ([
 
 static mut MUTEX: Option<RawMutex> = None;
 
-const APP_TAG: &str = "Zone";
+const APP_TAG: &str = "ZoneController";
 
 
 #[repr(u8)]
@@ -187,11 +190,33 @@ impl Initializable for ZoneController {
     }
 }
 
+impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
+    fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
+        Err((at_response, AtError::NotSupported))
+    }
+
+    fn query(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
+        Err((at_response, AtError::NotSupported))
+    }
+
+    fn test(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
+        Err((at_response, AtError::NotSupported))
+    }
+
+    fn set(&mut self, at_response: &'static str, _args: Args) -> AtResult<'_, {Parser::CMD_SIZE}> {
+        Err((at_response, AtError::NotSupported))
+    }
+}
+
+
+
 impl ZoneController {
     pub(in crate::apps) const SIZE: usize = 4;
+    pub(in crate::apps) const AT_CMD: &'static str = "AT+ZN";
+    pub(in crate::apps) const AT_RESP: &'static str = "+ZN: ";
     const FILE_NAME: &'static str = "zones.json";
 
-    pub(super) fn shared() -> &'static mut Self {
+    pub(in crate::apps) fn shared() -> &'static mut Self {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         unsafe { &mut *&raw mut SHARED }
     }
