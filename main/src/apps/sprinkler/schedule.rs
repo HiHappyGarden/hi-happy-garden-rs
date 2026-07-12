@@ -18,20 +18,28 @@
  *
  ***************************************************************************/
 
+use osal_rs::{access_static_option, log_info};
+use osal_rs::os::{RawMutex, RawMutexGuard};
 use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
-use crate::apps::sprinkler::zone::Zone;
+use crate::apps::sprinkler::zone::{ZoneController, ZoneRelay};
 use crate::drivers::date_time::DateTime;
+use crate::traits::state::Initializable;
 use super::commons::Status;
 
-static mut SCHEDULES: [Schedule; Schedule::SIZE] = [
+static mut SHARED: ScheduleController = ScheduleController ([
     Schedule::new(),
     Schedule::new(),
     Schedule::new(),
     Schedule::new()
-];
+]);
+
+
+static mut MUTEX: Option<RawMutex> = None;
+
+const APP_TAG: &str = "Zone";
 
  #[allow(dead_code)]
  #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -175,15 +183,13 @@ pub(in crate::apps) struct Schedule {
     pub description: Bytes<DISPLAY_INPUT_MAX_SIZE>,
 
     /// zones associated to the schedule
-    pub zones: [Option<Zone>; Zone::SIZE],
+    pub zones: [Option<ZoneRelay>; ZoneController::SIZE],
 
     /// status of the schedule
     pub status: Status
 }
 
 impl Schedule {
-
-    pub(in crate::apps) const SIZE: usize = 4;
     pub(super) const NOT_SET: u8 = 0x00;
 
     pub(super) const fn new() -> Self {
@@ -203,11 +209,11 @@ impl Schedule {
         }
     }
 
-    pub(in super) fn executable(&mut self, now: &DateTime) -> bool {
+    pub(in super) fn executable(&self, now: &DateTime) -> bool {
         if self.status == Status::RUN {
             return false;
         }
-        
+
         let mut check = [true; 4];
 
         if self.month != Schedule::NOT_SET as u16 {
@@ -215,7 +221,7 @@ impl Schedule {
             for month in months.iter() {
                 check[0] = false;
                 if let Some(m) = month {
-                    if <Month as Into<u8>>::into(*m)  == now.month {
+                    if <Month as Into<u8>>::into(*m) == now.month {
                         check[0] = true;
                         break;
                     }
@@ -241,30 +247,59 @@ impl Schedule {
         }
 
         if self.hour != Schedule::NOT_SET {
-            if self.hour - 1 == now.hour {
-                check[2] = true;
-            } else {
-                check[2] = false;
-            }
+            check[2] = self.hour - 1 == now.hour;
         } else {
             check[2] = true;
         }
 
         if self.minute != Schedule::NOT_SET {
-            if self.minute - 1 == now.minute {
-                check[3] = true;
-            } else {
-                check[3] = false;
-            }
+            check[3] = self.minute - 1 == now.minute;
         } else {
             check[3] = true;
         }
 
-        if check.iter().all(|&x| x) {
-            true
-        } else {
-            false
-        }
+        check.iter().all(|&x| x)
     }
+}
 
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub(in crate::apps) struct ScheduleController([Schedule; ScheduleController::SIZE]);
+
+
+impl Initializable for ScheduleController {
+    fn init(&mut self) -> Result<()> {
+        log_info!(APP_TAG, "Init Schedule");
+
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+
+        let mut count = 0u8;
+        unsafe {
+            for Schedule{description, status,  .. } in &mut *&raw mut SHARED.0 {
+                description.format(format_args!("Schedule {count}"));
+                *status = Status::UNACTIVE;
+                count += 1;
+            }
+        }
+        
+        Ok(())
+    }
+}
+
+impl<'a> IntoIterator for &'a mut ScheduleController {
+    type Item = &'a mut Schedule;
+    type IntoIter = core::slice::IterMut<'a, Schedule>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter_mut()
+    }
+}
+
+impl ScheduleController {
+    
+    pub(in crate::apps) const SIZE: usize = 4;
+
+    pub(in crate::apps) fn shared() -> &'static mut Self {
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        unsafe { &mut *&raw mut SHARED }
+    }
 }

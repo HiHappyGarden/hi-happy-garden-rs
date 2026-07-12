@@ -34,12 +34,12 @@ use crate::traits::state::Initializable;
 use super::commons::Status;
 use ZoneRelay::*;
 
-static mut ZONES: [Zone; Zone::SIZE] = [
+static mut SHARED: ZoneController = ZoneController ([
     Zone::new(Relay0),
     Zone::new(Relay1),
     Zone::new(Relay2),
     Zone::new(Relay3)
-];
+]);
 
 static mut MUTEX: Option<RawMutex> = None;
 
@@ -147,24 +147,9 @@ impl Display for Zone {
     }
 }
 
-impl Initializable for Zone {
-    fn init(&mut self) -> Result<()> {
-        log_info!(APP_TAG, "Init Zone");
-
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
-
-        self.description.push(self.zone_relay.into())?;
-        self.status = Status::UNACTIVE;
-        
-
-        Ok(())
-    }
-} 
 
 impl Zone {
-    pub(in crate::apps) const SIZE: usize = 4;
-
-    pub(super) const fn new(zone_relay: ZoneRelay) -> Self {
+    const fn new(zone_relay: ZoneRelay) -> Self {
         Self {
             description: Bytes::new(),
             zone_relay,
@@ -172,7 +157,36 @@ impl Zone {
             weight: 0,
             status: Status::UNACTIVE
         }
-    }
-        
+    } 
 }
 
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub(in crate::apps) struct ZoneController([Zone; ZoneController::SIZE]);
+
+
+impl Initializable for ZoneController {
+    fn init(&mut self) -> Result<()> {
+        log_info!(APP_TAG, "Init Zone");
+
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+
+        unsafe {
+            for Zone{description, weight, status, zone_relay, ..} in &mut *&raw mut SHARED.0 {
+                description.push((*zone_relay).into())?;
+                *weight = (*zone_relay).into();
+                *status = Status::UNACTIVE;
+            }
+        }
+        
+        Ok(())
+    }
+}
+
+impl ZoneController {
+    pub(in crate::apps) const SIZE: usize = 4;
+
+    pub(super) fn shared() -> &'static mut Self {
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        unsafe { &mut *&raw mut SHARED }
+    }
+}
