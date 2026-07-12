@@ -231,6 +231,7 @@ impl AtContext<{Parser::CMD_SIZE}> for Session {
     }
 
     #[inline]
+    /// i = login, o = logout
     fn test(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
         Ok(at_cmd_response!(at_response; "<i|o>,<email>,<password>"))
     }

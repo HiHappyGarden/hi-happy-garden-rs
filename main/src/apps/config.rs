@@ -134,8 +134,9 @@ impl AtContext<{ Parser::CMD_SIZE }> for DaylightSavingTime {
     }
 
     #[inline]
+    /// smo = start_month, sdy = start_day, shr = start_hour, emo = end_month, edy = end_day, ehr = end_hour, en = enabled
     fn test(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
-        Ok(at_cmd_response!(at_response; "start_month,<value> | start_day,<value> | start_hour,<value> | end_month,<value> | end_day,<value> | end_hour,<value> | enabled,<0|1>"))
+        Ok(at_cmd_response!(at_response; "<smo|sdy|shr|emo|edy|ehr|en>,<value>"))
     }
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { Parser::CMD_SIZE }> {
@@ -147,31 +148,31 @@ impl AtContext<{ Parser::CMD_SIZE }> for DaylightSavingTime {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         match cmd.as_ref() {
-            "start_month" =>
+            "smo" => // start_month
                 self.start_month = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
                     .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
-            
-            "start_day" => 
+
+            "sdy" => // start_day
                 self.start_day = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
                     .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
 
-            "start_hour" => 
+            "shr" => // start_hour
                 self.start_hour = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
                     .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
 
-            "end_month" => 
+            "emo" => // end_month
                 self.end_month = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
                     .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
 
-            "end_day" => 
+            "edy" => // end_day
                 self.end_day = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
                     .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
-            
-            "end_hour" => 
+
+            "ehr" => // end_hour
                 self.end_hour = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
                     .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
-            
-            "enabled" => {
+
+            "en" => { // enabled
                 let value: u8 = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
                     .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
                 self.enabled = value != 0;
@@ -443,8 +444,9 @@ impl AtContext<{ Parser::CMD_SIZE }> for Config {
     }
 
     #[inline]
+    /// sn = serial, tz = timezone, sv = save, ld = load
     fn test(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
-        Ok(at_cmd_response!(at_response; "serial,<value> | timezone,<value> | save | load"))
+        Ok(at_cmd_response!(at_response; "sn,<value> | tz,<value> | sv | ld"))
     }
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { Parser::CMD_SIZE }> {
@@ -456,23 +458,23 @@ impl AtContext<{ Parser::CMD_SIZE }> for Config {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         match cmd.as_ref() {
-            "serial" => {
+            "sn" => { // serial
                 let value = args.get(1).ok_or((at_response, AtError::InvalidArgs))?;
                 if value.len() > 16 {
                     return Err((at_response, AtError::Unhandled("serial max len 16")));
                 }
                 self.serial = Bytes::from_str(value.as_ref());
             }
-            "timezone" => {
+            "tz" => { // timezone
                 let value: i16 = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
                     .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
                 self.timezone = value;
                 self.apply_locale();
             }
-            "save" => {
+            "sv" => { // save
                 Config::save().map_err(|_| (at_response, AtError::Unhandled("Save error")))?;
             }
-            "load" => {
+            "ld" => { // load
                 *self = deserialize_file::<Config>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, Config::FILE_NAME).map_err(|_| (at_response, AtError::Unhandled("Load error")))?;
                 self.apply_locale();
                 self.apply_daylight_saving_time();

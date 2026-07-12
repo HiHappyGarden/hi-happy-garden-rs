@@ -233,8 +233,9 @@ impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
     }
 
     #[inline]
+    /// wt = weight, ds = description
     fn test(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        Ok(at_cmd_response!(at_response; "<zone_relay>,weight,<value> | <zone_relay>,description,<value>"))
+        Ok(at_cmd_response!(at_response; "<zone_relay>,<wt|ds>,<value>"))
     }
 
     fn set(&mut self, at_response: &'static str, args: Args) -> AtResult<'_, {Parser::CMD_SIZE}> {
@@ -257,14 +258,14 @@ impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
         }
 
         match cmd.as_ref() {
-            "weight" => {
+            "wt" => { // weight
                 let value: u8 = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
                     .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
                 unsafe {
                     ZONE_TMP.weight = value;
                 }
             }
-            "description" => {
+            "ds" => { // description
                 let value = args.get(2).ok_or((at_response, AtError::InvalidArgs))?;
                 if value.len() > DISPLAY_INPUT_MAX_SIZE {
                     return Err((at_response, AtError::Unhandled("description max len exceeded")));
