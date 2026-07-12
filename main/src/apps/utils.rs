@@ -33,7 +33,7 @@ use crate::drivers::platform::FS_SEPARATOR_DIR;
 
 
 
-pub(in crate::apps) fn load<T>(mutex: &'static Option<RawMutex>, app_tag: &str, dir: &str, name: &str) -> Result<T> 
+pub(in crate::apps) fn load_file<T>(mutex: &'static Option<RawMutex>, app_tag: &str, dir: &str, name: &str) -> Result<T> 
 where 
     T: Deserialize + Serialize + Default
 {
@@ -74,7 +74,7 @@ where
         let ret = T::default();
 
 
-        save(mutex, app_tag, dir, name, &ret)?;
+        save_file(mutex, app_tag, dir, name, &ret)?;
 
         return Ok(ret);
     }
@@ -101,14 +101,14 @@ where
             log_warning!(app_tag, "Using default config values err: {e}");
             let ret = T::default();
 
-            save(mutex, app_tag, dir, name, &ret)?;
+            save_file(mutex, app_tag, dir, name, &ret)?;
 
             Ok(ret)
         }
     }
 }
 
-pub(in crate::apps) fn save<'a, T>(mutex: &'static Option<RawMutex>, app_tag: &str, dir: &str, name: &str, t: &'a T) -> Result<&'a T> 
+pub(in crate::apps) fn save_file<'a, T>(mutex: &'static Option<RawMutex>, app_tag: &str, dir: &str, name: &str, t: &'a T) -> Result<&'a T> 
 where 
     T: Deserialize + Serialize + Default
 {
