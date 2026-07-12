@@ -63,6 +63,9 @@ impl AtContext<{Parser::CMD_SIZE}> for SystemHandler {
                 Filesystem::umount().map_err(|_| (at_response, AtError::Unhandled("Failed to umount filesystem")))?;
                 Hardware::reset();
             }
+            "hwe" => Ok(at_cmd_response!(at_response; format_args!("{}", HardwareErrorSignal::get()))),
+            "e" => Ok(at_cmd_response!(at_response; format_args!("{}", ErrorSignal::get()))),
+            "s" => Ok(at_cmd_response!(at_response; format_args!("{}", StatusSignal::get()))),
             _ => Err((at_response, AtError::InvalidArgs))
         }
     }

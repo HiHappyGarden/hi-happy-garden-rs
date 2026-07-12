@@ -22,6 +22,7 @@
 
 use core::fmt::{Display, Formatter};
 
+use at_parser_rs::at_quoted as quoted;
 use at_parser_rs::context::AtContext;
 use at_parser_rs::{Args, AtError, AtResult};
 use osal_rs::{access_static_option, log_info};
@@ -31,9 +32,11 @@ use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
-use crate::apps::parser::Parser;
+use crate::apps::parser::{Parser, at_cmd_response};
+use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::apps::utils::deserialize_file;
 use crate::drivers::platform::{FS_CONFIG_DIR, GpioPeripheral};
+use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
 use super::commons::Status;
 use ZoneRelay::*;
@@ -46,6 +49,9 @@ static mut SHARED: ZoneController = ZoneController { zones: [
 ]};
 
 static mut MUTEX: Option<RawMutex> = None;
+
+/// Temporary zone data used to stage changes from `set` until `exec` persists them
+static mut ZONE_TMP: Zone = Zone::new(Relay0);
 
 const APP_TAG: &str = "ZoneController";
 
@@ -136,9 +142,6 @@ pub(in crate::apps) struct Zone {
     /// relay number associated to the zone
     pub(in crate::apps) zone_relay: ZoneRelay,
 
-    /// watering time in minutes
-    pub(in crate::apps) watering_time: u8,
-
     /// for manage order of execution lighter is first then weightier
     pub(in crate::apps) weight: u8,
 
@@ -159,7 +162,6 @@ impl Zone {
         Self {
             description: Bytes::new(),
             zone_relay,
-            watering_time: 0,
             weight: 0,
             status: Status::UNACTIVE
         }
@@ -195,19 +197,86 @@ impl Initializable for ZoneController {
 
 impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
     fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        Err((at_response, AtError::NotSupported))
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+
+        if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
+            return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
+        }
+
+        let Zone{zone_relay, description, weight, ..} = unsafe { &mut *&raw mut ZONE_TMP };
+
+        let zone = self.zones.iter_mut().find(|zone| zone.zone_relay == *zone_relay)
+            .ok_or((at_response, AtError::InvalidArgs))?;
+        zone.weight = *weight;
+        zone.description = *description;
+
+        unsafe {
+            ZONE_TMP = Zone::new(Relay0);
+        }
+
+        Ok(at_cmd_response!(at_response; ""))
     }
 
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        Err((at_response, AtError::NotSupported))
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
+            return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
+        }
+
+        let mut response = Bytes::<{Parser::CMD_SIZE}>::new();
+        for zone in self.zones.iter() {
+            response.format(format_args!("{},{},{}\r\n",
+                <ZoneRelay as Into<u8>>::into(zone.zone_relay), zone.weight, quoted!(zone.description.as_str())));
+        }
+
+        Ok((at_response, response))
     }
 
+    #[inline]
     fn test(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        Err((at_response, AtError::NotSupported))
+        Ok(at_cmd_response!(at_response; "<zone_relay>,weight,<value> | <zone_relay>,description,<value>"))
     }
 
-    fn set(&mut self, at_response: &'static str, _args: Args) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        Err((at_response, AtError::NotSupported))
+    fn set(&mut self, at_response: &'static str, args: Args) -> AtResult<'_, {Parser::CMD_SIZE}> {
+        if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
+            return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
+        }
+
+        let zone_relay: u8 = args.get(0).ok_or((at_response, AtError::InvalidArgs))?
+            .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+        let zone_relay = ZoneRelay::from(zone_relay);
+        let cmd = args.get(1).ok_or((at_response, AtError::InvalidArgs))?;
+
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+
+        let zone = self.zones.iter().find(|zone| zone.zone_relay == zone_relay)
+            .ok_or((at_response, AtError::InvalidArgs))?;
+
+        unsafe {
+            ZONE_TMP = *zone;
+        }
+
+        match cmd.as_ref() {
+            "weight" => {
+                let value: u8 = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+                unsafe {
+                    ZONE_TMP.weight = value;
+                }
+            }
+            "description" => {
+                let value = args.get(2).ok_or((at_response, AtError::InvalidArgs))?;
+                if value.len() > DISPLAY_INPUT_MAX_SIZE {
+                    return Err((at_response, AtError::Unhandled("description max len exceeded")));
+                }
+                unsafe {
+                    ZONE_TMP.description = Bytes::from_str(value.as_ref());
+                }
+            }
+            _ => return Err((at_response, AtError::InvalidArgs)),
+        }
+
+        Ok(at_cmd_response!(at_response; ""))
     }
 }
 

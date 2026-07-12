@@ -188,8 +188,8 @@ pub(in crate::apps) struct Schedule {
     /// description 
     pub description: Bytes<DISPLAY_INPUT_MAX_SIZE>,
 
-    /// zones associated to the schedule
-    pub zones: [Option<ZoneRelay>; ZoneController::SIZE],
+    /// zones associated to the schedule and watering time in minutes
+    pub zones: [Option<(ZoneRelay, u8)>; ZoneController::SIZE],
 
     /// status of the schedule
     pub status: Status
