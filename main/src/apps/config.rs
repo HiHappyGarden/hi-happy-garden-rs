@@ -433,20 +433,15 @@ impl Initializable for Config {
 }
 
 impl AtContext<{ Parser::CMD_SIZE }> for Config {
-    fn exec(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
-        Config::save().map_err(|_| (at_response, AtError::Unhandled("Save error")))?;
-        Ok(at_cmd_response!(at_response; ""))
-    }
-
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         Ok(at_cmd_response!(at_response; quoted!(self.serial.as_str()), self.timezone))
     }
 
     #[inline]
-    /// sn = serial, tz = timezone, sv = save, ld = load
+    /// sn = serial, tz = timezone, sv = save
     fn test(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
-        Ok(at_cmd_response!(at_response; "sn,<value> | tz,<value> | sv | ld"))
+        Ok(at_cmd_response!(at_response; "sn,<value> | tz,<value> | sv"))
     }
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { Parser::CMD_SIZE }> {
@@ -473,14 +468,6 @@ impl AtContext<{ Parser::CMD_SIZE }> for Config {
             }
             "sv" => { // save
                 Config::save().map_err(|_| (at_response, AtError::Unhandled("Save error")))?;
-            }
-            "ld" => { // load
-                *self = deserialize_file::<Config>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, Config::FILE_NAME).map_err(|_| (at_response, AtError::Unhandled("Load error")))?;
-                self.apply_locale();
-                self.apply_daylight_saving_time();
-                self.apply_ntp();
-                self.apply_wifi();
-                self.apply_session();
             }
             _ => return Err((at_response, AtError::InvalidArgs)),
         }

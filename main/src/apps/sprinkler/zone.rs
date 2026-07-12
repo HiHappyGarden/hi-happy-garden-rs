@@ -34,7 +34,7 @@ use osal_rs_serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::parser::{Parser, at_cmd_response};
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
-use crate::apps::utils::deserialize_file;
+use crate::apps::utils::{deserialize_file, serialize_file};
 use crate::drivers::platform::{FS_CONFIG_DIR, GpioPeripheral};
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
@@ -133,7 +133,7 @@ impl Deserialize for ZoneRelay {
     }
 }
 
-#[derive(Debug, Default, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub(in crate::apps) struct Zone {
 
     /// description of zone
@@ -166,6 +166,11 @@ impl Zone {
             status: Status::UNACTIVE
         }
     } 
+
+    fn is_modified(tmp: &Self) -> bool {
+        static EMPTY: Zone = Zone::new(Relay0);
+        EMPTY != *tmp 
+    }
 }
 
 #[derive(Debug, Default, Copy, Clone, Serialize, Deserialize)]
@@ -181,8 +186,8 @@ impl Initializable for ZoneController {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         unsafe {
-            for Zone{description, weight, status, zone_relay, ..} in &mut *&raw mut SHARED.zones {
-                description.push((*zone_relay).into())?;
+            for Zone{description: descr, weight, status, zone_relay, ..} in &mut *&raw mut SHARED.zones {
+                descr.push((*zone_relay).into())?;
                 *weight = (*zone_relay).into();
                 *status = Status::UNACTIVE;
             }
@@ -203,12 +208,16 @@ impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
             return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
         }
 
-        let Zone{zone_relay, description, weight, ..} = unsafe { &mut *&raw mut ZONE_TMP };
+        if !Zone::is_modified(unsafe { &*&raw const ZONE_TMP}) {
+            return Err((at_response, AtError::Unhandled("No modify applied")));
+        }
+
+        let Zone{zone_relay, description: descr, weight, ..} = unsafe { &mut *&raw mut ZONE_TMP };
 
         let zone = self.zones.iter_mut().find(|zone| zone.zone_relay == *zone_relay)
             .ok_or((at_response, AtError::InvalidArgs))?;
         zone.weight = *weight;
-        zone.description = *description;
+        zone.description = *descr;
 
         unsafe {
             ZONE_TMP = Zone::new(Relay0);
@@ -233,9 +242,9 @@ impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
     }
 
     #[inline]
-    /// wt = weight, ds = description
+    /// wt = weight, ds = description, sv = save
     fn test(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        Ok(at_cmd_response!(at_response; "<zone_relay>,<wt|ds>,<value>"))
+        Ok(at_cmd_response!(at_response; "<zone_relay>,<wt|ds>,<value> | sv"))
     }
 
     fn set(&mut self, at_response: &'static str, args: Args) -> AtResult<'_, {Parser::CMD_SIZE}> {
@@ -273,6 +282,9 @@ impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
                 unsafe {
                     ZONE_TMP.description = Bytes::from_str(value.as_ref());
                 }
+            }
+            "sv" => {
+                serialize_file(unsafe {&*&raw const MUTEX},  APP_TAG, FS_CONFIG_DIR, ZoneController::FILE_NAME, unsafe {&*&raw const SHARED}).map_err(|_| (at_response, AtError::Unhandled("Impossible save")))?;
             }
             _ => return Err((at_response, AtError::InvalidArgs)),
         }

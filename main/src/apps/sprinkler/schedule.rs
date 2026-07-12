@@ -26,11 +26,13 @@ use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
-use crate::apps::parser::Parser;
+use crate::apps::parser::{Parser, at_cmd_response};
+use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::apps::sprinkler::zone::{ZoneController, ZoneRelay};
-use crate::apps::utils::deserialize_file;
+use crate::apps::utils::{deserialize_file, serialize_file};
 use crate::drivers::date_time::DateTime;
 use crate::drivers::platform::FS_CONFIG_DIR;
+use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
 use super::commons::Status;
 
@@ -44,6 +46,8 @@ static mut SHARED: ScheduleController = ScheduleController { schedules: [
 
 static mut MUTEX: Option<RawMutex> = None;
 
+/// Temporary schedule data used to stage changes from `set` until `exec` persists them
+static mut SCHEDULE_TMP: (usize, Schedule) = (0, Schedule::new());
 
 const APP_TAG: &str = "SchedulerController";
 
@@ -170,7 +174,7 @@ impl Month {
 
 
 
-#[derive(Debug, Default, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub(in crate::apps) struct Schedule {
 
     ///  minute, values allowed 1 - 60 or NOT_SET (0) for every minute real value is minute - 1
@@ -213,6 +217,11 @@ impl Schedule {
             ],
             status: Status::UNACTIVE
         }
+    }
+
+    fn is_modified(tmp: &Self) -> bool {
+        static EMPTY: Schedule = Schedule::new();
+        EMPTY != *tmp 
     }
 
     pub(in super) fn executable(&self, now: &DateTime) -> bool {
@@ -282,8 +291,8 @@ impl Initializable for ScheduleController {
 
         let mut count = 0u8;
         unsafe {
-            for Schedule{description, status,  .. } in &mut *&raw mut SHARED.schedules {
-                description.format(format_args!("Schedule {count}"));
+            for Schedule{description: descr, status,  .. } in &mut *&raw mut SHARED.schedules {
+                descr.format(format_args!("Schedule {count}"));
                 *status = Status::UNACTIVE;
                 count += 1;
             }
@@ -306,19 +315,140 @@ impl<'a> IntoIterator for &'a mut ScheduleController {
 
 impl AtContext<{Parser::CMD_SIZE}> for ScheduleController {
     fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        Err((at_response, AtError::NotSupported))
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+
+        if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
+            return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
+        }
+
+        if !Schedule::is_modified(unsafe { &(*&raw const SCHEDULE_TMP).1 }) {
+            return Err((at_response, AtError::Unhandled("No modify applied")));
+        }
+
+        let (index, schedule_tmp) = unsafe { &mut *&raw mut SCHEDULE_TMP };
+
+        let schedule = self.schedules.get_mut(*index)
+            .ok_or((at_response, AtError::InvalidArgs))?;
+        *schedule = *schedule_tmp;
+
+        unsafe {
+            SCHEDULE_TMP = (0, Schedule::new());
+        }
+
+        Ok(at_cmd_response!(at_response; ""))
     }
 
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        Err((at_response, AtError::NotSupported))
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        
+        let (index, schedule) = unsafe {
+            &*&raw mut SCHEDULE_TMP
+        };
+        
+
+        let mut zones_descr = Bytes::<100>::new();
+        zones_descr.append_str("[");
+        for zone in schedule.zones {
+            match zone {
+                Some((zone_relay, watering_time)) => {
+                    let mut format = Bytes::<16>::new();
+                    format.format(format_args!("{zone_relay}={watering_time}, "));
+                    zones_descr.append_as_sync_str(&format);
+                }
+                None => zones_descr.append_str("None, "),
+            };
+        }
+        zones_descr.pop_char();
+        zones_descr.pop_char();
+        zones_descr.append_str("]");
+
+        let mut response = Bytes::<{ Parser::CMD_SIZE }>::new();
+        response.format(format_args!("{},{},{},{},{},{},{}",
+            index,
+            schedule.minute,
+            schedule.hour,
+            schedule.days,
+            schedule.month,
+            schedule.description,
+            zones_descr,
+        ));
+
+        Ok((at_response, response))
     }
 
+    #[inline]
+    /// mi = minute, hr = hour, dy = days, mo = month, ds = description, zn = zone, st = status, sv = save
     fn test(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        Err((at_response, AtError::NotSupported))
+        Ok(at_cmd_response!(at_response; "<idx>,<mi|hr|dy|mo|ds|zn|st>,<value> | sv"))
     }
 
-    fn set(&mut self, at_response: &'static str, _args: Args) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        Err((at_response, AtError::NotSupported))
+    #[allow(unused_assignments)]
+    fn set(&mut self, at_response: &'static str, args: Args) -> AtResult<'_, {Parser::CMD_SIZE}> {
+        if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
+            return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
+        }
+
+        let idx: usize = args.get(0).ok_or((at_response, AtError::InvalidArgs))?
+            .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+        let cmd = args.get(1).ok_or((at_response, AtError::InvalidArgs))?;
+
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+
+
+        let schedule = unsafe {
+            &mut *&raw mut SCHEDULE_TMP
+        };
+
+        schedule.0 = idx;
+
+        match cmd.as_ref() {
+            "mi" => // minute
+                schedule.1.minute = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+
+            "hr" => // hour
+                schedule.1.hour = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+
+            "dy" => // days (bitmask, see Day)
+                schedule.1.days = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+
+            "mo" => // month (bitmask, see Month)
+                schedule.1.month = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+
+            "ds" => { // description
+                let value = args.get(2).ok_or((at_response, AtError::InvalidArgs))?;
+                if value.len() > DISPLAY_INPUT_MAX_SIZE {
+                    return Err((at_response, AtError::Unhandled("description max len exceeded")));
+                }
+                schedule.1.description = Bytes::from_str(value.as_ref());
+            }
+            "zn" => { // zone relay + watering time in minutes
+                let zone_relay: u8 = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+                let zone_relay = ZoneRelay::from(zone_relay);
+                let minutes: u8 = args.get(3).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+
+                let position = schedule.1.zones.iter().position(|z| matches!(z, Some((relay, _)) if *relay == zone_relay))
+                    .or_else(|| schedule.1.zones.iter().position(|z| z.is_none()))
+                    .ok_or((at_response, AtError::InvalidArgs))?;
+                schedule.1.zones[position] = Some((zone_relay, minutes));
+            }
+            "st" => { // status
+                let value: u8 = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+                schedule.1.status = Status::from(value);
+            }
+            "sv" => {// save
+                serialize_file(unsafe {&*&raw const MUTEX},  APP_TAG, FS_CONFIG_DIR, ScheduleController::FILE_NAME, unsafe {&*&raw const SHARED}).map_err(|_| (at_response, AtError::Unhandled("Impossible save")))?;
+            }
+            _ => return Err((at_response, AtError::InvalidArgs)),
+        }
+
+        Ok(at_cmd_response!(at_response; ""))
     }
 }
 

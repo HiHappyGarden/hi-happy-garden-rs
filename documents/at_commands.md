@@ -11,6 +11,9 @@ sent after the command name:
 | `=?`       | Test     | Lists the syntax of the accepted parameters      |
 | `=<args>`  | Set      | Sets values/performs an operation with arguments |
 
+Not every command implements all four forms; unsupported forms return
+`AtError::NotSupported`. See each section below for which forms are available.
+
 Arguments in the Set form are comma-separated. Values that contain commas must be
 wrapped in double quotes (e.g. `"hello, world"`); to include a literal quote use `\"`.
 
@@ -32,19 +35,19 @@ Module: `main/src/apps/config.rs` (`Config`)
 
 | Form | Description |
 |---|---|
-| `AT+CNF` | Saves the current configuration to file (equivalent to `AT+CNF=save`). **Requires login.** |
 | `AT+CNF?` | Returns `<serial>,<timezone>` |
-| `AT+CNF=?` | Returns the syntax: `serial,<value> \| timezone,<value> \| save \| load` |
-| `AT+CNF=serial,<value>` | Sets the serial number (max 16 characters). **Requires login.** |
-| `AT+CNF=timezone,<value>` | Sets the timezone (`i16`, minutes) and applies it immediately. **Requires login.** |
-| `AT+CNF=save` | Saves the current configuration to file. **Requires login.** |
-| `AT+CNF=load` | Reloads the configuration from file and reapplies it (locale, DST, NTP, WiFi, session). **Requires login.** |
+| `AT+CNF=?` | Returns the syntax: `sn,<value> \| tz,<value> \| sv` |
+| `AT+CNF=sn,<value>` | Sets the serial number (max 16 characters). **Requires login.** |
+| `AT+CNF=tz,<value>` | Sets the timezone (`i16`, minutes) and applies it immediately. **Requires login.** |
+| `AT+CNF=sv` | Saves the current configuration to file. **Requires login.** |
+
+`AT+CNF` has no bare Exec form, and `load` has been removed (no more `AT+CNF=ld`).
 
 Example:
 ```
-AT+CNF=serial,SN00123456
-AT+CNF=timezone,60
-AT+CNF=save
+AT+CNF=sn,SN00123456
+AT+CNF=tz,60
+AT+CNF=sv
 AT+CNF?
 ```
 
@@ -64,20 +67,20 @@ Fields settable with `AT+DST=<field>,<value>`:
 
 | Field | Type | Notes |
 |---|---|---|
-| `start_month` | `u8` | DST start month |
-| `start_day` | `u8` | Start day (`0xFF` = last week of the month) |
-| `start_hour` | `u8` | Start hour |
-| `end_month` | `u8` | DST end month |
-| `end_day` | `u8` | End day (`0xFF` = last week of the month) |
-| `end_hour` | `u8` | End hour |
-| `enabled` | `<0\|1>` | Enables/disables DST |
+| `smo` | `u8` | DST start month |
+| `sdy` | `u8` | Start day (`0xFF` = last week of the month) |
+| `shr` | `u8` | Start hour |
+| `emo` | `u8` | DST end month |
+| `edy` | `u8` | End day (`0xFF` = last week of the month) |
+| `ehr` | `u8` | End hour |
+| `en` | `<0\|1>` | Enables/disables DST |
 
 Every `set` immediately applies the new DST configuration (`Config::apply_daylight_saving_time`).
 
 Example:
 ```
-AT+DST=start_month,3
-AT+DST=enabled,1
+AT+DST=smo,3
+AT+DST=en,1
 AT+DST?
 ```
 
@@ -217,79 +220,48 @@ AT+SYS=rs
 
 ---
 
-## AT+SPK — Sprinkler (schedules and zones)
+## AT+SCH — Irrigation schedules
 
-Module: `main/src/apps/sprinkler.rs` (`Sprinkler`), with sub-structures
-`main/src/apps/sprinkler/schedule.rs` (`Schedule`) and `main/src/apps/sprinkler/zone.rs` (`Zone`).
+Module: `main/src/apps/sprinkler/schedule.rs` (`ScheduleController`, `Schedule`)
 
-Fixed limits: maximum **4 schedules** (`MAX_SCHEDULES`) per sprinkler, maximum
-**4 zones** (`ZONES_SIZE`) per schedule.
+Fixed limit: maximum **4 schedules** (`ScheduleController::SIZE`).
+
+`AT+SPK` no longer exists as an AT command: schedules and zones are now handled by two
+independent commands, `AT+SCH` (this section) and [`AT+ZN`](#atzn--irrigation-zones-relays).
+There is no more `select`/per-schedule `query`, `insert`/`delete`, or combined
+schedule+zone response — see notes below for what replaces each of these.
 
 | Form | Description |
 |---|---|
-| `AT+SPK` | No-op (no action) |
-| `AT+SPK?` | Returns the currently selected schedule and its zones, one per line (see below). **Requires login.** |
-| `AT+SPK=?` | Returns the full syntax (see below) |
-| `AT+SPK=select,<index>` | Selects which schedule `AT+SPK?` will print. **Requires login.** |
-| `AT+SPK=schedule,insert,...` | Inserts a schedule into a specific slot. **Requires login.** |
-| `AT+SPK=schedule,delete,<index>` | Removes the schedule at the given index. **Requires login.** |
-| `AT+SPK=zone,<schedule_index>,insert,...` | Inserts a zone into a specific slot of the schedule. **Requires login.** |
-| `AT+SPK=zone,<schedule_index>,delete,<zone_index>` | Removes the zone at the given index. **Requires login.** |
-| `AT+SPK=save` | Saves the current schedules state to file. **Requires login.** |
+| `AT+SCH` | Not supported. |
+| `AT+SCH?` | Not supported. |
+| `AT+SCH=?` | Returns the syntax: `<idx>,<mi\|hr\|dy\|mo\|ds\|zn\|st>,<value> \| sv` |
+| `AT+SCH=<idx>,<field>,<value>` | Stages a change to schedule `idx` in a temporary buffer. **Requires login.** |
+| `AT+SCH=<idx>,zn,<zone_relay>,<minutes>` | Stages a zone assignment for schedule `idx` (see below). **Requires login.** |
+| `AT+SCH=<idx>,sv` | Persists **all** schedules (the whole `ScheduleController`, not just `idx`) to file. **Requires login.** |
 
-### `select` and `query`
+Notes:
+- Every `set` first stores `idx` as the "current" schedule index and edits a module-level
+  staging buffer (`SCHEDULE_TMP`), not the live schedule directly — there is no separate
+  `exec` step that commits it (unlike `AT+ZN`, see below); the field setters below write
+  straight into the staging buffer, which is what `sv` serializes together with the rest
+  of `SHARED`.
+- There is no `query` (`AT+SCH?`) any more: schedule state cannot currently be read back
+  over AT commands.
+- There is no `schedule,insert` / `schedule,delete` pair any more, and no explicit way to
+  remove a zone from a schedule — zones are upserted only (see `zn` below).
 
-```
-AT+SPK=select,<index>
-AT+SPK?
-```
+Fields settable with `AT+SCH=<idx>,<field>,<value>`:
 
-- `index` (required): position in the schedules array (`0`-`3`) to select. The selection
-  is kept in memory (not persisted) and defaults to `0` at startup.
-
-`AT+SPK?` then returns the selected schedule and all of its zones, one entry per line
-(`\r\n`-separated), in a compact field-only format (no `description`, to fit the
-96-byte AT response buffer):
-
-```
-<schedule_index>:<minute>,<hour>,<days>,<month>,<status>
-<zone_index>:<relay_number>,<watering_time>,<weight>,<status>
-<zone_index>:<relay_number>,<watering_time>,<weight>,<status>
-...
-```
-
-`status` is the numeric value of the `Status` enum: `0` = `UNACTIVE`, `1` = `ACTIVE`,
-`2` = `RUN`.
-
-Example:
-```
-AT+SPK=select,0
-AT+SPK?
-```
-```
-0:8,255,0,0,1
-0:0,10,1,1
-1:1,5,0,1
-2:2,0,0,0
-3:3,0,0,0
-```
-
-### `schedule,insert`
-
-```
-AT+SPK=schedule,insert,<index>,[minute],[hour],[days],[month],[description]
-```
-
-- `index` (required): position in the schedules array (`0`-`3`). Must be a free slot
-  (status `UNACTIVE`), otherwise the error `"schedule index already occupied"` is returned.
-- `minute` (optional, `u8`): execution minute + 1 (`0`/omitted = every minute).
-- `hour` (optional, `u8`): execution hour + 1 (`0`/omitted = every hour).
-- `days` (optional, `u8`): weekday bitmask (`0`/omitted = every day). See the `Day` table below.
-- `month` (optional, `u16`): month bitmask (`0`/omitted = every month). See the `Month` table below.
-- `description` (optional, string): free text, max `DISPLAY_INPUT_MAX_SIZE` characters.
-
-Inserting resets the schedule's zones (all set to `Zone::default()`) and sets its
-status to `ACTIVE`.
+| Field | Type | Notes |
+|---|---|---|
+| `mi` | `u8` | Minute + 1 (`0` = every minute) |
+| `hr` | `u8` | Hour + 1 (`0` = every hour) |
+| `dy` | `u8` | Weekday bitmask (`0` = every day). See the `Day` table below. |
+| `mo` | `u16` | Month bitmask (`0` = every month). See the `Month` table below. |
+| `ds` | string | Description, max `DISPLAY_INPUT_MAX_SIZE` characters. |
+| `zn` | `<zone_relay>,<minutes>` | Assigns/updates a zone on this schedule (two values, see below). |
+| `st` | `<0\|1\|2>` | Status: `0` = `UNACTIVE`, `1` = `ACTIVE`, `2` = `RUN`. |
 
 `Day` bitmask (`main/src/apps/sprinkler/schedule.rs`):
 
@@ -315,74 +287,99 @@ status to `ACTIVE`.
 | `0x0020` | June | | |
 | `0x0040` | July | | |
 
-### `schedule,delete`
+### `zn` — assigning a zone to a schedule
 
 ```
-AT+SPK=schedule,delete,<index>
+AT+SCH=<idx>,zn,<zone_relay>,<minutes>
 ```
 
-Resets the schedule at the given index to its default state (`UNACTIVE`, no zones),
-making the slot available again for a future `insert`.
+- `zone_relay` (required, `0`-`3`): which physical relay (see [`AT+ZN`](#atzn--irrigation-zones-relays)) to run as part of this schedule.
+- `minutes` (required, `u8`): watering time in minutes for that relay within this schedule.
 
-### `zone,insert`
+The zone is looked up by `zone_relay` among the schedule's already-assigned zones; if
+found its minutes are updated in place, otherwise it is written into the first free slot
+(up to `ZoneController::SIZE`, i.e. 4 zones per schedule). There is no command to remove
+a zone from a schedule once assigned.
 
-```
-AT+SPK=zone,<schedule_index>,insert,<index>,<watering_time>,[weight],[description]
-```
-
-- `schedule_index` (required): index of the schedule the zone belongs to.
-- `index` (required): position in the schedule's zones array (`0`-`3`). Must be a free
-  slot (status `UNACTIVE`), otherwise the error `"zone index already occupied"` is
-  returned. This same value is also assigned to the zone's `relay_number` field.
-- `watering_time` (required, `u8`): irrigation duration in minutes.
-- `weight` (optional, `u8`, default `0`): weight used for execution order (lower values run first).
-- `description` (optional, string, default empty): free text, max `DISPLAY_INPUT_MAX_SIZE` characters.
-
-Inserting sets the zone's status to `ACTIVE`.
-
-### `zone,delete`
+### `sv`
 
 ```
-AT+SPK=zone,<schedule_index>,delete,<zone_index>
+AT+SCH=<idx>,sv
 ```
 
-Resets the zone at the given index to its default state (`UNACTIVE`).
+Serializes to JSON and saves to file (`schedules.json`) the current state of **all**
+schedules (the live `ScheduleController`, `SHARED`) — note this does not include whatever
+is currently staged in `SCHEDULE_TMP` for the field setters above, since those only take
+effect once written back to the live schedule.
 
-### `save`
-
-```
-AT+SPK=save
-```
-
-Serializes to JSON and saves to file (`sprinkler.json`) the current state of all
-schedules and zones.
-
-### Full example
+### Example
 
 ```
 # Login
 AT+SESS=i,admin@hhg.local,mysecretpassword
 AT+SESS
 
-# Create schedule 0: every day at 7:00, every month
-AT+SPK=schedule,insert,0,,8,,,"Morning irrigation"
+# Configure schedule 0: every day at 7:00 (hour+1=8), every month, with a description
+AT+SCH=0,hr,8
+AT+SCH=0,ds,"Morning irrigation"
 
-# Add zone 0 to schedule 0: relay 0, 10 minutes
-AT+SPK=zone,0,insert,0,10,1,"Front flowerbed"
+# Assign zone (relay) 0 to schedule 0 for 10 minutes, and relay 1 for 5 minutes
+AT+SCH=0,zn,0,10
+AT+SCH=0,zn,1,5
 
-# Add zone 1 to schedule 0: relay 1, 5 minutes
-AT+SPK=zone,0,insert,1,5
+# Activate the schedule
+AT+SCH=0,st,1
 
-# Inspect schedule 0 and its zones
-AT+SPK=select,0
-AT+SPK?
+# Save all schedules to file
+AT+SCH=0,sv
+```
 
-# Save to file
-AT+SPK=save
+---
 
-# Remove zone 1 and then the whole schedule 0
-AT+SPK=zone,0,delete,1
-AT+SPK=schedule,delete,0
+## AT+ZN — Irrigation zones (relays)
+
+Module: `main/src/apps/sprinkler/zone.rs` (`ZoneController`, `Zone`)
+
+Fixed limit: 4 zones (`ZoneController::SIZE`), one per physical relay (`Relay0`-`Relay3`).
+Unlike schedules, zones are a fixed pool tied 1:1 to relays — there is no insert/delete,
+only editing a zone's `weight`/`description` and persisting.
+
+| Form | Description |
+|---|---|
+| `AT+ZN` | Commits the change staged by the last `AT+ZN=<zone_relay>,<wt\|ds>,<value>` to the live zone. Fails with `"No modify applied"` if nothing was staged. **Requires login.** |
+| `AT+ZN?` | Returns all 4 zones, one per line (see below). **Requires login.** |
+| `AT+ZN=?` | Returns the syntax: `<zone_relay>,<wt\|ds>,<value> \| sv` |
+| `AT+ZN=<zone_relay>,wt,<value>` | Stages a new weight for the zone. **Requires login.** |
+| `AT+ZN=<zone_relay>,ds,<value>` | Stages a new description for the zone. **Requires login.** |
+| `AT+ZN=<zone_relay>,sv` | Saves the current state of all zones to file. **Requires login.** |
+
+`AT+ZN` follows a stage-then-commit flow: `set` copies the target zone into a temporary
+buffer (`ZONE_TMP`) and applies the requested field change to it; the bare `AT+ZN` (Exec)
+then copies `weight`/`description` from the buffer into the real zone. Nothing is
+persisted to file until `AT+ZN=<zone_relay>,sv` is issued afterwards.
+
+`AT+ZN?` response format, one line per zone (`\r\n`-separated):
+
+```
+<zone_relay>,<weight>,"<description>"
+```
+
+Example:
+```
+# Login
+AT+SESS=i,admin@hhg.local,mysecretpassword
+AT+SESS
+
+# Stage and commit a new description + weight for relay 0
+AT+ZN=0,ds,"Front flowerbed"
+AT+ZN=0,wt,1
+AT+ZN
+
+# Inspect all zones
+AT+ZN?
+
+# Persist to file
+AT+ZN=0,sv
 ```
 
 ---
@@ -391,11 +388,12 @@ AT+SPK=schedule,delete,0
 
 | Command | Module | Description |
 |---|---|---|
-| `AT+CNF` | Config | General configuration (serial, timezone, save/load) |
+| `AT+CNF` | Config | General configuration (serial, timezone, save) |
 | `AT+DST` | DaylightSavingTime | Daylight saving time |
 | `AT+WIFI` | WifiConfig | WiFi configuration |
 | `AT+NTP` | NtpConfig | NTP server configuration |
 | `AT+SESS` | Session | Session login/logout |
 | `AT+USR` | User | Local user |
 | `AT+SYS` | SystemHandler | Reset/factory reset/system status |
-| `AT+SPK` | Sprinkler | Irrigation schedules and zones |
+| `AT+SCH` | ScheduleController | Irrigation schedules (fields, zone assignment, save) |
+| `AT+ZN` | ZoneController | Irrigation zones/relays (weight, description, save) |
