@@ -21,7 +21,6 @@
 #![allow(dead_code)]
 
 use core::fmt::{Display, Formatter};
-use core::sync::atomic::{AtomicBool, Ordering};
 
 use at_parser_rs::context::AtContext;
 use at_parser_rs::{Args, AtError, AtResult};
@@ -45,7 +44,6 @@ static mut SHARED: ZoneController = ZoneController { zones: [
     Zone::new(Relay2),
     Zone::new(Relay3)
 ]};
-static INITIALIZED: AtomicBool = AtomicBool::new(false);
 
 static mut MUTEX: Option<RawMutex> = None;
 
@@ -191,8 +189,6 @@ impl Initializable for ZoneController {
         
         *self = deserialize_file::<ZoneController>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, ZoneController::FILE_NAME)?;
 
-        INITIALIZED.store(true, Ordering::Relaxed);
-
         Ok(())
     }
 }
@@ -237,7 +233,4 @@ impl ZoneController {
         unsafe { &mut *&raw mut SHARED }
     }
 
-    pub(in crate) fn is_initialized() -> bool {
-        INITIALIZED.load(Ordering::Relaxed)
-    }
 }

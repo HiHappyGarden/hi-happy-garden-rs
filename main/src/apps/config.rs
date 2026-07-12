@@ -19,9 +19,6 @@
  ***************************************************************************/
 
 
-use core::sync::atomic::AtomicBool;
-use core::sync::atomic::Ordering;
-
 use osal_rs::os::RawMutex;
 use osal_rs::os::RawMutexGuard;
 use osal_rs::utils::Bytes;
@@ -84,7 +81,6 @@ static mut SHARED: Config = Config {
         msg_len: 48,
     },
 };
-static INITIALIZED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub(in crate::apps) struct DaylightSavingTime {
@@ -431,8 +427,6 @@ impl Initializable for Config {
         self.apply_wifi();
         self.apply_session();
 
-        INITIALIZED.store(true, Ordering::Relaxed);
-
         Ok(())
     }
 }
@@ -604,7 +598,5 @@ impl Config {
         &mut self.session
     }
 
-    pub(in crate) fn is_initialized() -> bool {
-        INITIALIZED.load(Ordering::Relaxed)
-    }
+
 }
