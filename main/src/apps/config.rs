@@ -420,12 +420,12 @@ impl Initializable for Config {
 
         self.session.init()?;
 
-        let config = deserialize_file::<Config>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, Config::FILE_NAME)?;
-        config.apply_locale();
-        config.apply_daylight_saving_time();
-        config.apply_ntp();
-        config.apply_wifi();
-        config.apply_session();
+        *self = deserialize_file::<Config>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, Config::FILE_NAME)?;
+        self.apply_locale();
+        self.apply_daylight_saving_time();
+        self.apply_ntp();
+        self.apply_wifi();
+        self.apply_session();
 
 
         Ok(())
@@ -474,12 +474,12 @@ impl AtContext<{ Parser::CMD_SIZE }> for Config {
                 Config::save().map_err(|_| (at_response, AtError::Unhandled("Save error")))?;
             }
             "load" => {
-                let config = deserialize_file::<Config>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, Config::FILE_NAME).map_err(|_| (at_response, AtError::Unhandled("Load error")))?;
-                config.apply_locale();
-                config.apply_daylight_saving_time();
-                config.apply_ntp();
-                config.apply_wifi();
-                config.apply_session();
+                *self = deserialize_file::<Config>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, Config::FILE_NAME).map_err(|_| (at_response, AtError::Unhandled("Load error")))?;
+                self.apply_locale();
+                self.apply_daylight_saving_time();
+                self.apply_ntp();
+                self.apply_wifi();
+                self.apply_session();
             }
             _ => return Err((at_response, AtError::InvalidArgs)),
         }
