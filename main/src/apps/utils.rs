@@ -74,7 +74,6 @@ where
 
         let ret = T::default();
 
-
         serialize_file(mutex, app_tag, dir, name, &ret)?;
 
         return Ok(ret);
@@ -94,7 +93,6 @@ where
         Ok(t) => {
 
             log_info!(app_tag, "File:{file_name} loaded successfully");
-            log_info!(app_tag, "{json}");
 
             Ok(t)
         }
