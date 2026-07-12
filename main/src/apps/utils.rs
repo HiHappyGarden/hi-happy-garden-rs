@@ -18,6 +18,7 @@
  *
  ***************************************************************************/
 
+
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -49,7 +50,7 @@ where
     ) {
         Ok(file) => file,
         Err(e @ Error::ReturnWithCode(-2)) => {
-            log_warning!(app_tag, "Failed to open config file: {e}, try to create it");
+            log_warning!(app_tag, "Failed to open file:{file_name} - {e}, try to create it");
             Filesystem::open_with_as_sync_str(
                 &file_name,
                 WRONLY | CREAT,
@@ -61,7 +62,7 @@ where
     let json = match file.read_with_as_sync_str(true) {
         Ok(json) => json,
         Err(e) => {
-            log_error!(app_tag, "Failed to read config file, using defaults: {e}");
+            log_error!(app_tag, "Failed to read file:{file_name}, using defaults: {e}");
             Vec::new()
         }
     };
@@ -69,7 +70,7 @@ where
 
     // If file is empty or doesn't exist, use defaults
     if json.is_empty() {
-        log_warning!(app_tag, "Config file not found or empty, using defaults");
+        log_warning!(app_tag, "File:{file_name} not found or empty, using defaults");
 
         let ret = T::default();
 
@@ -92,7 +93,7 @@ where
     match from_json::<T>(&json) {
         Ok(t) => {
 
-            log_info!(app_tag, "Config loaded successfully");
+            log_info!(app_tag, "File:{file_name} loaded successfully");
             log_info!(app_tag, "{json}");
 
             Ok(t)
@@ -120,7 +121,7 @@ where
 
     to_json(t)
         .map_err(|e| {
-            Error::UnhandledOwned(format!("Failed to serialize config to JSON: {e}"))
+            Error::UnhandledOwned(format!("Failed to serialize file:{file_name} to JSON: {e}"))
         })
         .and_then(|json| {
             let json_bytes = json.into_bytes();
@@ -131,7 +132,7 @@ where
             ) {
                 Ok(file) => file,
                 Err(e @ Error::ReturnWithCode(-2)) => {
-                    log_warning!(app_tag, "Failed to open config file: {e}, try to create it");
+                    log_warning!(app_tag, "Failed to open file:{file_name} - {e}, try to create it");
                     Filesystem::open_with_as_sync_str(
                         &file_name,
                         WRONLY | CREAT | TRUNC,
@@ -142,7 +143,7 @@ where
 
             file.write(&json_bytes, true)?;
 
-            log_info!(app_tag, "Config saved successfully");
+            log_info!(app_tag, "Saved successfully");
             Ok(t)
         })
 }
