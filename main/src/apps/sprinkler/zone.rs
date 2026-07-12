@@ -39,12 +39,12 @@ use crate::traits::state::Initializable;
 use super::commons::Status;
 use ZoneRelay::*;
 
-static mut SHARED: ZoneController = ZoneController ([
+static mut SHARED: ZoneController = ZoneController { zones: [
     Zone::new(Relay0),
     Zone::new(Relay1),
     Zone::new(Relay2),
     Zone::new(Relay3)
-]);
+]};
 static INITIALIZED: AtomicBool = AtomicBool::new(false);
 
 static mut MUTEX: Option<RawMutex> = None;
@@ -169,7 +169,9 @@ impl Zone {
 }
 
 #[derive(Debug, Default, Copy, Clone, Serialize, Deserialize)]
-pub(in crate::apps) struct ZoneController([Zone; ZoneController::SIZE]);
+pub(in crate::apps) struct ZoneController {
+    zones: [Zone; ZoneController::SIZE]
+}
 
 
 impl Initializable for ZoneController {
@@ -179,7 +181,7 @@ impl Initializable for ZoneController {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         unsafe {
-            for Zone{description, weight, status, zone_relay, ..} in &mut *&raw mut SHARED.0 {
+            for Zone{description, weight, status, zone_relay, ..} in &mut *&raw mut SHARED.zones {
                 description.push((*zone_relay).into())?;
                 *weight = (*zone_relay).into();
                 *status = Status::UNACTIVE;

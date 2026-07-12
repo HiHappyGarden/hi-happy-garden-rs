@@ -36,12 +36,12 @@ use crate::drivers::platform::FS_CONFIG_DIR;
 use crate::traits::state::Initializable;
 use super::commons::Status;
 
-static mut SHARED: ScheduleController = ScheduleController ([
+static mut SHARED: ScheduleController = ScheduleController { schedules: [
     Schedule::new(),
     Schedule::new(),
     Schedule::new(),
     Schedule::new()
-]);
+]};
 static INITIALIZED: AtomicBool = AtomicBool::new(false);
 
 
@@ -272,7 +272,9 @@ impl Schedule {
 }
 
 #[derive(Debug, Default, Copy, Clone, Serialize, Deserialize)]
-pub(in crate::apps) struct ScheduleController([Schedule; ScheduleController::SIZE]);
+pub(in crate::apps) struct ScheduleController {
+    schedules: [Schedule; ScheduleController::SIZE]
+}
 
 
 impl Initializable for ScheduleController {
@@ -283,7 +285,7 @@ impl Initializable for ScheduleController {
 
         let mut count = 0u8;
         unsafe {
-            for Schedule{description, status,  .. } in &mut *&raw mut SHARED.0 {
+            for Schedule{description, status,  .. } in &mut *&raw mut SHARED.schedules {
                 description.format(format_args!("Schedule {count}"));
                 *status = Status::UNACTIVE;
                 count += 1;
@@ -306,7 +308,7 @@ impl<'a> IntoIterator for &'a mut ScheduleController {
     type IntoIter = core::slice::IterMut<'a, Schedule>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.0.iter_mut()
+        self.schedules.iter_mut()
     }
 }
 
