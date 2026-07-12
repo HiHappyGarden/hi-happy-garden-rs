@@ -19,17 +19,11 @@
  ***************************************************************************/
 
 
-use alloc::format;
-use alloc::string::String;
-
-use alloc::vec::Vec;
-use cjson_binding::{from_json, to_json};
-
 use osal_rs::os::RawMutex;
 use osal_rs::os::RawMutexGuard;
 use osal_rs::utils::Bytes;
-use osal_rs::utils::{Error, Result};
-use osal_rs::{access_static_option, log_error, log_info, log_warning};
+use osal_rs::utils::Result;
+use osal_rs::{access_static_option, log_info};
 
 use osal_rs_serde::{Deserialize, Serialize};
 use at_parser_rs::at_quoted as quoted;
@@ -37,10 +31,10 @@ use at_parser_rs::at_quoted as quoted;
 use crate::apps::parser::{CMD_SIZE, NOT_LOGGED_RESPONSE, at_cmd_response};
 use crate::apps::session::Session;
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
+use crate::apps::utils::{load, save};
 use crate::drivers::date_time::DateTime;
-use crate::drivers::filesystem::{FileBytes, Filesystem, flags};
 use crate::drivers::network::Network;
-use crate::drivers::platform::{FS_CONFIG_DIR, FS_SEPARATOR_DIR};
+use crate::drivers::platform::FS_CONFIG_DIR;
 use crate::drivers::wifi::{Auth, Wifi};
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
@@ -399,7 +393,7 @@ pub(in crate::apps) struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self {
+        let mut config = Self {
             version: 0,
             serial: Bytes::new(),
             timezone: DEFAULT_TIMEZONE,
@@ -407,7 +401,12 @@ impl Default for Config {
             session: Default::default(),
             wifi: Default::default(),
             ntp: Default::default(),
-        }
+        };
+
+        // Set system user (position 0) from CMake defaults
+        let _ = config.session.set_system_user(DEFAULT_SYSTEM_USER_EMAIL, DEFAULT_SYSTEM_USER_PASSWORD);
+
+        config
     }
 }
 
@@ -421,7 +420,7 @@ impl Initializable for Config {
 
         self.session.init()?;
 
-        let config = Self::load()?;
+        let config = load::<Config>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, Config::FILE_NAME)?;
         config.apply_locale();
         config.apply_daylight_saving_time();
         config.apply_ntp();
@@ -475,7 +474,7 @@ impl AtContext<{ CMD_SIZE }> for Config {
                 Config::save().map_err(|_| (at_response, AtError::Unhandled("Save error")))?;
             }
             "load" => {
-                let config = Config::load().map_err(|_| (at_response, AtError::Unhandled("Load error")))?;
+                let config = load::<Config>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, Config::FILE_NAME).map_err(|_| (at_response, AtError::Unhandled("Load error")))?;
                 config.apply_locale();
                 config.apply_daylight_saving_time();
                 config.apply_ntp();
@@ -492,22 +491,6 @@ impl Config {
     const FILE_NAME: &'static str = "config.json";
     pub(in crate::apps) const AT_CMD: &'static str = "AT+CNF";
     pub(in crate::apps) const AT_RESP: &'static str = "+CNF: ";
-
-    /// Initialize Config with default values from CMake
-    fn with_defaults() -> Self {
-        let mut config = Self::default();
-
-        // Apply CMake defaults to WiFi config
-        config.wifi = Default::default();
-        // Apply CMake defaults to general config
-        config.timezone = DEFAULT_TIMEZONE;
-        config.daylight_saving_time = Default::default();
-
-        // Set system user (position 0) from CMake defaults
-        let _ = config.session.set_system_user(DEFAULT_SYSTEM_USER_EMAIL, DEFAULT_SYSTEM_USER_PASSWORD);
-
-        config
-    }
 
     pub(in crate::apps) fn apply_locale(&self) {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
@@ -554,118 +537,12 @@ impl Config {
     pub(in crate::apps) const fn shared() -> &'static mut Self {
         unsafe { &mut *&raw mut CONFIG }
     }
-
-    pub(in crate::apps) fn load() -> Result<&'static mut Self> {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
-
-        let mut file_name = FileBytes::from_str(FS_CONFIG_DIR);
-        file_name.append_str(FS_SEPARATOR_DIR);
-        file_name.append_str(Config::FILE_NAME);
-
-        let mut file = match Filesystem::open_with_as_sync_str(
-            &file_name,
-            flags::RDWR | flags::CREAT,
-        ) {
-            Ok(file) => file,
-            Err(e @ Error::ReturnWithCode(-2)) => {
-                log_warning!(APP_TAG, "Failed to open config file: {e}, try to create it");
-                Filesystem::open_with_as_sync_str(
-                    &file_name,
-                    flags::WRONLY | flags::CREAT,
-                )?
-            }
-            Err(e) => return Err(e),
-        };
-
-        let json = match file.read_with_as_sync_str(true) {
-            Ok(json) => json,
-            Err(e) => {
-                log_error!(APP_TAG, "Failed to read config file, using defaults: {e}");
-                Vec::new()
-            }
-        };
-        drop(file);
-
-        // If file is empty or doesn't exist, use defaults
-        if json.is_empty() {
-            log_warning!(APP_TAG, "Config file not found or empty, using defaults");
-
-            unsafe {
-                CONFIG = Self::with_defaults();
-            }
-
-            Self::save()?;
-
-            return Ok(unsafe { &mut *&raw mut CONFIG });
-        }
-
-        let json = match String::from_utf8(json) {
-            Ok(json) => json,
-            Err(e) => {
-                return Err(Error::UnhandledOwned(format!(
-                    "Failed to parse config JSON: {e}"
-                )));
-            }
-        };
-
-
-        match from_json::<Config>(&json) {
-            Ok(config) => {
-                unsafe {
-                    CONFIG = config;
-                }
-
-                log_info!(APP_TAG, "Config loaded successfully");
-                log_info!(APP_TAG, "{json}");
-
-                Ok(unsafe { &mut *&raw mut CONFIG })
-            }
-            Err(e) => {
-                log_warning!(APP_TAG, "Using default config values err: {e}");
-                unsafe { CONFIG = Self::with_defaults() };
-
-                Self::save()?;
-
-                Ok(unsafe { &mut *&raw mut CONFIG })
-            }
-        }
-    }
-
+    
     pub(in crate::apps) fn save() -> Result<&'static mut Self> {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
-
-        let mut file_name = FileBytes::from_str(FS_CONFIG_DIR);
-        file_name.append_str(FS_SEPARATOR_DIR);
-        file_name.append_str(Config::FILE_NAME);
-
         unsafe {
-            to_json(&*&raw const CONFIG)
-                .map_err(|e| {
-                    Error::UnhandledOwned(format!("Failed to serialize config to JSON: {e}"))
-                })
-                .and_then(|json| {
-                    let json_bytes = json.into_bytes();
+            save::<Config>(&*&raw const MUTEX, APP_TAG, FS_CONFIG_DIR, Config::FILE_NAME, &*&raw const CONFIG)?;
 
-                    let mut file = match Filesystem::open_with_as_sync_str(
-                        &file_name,
-                        flags::WRONLY | flags::CREAT | flags::TRUNC,
-                    ) {
-                        Ok(file) => file,
-                        Err(e @ Error::ReturnWithCode(-2)) => {
-                            log_warning!(APP_TAG, "Failed to open config file: {e}, try to create it");
-                            Filesystem::open_with_as_sync_str(
-                                &file_name,
-                                flags::WRONLY | flags::CREAT | flags::TRUNC,
-                            )?
-                        }
-                        Err(e) => return Err(e),
-                    };
-
-                    file.write(&json_bytes, true)?;
-
-                    log_info!(APP_TAG, "Config saved successfully");
-                    Ok(&mut *&raw mut CONFIG)
-                })
+            Ok(&mut *&raw mut CONFIG)
         }
     }
 
