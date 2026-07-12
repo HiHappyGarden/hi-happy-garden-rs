@@ -90,12 +90,12 @@ impl Initializable for AppMain{
         
 
         config.init()?;
+        self.sprinkler.init()?;
         self.system_led.init()?;
         self.parser.init()?;
         self.wifi.init()?;
         self.display.set_enabled_wifi(config.get_wifi_config().is_enabled());
         self.display.init()?;
-        self.sprinkler.init()?;
 
 
         //main FSM thread

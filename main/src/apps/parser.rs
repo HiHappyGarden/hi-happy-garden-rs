@@ -112,7 +112,7 @@ impl Initializable for Parser {
             let mut parser: AtParser<dyn AtContext<{Parser::CMD_SIZE}>, {Parser::CMD_SIZE}> = AtParser::new();
 
 
-            while !ScheduleController::is_initialized() && !ZoneController::is_initialized() {
+            while !Config::is_initialized() && !ScheduleController::is_initialized() && !ZoneController::is_initialized() {
                 System::delay_with_to_tick(Duration::from_millis(100));
             };
 

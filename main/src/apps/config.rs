@@ -19,6 +19,9 @@
  ***************************************************************************/
 
 
+use core::sync::atomic::AtomicBool;
+use core::sync::atomic::Ordering;
+
 use osal_rs::os::RawMutex;
 use osal_rs::os::RawMutexGuard;
 use osal_rs::utils::Bytes;
@@ -55,7 +58,7 @@ const APP_TAG: &str = "AppConfig";
 pub(super) static mut MUTEX: Option<RawMutex> = None;
 
 
-static mut CONFIG: Config = Config {
+static mut SHARED: Config = Config {
     version: 0,
     serial: Bytes::new(),
     timezone: 0,
@@ -81,6 +84,7 @@ static mut CONFIG: Config = Config {
         msg_len: 48,
     },
 };
+static INITIALIZED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub(in crate::apps) struct DaylightSavingTime {
@@ -427,6 +431,7 @@ impl Initializable for Config {
         self.apply_wifi();
         self.apply_session();
 
+        INITIALIZED.store(true, Ordering::Relaxed);
 
         Ok(())
     }
@@ -535,14 +540,14 @@ impl Config {
     }
 
     pub(in crate::apps) const fn shared() -> &'static mut Self {
-        unsafe { &mut *&raw mut CONFIG }
+        unsafe { &mut *&raw mut SHARED }
     }
 
     pub(in crate::apps) fn save() -> Result<&'static mut Self> {
         unsafe {
-            serialize_file::<Config>(&*&raw const MUTEX, APP_TAG, FS_CONFIG_DIR, Config::FILE_NAME, &*&raw const CONFIG)?;
+            serialize_file::<Config>(&*&raw const MUTEX, APP_TAG, FS_CONFIG_DIR, Config::FILE_NAME, &*&raw const SHARED)?;
 
-            Ok(&mut *&raw mut CONFIG)
+            Ok(&mut *&raw mut SHARED)
         }
     }
 
@@ -597,5 +602,9 @@ impl Config {
 
     pub(in crate::apps) fn get_session(&mut self) -> &mut Session {
         &mut self.session
+    }
+
+    pub(in crate) fn is_initialized() -> bool {
+        INITIALIZED.load(Ordering::Relaxed)
     }
 }
