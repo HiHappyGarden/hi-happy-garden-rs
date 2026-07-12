@@ -263,6 +263,8 @@ impl AtContext<{CMD_SIZE}> for Session {
 
 
 impl Default for Session {
+
+    #[inline]
     fn default() -> Self {
         Self::new()
     }

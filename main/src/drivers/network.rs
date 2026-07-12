@@ -48,6 +48,8 @@ pub struct IP4Addr {
 }
 
 impl Default for IP4Addr {
+
+    #[inline]
     fn default() -> Self {
         IP4Addr { addr: 0 }
     }
@@ -88,6 +90,8 @@ pub struct IP6Addr {
 }
 
 impl Default for IP6Addr {
+
+    #[inline]
     fn default() -> Self {
         IP6Addr { addr: 0 }
     }
