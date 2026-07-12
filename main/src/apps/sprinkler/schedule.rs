@@ -25,7 +25,7 @@ use osal_rs_serde::{Deserialize, Serialize};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::sprinkler::zone::{ZoneController, ZoneRelay};
-use crate::apps::utils::load_file;
+use crate::apps::utils::deserialize_file;
 use crate::drivers::date_time::DateTime;
 use crate::drivers::platform::FS_CONFIG_DIR;
 use crate::traits::state::Initializable;
@@ -283,7 +283,7 @@ impl Initializable for ScheduleController {
             }
         }
 
-        *self = load_file::<ScheduleController>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, ScheduleController::FILE_NAME)?;
+        *self = deserialize_file::<ScheduleController>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, ScheduleController::FILE_NAME)?;
         
         Ok(())
     }

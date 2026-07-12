@@ -31,7 +31,7 @@ use at_parser_rs::at_quoted as quoted;
 use crate::apps::parser::{CMD_SIZE, NOT_LOGGED_RESPONSE, at_cmd_response};
 use crate::apps::session::Session;
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
-use crate::apps::utils::{load_file, save_file};
+use crate::apps::utils::{deserialize_file, serialize_file};
 use crate::drivers::date_time::DateTime;
 use crate::drivers::network::Network;
 use crate::drivers::platform::FS_CONFIG_DIR;
@@ -420,7 +420,7 @@ impl Initializable for Config {
 
         self.session.init()?;
 
-        let config = load_file::<Config>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, Config::FILE_NAME)?;
+        let config = deserialize_file::<Config>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, Config::FILE_NAME)?;
         config.apply_locale();
         config.apply_daylight_saving_time();
         config.apply_ntp();
@@ -474,7 +474,7 @@ impl AtContext<{ CMD_SIZE }> for Config {
                 Config::save().map_err(|_| (at_response, AtError::Unhandled("Save error")))?;
             }
             "load" => {
-                let config = load_file::<Config>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, Config::FILE_NAME).map_err(|_| (at_response, AtError::Unhandled("Load error")))?;
+                let config = deserialize_file::<Config>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, Config::FILE_NAME).map_err(|_| (at_response, AtError::Unhandled("Load error")))?;
                 config.apply_locale();
                 config.apply_daylight_saving_time();
                 config.apply_ntp();
@@ -540,7 +540,7 @@ impl Config {
 
     pub(in crate::apps) fn save() -> Result<&'static mut Self> {
         unsafe {
-            save_file::<Config>(&*&raw const MUTEX, APP_TAG, FS_CONFIG_DIR, Config::FILE_NAME, &*&raw const CONFIG)?;
+            serialize_file::<Config>(&*&raw const MUTEX, APP_TAG, FS_CONFIG_DIR, Config::FILE_NAME, &*&raw const CONFIG)?;
 
             Ok(&mut *&raw mut CONFIG)
         }

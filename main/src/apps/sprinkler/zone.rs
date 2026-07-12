@@ -29,7 +29,7 @@ use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
-use crate::apps::utils::load_file;
+use crate::apps::utils::deserialize_file;
 use crate::drivers::platform::{FS_CONFIG_DIR, GpioPeripheral};
 use crate::traits::state::Initializable;
 use super::commons::Status;
@@ -181,7 +181,7 @@ impl Initializable for ZoneController {
         }
         
         
-        *self = load_file::<ZoneController>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, ZoneController::FILE_NAME)?;
+        *self = deserialize_file::<ZoneController>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, ZoneController::FILE_NAME)?;
 
         Ok(())
     }
