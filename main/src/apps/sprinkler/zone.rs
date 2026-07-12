@@ -21,6 +21,7 @@
 #![allow(dead_code)]
 
 use core::fmt::{Display, Formatter};
+use core::sync::atomic::{AtomicBool, Ordering};
 
 use at_parser_rs::context::AtContext;
 use at_parser_rs::{Args, AtError, AtResult};
@@ -44,10 +45,12 @@ static mut SHARED: ZoneController = ZoneController ([
     Zone::new(Relay2),
     Zone::new(Relay3)
 ]);
+static INITIALIZED: AtomicBool = AtomicBool::new(false);
 
 static mut MUTEX: Option<RawMutex> = None;
 
 const APP_TAG: &str = "ZoneController";
+
 
 
 #[repr(u8)]
@@ -186,6 +189,8 @@ impl Initializable for ZoneController {
         
         *self = deserialize_file::<ZoneController>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, ZoneController::FILE_NAME)?;
 
+        INITIALIZED.store(true, Ordering::Relaxed);
+
         Ok(())
     }
 }
@@ -217,7 +222,20 @@ impl ZoneController {
     const FILE_NAME: &'static str = "zones.json";
 
     pub(in crate::apps) fn shared() -> &'static mut Self {
+        unsafe {
+            if (*&raw const MUTEX).is_none() {
+                MUTEX = match RawMutex::new() {
+                    Ok(mutex) => Some(mutex),
+                    Err(_) =>  panic!("MUTEX is not initialized",),
+                }
+            }
+        }
+
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         unsafe { &mut *&raw mut SHARED }
+    }
+
+    pub(in crate) fn is_initialized() -> bool {
+        INITIALIZED.load(Ordering::Relaxed)
     }
 }

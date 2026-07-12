@@ -25,7 +25,7 @@ use at_parser_rs::AtError;
 use at_parser_rs::context::AtContext;
 use at_parser_rs::parser::AtParser;
 use osal_rs::{access_static_option, log_error, log_info};
-use osal_rs::os::{Queue, QueueFn, Thread, ThreadFn};
+use osal_rs::os::{Queue, QueueFn, System, Thread, ThreadFn};
 use osal_rs::os::types::{StackType, TickType, UBaseType};
 use osal_rs::utils::{Error, Result};
 
@@ -111,26 +111,10 @@ impl Initializable for Parser {
 
             let mut parser: AtParser<dyn AtContext<{Parser::CMD_SIZE}>, {Parser::CMD_SIZE}> = AtParser::new();
 
-            // unsafe {
-            //     loop {
-            //         match &*&raw const SPRINKLER {
-            //             Some(sprinkler) => {
-            //                 if sprinkler.lock().is_ok() {
-            //                     break;
-            //                 }
-            //             }
-            //             None => {}
-            //         }
-            //         System::delay_with_to_tick(Duration::from_millis(100));
-            //     };
-            // };
-            // let mut sprinkler = match access_static_option!(SPRINKLER).lock() {
-            //     Ok(sprinkler) => sprinkler,
-            //     Err(_) => {
-            //         log_error!(APP_TAG, "Error locking sprinkler");
-            //         return;
-            //     }
-            // };
+
+            while !ScheduleController::is_initialized() && !ZoneController::is_initialized() {
+                System::delay_with_to_tick(Duration::from_millis(100));
+            };
 
             let commands: &mut [(&str, &str, &mut dyn AtContext<{Parser::CMD_SIZE}>)] = &mut [
                 (Config::AT_CMD, Config::AT_RESP, Config::shared()),

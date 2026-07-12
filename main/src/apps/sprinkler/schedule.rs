@@ -18,6 +18,8 @@
  *
  ***************************************************************************/
 
+use core::sync::atomic::{AtomicBool, Ordering};
+
 use at_parser_rs::{Args, AtError, AtResult};
 use at_parser_rs::context::AtContext;
 use osal_rs::{access_static_option, log_info};
@@ -40,11 +42,13 @@ static mut SHARED: ScheduleController = ScheduleController ([
     Schedule::new(),
     Schedule::new()
 ]);
+static INITIALIZED: AtomicBool = AtomicBool::new(false);
 
 
 static mut MUTEX: Option<RawMutex> = None;
 
-const APP_TAG: &str = "ZoneController";
+
+const APP_TAG: &str = "SchedulerController";
 
  #[allow(dead_code)]
  #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -288,6 +292,11 @@ impl Initializable for ScheduleController {
 
         *self = deserialize_file::<ScheduleController>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, ScheduleController::FILE_NAME)?;
         
+
+     
+        INITIALIZED.store(true, Ordering::Relaxed);
+    
+
         Ok(())
     }
 }
@@ -326,7 +335,20 @@ impl ScheduleController {
     const FILE_NAME: &'static str = "schedules.json";
 
     pub(in crate::apps) fn shared() -> &'static mut Self {
+        unsafe {
+            if (*&raw const MUTEX).is_none() {
+                MUTEX = match RawMutex::new() {
+                    Ok(mutex) => Some(mutex),
+                    Err(_) =>  panic!("MUTEX is not initialized",),
+                }
+            }
+        }
+
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         unsafe { &mut *&raw mut SHARED }
+    }
+
+    pub(in crate) fn is_initialized() -> bool {
+        INITIALIZED.load(Ordering::Relaxed)
     }
 }

@@ -32,6 +32,7 @@ use crate::apps::display::Display;
 use crate::apps::parser::Parser;
 use crate::apps::signals::error::ErrorSignal;
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
+use crate::apps::sprinkler::Sprinkler;
 use crate::apps::system_led::SystemLed;
 use crate::apps::wifi::Wifi;
 use crate::drivers::date_time::DateTime;
@@ -70,6 +71,7 @@ pub(crate) struct AppMain {
     wifi: Wifi,
     parser: Parser,
     system_led: SystemLed,
+    sprinkler: Sprinkler,
     thread: Option<Thread>
 }
 
@@ -93,7 +95,7 @@ impl Initializable for AppMain{
         self.wifi.init()?;
         self.display.set_enabled_wifi(config.get_wifi_config().is_enabled());
         self.display.init()?;
-        // self.sprinkler.lock()?.init()?;
+        self.sprinkler.init()?;
 
 
         //main FSM thread
@@ -118,7 +120,7 @@ impl AppMain {
             wifi: Wifi::shared(),
             parser: Parser::shared(),
             system_led: SystemLed::new(),
-            // sprinkler: Mutex::new_arc(Sprinkler::new()),
+            sprinkler: Sprinkler::new(),
             thread: None,
         }
     }
