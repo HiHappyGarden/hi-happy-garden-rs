@@ -28,6 +28,7 @@ mod signals;
 mod sprinkler;
 mod system_handler;
 mod system_led;
+mod utils;
 mod wifi;
 
 pub(crate) use display::DISPLAY_INPUT_MAX_SIZE;
