@@ -67,7 +67,7 @@ struct AppMainPtr(usize);
 
 pub(crate) struct AppMain {
     hardware: &'static mut Hardware,
-    display: Display<LCDDisplay>,
+    display: Display<'static, LCDDisplay>,
     wifi: Wifi,
     parser: Parser,
     system_led: SystemLed,
@@ -97,7 +97,7 @@ impl Initializable for AppMain{
         self.display.set_enabled_wifi(config.get_wifi_config().is_enabled());
         self.display.init()?;
 
-
+ 
         //main FSM thread
         let app_param = AppMainPtr(self as *mut Self as usize); // Pass AppMain pointer as usize to thread
         let mut thread = Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::BelowHigh);
@@ -112,7 +112,7 @@ impl Initializable for AppMain{
 impl AppMain {
     pub(crate) fn new(hardware: &'static mut Hardware) -> Self {
         
-        let display = Display::shared(hardware.get_rtc(), hardware.get_lcd_display());
+        let display = Display::new( hardware.get_lcd_display(), hardware.get_rtc());
 
         Self {
             hardware,
@@ -161,8 +161,8 @@ impl AppMain {
         unsafe {
             let display_ptr = &raw mut me.display;
             let wifi_ptr = &raw mut me.wifi;
-            let parser_ptr = &raw mut me.parser;
             let hardware_ptr = &raw mut me.hardware;
+            let sprinkler_ptr = &raw mut me.sprinkler;
 
             loop {
                 match status_current {
@@ -183,8 +183,8 @@ impl AppMain {
                     StatusFlag::EnableParser => {
                         // Set transmit function pointer on parser 
                         Parser::set_uart_transmit(*hardware_ptr);
-                        // Parser::set_sprinkler(Arc::clone(&*sprinkler_ptr));
-                        (*hardware_ptr).set_on_receive(&*parser_ptr);
+
+                        (*hardware_ptr).set_on_receive(&me.parser);
 
                         set_current_status!(status_old, status_current, StatusFlag::EnableDisplay);
                     }
@@ -193,7 +193,8 @@ impl AppMain {
                         (*hardware_ptr).set_button_handler(&*display_ptr);
                         (*hardware_ptr).set_encoder_handler(&*display_ptr);
                         
-                        (&mut *display_ptr).set_on_receive(&*parser_ptr);
+                        (&mut *display_ptr).set_on_receive(&me.parser);
+                        (&mut *display_ptr).set_sprinkler(&mut *sprinkler_ptr);
                         set_current_status!(status_old, status_current, StatusFlag::CheckConfig);
                     }
                     StatusFlag::CheckConfig => Self::check_config(&config, &mut status_current, &mut status_old),
@@ -213,9 +214,9 @@ impl AppMain {
                     }
                     StatusFlag::Ready => {
 
-                        let _now: DateTime = DateTime::from_timestamp(rtc.lock()?.get_timestamp()?)?;
+                        let now: DateTime = DateTime::from_timestamp(rtc.lock()?.get_timestamp()?)?;
 
-                        // me.sprinkler.lock()?.check(now);
+                        me.sprinkler.check(now);
 
                         StatusSignal::set(StatusFlag::Ready.into());
                     },
