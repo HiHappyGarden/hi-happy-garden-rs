@@ -46,7 +46,7 @@ use crate::apps::screen_route::SCREEN_ROUTE;
 use crate::apps::signals::display::{DisplayFlag::{*}, DisplaySignal};
 use crate::apps::signals::error::{ErrorSignal, ErrorFlag};
 use crate::apps::signals::status::StatusSignal;
-use crate::apps::sprinkler::{self, Sprinkler};
+use crate::apps::sprinkler::Sprinkler;
 use crate::drivers::platform::ThreadPriority;
 
 use crate::traits::button::{ButtonState::{self, *}, OnClickable};
