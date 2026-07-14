@@ -30,11 +30,10 @@ pub(super) mod select;
 pub(super) mod text;
 pub(super) mod time;
 
-use core::time::Duration;
 
 use alloc::sync::Arc;
 use osal_rs::log_info;
-use osal_rs::os::{EventGroup, Mutex, MutexFn, System, Thread, ThreadFn};
+use osal_rs::os::{EventGroup, Mutex, MutexFn, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
 use osal_rs::utils::{Bytes, Error, Result};
 
@@ -46,14 +45,13 @@ use crate::apps::screen_route::SCREEN_ROUTE;
 use crate::apps::signals::display::{DisplayFlag::{*}, DisplaySignal};
 use crate::apps::signals::error::{ErrorSignal, ErrorFlag};
 use crate::apps::signals::status::StatusSignal;
-use crate::apps::sprinkler::Sprinkler;
 use crate::drivers::platform::ThreadPriority;
 
 use crate::traits::button::{ButtonState::{self, *}, OnClickable};
 use crate::traits::encoder::{EncoderDirection::{self, *}, OnRotatableAndClickable};
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rx_tx::{OnReceive, SetOnReceive, SetTransmit};
-use crate::traits::screen::{Screen, ScreenParam, ScreenRoute};
+use crate::traits::screen::{Screen, ScreenParam, ScreenRoute as _};
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
 use crate::traits::rtc::RTC;
@@ -68,17 +66,16 @@ pub(crate) const DISPLAY_INPUT_MAX_SIZE: usize = MAX_SIZE;
 
 static mut ON_RECEIVE: Option<&'static dyn OnReceive> = Option::None;
 
-pub(super) struct Display<'a, T>
+pub(super) struct Display<T>
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
     rtc: Arc<Mutex<dyn RTC>>,
     lcd: Arc<Mutex<T>>,
-    sprinker: Option<Arc<&'a mut Sprinkler>>,
     wifi_enabled: Arc<bool>,
     thread: Thread
 }
 
-impl<'a, T> Initializable for Display<'_, T>
+impl<T> Initializable for Display<T>
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
     fn init(&mut self) -> Result<()> {
@@ -88,17 +85,8 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         DisplaySignal::init()?;
         let lcd = Arc::clone(&self.lcd);
         let rtc = Arc::clone(&self.rtc);
-        
-        while self.sprinker.is_none() {
-            System::delay_with_to_tick(Duration::from_millis(100));
-        } 
-        let sprinkler = match &self.sprinker {
-            Some(sprinker) => Arc::clone(sprinker),
-            Option::None => return Err(Error::NotFound),
-        };
-
         let wifi_enabled = Arc::clone(&self.wifi_enabled);
-        
+
         self.thread = self.thread.spawn_simple(move || {
 
             let lcd = &mut *(lcd.lock().unwrap());
@@ -162,7 +150,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
     }
 }
 
-impl<'a, T> OnClickable for Display<'_, T>
+impl<T> OnClickable for Display<T>
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
     fn on_click(&self, state: ButtonState) {
@@ -178,7 +166,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
     }
 }
 
-impl<'a, T> OnRotatableAndClickable for Display<'_, T>
+impl<T> OnRotatableAndClickable for Display<T>
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
     fn on_rotable(&self, direction: EncoderDirection, _: i32) {
@@ -205,7 +193,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
     }
 }
 
-impl<'a, T> SetOnReceive<'static> for Display<'_, T> 
+impl<T> SetOnReceive<'static> for Display<T>
 where T: LCDDisplayFn + Sync + Send + Clone + 'static {
 
     #[inline]
@@ -216,7 +204,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static {
     }
 }
 
-impl<'a, T> SetTransmit for Display<'a, T> 
+impl<T> SetTransmit for Display<T>
 where T: LCDDisplayFn + Sync + Send + Clone + 'static {
 
     #[inline]
@@ -226,21 +214,16 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static {
     }
 }
 
-impl<'a, T> Display<'a, T> 
+impl<T> Display<T>
 where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
     pub(super) fn new(lcd: T, rtc: Arc<Mutex<dyn RTC>>) -> Self {
         Self {
             rtc,
             lcd: Mutex::new_arc(lcd),
-            sprinker: Option::None,
             wifi_enabled: Arc::new(true),
             thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::BelowHigh)
         }
-    }
-
-    pub fn set_sprinkler(&mut self, sprinkler: &'a mut Sprinkler) {
-        self.sprinker = Some(Arc::new(sprinkler));
     }
 
     pub(super) fn set_enabled_wifi(&mut self, enabled: bool) {

@@ -24,7 +24,7 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use osal_rs::{log_debug, log_info};
 use osal_rs::os::types::StackType;
-use osal_rs::os::{MutexFn, System, Thread, ThreadFn, ThreadParam};
+use osal_rs::os::{MutexFn as _, System, Thread, ThreadFn, ThreadParam};
 use osal_rs::utils::{Error, Result};
 
 use crate::apps::config::Config;
@@ -67,7 +67,7 @@ struct AppMainPtr(usize);
 
 pub(crate) struct AppMain {
     hardware: &'static mut Hardware,
-    display: Display<'static, LCDDisplay>,
+    display: Display<LCDDisplay>,
     wifi: Wifi,
     parser: Parser,
     system_led: SystemLed,
@@ -113,7 +113,6 @@ impl AppMain {
     pub(crate) fn new(hardware: &'static mut Hardware) -> Self {
         
         let display = Display::new( hardware.get_lcd_display(), hardware.get_rtc());
-
         Self {
             hardware,
             display,
@@ -145,11 +144,6 @@ impl AppMain {
 
         let rtc = me.hardware.get_rtc();
 
-        
-
-        // NOW.store((rtc.lock()?.get_timestamp()? - RTC_MINIMUM_DATE ) as u32, Ordering::SeqCst);
-
-
         let config = Config::shared();
 
         let mut status_current = StatusFlag::None;
@@ -162,7 +156,6 @@ impl AppMain {
             let display_ptr = &raw mut me.display;
             let wifi_ptr = &raw mut me.wifi;
             let hardware_ptr = &raw mut me.hardware;
-            let sprinkler_ptr = &raw mut me.sprinkler;
 
             loop {
                 match status_current {
@@ -194,7 +187,6 @@ impl AppMain {
                         (*hardware_ptr).set_encoder_handler(&*display_ptr);
                         
                         (&mut *display_ptr).set_on_receive(&me.parser);
-                        (&mut *display_ptr).set_sprinkler(&mut *sprinkler_ptr);
                         set_current_status!(status_old, status_current, StatusFlag::CheckConfig);
                     }
                     StatusFlag::CheckConfig => Self::check_config(&config, &mut status_current, &mut status_old),

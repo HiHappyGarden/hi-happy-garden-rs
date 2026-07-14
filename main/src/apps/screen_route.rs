@@ -38,6 +38,7 @@ use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 
 
+use osal_rs::utils::Result;
 use set_config::ScreenSetConfig;
 use crate::apps::config::Config;
 use crate::apps::screen_route::info::ScreenInfo;
@@ -45,6 +46,7 @@ use crate::apps::screen_route::login::ScreenLogin;
 use crate::apps::screen_route::main::{ScreenMain, FSMState as MainFSMState};
 use crate::apps::screen_route::date_time::ScreenDateTime;
 use crate::apps::screen_route::daylight_saving_time::ScreenDaylightSavingTime;
+use crate::apps::screen_route::sprinkler::ScreenSprinkler;
 use crate::apps::screen_route::wifi::ScreenWifi;
 use crate::apps::screen_route::user::ScreenUser;
 use crate::apps::signals::display::{DisplayFlag, DisplaySignal};
@@ -122,7 +124,7 @@ impl ScreenRouteFn for ScreenRoute {
         display_signal: &mut EventBits, 
         status_signal: &mut EventBits, 
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
-    ) -> osal_rs::utils::Result<()> {
+    ) -> Result<()> {
         
         match self.fsm_state {
             FSMState::Init                      => self.handle_init(status_signal),
@@ -134,7 +136,8 @@ impl ScreenRouteFn for ScreenRoute {
             FSMState::MenuDaylightSavingTime    => self.handle_submenu(lcd, display_signal, status_signal, rtc, MainFSMState::DaylightSavingTime, || Box::new(ScreenDaylightSavingTime::new())),
             FSMState::MenuWifi                  => self.handle_submenu(lcd, display_signal, status_signal, rtc, MainFSMState::Wifi, || Box::new(ScreenWifi::new())),
             FSMState::MenuUser                  => self.handle_submenu(lcd, display_signal, status_signal, rtc, MainFSMState::User, || Box::new(ScreenUser::new())),
-            FSMState::MenuSprinkler             => {}//self.handle_submenu(lcd, display_signal, status_signal, rtc, MainFSMState::Sprinkler, || Box::new()),
+            FSMState::MenuSprinkler             => self.handle_submenu(lcd, display_signal, status_signal, rtc, MainFSMState::Sprinkler, move || Box::new(ScreenSprinkler::new()))
+            
         }
 
         Ok(())
@@ -159,6 +162,17 @@ impl ScreenRoute {
                 | DisplayFlag::ButtonReleased as u32
                 | DisplayFlag::EncoderButtonPressed as u32
                 | DisplayFlag::EncoderButtonReleased as u32;
+
+    pub(in crate::apps) const fn new() -> Self {
+        Self {
+            config: Config::shared(),
+            fsm_state: FSMState::Init,
+            main_fsm_state: MainFSMState::Info,
+            check_staus_counter: 0,
+            has_local_user: false,
+            current_screen: None,
+        }
+    }
 
     #[inline]
     fn request_redraw(display_signal: &mut EventBits) {
@@ -262,7 +276,7 @@ impl ScreenRoute {
         status_signal: &mut EventBits,
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
         back: MainFSMState,
-        build_screen: fn() -> Box<dyn ScreenRouteFn>,
+        build_screen: impl FnOnce() -> Box<dyn ScreenRouteFn>,
     ) {
         if self.has_local_user && !StatusFlag::UserLogged.check_signal(*status_signal) && MainFSMState::Info != back {
             self.main_fsm_state = back;
@@ -283,17 +297,6 @@ impl ScreenRoute {
                 self.fsm_state = FSMState::Menu;
                 Self::request_redraw(display_signal);
             }
-        }
-    }
-
-    pub(in crate::apps) const fn new() -> Self {
-        Self {
-            config: Config::shared(),
-            fsm_state: FSMState::Init,
-            main_fsm_state: MainFSMState::Info,
-            check_staus_counter: 0,
-            has_local_user: false,
-            current_screen: None,
         }
     }
 
