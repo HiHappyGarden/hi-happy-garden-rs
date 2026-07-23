@@ -46,7 +46,7 @@ mod app {
 
     use alloc::boxed::Box;
 
-    use osal_rs::os::types::TickType;
+    use osal_rs::os::types::{StackType, TickType};
     use osal_rs::os::{System, SystemFn, ThreadFn, ThreadParam};
     use osal_rs::utils::Result;
     use osal_rs::log_fatal;
@@ -56,6 +56,9 @@ mod app {
     use crate::traits::state::Initializable;
     use ffi::{get_g_setup_called, print_systick_status};
     use crate::apps::AppMain;
+
+    pub(super) const THREAD_NAME: &str = "main_trd";
+    pub(super) const STACK_SIZE: StackType = 1_024*8; // 8KB stack
 
     static mut HARDWARE: Option<Hardware> = None;
     static mut APP_MAIN: Option<AppMain> = None;
@@ -127,12 +130,10 @@ pub unsafe extern "C" fn start() {
     #[cfg(not(feature = "tests"))]
     {
         use osal_rs::os::{System, SystemFn, Thread, ThreadFn};
-        use osal_rs::os::types::StackType;
-        use crate::app::main_thread;
+        use crate::app::{STACK_SIZE, THREAD_NAME, main_thread};
         use crate::drivers::platform::ThreadPriority;
 
-        const THREAD_NAME: &str = "main_trd";
-        const STACK_SIZE: StackType = 1_024*8; // 8KB stack
+
 
         let mut thread = Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal);
         let _ = match thread.spawn(None, main_thread) {
@@ -165,7 +166,7 @@ pub unsafe extern "C" fn start() {
 
 #[cfg(feature = "tests")]
 fn perform_tests() {
-    
+
     match osal_rs_tests::freertos::run_all_tests() {
         Ok(_) => osal_rs::log_info!(APP_TAG, "All tests passed!"),
         Err(e) => panic!("Tests failed with error: {:?}", e)
