@@ -144,7 +144,7 @@ pub unsafe extern "C" fn start() {
                 log_info!(APP_TAG, "Start main thread\r\n");
                 spawned
             }
-            Err(e) => panic!("Failed to spawn main_trd: {:?}", e)
+            Err(e) => panic!("Failed to spawn main thread: {:?}", e)
 
         };
 
