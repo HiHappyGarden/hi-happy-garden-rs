@@ -18,7 +18,8 @@
  *
  ***************************************************************************/
  
- #![no_std]
+#![no_std]
+#![cfg_attr(feature = "tests", allow(dead_code))]
 
 extern crate alloc;
 extern crate osal_rs;
@@ -30,111 +31,115 @@ mod assets;
 mod drivers;
 mod traits;
 
-
-mod ffi {
-    unsafe extern "C" {
-        pub(super) fn print_systick_status();
-
-        pub(super) fn get_g_setup_called() -> u32;
-    }
-}
-
-
-use alloc::boxed::Box;
-
-use osal_rs::os::types::{StackType, TickType};
-use osal_rs::os::{System, SystemFn, Thread, ThreadFn, ThreadParam};
-use osal_rs::log::set_enable_color;
-use osal_rs::utils::Result;
-use osal_rs::{log_fatal, log_info};
-
-use crate::drivers::platform::Hardware;
-use crate::traits::state::Initializable;
-use crate::ffi::{get_g_setup_called, print_systick_status};
-use crate::apps::AppMain;
-
-const APP_TAG: &str = "rust";
-const THREAD_NAME: &str = "main_trd";
-const STACK_SIZE: StackType = 1_024*8; // 8KB stack
-
-static mut HARDWARE: Option<Hardware> = None;
-static mut APP_MAIN: Option<AppMain> = None;
-
+const APP_TAG: &str = "main";
 
 #[cfg(not(feature = "tests"))]
-fn main_thread(_thread: Box<dyn ThreadFn>, _param: Option<ThreadParam>) -> Result<ThreadParam>{
-    use osal_rs::log_debug;
+mod app {
+
+    mod ffi {
+        unsafe extern "C" {
+            pub(super) fn print_systick_status();
+
+            pub(super) fn get_g_setup_called() -> u32;
+        }
+    }
+
+    use alloc::boxed::Box;
+
+    use osal_rs::os::types::TickType;
+    use osal_rs::os::{System, SystemFn, ThreadFn, ThreadParam};
+    use osal_rs::utils::Result;
+    use osal_rs::log_fatal;
+
+    use crate::APP_TAG;
+    use crate::drivers::platform::Hardware;
+    use crate::traits::state::Initializable;
+    use ffi::{get_g_setup_called, print_systick_status};
+    use crate::apps::AppMain;
+
+    static mut HARDWARE: Option<Hardware> = None;
+    static mut APP_MAIN: Option<AppMain> = None;
 
 
-    unsafe {
-        loop {
-            if get_g_setup_called() == 1 {
-                break;
+    pub(super) fn main_thread(_thread: Box<dyn ThreadFn>, _: Option<ThreadParam>) -> Result<ThreadParam>{
+        use osal_rs::log_debug;
+
+
+        unsafe {
+            loop {
+                if get_g_setup_called() == 1 {
+                    break;
+                }
             }
+
+            print_systick_status();
         }
 
-        print_systick_status();
-    }
+        #[cfg(debug_assertions)]
+        log_debug!(APP_TAG, "OUT_DIR: {}", env!("OUT_DIR"));
+        
 
-    #[cfg(debug_assertions)]
-    log_debug!(APP_TAG, "OUT_DIR: {}", env!("OUT_DIR"));
-    
+        log_debug!(APP_TAG, "Initial tick count: {}", System::get_tick_count());
 
-    log_debug!(APP_TAG, "Initial tick count: {}", System::get_tick_count());
+        unsafe {
+            HARDWARE = Some(Hardware::new()); 
 
-    unsafe {
-        HARDWARE = Some(Hardware::new()); 
+            let hardware = &mut *&raw mut HARDWARE;
 
-        let hardware = &mut *&raw mut HARDWARE;
+            let hardware = match hardware {
+                Some(hardware) => hardware,
+                None => panic!("No memory for hardware"),
+            };
 
-        let hardware = match hardware {
-            Some(hardware) => hardware,
-            None => panic!("No memory for hardware"),
-        };
+            if let Err(err) = hardware.init() {
+                log_fatal!(APP_TAG, "Hardware error: {:?}", err);
+                panic!("Hardware initialization failed");
+            }
 
-        if let Err(err) = hardware.init() {
-            log_fatal!(APP_TAG, "Hardware error: {:?}", err);
-            panic!("Hardware initialization failed");
+            APP_MAIN = Some(AppMain::new(hardware));
+
+            let app = &mut *&raw mut APP_MAIN;
+
+            let app = match app {
+                Some(app) => app,
+                None => panic!("No memory for app main"),
+            };
+
+            if let Err(err) = app.init() {
+                log_fatal!(APP_TAG, "App error: {:?}", err);
+                panic!("App initialization failed");
+            }
+
         }
 
-        APP_MAIN = Some(AppMain::new(hardware));
-
-        let app = &mut *&raw mut APP_MAIN;
-
-        let app = match app {
-            Some(app) => app,
-            None => panic!("No memory for app main"),
-        };
-
-        if let Err(err) = app.init() {
-            log_fatal!(APP_TAG, "App error: {:?}", err);
-            panic!("App initialization failed");
+        loop {
+            System::delay(TickType::MAX);
         }
-
     }
 
-    
 
-    loop {
-        System::delay(TickType::MAX);
-    }
 }
-
-
-
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn start() {
-    set_enable_color(true);
+    osal_rs::log::set_enable_color(true);
 
     #[cfg(not(feature = "tests"))]
     {
+        use osal_rs::os::{System, SystemFn, Thread, ThreadFn};
+        use osal_rs::os::types::StackType;
+        use crate::app::main_thread;
         use crate::drivers::platform::ThreadPriority;
+
+        const THREAD_NAME: &str = "main_trd";
+        const STACK_SIZE: StackType = 1_024*8; // 8KB stack
 
         let mut thread = Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal);
         let _ = match thread.spawn(None, main_thread) {
             
             Ok(spawned) =>  {
+                use osal_rs::log_info;
+
                 log_info!(APP_TAG, "Start main thread\r\n");
                 spawned
             }
@@ -147,7 +152,12 @@ pub unsafe extern "C" fn start() {
 
     #[cfg(feature = "tests")]
     {
+        use osal_rs::os::System;
+        use crate::osal_rs::os::SystemFn;
+
         perform_tests();
+
+        System::start();
     }
 }
 
@@ -155,24 +165,16 @@ pub unsafe extern "C" fn start() {
 
 #[cfg(feature = "tests")]
 fn perform_tests() {
-
+    use osal_rs::log_info;
 
     log_info!(APP_TAG, "Creating osal rs test thread...");
 
-    match Thread::new("osal_rs_test", 4096, 3, Box::new(|_, _| {
-        use osal_rs::utils::Error;
 
-
-        match osal_rs_tests::freertos::run_all_tests() {
-            Ok(_) => log_info!(APP_TAG, "All tests passed!"),
-            Err(e) => panic!("Tests failed with error: {:?}", e)
-        };
-
-        Err(Error::Unhandled(""))
-    })).spawn(None) {
-        Ok(_spawned) =>  log_info!(APP_TAG, "Thread spawned successfully!"),
-        Err(e) => panic!("Failed to spawn osal rs test thread: {:?}", e)
+    match osal_rs_tests::freertos::run_all_tests() {
+        Ok(_) => log_info!(APP_TAG, "All tests passed!"),
+        Err(e) => panic!("Tests failed with error: {:?}", e)
     };
+
 }
 
 

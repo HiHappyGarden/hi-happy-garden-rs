@@ -32,5 +32,6 @@ mod utils;
 mod wifi;
 
 pub(crate) use display::DISPLAY_INPUT_MAX_SIZE;
+#[cfg_attr(feature = "tests", allow(unused_imports))]
 pub(crate) use main::AppMain;
 
