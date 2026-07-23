@@ -165,13 +165,9 @@ pub unsafe extern "C" fn start() {
 
 #[cfg(feature = "tests")]
 fn perform_tests() {
-    use osal_rs::log_info;
-
-    log_info!(APP_TAG, "Creating osal rs test thread...");
-
-
+    
     match osal_rs_tests::freertos::run_all_tests() {
-        Ok(_) => log_info!(APP_TAG, "All tests passed!"),
+        Ok(_) => osal_rs::log_info!(APP_TAG, "All tests passed!"),
         Err(e) => panic!("Tests failed with error: {:?}", e)
     };
 
