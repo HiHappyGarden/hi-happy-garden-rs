@@ -281,7 +281,7 @@ add_custom_command(
 add_custom_target(main ALL DEPENDS ${RUST_PATH})
 
 
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.c" "src/pico/*.cpp" "src/pico/*.c"  "osal-rs/osal-rs-build/osal-rs-ffi-freertos/src/*.c" "osal-rs/osal-rs-porting/freeretos/src/*.c")
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.c" "src/pico/*.cpp" "src/pico/*.c" "osal-rs/osal-rs-porting/freeretos/src/*.c")
 
 add_executable(hi-happy-garden-rs 
         ${SOURCES}

@@ -18,6 +18,7 @@
  *
  ***************************************************************************/
 
+use alloc::sync::Arc;
 use core::ffi::c_void;
 use core::ptr::null_mut;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -407,7 +408,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
                     match ctrl {
                         WifiFsmControl::Continue => continue 'no_rtc,
-                        WifiFsmControl::Break    => break,
+                        WifiFsmControl::Break    => break Ok(Arc::new(())),
                         WifiFsmControl::Next     => {}
                     }
 
