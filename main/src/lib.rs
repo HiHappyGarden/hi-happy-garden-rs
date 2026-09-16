@@ -153,24 +153,50 @@ pub unsafe extern "C" fn start() {
 
     #[cfg(feature = "tests")]
     {
-        use osal_rs::os::System;
-        use crate::osal_rs::os::SystemFn;
+        use osal_rs::os::{System, SystemFn, Thread, ThreadFn};
+        use crate::drivers::platform::ThreadPriority;
+        use crate::tests::{TEST_STACK_SIZE, TEST_THREAD_NAME, test_thread};
 
-        perform_tests();
+        // The test suite must run with the scheduler already running: blocking
+        // calls (`EventGroup::wait`, `Queue::receive`, ...) yield through the
+        // port layer, which dereferences `pxCurrentTCB`. Called straight from
+        // `main()` that pointer is still NULL and the yield faults, so the
+        // tests are spawned as a task and only entered once `System::start()`
+        // has handed control to the scheduler.
+        let mut thread = Thread::new_with_to_priority(TEST_THREAD_NAME, TEST_STACK_SIZE, ThreadPriority::Normal);
+        if let Err(e) = thread.spawn(None, test_thread) {
+            panic!("Failed to spawn test thread: {:?}", e);
+        }
 
         System::start();
     }
 }
 
 
-
 #[cfg(feature = "tests")]
-fn perform_tests() {
+mod tests {
 
-    match osal_rs_tests::freertos::run_all_tests() {
-        Ok(_) => osal_rs::log_info!(APP_TAG, "All tests passed!"),
-        Err(e) => panic!("Tests failed with error: {:?}", e)
-    };
+    use alloc::boxed::Box;
+
+    use osal_rs::os::types::{StackType, TickType};
+    use osal_rs::os::{System, SystemFn, ThreadFn, ThreadParam};
+    use osal_rs::utils::Result;
+
+    use crate::APP_TAG;
+
+    pub(super) const TEST_THREAD_NAME: &str = "test_trd";
+    pub(super) const TEST_STACK_SIZE: StackType = 1_024 * 8; // 8KB stack
+
+    pub(super) fn test_thread(_thread: Box<dyn ThreadFn>, _: Option<ThreadParam>) -> Result<ThreadParam> {
+        match osal_rs_tests::freertos::run_all_tests() {
+            Ok(_) => osal_rs::log_info!(APP_TAG, "All tests passed!"),
+            Err(e) => panic!("Tests failed with error: {:?}", e),
+        };
+
+        loop {
+            System::delay(TickType::MAX);
+        }
+    }
 
 }
 
