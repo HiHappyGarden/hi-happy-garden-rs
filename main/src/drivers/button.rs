@@ -102,7 +102,7 @@ impl SetClickable<'static> for Button {
 
             loop {
                 
-                let bits = event_handler.wait(BUTTON_PRESSED | BUTTON_RELEASED, TickType::MAX);
+                let bits = event_handler.wait(BUTTON_PRESSED | BUTTON_RELEASED, false, TickType::MAX);
                 event_handler.clear(bits);
                 
                 let state = if bits & BUTTON_PRESSED == BUTTON_PRESSED {

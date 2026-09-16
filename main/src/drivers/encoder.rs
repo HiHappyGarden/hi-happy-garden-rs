@@ -239,6 +239,7 @@ impl SetRotatableAndClickable<'static> for Encoder {
                     ENCODER_PRESSED | ENCODER_RELEASED | 
                     ENCODER_CCW_RISE | ENCODER_CCW_FALL | 
                     ENCODER_CW_RISE | ENCODER_CW_FALL, 
+                    false,
                     TickType::MAX
                 );
                 event_handler.clear(bits);

@@ -82,7 +82,7 @@ macro_rules! define_signal {
             }
             
             fn wait(mask: osal_rs::os::types::EventBits, timeout_ticks: osal_rs::os::types::TickType) -> osal_rs::os::types::EventBits {
-                osal_rs::access_static_option!($static_name).wait(mask, timeout_ticks)
+                osal_rs::access_static_option!($static_name).wait(mask, false, timeout_ticks)
             }
         }
 
