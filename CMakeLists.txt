@@ -22,14 +22,20 @@ if(WIN32)
 else()
     set(USERHOME $ENV{HOME})
 endif()
-set(sdkVersion 2.3.0)
+set(sdkVersion 2.3.1)
 set(toolchainVersion 14_2_Rel1)
-set(picotoolVersion 2.3.0)
+set(picotoolVersion 2.3.1)
 set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
 if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
+
+# Reuse the already-installed picotool instead of rebuilding it from source each time
+# (SDK 2.3.1 requires picotool 2.3.0, not picotoolVersion above)
+if(NOT DEFINED ENV{PICOTOOL_FETCH_FROM_GIT_PATH})
+    set(ENV{PICOTOOL_FETCH_FROM_GIT_PATH} "${USERHOME}/.pico-sdk/picotool/2.3.0")
+endif()
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(${PICO_SDK_PATH}/external/pico_sdk_import.cmake)
