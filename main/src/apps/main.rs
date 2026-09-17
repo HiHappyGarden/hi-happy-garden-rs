@@ -24,7 +24,7 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use osal_rs::{log_debug, log_info};
 use osal_rs::os::types::StackType;
-use osal_rs::os::{MutexFn as _, System, Thread, ThreadFn, ThreadParam};
+use osal_rs::os::{MutexFn as _, System, SystemFn, Thread, ThreadFn, ThreadParam};
 use osal_rs::utils::{Error, Result};
 
 use crate::apps::config::Config;
@@ -44,7 +44,7 @@ use crate::traits::state::Initializable;
 use crate::traits::wifi::SetOnWifiChangeStatus;
 
 const APP_TAG: &str = "AppMain";
-const THREAD_NAME: &str = "app_main_trd";
+const THREAD_NAME: &str = "app_main_thr";
 const STACK_SIZE: StackType = 1_024 * 2; // 2KB stack size for the main thread
 const TICK_INTERVAL_MS: u16 = 100;
 
@@ -209,7 +209,7 @@ impl AppMain {
                         let now: DateTime = DateTime::from_timestamp(rtc.lock()?.get_timestamp()?)?;
 
                         me.sprinkler.check(now);
-
+log_info!(APP_TAG, "---> heap_free:{}", System::get_free_heap_size());
                         StatusSignal::set(StatusFlag::Ready.into());
                     },
                     StatusFlag::Error => todo!("handle error, maybe set status to Error and log it"),

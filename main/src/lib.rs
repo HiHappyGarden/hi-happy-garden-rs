@@ -57,7 +57,7 @@ mod app {
     use ffi::{get_g_setup_called, print_systick_status};
     use crate::apps::AppMain;
 
-    pub(super) const THREAD_NAME: &str = "main_trd";
+    pub(super) const THREAD_NAME: &str = "main_thr";
     pub(super) const STACK_SIZE: StackType = 1_024*8; // 8KB stack
 
     static mut HARDWARE: Option<Hardware> = None;
@@ -184,7 +184,7 @@ mod tests {
 
     use crate::APP_TAG;
 
-    pub(super) const TEST_THREAD_NAME: &str = "test_trd";
+    pub(super) const TEST_THREAD_NAME: &str = "test_thr";
     pub(super) const TEST_STACK_SIZE: StackType = 1_024 * 8; // 8KB stack
 
     pub(super) fn test_thread(_thread: Box<dyn ThreadFn>, _: Option<ThreadParam>) -> Result<ThreadParam> {

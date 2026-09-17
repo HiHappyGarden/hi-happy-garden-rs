@@ -36,7 +36,7 @@ use crate::traits::state::Initializable;
 use button_events::*;
 
 const APP_TAG: &str = "Button";
-const THREAD_NAME: &str = "button_trd";
+const THREAD_NAME: &str = "button_thr";
 const STACK_SIZE: StackType = 256;
 const DEBOUNCE_TIME: TickType = 50;
 

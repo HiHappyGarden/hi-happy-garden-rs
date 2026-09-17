@@ -51,7 +51,7 @@ macro_rules! blink_led {
 }
 
 const APP_TAG: &str = "AppSystemLed";
-const THREAD_NAME: &str = "system_led_trd";
+const THREAD_NAME: &str = "system_led_thr";
 const STACK_SIZE: StackType = 256;
 const BLINK_INTERVAL_MS: u16 = 500;
 const TICK_INTERVAL_MS: u16 = 100; 

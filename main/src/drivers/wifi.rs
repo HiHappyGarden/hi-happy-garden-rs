@@ -38,7 +38,7 @@ use crate::traits::wifi::WifiStatus::Disconnected;
 
 
 const APP_TAG: &str = "WIFI";
-const THREAD_NAME: &str = "wifi_trd";
+const THREAD_NAME: &str = "wifi_thr";
 const STACK_SIZE: StackType = 2_560; 
 const MAX_ERROR: StackType = 5;
 
