@@ -24,7 +24,7 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use osal_rs::{log_debug, log_info};
 use osal_rs::os::types::StackType;
-use osal_rs::os::{MutexFn as _, System, SystemFn, Thread, ThreadFn, ThreadParam};
+use osal_rs::os::{MutexFn as _, System, Thread, ThreadFn, ThreadParam};
 use osal_rs::utils::{Error, Result};
 
 use crate::apps::config::Config;
