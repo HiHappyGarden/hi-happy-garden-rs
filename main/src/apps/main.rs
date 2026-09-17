@@ -209,7 +209,7 @@ impl AppMain {
                         let now: DateTime = DateTime::from_timestamp(rtc.lock()?.get_timestamp()?)?;
 
                         me.sprinkler.check(now);
-log_info!(APP_TAG, "---> heap_free:{}", System::get_free_heap_size());
+
                         StatusSignal::set(StatusFlag::Ready.into());
                     },
                     StatusFlag::Error => todo!("handle error, maybe set status to Error and log it"),
