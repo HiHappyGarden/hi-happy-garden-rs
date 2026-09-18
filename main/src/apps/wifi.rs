@@ -19,7 +19,7 @@
  ***************************************************************************/
 
 use alloc::sync::Arc;
-use osal_rs::os::{Mutex, MutexFn};
+use osal_rs::os::{Mutex, MutexFn, System, SystemFn};
 use osal_rs::{log_info};
 use osal_rs::utils::{Bytes, Result};
 
@@ -110,6 +110,7 @@ impl OnWifiChangeStatus for Wifi {
                             set_app_error!(dt.clone(), ErrorFlag::NTP);
                             set_app_error!(rtc.lock().unwrap().set_timestamp(timestamp), ErrorFlag::NTP);
                             log_info!(APP_TAG, "NTP time (UTC): {}", dt.unwrap());
+                            log_info!(APP_TAG, "NTP sync complete, heap_free:{}", System::get_free_heap_size());
                         },
                         None => {
                             log_info!(APP_TAG, "RTC not set for WifiApp");
