@@ -86,7 +86,15 @@ where N: Integer
         text: &dyn AsSyncStr,
         param: ScreenParam<N, N_SELECTS>,
         callback: ScreenCallback<N, N_SELECTS>
-    ) -> Result<()>;
+    ) -> Result<()> 
+    {
+        todo!(r#"
+        pub trait Screen<T, N = u16, const S: usize = 6> {
+            fn draw(&mut self, ..., param: ScreenParam<N, S>) -> Result<Answer<N, S>>;
+        }
+        "#)
+        
+    }
 
     fn get_value(&self) -> Result<T>;
 }
