@@ -18,15 +18,17 @@
  *
  ***************************************************************************/
 
+mod info;
 mod menu;
 mod set_config;
+
 
 
 use alloc::boxed::Box;
 use alloc::string::ToString;
 use alloc::vec::Vec;
 use alloc::sync::Arc;
-use core::any::Any;
+
 
 use crate::apps::config::Config;
 use crate::apps::signals::status::StatusFlag;
@@ -100,10 +102,16 @@ impl ScreenRoute {
         status_signal: &mut EventBits, 
         rtc: &Arc<Mutex<dyn RTC + 'static>>) -> Result<()> {
         
+        if self.stack.is_empty() {
+            self.handle_init(status_signal);
+        }
+            
+
         let top = self.stack.last_mut().ok_or("Screen stack is empty").map_err(|e| osal_rs::utils::Error::UnhandledOwned(e.to_string()))?;
         match top.draw(lcd, display_signal, status_signal, rtc)? {
             Nav::Stay => {}
             Nav::Push(_s) => { }
+            Nav::PushId(_id) => { }
             Nav::Pop => { }
             Nav::PopTo(_id) => { }
             Nav::Replace(_s) => { }
