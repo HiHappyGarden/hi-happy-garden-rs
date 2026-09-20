@@ -18,23 +18,21 @@
  *
  ***************************************************************************/
 
+use crate::apps::screen_route::ScreenId;
+use crate::traits::screen::{Nav, ScreenRoute};
+use crate::traits::lcd_display::LCDDisplayFn;
+use crate::traits::rtc::RTC;
 use alloc::sync::Arc;
 use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::Result;
 
-use crate::apps::screen_route::ScreenId;
-use crate::traits::rtc::RTC;
-use crate::traits::screen::{Nav, ScreenRoute};
-use crate::traits::lcd_display::LCDDisplayFn;
+pub(super) struct ScreenMenu;
 
 
-pub(super) struct ScreenSetConfig;
-
-
-impl ScreenRoute<ScreenId> for ScreenSetConfig {
+impl ScreenRoute<ScreenId> for ScreenMenu {
     fn id(&self) -> ScreenId {
-        ScreenId::SetConfig
+        ScreenId::Menu
     }
 
     fn draw(&mut self, 
@@ -47,7 +45,7 @@ impl ScreenRoute<ScreenId> for ScreenSetConfig {
     }
 }
 
-impl ScreenSetConfig {
+impl ScreenMenu {
     pub(super) fn new() -> Self {
         Self
     }

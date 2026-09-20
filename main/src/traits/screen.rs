@@ -19,6 +19,7 @@
  ***************************************************************************/
 
 use core::any::Any;
+use alloc::boxed::Box;
 use alloc::sync::Arc;
 use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
@@ -33,9 +34,17 @@ use crate::traits::rtc::RTC;
 pub type ScreenCallback<N = u16, const N_SELECTS: usize = 6> = Option<fn(Option<ScreenParam<N, N_SELECTS>>, confirmed: bool)>;
 pub type ScreenSelections<const N_SELECTS: usize = 6> = [(Bytes<{DISPLAY_INPUT_MAX_SIZE}>, bool); N_SELECTS];
 
-pub const fn screen_selections_new<const N_SELECTS: usize>() -> ScreenSelections<N_SELECTS> {
-    [(Bytes::new(), false); N_SELECTS]
+pub enum Nav<Id> {
+    Stay,
+    Push(Box<dyn ScreenRoute<Id>>),
+    /// Like [`Nav::Push`] but the screen is built by the router, so a screen
+    /// does not need to depend on the screens it can navigate to.
+    PushId(Id),
+    Pop,
+    PopTo(Id),
+    Replace(Box<dyn ScreenRoute<Id>>),
 }
+
 
 #[allow(unused)]
 #[derive(Debug, Clone)]
@@ -82,19 +91,21 @@ where N: Integer
     fn get_value(&self) -> Result<T>;
 }
 
-pub trait ScreenRoute<N = u16>
-where N: Integer
+pub trait ScreenRoute<Id>
+where Id: Copy + PartialEq
 {
-     fn draw(&mut self, 
-        lcd: &mut dyn LCDDisplayFn,
+    fn id(&self) -> Id;
+
+    fn draw(&mut self, 
+        lcd: &mut dyn LCDDisplayFn, 
         display_signal: &mut EventBits, 
-        status_signal: &mut EventBits, 
-        rtc: &Arc<Mutex<dyn RTC + 'static>>,
-    ) -> Result<()>;
+        status_signal: &mut 
+        EventBits, 
+        rtc: &Arc<Mutex<dyn RTC + 'static>>) -> Result<Nav<Id>>;
 
-    #[allow(unused)]
-    fn as_any_mut(&mut self) -> &mut dyn Any;
+    fn requires_auth(&self) -> bool { true }
+}
 
-    #[allow(unused)]
-    fn as_any(&self) -> &dyn Any;
+pub const fn screen_selections_new<const N_SELECTS: usize>() -> ScreenSelections<N_SELECTS> {
+    [(Bytes::new(), false); N_SELECTS]
 }
