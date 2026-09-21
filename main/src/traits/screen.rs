@@ -18,7 +18,6 @@
  *
  ***************************************************************************/
 
-use core::any::Any;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use osal_rs::os::Mutex;
@@ -45,6 +44,13 @@ pub enum Nav<Id> {
     Replace(Box<dyn ScreenRoute<Id>>),
 }
 
+pub enum Answer<N = u16, const N_SELECTS: usize = 6>
+where N: Integer
+{
+    Pending,                            // widget during user input in editing
+    Confirmed(ScreenParam<N, N_SELECTS>),
+    Cancelled,
+}
 
 #[allow(unused)]
 #[derive(Debug, Clone)]
@@ -85,16 +91,8 @@ where N: Integer
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
         text: &dyn AsSyncStr,
         param: ScreenParam<N, N_SELECTS>,
-        callback: ScreenCallback<N, N_SELECTS>
-    ) -> Result<()> 
-    {
-        todo!(r#"
-        pub trait Screen<T, N = u16, const S: usize = 6> {
-            fn draw(&mut self, ..., param: ScreenParam<N, S>) -> Result<Answer<N, S>>;
-        }
-        "#)
-        
-    }
+//        callback: ScreenCallback<N, N_SELECTS>
+    ) -> Result<Answer<N, N_SELECTS>>;
 
     fn get_value(&self) -> Result<T>;
 }

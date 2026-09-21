@@ -29,7 +29,8 @@ use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use crate::traits::rtc::RTC;
-use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
+use crate::traits::screen::Answer::Pending;
+use crate::traits::screen::{Answer, Screen, ScreenParam};
 
 const LONG_PRESS_TICK: u32 = 500;
 const DEFAULT_CHAR: &str = "a";
@@ -50,9 +51,8 @@ impl Screen<Bytes<MAX_SIZE>> for Input
         signal: &mut EventBits, 
         _: &Arc<Mutex<dyn RTC + 'static>>,
         text: &dyn AsSyncStr, 
-        param: ScreenParam, 
-        callback: ScreenCallback
-    ) -> Result<()> {
+        param: ScreenParam
+    ) -> Result<Answer> {
 
         clean_context(lcd)?;
 
@@ -179,12 +179,13 @@ impl Screen<Bytes<MAX_SIZE>> for Input
             if elapsed >= LONG_PRESS_TICK {
                 // Long press on encoder button: confirm the current input.
                 if let Some(input) = self.input {
-                    if let Some(cb) = callback {
-                        let mut p = ScreenParam::default();
-                        p.input = Some(input.clone());
-                        cb(Some(p), true);
-                    }
+
                     self.input = Some(input);
+                    return Ok(Answer::Confirmed(ScreenParam {
+                        input: Some(input),
+                        ..Default::default()
+                    }));
+
                 }
             }
             self.encoder_button_pressed_tick = 0;
@@ -193,27 +194,25 @@ impl Screen<Bytes<MAX_SIZE>> for Input
 
         } else if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
             let elapsed = System::get_tick_count().wrapping_sub(self.button_pressed_tick);
+            self.button_pressed_tick = 0;
+            
             if elapsed >= LONG_PRESS_TICK {
-                if let Some(cb) = callback {
-                    let mut p = ScreenParam::default();
-                    p.input = self.original_input.clone();
-                    cb(Some(p), false);
-                }
-                *signal |= DisplayFlag::Draw as u32;
+                // Long press: restore original input and exit
+                return Ok(Answer::Cancelled);
             } else if self.input.as_ref().is_none_or(|input| input.is_empty()) {
-                if let Some(cb) = callback {
-                    cb(None, false);
-                }
-                *signal |= DisplayFlag::Draw as u32;
+                // Empty buffer: cancel
+                return Ok(Answer::Cancelled);
             } else {
+                // Normal short press: stay in the widget
                 *signal |= DisplayFlag::Draw as u32;
-            }
+    }
+
             self.button_pressed_tick = 0;
             *signal &= !(DisplayFlag::ButtonReleased as u32);
 
         }
 
-        Ok(())
+        Ok(Pending)
     }
 
     fn get_value(&self) -> Result<Bytes<MAX_SIZE>> {

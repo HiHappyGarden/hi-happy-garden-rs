@@ -29,7 +29,7 @@ use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
-use crate::traits::screen::{Screen, ScreenCallback, ScreenParam, ScreenSelections, screen_selections_new};
+use crate::traits::screen::{Answer, Screen, ScreenParam, ScreenSelections, screen_selections_new};
 
 static NO_SELECTIONS: &str = "No selections available";
 
@@ -44,9 +44,8 @@ impl<const N: usize> Screen<ScreenSelections<N>, u16, N> for Select<N> {
         signal: &mut EventBits,
         _: &Arc<Mutex<dyn RTC + 'static>>,
         text: &dyn AsSyncStr,
-        param: ScreenParam<u16, N>,
-        callback: ScreenCallback<u16, N>
-    ) -> Result<()> {
+        param: ScreenParam<u16, N>
+    ) -> Result<Answer<u16, N>> {
 
         clean_context(lcd)?;
 
@@ -103,29 +102,26 @@ impl<const N: usize> Screen<ScreenSelections<N>, u16, N> for Select<N> {
         lcd.draw_str(&display_text, x_position, SECOND_ROW_Y, &FONT_8X8)?;
         if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
                 if let Some(selected) = self.selections.as_ref() {
-                    let mut p = ScreenParam::default();
-                    p.selects = selected.clone().into();
-                    if let Some(ref cb) = callback {
-                        cb(Some(p), true);
-                    }
-                *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+            
+                    *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+                    return Ok(Answer::Confirmed(ScreenParam {
+                        selects: selected.clone().into(),
+                        ..Default::default()
+                    }));
+                    
             } else {
-                if let Some(ref cb) = callback {
-                    cb(None, false);
-                }
                 *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+                return Ok(Answer::Cancelled);
             }
         }
 
         if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
-            if let Some(ref cb) = callback {
-                cb(None, false);
-            }
             *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+            return Ok(Answer::Cancelled);
         }
 
         
-        Ok(())
+        Ok(Answer::Pending)
         
     }
 

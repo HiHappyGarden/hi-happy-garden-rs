@@ -30,7 +30,7 @@ use crate::assets::font_8x8::FONT_8X8;
 use crate::traits::integer::Integer;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
-use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
+use crate::traits::screen::{Answer, Screen, ScreenParam};
 
  #[allow(dead_code)]
 pub(super) struct Number<N>
@@ -52,9 +52,8 @@ where
         signal: &mut EventBits, 
         _: &Arc<Mutex<dyn RTC + 'static>>, 
         text: &dyn AsSyncStr, 
-        param: ScreenParam<N>, 
-        callback: ScreenCallback<N>
-    ) -> Result<()> {
+        param: ScreenParam<N>
+    ) -> Result<Answer<N>> {
 
         clean_context(lcd)?;
 
@@ -86,21 +85,19 @@ where
         lcd.draw_str(&to_show, x_position, SECOND_ROW_Y, &FONT_8X8)?;
 
         if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+
             self.result = self.number;
-            if let Some(cb) = callback {
-                let param = self.result.map(|n| { let mut p = ScreenParam::default(); p.number = Some(n); p });
-                cb(param, true);
-            }
+            return Ok(Answer::Confirmed(ScreenParam {
+                number: self.result,
+                ..Default::default()
+            }));
         }
 
         if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
-            if let Some(cb) = callback {
-                let param = self.number.map(|n| { let mut p = ScreenParam::default(); p.number = Some(n); p });
-                cb(param, false);
-            }
+            return Ok(Answer::Cancelled);
         }
 
-        Ok(())
+        Ok(Answer::Pending)
     }
 
     fn get_value(&self) -> Result<N> {

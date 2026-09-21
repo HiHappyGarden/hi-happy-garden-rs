@@ -28,7 +28,7 @@ use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
-use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
+use crate::traits::screen::{Answer, Screen, ScreenParam};
 
 
 
@@ -42,9 +42,8 @@ impl Screen<()> for Text
         signal: &mut EventBits, 
         _: &Arc<Mutex<dyn RTC + 'static>>, 
         text: &dyn AsSyncStr, 
-        _: ScreenParam, 
-        callback: ScreenCallback
-    ) -> Result<()> {
+        _: ScreenParam
+    ) -> Result<Answer> {
 
         clean_context(lcd)?;
         
@@ -101,20 +100,16 @@ impl Screen<()> for Text
         }
 
         if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
-            if let Some(cb) = callback {
-                cb(Option::None, true);
-            }
+            return Ok(Answer::Confirmed(ScreenParam::default()));
         }
 
         if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
-            if let Some(cb) = callback {
-                cb(Option::None, false);
-            }
+            return Ok(Answer::Cancelled);
         }
 
         *signal |= DisplayFlag::Draw as u32;
 
-        Ok(())
+        Ok(Answer::Pending)
     }
 
     fn get_value(&self) -> Result<()> {
