@@ -18,27 +18,25 @@
  *
  ***************************************************************************/
 
-use alloc::sync::Arc;
-use osal_rs::os::Mutex;
-use osal_rs::os::types::EventBits;
 use osal_rs::utils::Result;
 
 use crate::apps::screen_route::ScreenId;
-use crate::traits::rtc::RTC;
 use crate::traits::screen::{Nav, ScreenRoute, ScreenRouteCtx};
-use crate::traits::lcd_display::LCDDisplayFn;
 
 
 pub(super) struct ScreenSetConfig;
 
 
 impl ScreenRoute<'_, ScreenId> for ScreenSetConfig {
+    
+    #[inline]
     fn id(&self) -> ScreenId {
         ScreenId::SetConfig
     }
 
     fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<'_, ScreenId>> {
         
+        todo!("ScreenSetConfig draw not implemented yet");
 
         Ok(Nav::Pop)
     }

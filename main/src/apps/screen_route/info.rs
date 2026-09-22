@@ -24,12 +24,7 @@ use crate::apps::wifi::Wifi;
 use crate::apps::signals::display::DisplayFlag;
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::screen_route::ScreenId;
-use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::screen::{Screen, ScreenParam, ScreenRoute, ScreenRouteCtx, Nav};
-use crate::traits::rtc::RTC;
-use alloc::sync::Arc;
-use osal_rs::os::Mutex;
-use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Bytes, Result};
 
 
@@ -39,6 +34,8 @@ pub(super) struct ScreenInfo {
 
 
 impl ScreenRoute<'_, ScreenId> for ScreenInfo {
+
+    #[inline]
     fn id(&self) -> ScreenId {
         ScreenId::Info
     }

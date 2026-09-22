@@ -18,8 +18,6 @@
  *
  ***************************************************************************/
 
-use alloc::sync::Arc;
-use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Bytes, Result};
 
@@ -27,8 +25,6 @@ use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::display::text::Text;
 use crate::apps::screen_route::ScreenId;
 use crate::apps::signals::display::DisplayFlag;
-use crate::traits::lcd_display::LCDDisplayFn;
-use crate::traits::rtc::RTC;
 use crate::traits::screen::{Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 
 /// Entries of the main menu, in rotation order.
@@ -102,10 +98,12 @@ pub(super) struct ScreenMenu {
 }
 
 impl ScreenRoute<'_, ScreenId> for ScreenMenu {
+    
+    #[inline]
     fn id(&self) -> ScreenId {
         ScreenId::Menu
     }
-
+ 
     fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<'_, ScreenId>> {
 
         self.update_input(screen_route_ctx.display_signal);
@@ -143,13 +141,18 @@ impl ScreenMenu {
         }
     }
 
+    #[inline]
+    fn request_draw(display_signal: &mut EventBits) {
+        *display_signal |= DisplayFlag::Draw as u32;
+    }
+
     fn update_input(&mut self, signal: &mut EventBits) {
         if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
             self.item = self.item.next();
-            *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
+            Self::request_draw(signal); // Set the flag to indicate that the display should be redrawn
         } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
             self.item = self.item.previous();
-            *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
+            Self::request_draw(signal); // Set the flag to indicate that the display should be redrawn
         }
     }
 }

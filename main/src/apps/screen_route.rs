@@ -18,10 +18,13 @@
  *
  ***************************************************************************/
 
+mod auth;
 mod info;
+mod login;
 mod menu;
 mod set_config;
-
+mod sprinkler;
+mod user;
 
 
 use alloc::boxed::Box;
@@ -40,8 +43,6 @@ use crate::traits::rtc::RTC;
 use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::Result;
-
-mod commons;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub(in crate::apps) enum ScreenId {
