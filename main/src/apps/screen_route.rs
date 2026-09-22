@@ -34,7 +34,7 @@ use crate::apps::config::Config;
 use crate::apps::signals::status::StatusFlag;
 use crate::apps::screen_route::set_config::ScreenSetConfig;
 use crate::apps::screen_route::menu::ScreenMenu;
-use crate::traits::screen::{Nav, ScreenRoute as ScreenRouteFn};
+use crate::traits::screen::{Nav, ScreenRoute as ScreenRouteFn, ScreenRouteCtx};
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
 use osal_rs::os::Mutex;
@@ -61,7 +61,7 @@ pub(in crate::apps) enum ScreenId {
 
  pub(in crate::apps) struct ScreenRoute {
     config: &'static mut Config,
-    stack: Vec<Box<dyn ScreenRouteFn<ScreenId>>>,
+    stack: Vec<Box<dyn for<'a> ScreenRouteFn<'a, ScreenId>>>,
     check_staus_counter: u8,
     has_local_user: bool,
 }
@@ -108,7 +108,15 @@ impl ScreenRoute {
             
 
         let top = self.stack.last_mut().ok_or("Screen stack is empty").map_err(|e| osal_rs::utils::Error::UnhandledOwned(e.to_string()))?;
-        match top.draw(lcd, display_signal, status_signal, rtc)? {
+
+        let screen_route_ctx = &mut ScreenRouteCtx {
+            lcd,
+            display_signal,
+            status_signal,
+            rtc,
+        };
+
+        match top.draw(screen_route_ctx)? {
             Nav::Stay => {}
             Nav::Push(_s) => { }
             Nav::PushId(_id) => { }

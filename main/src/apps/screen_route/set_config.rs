@@ -25,24 +25,21 @@ use osal_rs::utils::Result;
 
 use crate::apps::screen_route::ScreenId;
 use crate::traits::rtc::RTC;
-use crate::traits::screen::{Nav, ScreenRoute};
+use crate::traits::screen::{Nav, ScreenRoute, ScreenRouteCtx};
 use crate::traits::lcd_display::LCDDisplayFn;
 
 
 pub(super) struct ScreenSetConfig;
 
 
-impl ScreenRoute<ScreenId> for ScreenSetConfig {
+impl ScreenRoute<'_, ScreenId> for ScreenSetConfig {
     fn id(&self) -> ScreenId {
         ScreenId::SetConfig
     }
 
-    fn draw(&mut self, 
-        lcd: &mut dyn LCDDisplayFn, 
-        display_signal: &mut EventBits, 
-        status_signal: &mut EventBits, 
-        rtc: &Arc<Mutex<dyn RTC + 'static>>) -> Result<Nav<ScreenId>> {
+    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<'_, ScreenId>> {
         
+
         Ok(Nav::Pop)
     }
 }

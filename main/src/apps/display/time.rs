@@ -29,7 +29,7 @@ use crate::apps::display::date_time_editor::{FieldEditor, FieldEditorConfig};
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
-use crate::traits::screen::{Answer, Screen, ScreenCallback, ScreenParam};
+use crate::traits::screen::{Answer, Screen, ScreenParam};
 
 pub(in crate::apps) struct Time(FieldEditor);
 

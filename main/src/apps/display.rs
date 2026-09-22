@@ -99,8 +99,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 &mut 0, 
                 &rtc, 
                 &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Loading..."), 
-                ScreenParam::default(), 
-                Option::None
+                ScreenParam::default()
             ) {
                 log_info!(APP_TAG, "Error drawing text: {:?}", e);
                 ErrorSignal::set(ErrorFlag::Display.into());

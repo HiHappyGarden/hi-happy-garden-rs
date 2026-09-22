@@ -30,18 +30,25 @@ use crate::traits::integer::Integer;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
 
-pub type ScreenCallback<N = u16, const N_SELECTS: usize = 6> = Option<fn(Option<ScreenParam<N, N_SELECTS>>, confirmed: bool)>;
 pub type ScreenSelections<const N_SELECTS: usize = 6> = [(Bytes<{DISPLAY_INPUT_MAX_SIZE}>, bool); N_SELECTS];
 
-pub enum Nav<Id> {
+
+pub struct ScreenRouteCtx<'a> {
+    pub lcd: &'a mut dyn LCDDisplayFn,
+    pub display_signal: &'a mut EventBits,
+    pub status_signal: &'a mut EventBits,
+    pub rtc: &'a Arc<Mutex<dyn RTC + 'static>>,
+}
+
+pub enum Nav<'a, Id> {
     Stay,
-    Push(Box<dyn ScreenRoute<Id>>),
+    Push(Box<dyn ScreenRoute<'a, Id>>),
     /// Like [`Nav::Push`] but the screen is built by the router, so a screen
     /// does not need to depend on the screens it can navigate to.
     PushId(Id),
     Pop,
     PopTo(Id),
-    Replace(Box<dyn ScreenRoute<Id>>),
+    Replace(Box<dyn ScreenRoute<'a, Id>>),
 }
 
 pub enum Answer<N = u16, const N_SELECTS: usize = 6>
@@ -90,24 +97,18 @@ where N: Integer
         signal: &mut EventBits,
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
         text: &dyn AsSyncStr,
-        param: ScreenParam<N, N_SELECTS>,
-//        callback: ScreenCallback<N, N_SELECTS>
+        param: ScreenParam<N, N_SELECTS>
     ) -> Result<Answer<N, N_SELECTS>>;
 
     fn get_value(&self) -> Result<T>;
 }
 
-pub trait ScreenRoute<Id>
+pub trait ScreenRoute<'a, Id>
 where Id: Copy + PartialEq
 {
     fn id(&self) -> Id;
 
-    fn draw(&mut self, 
-        lcd: &mut dyn LCDDisplayFn, 
-        display_signal: &mut EventBits, 
-        status_signal: &mut 
-        EventBits, 
-        rtc: &Arc<Mutex<dyn RTC + 'static>>) -> Result<Nav<Id>>;
+    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'a>) -> Result<Nav<'_, Id>>;
 
     fn requires_auth(&self) -> bool { true }
 }

@@ -25,7 +25,7 @@ use crate::apps::signals::display::DisplayFlag;
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::screen_route::ScreenId;
 use crate::traits::lcd_display::LCDDisplayFn;
-use crate::traits::screen::{Screen, ScreenParam, ScreenRoute, Nav};
+use crate::traits::screen::{Screen, ScreenParam, ScreenRoute, ScreenRouteCtx, Nav};
 use crate::traits::rtc::RTC;
 use alloc::sync::Arc;
 use osal_rs::os::Mutex;
@@ -38,17 +38,14 @@ pub(super) struct ScreenInfo {
 }
 
 
-impl ScreenRoute<ScreenId> for ScreenInfo {
+impl ScreenRoute<'_, ScreenId> for ScreenInfo {
     fn id(&self) -> ScreenId {
         ScreenId::Info
     }
 
-    fn draw(&mut self, 
-        lcd: &mut dyn LCDDisplayFn, 
-        display_signal: &mut EventBits, 
-        status_signal: &mut EventBits, 
-        rtc: &Arc<Mutex<dyn RTC + 'static>>) -> Result<Nav<ScreenId>> {
-        
+    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<'_, ScreenId>> {
+    
+
          let mut text = Bytes::<DISPLAY_INPUT_MAX_SIZE>::new();
 
         if Config::shared().get_wifi_config().is_enabled() {
@@ -59,15 +56,14 @@ impl ScreenRoute<ScreenId> for ScreenInfo {
 
         
        self.text.draw(
-            lcd,
-            display_signal,
-            rtc,
+            screen_route_ctx.lcd,
+            screen_route_ctx.display_signal,
+            screen_route_ctx.rtc,
             &text,
-            ScreenParam::<u16>::default(),
-             None,
+            ScreenParam::<u16>::default()
         )?;
 
-        if *display_signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        if *screen_route_ctx.display_signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
             // The router builds the screen, so the menu stays independent from it.
             Ok(Nav::PushId(ScreenId::Info))
         } else {
