@@ -18,7 +18,7 @@
  *
  ***************************************************************************/
 
-use core::sync::atomic::{AtomicBool, Ordering};
+use alloc::string::String;
 
 use at_parser_rs::Args;
 use at_parser_rs::context::AtContext;
@@ -29,55 +29,51 @@ use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::config::Config;
 use crate::apps::display::input::Input;
 use crate::apps::display::text::Text;
-use crate::apps::screen_route::ScreenId;
-use crate::apps::signals::display::DisplayFlag;
+use crate::apps::screen_route::{ScreenId, request_redraw};
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
-
-static mut FSM_STATE: FSMState = FSMState::Email;
-static LOGGED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum FSMState {
     Email,
     EmailPasswd,
     Status,
-    End,
 }
 
 pub(super) struct ScreenLogin {
     config: &'static mut Config,
+    fsm_state: FSMState,
+    logged: bool,
     email: Input,
     email_passwd: Input,
     status: Text,
 }
 
-impl ScreenRoute<'_, ScreenId> for ScreenLogin {
-
+impl ScreenRoute<ScreenId> for ScreenLogin {
 
     #[inline]
     fn id(&self) -> ScreenId {
         ScreenId::Login
     }
 
-    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<'_, ScreenId>> {
-
-        match unsafe { *&raw const FSM_STATE } {
+    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+        match self.fsm_state {
             FSMState::Email => self.handle_email(screen_route_ctx),
             FSMState::EmailPasswd => self.handle_email_passwd(screen_route_ctx),
             FSMState::Status => self.handle_status(screen_route_ctx),
-            FSMState::End => Ok(Nav::Pop),
         }
     }
 
+    fn requires_auth(&self) -> bool {
+        false
+    }
 }
 
 impl ScreenLogin {
     pub(super) fn new() -> Self {
-        // Ensure a fresh login flow every time this screen is opened.
-        unsafe { FSM_STATE = FSMState::Email; }
-
         Self {
             config: Config::shared(),
+            fsm_state: FSMState::Email,
+            logged: false,
             email: Input::new(),
             email_passwd: Input::new(),
             status: Text::new(),
@@ -85,18 +81,12 @@ impl ScreenLogin {
     }
 
     #[inline]
-    fn request_draw(display_signal: &mut EventBits) {
-        *display_signal |= DisplayFlag::Draw as u32;
+    fn set_state(&mut self, display_signal: &mut EventBits, next: FSMState) {
+        self.fsm_state = next;
+        request_redraw(display_signal);
     }
 
-    #[inline]
-    fn set_state(display_signal: &mut EventBits, next: FSMState) {
-        unsafe { FSM_STATE = next; }
-        Self::request_draw(display_signal);
-    }
-
-
-    fn handle_email(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<'_, ScreenId>> {
+    fn handle_email(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
 
         match self.email.draw(
             *lcd,
@@ -107,17 +97,14 @@ impl ScreenLogin {
         )? {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(_) => {
-                Self::set_state(display_signal, FSMState::EmailPasswd);
+                self.set_state(display_signal, FSMState::EmailPasswd);
                 Ok(Nav::Stay)
             }
-            Answer::Cancelled => {
-                Self::set_state(display_signal, FSMState::End);
-                Ok(Nav::Stay)
-            }
+            Answer::Cancelled => Ok(Nav::Pop),
         }
     }
 
-    fn handle_email_passwd(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<'_, ScreenId>> {
+    fn handle_email_passwd(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
         
         match self.email_passwd.draw(
             *lcd,
@@ -125,76 +112,77 @@ impl ScreenLogin {
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Login Password"),
             ScreenParam::<u16>::default(),
-
         )? {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(_) => {
-                Self::set_state(display_signal, FSMState::Status);
+                self.logged = self.login()?;
+                self.set_state(display_signal, FSMState::Status);
                 Ok(Nav::Stay)
             }
             Answer::Cancelled => {
-                Self::set_state(display_signal, FSMState::Email);
+                self.set_state(display_signal, FSMState::Email);
                 Ok(Nav::Stay)
             }
         }   
     }
 
-    fn handle_status(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<'_, ScreenId>> {
+    fn handle_status(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
 
+        let text = if self.logged {
+            Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Login successful")
+        } else {
+            Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Login failed")
+        };
+
+        match self.status.draw(
+            *lcd, 
+            display_signal, 
+            rtc, 
+            &text, 
+            ScreenParam::<u16>::default()
+        )? {
+            Answer::Pending => Ok(Nav::Stay),
+            // Any button: leave on success, retry from the email otherwise.
+            Answer::Confirmed(_) | Answer::Cancelled => {
+                if self.logged {
+                    Ok(Nav::Pop)
+                } else {
+                    self.set_state(display_signal, FSMState::Email);
+                    Ok(Nav::Stay)
+                }
+            }
+        }
+    }
+
+    fn login(&mut self) -> Result<bool> {
         let email = self.email.get_value()?;
         let email_passwd = self.email_passwd.get_value()?;
 
-        let mut cmd = Bytes::<DISPLAY_INPUT_MAX_SIZE>::new();
-        cmd.format(format_args!("AT+SESS=i,{email},{email_passwd}", email = email.as_str(), email_passwd = email_passwd.as_str()));
+        // Only the arguments, as the AT parser would pass them: the command
+        // prefix would end up in the first argument.
+        let mut raw = String::from("i,");
+        Self::push_quoted(&mut raw, email.as_str());
+        raw.push(',');
+        Self::push_quoted(&mut raw, email_passwd.as_str());
 
         let args: Args = Args {
-            raw: cmd.as_str()
+            raw: raw.as_str()
         };
 
-        match self.config.get_session().set("", args) {
-            Ok(_) => {
-                if let Ok(_) = self.config.get_session().exec("") {
-                    LOGGED.store(true, Ordering::SeqCst);
-                } else {
-                    LOGGED.store(false, Ordering::SeqCst);
-                }
-            },
-            Err(_) => {
-                LOGGED.store(false, Ordering::SeqCst);
+        let session = self.config.get_session();
+        Ok(session.set("", args).is_ok() && session.exec("").is_ok())
+    }
+
+    /// Quotes `value` so that commas and quotes typed by the user do not split the arguments.
+    fn push_quoted(raw: &mut String, value: &str) {
+        raw.push('"');
+        for ch in value.chars() {
+            if ch == '"' || ch == '\\' {
+                raw.push('\\');
             }
-        };
-
-
-        let mut text = Bytes::<DISPLAY_INPUT_MAX_SIZE>::new();
-        if LOGGED.load(Ordering::SeqCst) {
-            text.append_str("Login successful");
-        } else {
-            text.append_str("Login failed");
+            raw.push(ch);
         }
-
-        match self.status.draw(
-                    *lcd, 
-                    display_signal, 
-                    rtc, 
-                    &text, 
-                    ScreenParam::<u16>::default()
-                )?  
-                {
-                Answer::Pending => Ok(Nav::Stay),
-                Answer::Confirmed(_) => {
-                    if LOGGED.load(Ordering::SeqCst) {
-                        Self::set_state(display_signal, FSMState::End);
-                    } else {
-                        Self::set_state(display_signal, FSMState::Email);
-                    }
-                    Ok(Nav::Stay)
-                }
-                Answer::Cancelled => {
-                    Self::set_state(display_signal, FSMState::Email);
-                    Ok(Nav::Stay)
-                }
-        }
-        
+        raw.push('"');
     }
 
 }

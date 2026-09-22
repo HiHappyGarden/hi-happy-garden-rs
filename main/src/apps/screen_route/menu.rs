@@ -25,7 +25,7 @@ use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::display::text::Text;
 use crate::apps::screen_route::ScreenId;
 use crate::apps::signals::display::DisplayFlag;
-use crate::traits::screen::{Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
+use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 
 /// Entries of the main menu, in rotation order.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -97,30 +97,27 @@ pub(super) struct ScreenMenu {
     text: Text,
 }
 
-impl ScreenRoute<'_, ScreenId> for ScreenMenu {
+impl ScreenRoute<ScreenId> for ScreenMenu {
     
     #[inline]
     fn id(&self) -> ScreenId {
         ScreenId::Menu
     }
  
-    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<'_, ScreenId>> {
+    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
 
         self.update_input(screen_route_ctx.display_signal);
 
-        self.text.draw(
+        match self.text.draw(
             screen_route_ctx.lcd,
             screen_route_ctx.display_signal,
             screen_route_ctx.rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str(self.item.label()),
             ScreenParam::<u16>::default()
-        )?;
-
-        if *screen_route_ctx.display_signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        )? {
             // The router builds the screen, so the menu stays independent from it.
-            Ok(Nav::PushId(self.item.into()))
-        } else {
-            Ok(Nav::Stay)
+            Answer::Confirmed(_) => Ok(Nav::PushId(self.item.into())),
+            Answer::Pending | Answer::Cancelled => Ok(Nav::Stay),
         }
     }
 

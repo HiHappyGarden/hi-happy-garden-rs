@@ -40,15 +40,15 @@ pub struct ScreenRouteCtx<'a> {
     pub rtc: &'a Arc<Mutex<dyn RTC + 'static>>,
 }
 
-pub enum Nav<'a, Id> {
+pub enum Nav<Id> {
     Stay,
-    Push(Box<dyn ScreenRoute<'a, Id>>),
+    Push(Box<dyn ScreenRoute<Id>>),
     /// Like [`Nav::Push`] but the screen is built by the router, so a screen
     /// does not need to depend on the screens it can navigate to.
     PushId(Id),
     Pop,
     PopTo(Id),
-    Replace(Box<dyn ScreenRoute<'a, Id>>),
+    Replace(Box<dyn ScreenRoute<Id>>),
 }
 
 pub enum Answer<N = u16, const N_SELECTS: usize = 6>
@@ -103,12 +103,12 @@ where N: Integer
     fn get_value(&self) -> Result<T>;
 }
 
-pub trait ScreenRoute<'a, Id>
+pub trait ScreenRoute<Id>
 where Id: Copy + PartialEq
 {
     fn id(&self) -> Id;
 
-    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'a>) -> Result<Nav<'_, Id>>;
+    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<Id>>;
 
     fn requires_auth(&self) -> bool { true }
 }

@@ -101,8 +101,12 @@ impl<const N: usize> Screen<ScreenSelections<N>, u16, N> for Select<N> {
 
         lcd.draw_str(&display_text, x_position, SECOND_ROW_Y, &FONT_8X8)?;
         if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
-                if let Some(selected) = self.selections.as_ref() {
-            
+                if let Some(selected) = self.selections.as_mut() {
+                    // Mark the entry under the cursor as the only selected one.
+                    for (i, entry) in selected.iter_mut().enumerate() {
+                        entry.1 = i == self.index as usize;
+                    }
+
                     *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
                     return Ok(Answer::Confirmed(ScreenParam {
                         selects: selected.clone().into(),
@@ -149,7 +153,7 @@ impl<const N: usize> Select<N> {
             self.index = self.index.wrapping_add(1) % modulo; // Increment index and wrap around using modulo
             *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
         } else  if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
-            self.index = self.index.wrapping_sub(1) % modulo; // Decrement index and wrap around using modulo
+            self.index = (self.index + modulo - 1) % modulo; // Decrement index and wrap around using modulo
             *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
         }
     }

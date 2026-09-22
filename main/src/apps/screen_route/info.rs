@@ -21,10 +21,9 @@
 use crate::apps::config::Config;
 use crate::apps::display::text::Text;
 use crate::apps::wifi::Wifi;
-use crate::apps::signals::display::DisplayFlag;
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::screen_route::ScreenId;
-use crate::traits::screen::{Screen, ScreenParam, ScreenRoute, ScreenRouteCtx, Nav};
+use crate::traits::screen::{Answer, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx, Nav};
 use osal_rs::utils::{Bytes, Result};
 
 
@@ -33,17 +32,16 @@ pub(super) struct ScreenInfo {
 }
 
 
-impl ScreenRoute<'_, ScreenId> for ScreenInfo {
+impl ScreenRoute<ScreenId> for ScreenInfo {
 
     #[inline]
     fn id(&self) -> ScreenId {
         ScreenId::Info
     }
 
-    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<'_, ScreenId>> {
-    
+    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
 
-         let mut text = Bytes::<DISPLAY_INPUT_MAX_SIZE>::new();
+        let mut text = Bytes::<DISPLAY_INPUT_MAX_SIZE>::new();
 
         if Config::shared().get_wifi_config().is_enabled() {
             text.format(format_args!("Ip Address|{}", Wifi::get_ip_address()));
@@ -51,21 +49,21 @@ impl ScreenRoute<'_, ScreenId> for ScreenInfo {
             text.append_str("Wifi: Disabled");
         }
 
-        
-       self.text.draw(
+        match self.text.draw(
             screen_route_ctx.lcd,
             screen_route_ctx.display_signal,
             screen_route_ctx.rtc,
             &text,
             ScreenParam::<u16>::default()
-        )?;
-
-        if *screen_route_ctx.display_signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
-            // The router builds the screen, so the menu stays independent from it.
-            Ok(Nav::PushId(ScreenId::Info))
-        } else {
-            Ok(Nav::Stay)
+        )? {
+            Answer::Pending => Ok(Nav::Stay),
+            // Any button goes back to the menu.
+            Answer::Confirmed(_) | Answer::Cancelled => Ok(Nav::Pop),
         }
+    }
+
+    fn requires_auth(&self) -> bool {
+        false
     }
 }
 
@@ -75,4 +73,4 @@ impl ScreenInfo {
             text: Text::new(),
         }
     }
-}   
+}
