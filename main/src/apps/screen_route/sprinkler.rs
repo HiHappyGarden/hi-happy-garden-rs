@@ -22,7 +22,8 @@ use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Bytes, Result};
 
 use crate::apps::display::select::Select;
-use crate::apps::screen_route::{ScreenId, request_redraw};
+use crate::apps::screen_route::ScreenId;
+use crate::apps::signals::display::request_redraw;
 use crate::apps::sprinkler::schedule::ScheduleController;
 use crate::apps::sprinkler::zone::ZoneController;
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
@@ -106,23 +107,22 @@ impl ScreenSprinkler {
 
     fn draw_schedule_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc}: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
 
-        let param = ScreenParam::<u16, {ScheduleController::SIZE}> {
-            selects: Some(self.schedule_selections()),
-            ..Default::default()
-        };
-
+        
         match self.schedule.draw(
             *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Schedules"),
-            param
+            ScreenParam::<u16, {ScheduleController::SIZE}>::Selects(self.schedule_selections())
         )? {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(param) => {
-                self.selected_schedule = param.selects
-                    .and_then(|selects| selects.iter().position(|(_, selected)| *selected))
-                    .unwrap_or(0);
+
+                match param {
+                    ScreenParam::Selects(selects) => self.selected_schedule = selects.iter().position(|(_, selected)| *selected).unwrap_or(0),
+                    _ => self.selected_schedule = 0,
+                }
+
                 // A new schedule was picked: rebuild the zone list from scratch.
                 self.zone = Select::new();
                 self.set_state(display_signal, FSMState::Zone);
@@ -134,17 +134,13 @@ impl ScreenSprinkler {
 
     fn draw_zone_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc}: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
 
-        let param = ScreenParam::<u16, {ZoneController::SIZE}> {
-            selects: Some(self.zone_selections()),
-            ..Default::default()
-        };
 
         match self.zone.draw(
             *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Zones"),
-            param
+            ScreenParam::<u16, {ZoneController::SIZE}>::Selects(self.zone_selections())
         )? {
             Answer::Pending => Ok(Nav::Stay),
             // Any button goes back to the schedule list.

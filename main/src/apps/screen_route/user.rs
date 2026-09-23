@@ -25,7 +25,8 @@ use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::config::Config;
 use crate::apps::display::input::Input;
 use crate::apps::session::User;
-use crate::apps::screen_route::{ScreenId, request_redraw};
+use crate::apps::screen_route::ScreenId;
+use crate::apps::signals::display::request_redraw;
 use crate::drivers::encrypt::EncryptGeneric;
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 
@@ -66,17 +67,13 @@ impl ScreenUser {
     }
 
     fn draw_email_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc}: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
-        let mut param = ScreenParam::<u16>::default();
-        param.input = Some(Bytes::from_as_sync_str(
-            Config::shared().get_session().get_user_local().get_email(),
-        ));
-
+       
         match self.email.draw(
             *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("User Email"),
-            param
+            ScreenParam::Input { value: Config::shared().get_session().get_user_local().get_email().clone(), secret_mode: false }
         )? {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(_) => {
@@ -95,10 +92,7 @@ impl ScreenUser {
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("User Password"),
-            ScreenParam {
-                input_secret_mode: Some(true),
-                ..Default::default()
-            }
+            ScreenParam::Input { value: Bytes::default(), secret_mode: true }
         )? {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(_) => {

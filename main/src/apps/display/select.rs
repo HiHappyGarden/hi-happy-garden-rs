@@ -50,12 +50,12 @@ impl<const N: usize> Screen<ScreenSelections<N>, u16, N> for Select<N> {
         clean_context(lcd)?;
 
         if self.selections.is_none() {
-            match &param.selects {
-                Some(selections) => {
+            match &param {
+                ScreenParam::Selects(selections) => {
                     self.index = selections.iter().position(|(_, b)| *b).unwrap_or(0) as u8;
                     self.selections = Some(selections.clone());
                 }
-                None => {
+                _ => {
                     self.index = 0;
                     self.selections = Some(screen_selections_new());
                 }
@@ -108,10 +108,7 @@ impl<const N: usize> Screen<ScreenSelections<N>, u16, N> for Select<N> {
                     }
 
                     *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
-                    return Ok(Answer::Confirmed(ScreenParam {
-                        selects: selected.clone().into(),
-                        ..Default::default()
-                    }));
+                    return Ok(Answer::Confirmed(ScreenParam::Selects(selected.clone().into())));
                     
             } else {
                 *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 

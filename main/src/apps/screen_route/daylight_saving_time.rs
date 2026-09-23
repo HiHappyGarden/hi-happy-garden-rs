@@ -39,19 +39,24 @@ impl ScreenRoute<ScreenId> for ScreenDaylightSavingTime {
     }
 
     fn draw(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
-        let mut param = ScreenParam::default();
-        param.check = Some(Config::shared().get_daylight_saving_time().is_enabled());
-
+    
         match self.enable_dst.draw(
             *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Enable DST?"),
-            param,
+            ScreenParam::Check(Config::shared().get_daylight_saving_time().is_enabled()),
         )? {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(param) => {
-                Self::save(param.check.unwrap_or(false))?;
+                
+                match param {
+                    ScreenParam::Check(value) => {
+                        Self::save(value)?;
+                    }
+                    _ => {}
+                }
+                
                 Ok(Nav::Pop)
             }
             Answer::Cancelled => Ok(Nav::Pop),

@@ -27,7 +27,8 @@ use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::display::commons::get_datetime_from_rtc;
 use crate::apps::display::date::Date;
 use crate::apps::display::time::Time;
-use crate::apps::screen_route::{ScreenId, request_redraw};
+use crate::apps::screen_route::ScreenId;
+use crate::apps::signals::display::request_redraw;
 use crate::apps::signals::error::ErrorFlag;
 use crate::drivers::date_time::DateTime;
 use crate::traits::rtc::RTC;
@@ -69,15 +70,14 @@ impl ScreenDateTime {
     }
 
     fn draw_date_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
-        let mut param = ScreenParam::default();
-        param.date_time = Some(get_datetime_from_rtc!(rtc, ErrorFlag::DateTime));
+        
 
         match self.date.draw(
             *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Set Date"),
-            param,
+            ScreenParam::DateTime(get_datetime_from_rtc!(rtc, ErrorFlag::DateTime)),
         )? {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(_) => {
@@ -89,15 +89,14 @@ impl ScreenDateTime {
     }
 
     fn draw_time_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
-        let mut param = ScreenParam::default();
-        param.date_time = Some(get_datetime_from_rtc!(rtc, ErrorFlag::DateTime));
+        
 
         match self.time.draw(
             *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Set Time"),
-            param,
+            ScreenParam::DateTime(get_datetime_from_rtc!(rtc, ErrorFlag::DateTime)),
         )? {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(_) => {

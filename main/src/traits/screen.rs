@@ -36,17 +36,21 @@ pub type ScreenSelections<const N_SELECTS: usize = 6> = [(Bytes<{DISPLAY_INPUT_M
 pub struct ScreenRouteCtx<'a> {
     pub lcd: &'a mut dyn LCDDisplayFn,
     pub display_signal: &'a mut EventBits,
+
+    #[allow(unused)]
     pub status_signal: &'a mut EventBits,
     pub rtc: &'a Arc<Mutex<dyn RTC + 'static>>,
 }
 
 pub enum Nav<Id> {
     Stay,
+    #[allow(unused)]
     Push(Box<dyn ScreenRoute<Id>>),
     /// Like [`Nav::Push`] but the screen is built by the router, so a screen
     /// does not need to depend on the screens it can navigate to.
     PushId(Id),
     Pop,
+    #[allow(unused)]
     PopTo(Id),
     Replace(Box<dyn ScreenRoute<Id>>),
 }
@@ -59,32 +63,23 @@ where N: Integer
     Cancelled,
 }
 
-#[allow(unused)]
-#[derive(Debug, Clone)]
-pub struct ScreenParam<N = u16, const N_SELECTS: usize = 6> 
+pub enum ScreenParam <N = u16, const N_SELECTS: usize = 6> 
 where N: Integer
 {
-    pub check: Option<bool>,
-    pub input: Option<Bytes<{DISPLAY_INPUT_MAX_SIZE}>>,
-    pub input_secret_mode: Option<bool>,
-    pub number: Option<N>,
-    pub date_time: Option<DateTime>,
-    pub selects: Option<ScreenSelections<N_SELECTS>>,
+    Check(bool),
+    Input{value: Bytes<{DISPLAY_INPUT_MAX_SIZE}>, secret_mode: bool},
+    #[allow(unused)]
+    Number(N),
+    DateTime(DateTime),
+    Selects(ScreenSelections<N_SELECTS>),
+    None
 }
-
 
 impl<N, const N_SELECTS: usize> Default for ScreenParam<N, N_SELECTS>
 where N: Integer
 {
     fn default() -> Self {
-        Self {
-            check: None,
-            input: None,
-            input_secret_mode: None,
-            number: None,
-            date_time: None,
-            selects: None,
-        }
+        Self::None
     }
 }
 

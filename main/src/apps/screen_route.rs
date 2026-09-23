@@ -34,7 +34,7 @@ use alloc::vec::Vec;
 use alloc::sync::Arc;
 
 use crate::apps::config::Config;
-use crate::apps::signals::display::{DisplayFlag, DisplaySignal};
+use crate::apps::signals::display::{DisplayFlag, request_redraw};
 use crate::apps::signals::status::StatusFlag;
 use crate::apps::screen_route::date_time::ScreenDateTime;
 use crate::apps::screen_route::daylight_saving_time::ScreenDaylightSavingTime;
@@ -48,7 +48,6 @@ use crate::apps::screen_route::wifi::ScreenWifi;
 use crate::traits::screen::{Nav, ScreenRoute as ScreenRouteFn, ScreenRouteCtx};
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
-use crate::traits::signal::Signal;
 use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::Result;
@@ -67,14 +66,6 @@ pub(in crate::apps) enum ScreenId {
 }
 
 type BoxedScreen = Box<dyn ScreenRouteFn<ScreenId>>;
-
-/// Marks the current frame as dirty and wakes the display task on the next tick,
-/// so a screen that switched its internal state gets drawn right away.
-#[inline]
-pub(super) fn request_redraw(display_signal: &mut EventBits) {
-    *display_signal |= DisplayFlag::Draw as u32;
-    DisplaySignal::set(DisplayFlag::Draw as u32);
-}
 
  pub(in crate::apps) struct ScreenRoute {
     config: &'static mut Config,

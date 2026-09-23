@@ -92,6 +92,7 @@ impl User {
         &self.email
     }
 
+    #[allow(unused)]
     #[inline]
     pub fn get_password(&self) -> &Bytes<{SHA256_RESULT_BYTES * 2}> {
         &self.password

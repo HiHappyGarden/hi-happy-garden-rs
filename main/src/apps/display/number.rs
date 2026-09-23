@@ -59,7 +59,12 @@ where
 
 
         if self.number.is_none() {
-            self.number = param.number;
+            match param {
+                ScreenParam::Number( number ) => {
+                    self.number = Some(number);
+                }
+                _ => {}
+            }
         } 
 
         self.update_number(signal);
@@ -87,10 +92,7 @@ where
         if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
 
             self.result = self.number;
-            return Ok(Answer::Confirmed(ScreenParam {
-                number: self.result,
-                ..Default::default()
-            }));
+            return Ok(Answer::Confirmed(ScreenParam::Number(self.result.unwrap_or(self.min))));
         }
 
         if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
@@ -108,8 +110,8 @@ where
 #[allow(dead_code)]
 impl<N> Number<N>
 where
-    N: Integer,
-{
+    N: Integer {
+        
     pub(super) const fn new(min: N, max: N) -> Self {
         Self { 
             number: None,

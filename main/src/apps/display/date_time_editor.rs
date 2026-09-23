@@ -71,6 +71,10 @@ pub(super) struct FieldEditor {
 }
 
 impl FieldEditor {
+    const FIELD_HOUR: usize = 0;
+    const FIELD_MINUTE: usize = 1;
+    const FIELD_SECOND: usize = 2;
+
     pub(super) const fn new(config: FieldEditorConfig) -> Self {
         Self {
             fields: [None, None, None],
@@ -98,12 +102,12 @@ impl FieldEditor {
 
         if let Some(val) = self.fields[idx] {
             let f = [
-                self.fields[0].unwrap_or(0),
-                self.fields[1].unwrap_or(0),
-                self.fields[2].unwrap_or(0),
+                self.fields[Self::FIELD_HOUR].unwrap_or(0),
+                self.fields[Self::FIELD_MINUTE].unwrap_or(0),
+                self.fields[Self::FIELD_SECOND].unwrap_or(0),
             ];
             let min = self.config.field_min[idx];
-            let max = (self.config.field_max_fn[idx])(f[0], f[1], f[2]);
+            let max = (self.config.field_max_fn[idx])(f[Self::FIELD_HOUR], f[Self::FIELD_MINUTE], f[Self::FIELD_SECOND]);
             self.fields[idx] = Some(if self.config.field_wrap[idx] {
                 let v = val + delta;
                 if v > max { min } else if v < min { max } else { v }
@@ -127,16 +131,18 @@ impl FieldEditor {
         let current_date_time = get_datetime_from_rtc!(rtc, ErrorFlag::DateTime);
 
         if self.result.is_none() {
-            if let Some(dt) = param.date_time {
-                let (f1, f2, f3) = (self.config.extractor)(&dt);
-                self.fields = [Some(f1), Some(f2), Some(f3)];
-                self.result = Some(dt);
+            match param {
+                ScreenParam::DateTime(dt) => {
+                    let (field_hour, field_minute, field_second) = (self.config.extractor)(&dt);
+                    self.fields = [Some(field_hour), Some(field_minute), Some(field_second)];
+                },
+                _ => {}
             }
         }
 
-        if self.fields[0].is_none() || self.fields[1].is_none() || self.fields[2].is_none() {
-            let (f1, f2, f3) = (self.config.extractor)(&current_date_time);
-            self.fields = [Some(f1), Some(f2), Some(f3)];
+        if self.fields[Self::FIELD_HOUR].is_none() || self.fields[Self::FIELD_MINUTE].is_none() || self.fields[Self::FIELD_SECOND].is_none() {
+            let (field_hour, field_minute, field_second) = (self.config.extractor)(&current_date_time);
+            self.fields = [Some(field_hour), Some(field_minute), Some(field_second)];
             *signal |= DisplayFlag::Draw as u32;
             return Ok(Answer::Pending)
         }
@@ -214,10 +220,7 @@ impl FieldEditor {
             if self.step == Step::End {
                 self.result = (self.config.builder)(f[0], f[1], f[2]).ok();
 
-                return Ok(Answer::Confirmed(ScreenParam {
-                    date_time: self.result,
-                    ..Default::default()
-                }));
+                return Ok(Answer::Confirmed(ScreenParam::DateTime(self.result.unwrap_or(DateTime::default()))));
             }
         }
 

@@ -52,12 +52,15 @@ impl Screen<bool> for Check
         clean_context(lcd)?;
 
         if self.checked.is_none() {
-            if param.check.unwrap_or(false) { 
-                self.icon = IC_CHECK_ON;
-                self.checked = Some(true);
-            } else {
-                self.icon = IC_CHECK_OFF;
-                self.checked = Some(false);
+            match param {
+                ScreenParam::Check(value) => {
+                    self.icon = if value { IC_CHECK_ON } else { IC_CHECK_OFF };
+                    self.checked = Some(value);
+                },
+                _ => {
+                    self.icon = IC_CHECK_OFF;
+                    self.checked = Some(false);
+                }
             }
         }
 
@@ -82,20 +85,11 @@ impl Screen<bool> for Check
         if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
             if self.icon.2 == IC_CHECK_ON.2 {
                 self.checked = Some(true);
-
-                return Ok(Answer::Confirmed(ScreenParam {
-                    check: self.checked,
-                    ..Default::default()
-                }))
+                return Ok(Answer::Confirmed(ScreenParam::Check(true)))
                 
             } else {
                 self.checked = Some(false);
-
-                return Ok(Answer::Confirmed(ScreenParam {
-                    check: self.checked,
-                    ..Default::default()
-                }))
-
+                return Ok(Answer::Confirmed(ScreenParam::Check(false)));
             };
         }
 
