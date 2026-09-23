@@ -126,9 +126,7 @@ impl AppMain {
 
     fn check_config(config: &Config, status_current: &mut StatusFlag, status_old: &mut StatusFlag) {
         let serial = config.get_serial();
-        if serial.is_empty() {
-            todo!("handle error, maybe set status to Error and log it");
-        } else {
+        if !serial.is_empty() {
             set_current_status!(*status_old, *status_current, StatusFlag::EnableWifi);
         }
     }
