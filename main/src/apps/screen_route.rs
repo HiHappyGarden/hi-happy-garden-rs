@@ -48,6 +48,7 @@ use crate::apps::screen_route::wifi::ScreenWifi;
 use crate::traits::screen::{Nav, ScreenRoute as ScreenRouteFn, ScreenRouteCtx};
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
+
 use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::Result;
