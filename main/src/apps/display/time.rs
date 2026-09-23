@@ -29,24 +29,21 @@ use crate::apps::display::date_time_editor::{FieldEditor, FieldEditorConfig};
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
-use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
+use crate::traits::screen::{Answer, Screen, ScreenParam};
 
 pub(in crate::apps) struct Time(FieldEditor);
 
 impl Screen<DateTime> for Time
 {
+    #[inline(always)]
     fn draw(&mut self, 
         lcd: &mut dyn LCDDisplayFn,
         signal: &mut EventBits, 
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
         text: &dyn AsSyncStr, 
-        param: ScreenParam, 
-        callback: ScreenCallback
-    ) -> Result<()> {
-
-        self.0.draw(lcd, signal, rtc, text, param, callback)?;
-
-        Ok(())
+        param: ScreenParam
+    ) -> Result<Answer> {
+        self.0.draw(lcd, signal, rtc, text, param)
     }
 
     fn get_value(&self) -> Result<DateTime> {

@@ -26,10 +26,13 @@ use osal_rs::utils::{AsSyncStr, Bytes, Error, Result};
 use super::commons::{FIRST_ROW_Y, SECOND_ROW_Y, MAX_SIZE, clean_context, scroll_text};
 use crate::apps::display::commons::SCROLL_DELAY_MS;
 use crate::apps::signals::display::DisplayFlag;
+use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use crate::traits::rtc::RTC;
-use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
+use crate::traits::screen::Answer::Pending;
+use crate::traits::screen::{Answer, Screen, ScreenParam};
+
 
 const LONG_PRESS_TICK: u32 = 500;
 const DEFAULT_CHAR: &str = "a";
@@ -50,14 +53,17 @@ impl Screen<Bytes<MAX_SIZE>> for Input
         signal: &mut EventBits, 
         _: &Arc<Mutex<dyn RTC + 'static>>,
         text: &dyn AsSyncStr, 
-        param: ScreenParam, 
-        callback: ScreenCallback
-    ) -> Result<()> {
+        param: ScreenParam
+    ) -> Result<Answer> {
 
         clean_context(lcd)?;
 
         if self.input.is_none() {
-            let input = param.input.unwrap_or_default();
+            let (input, secret_mode) = match param {
+                ScreenParam::Input { value: input, secret_mode } => (input, secret_mode),
+                _ => (Bytes::<DISPLAY_INPUT_MAX_SIZE>::default(), false),
+            };
+
             self.input = Some(Bytes::from_as_sync_str(&input));
             self.original_input = Some(Bytes::from_as_sync_str(&input));
             if input.is_empty() {
@@ -66,9 +72,9 @@ impl Screen<Bytes<MAX_SIZE>> for Input
             } else {
                 self.idx = input.len().saturating_sub(1);
             }
-            if let Some(secret) = param.input_secret_mode {
-                self.secret_mode = secret;
-            }
+            
+            self.secret_mode = secret_mode;
+            
         } 
 
         self.update_input(signal);
@@ -179,12 +185,10 @@ impl Screen<Bytes<MAX_SIZE>> for Input
             if elapsed >= LONG_PRESS_TICK {
                 // Long press on encoder button: confirm the current input.
                 if let Some(input) = self.input {
-                    if let Some(cb) = callback {
-                        let mut p = ScreenParam::default();
-                        p.input = Some(input.clone());
-                        cb(Some(p), true);
-                    }
+
                     self.input = Some(input);
+                    return Ok(Answer::Confirmed(ScreenParam::Input { value: input, secret_mode: self.secret_mode }));
+
                 }
             }
             self.encoder_button_pressed_tick = 0;
@@ -193,27 +197,25 @@ impl Screen<Bytes<MAX_SIZE>> for Input
 
         } else if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
             let elapsed = System::get_tick_count().wrapping_sub(self.button_pressed_tick);
+            self.button_pressed_tick = 0;
+            
             if elapsed >= LONG_PRESS_TICK {
-                if let Some(cb) = callback {
-                    let mut p = ScreenParam::default();
-                    p.input = self.original_input.clone();
-                    cb(Some(p), false);
-                }
-                *signal |= DisplayFlag::Draw as u32;
+                // Long press: restore original input and exit
+                return Ok(Answer::Cancelled);
             } else if self.input.as_ref().is_none_or(|input| input.is_empty()) {
-                if let Some(cb) = callback {
-                    cb(None, false);
-                }
-                *signal |= DisplayFlag::Draw as u32;
+                // Empty buffer: cancel
+                return Ok(Answer::Cancelled);
             } else {
+                // Normal short press: stay in the widget
                 *signal |= DisplayFlag::Draw as u32;
-            }
+    }
+
             self.button_pressed_tick = 0;
             *signal &= !(DisplayFlag::ButtonReleased as u32);
 
         }
 
-        Ok(())
+        Ok(Pending)
     }
 
     fn get_value(&self) -> Result<Bytes<MAX_SIZE>> {
@@ -222,8 +224,7 @@ impl Screen<Bytes<MAX_SIZE>> for Input
 }
 
 
-impl Input
-{
+impl Input {
     pub(in crate::apps) const fn new() -> Self {
         Self { 
             input: None,

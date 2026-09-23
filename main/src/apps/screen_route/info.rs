@@ -18,48 +18,28 @@
  *
  ***************************************************************************/
 
-use core::any::Any;
-use core::sync::atomic::{AtomicBool, Ordering};
-
-use alloc::sync::Arc;
-use osal_rs::os::Mutex;
-use osal_rs::os::types::EventBits;
-use osal_rs::utils::{Bytes, Error, Result};
-
 use crate::apps::config::Config;
 use crate::apps::display::text::Text;
-use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::wifi::Wifi;
-use crate::traits::lcd_display::LCDDisplayFn;
-use crate::traits::rtc::RTC;
-use crate::traits::screen::{Screen, ScreenParam, ScreenRoute};
+use crate::apps::DISPLAY_INPUT_MAX_SIZE;
+use crate::apps::screen_route::ScreenId;
+use crate::traits::screen::{Answer, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx, Nav};
+use osal_rs::utils::{Bytes, Result};
 
-static BACK: AtomicBool = AtomicBool::new(false);
 
 pub(super) struct ScreenInfo {
-    text: Text,
+    text: Text
 }
 
-impl ScreenRoute for ScreenInfo {
-    #[allow(unused)]
+
+impl ScreenRoute<ScreenId> for ScreenInfo {
+
     #[inline]
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
+    fn id(&self) -> ScreenId {
+        ScreenId::Info
     }
 
-    #[allow(unused)]
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn draw(&mut self, 
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits, 
-        _status_signal: &mut EventBits, 
-        rtc: &Arc<Mutex<dyn RTC + 'static>>,
-        
-    ) -> Result<()> {
+    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
 
         let mut text = Bytes::<DISPLAY_INPUT_MAX_SIZE>::new();
 
@@ -69,23 +49,21 @@ impl ScreenRoute for ScreenInfo {
             text.append_str("Wifi: Disabled");
         }
 
-        self.text.draw(
-            lcd, 
-            display_signal, 
-            rtc, 
-            &text, 
-            ScreenParam::<u16>::default(), 
-            Some(|_, _| {
-                BACK.store(true, core::sync::atomic::Ordering::Relaxed);
-            })
-        )?;
-
-        if BACK.load(Ordering::SeqCst) {
-            BACK.store(false, Ordering::SeqCst);
-            Ok(())
-        } else {
-            Err(Error::ReturnWithCode(1))
+        match self.text.draw(
+            screen_route_ctx.lcd,
+            screen_route_ctx.display_signal,
+            screen_route_ctx.rtc,
+            &text,
+            ScreenParam::<u16>::default()
+        )? {
+            Answer::Pending => Ok(Nav::Stay),
+            // Any button goes back to the menu.
+            Answer::Confirmed(_) | Answer::Cancelled => Ok(Nav::Pop),
         }
+    }
+
+    fn requires_auth(&self) -> bool {
+        false
     }
 }
 

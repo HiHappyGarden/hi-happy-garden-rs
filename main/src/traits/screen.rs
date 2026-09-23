@@ -18,7 +18,7 @@
  *
  ***************************************************************************/
 
-use core::any::Any;
+use alloc::boxed::Box;
 use alloc::sync::Arc;
 use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
@@ -30,39 +30,56 @@ use crate::traits::integer::Integer;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
 
-pub type ScreenCallback<N = u16, const N_SELECTS: usize = 6> = Option<fn(Option<ScreenParam<N, N_SELECTS>>, confirmed: bool)>;
 pub type ScreenSelections<const N_SELECTS: usize = 6> = [(Bytes<{DISPLAY_INPUT_MAX_SIZE}>, bool); N_SELECTS];
 
-pub const fn screen_selections_new<const N_SELECTS: usize>() -> ScreenSelections<N_SELECTS> {
-    [(Bytes::new(), false); N_SELECTS]
+
+pub struct ScreenRouteCtx<'a> {
+    pub lcd: &'a mut dyn LCDDisplayFn,
+    pub display_signal: &'a mut EventBits,
+
+    #[allow(unused)]
+    pub status_signal: &'a mut EventBits,
+    pub rtc: &'a Arc<Mutex<dyn RTC + 'static>>,
 }
 
-#[allow(unused)]
-#[derive(Debug, Clone)]
-pub struct ScreenParam<N = u16, const N_SELECTS: usize = 6> 
+pub enum Nav<Id> {
+    Stay,
+    #[allow(unused)]
+    Push(Box<dyn ScreenRoute<Id>>),
+    /// Like [`Nav::Push`] but the screen is built by the router, so a screen
+    /// does not need to depend on the screens it can navigate to.
+    PushId(Id),
+    Pop,
+    #[allow(unused)]
+    PopTo(Id),
+    Replace(Box<dyn ScreenRoute<Id>>),
+}
+
+pub enum Answer<N = u16, const N_SELECTS: usize = 6>
 where N: Integer
 {
-    pub check: Option<bool>,
-    pub input: Option<Bytes<{DISPLAY_INPUT_MAX_SIZE}>>,
-    pub input_secret_mode: Option<bool>,
-    pub number: Option<N>,
-    pub date_time: Option<DateTime>,
-    pub selects: Option<ScreenSelections<N_SELECTS>>,
+    Pending,                            // widget during user input in editing
+    Confirmed(ScreenParam<N, N_SELECTS>),
+    Cancelled,
 }
 
+pub enum ScreenParam <N = u16, const N_SELECTS: usize = 6> 
+where N: Integer
+{
+    Check(bool),
+    Input{value: Bytes<{DISPLAY_INPUT_MAX_SIZE}>, secret_mode: bool},
+    #[allow(unused)]
+    Number(N),
+    DateTime(DateTime),
+    Selects(ScreenSelections<N_SELECTS>),
+    None
+}
 
 impl<N, const N_SELECTS: usize> Default for ScreenParam<N, N_SELECTS>
 where N: Integer
 {
     fn default() -> Self {
-        Self {
-            check: None,
-            input: None,
-            input_secret_mode: None,
-            number: None,
-            date_time: None,
-            selects: None,
-        }
+        Self::None
     }
 }
 
@@ -75,26 +92,22 @@ where N: Integer
         signal: &mut EventBits,
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
         text: &dyn AsSyncStr,
-        param: ScreenParam<N, N_SELECTS>,
-        callback: ScreenCallback<N, N_SELECTS>
-    ) -> Result<()>;
+        param: ScreenParam<N, N_SELECTS>
+    ) -> Result<Answer<N, N_SELECTS>>;
 
     fn get_value(&self) -> Result<T>;
 }
 
-pub trait ScreenRoute<N = u16>
-where N: Integer
+pub trait ScreenRoute<Id>
+where Id: Copy + PartialEq
 {
-     fn draw(&mut self, 
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits, 
-        status_signal: &mut EventBits, 
-        rtc: &Arc<Mutex<dyn RTC + 'static>>,
-    ) -> Result<()>;
+    fn id(&self) -> Id;
 
-    #[allow(unused)]
-    fn as_any_mut(&mut self) -> &mut dyn Any;
+    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<Id>>;
 
-    #[allow(unused)]
-    fn as_any(&self) -> &dyn Any;
+    fn requires_auth(&self) -> bool { true }
+}
+
+pub const fn screen_selections_new<const N_SELECTS: usize>() -> ScreenSelections<N_SELECTS> {
+    [(Bytes::new(), false); N_SELECTS]
 }

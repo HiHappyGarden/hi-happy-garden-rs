@@ -20,9 +20,11 @@
 
 
 
+use osal_rs::os::types::EventBits;
+
 ///! Display signal for display updates and interactions.
 
-use crate::define_signal;
+use crate::{define_signal, traits::signal::Signal};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(in crate::apps) enum DisplayFlag {
@@ -72,3 +74,13 @@ impl From<DisplayFlag> for u32 {
 
 define_signal!(DisplaySignal, DISPLAY_SIGNAL);
 
+
+
+
+/// Marks the current frame as dirty and wakes the display task on the next tick,
+/// so a screen that switched its internal state gets drawn right away.
+#[inline]
+pub(in crate::apps) fn request_redraw(display_signal: &mut EventBits) {
+    *display_signal |= DisplayFlag::Draw as u32;
+    DisplaySignal::set(DisplayFlag::Draw as u32);
+}

@@ -41,7 +41,7 @@ use crate::apps::display::header::Header;
 use crate::apps::display::commons::MAX_SIZE;
 
 use crate::apps::display::text::Text;
-use crate::apps::screen_route::SCREEN_ROUTE;
+use crate::apps::screen_route::ScreenRoute;
 use crate::apps::signals::display::{DisplayFlag::{*}, DisplaySignal};
 use crate::apps::signals::error::{ErrorSignal, ErrorFlag};
 use crate::apps::signals::status::StatusSignal;
@@ -51,7 +51,7 @@ use crate::traits::button::{ButtonState::{self, *}, OnClickable};
 use crate::traits::encoder::{EncoderDirection::{self, *}, OnRotatableAndClickable};
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rx_tx::{OnReceive, SetOnReceive, SetTransmit};
-use crate::traits::screen::{Screen, ScreenParam, ScreenRoute as _};
+use crate::traits::screen::{Screen, ScreenParam};
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
 use crate::traits::rtc::RTC;
@@ -91,7 +91,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
             let lcd = &mut *(lcd.lock().unwrap());
 
-            let screen_route = unsafe{&mut *&raw mut SCREEN_ROUTE};
+            let mut screen_route = ScreenRoute::new();
 
             let mut header = Header::new();
             if let Err(e) =  Text::new().draw(
@@ -99,8 +99,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 &mut 0, 
                 &rtc, 
                 &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Loading..."), 
-                ScreenParam::default(), 
-                Option::None
+                ScreenParam::default()
             ) {
                 log_info!(APP_TAG, "Error drawing text: {:?}", e);
                 ErrorSignal::set(ErrorFlag::Display.into());

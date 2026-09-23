@@ -31,14 +31,14 @@ use crate::assets::font_8x8::FONT_8X8;
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use crate::traits::rtc::RTC;
-use crate::traits::screen::{ScreenCallback, ScreenParam};
+use crate::traits::screen::{Answer, ScreenParam};
 
 #[derive(PartialEq, Eq)]
 enum Step {
     Exit,
-    Field1,
-    Field2,
-    Field3,
+    FieldHour,
+    FieldMinute,
+    FieldSecond,
     End,
 }
 
@@ -71,10 +71,14 @@ pub(super) struct FieldEditor {
 }
 
 impl FieldEditor {
+    const FIELD_HOUR: usize = 0;
+    const FIELD_MINUTE: usize = 1;
+    const FIELD_SECOND: usize = 2;
+
     pub(super) const fn new(config: FieldEditorConfig) -> Self {
         Self {
             fields: [None, None, None],
-            step: Step::Field1,
+            step: Step::FieldHour,
             result: None,
             config,
         }
@@ -82,9 +86,9 @@ impl FieldEditor {
 
     fn update_field(&mut self, signal: &mut EventBits) {
         let idx = match self.step {
-            Step::Field1 => 0,
-            Step::Field2 => 1,
-            Step::Field3 => 2,
+            Step::FieldHour => 0,
+            Step::FieldMinute => 1,
+            Step::FieldSecond => 2,
             _ => return,
         };
 
@@ -98,12 +102,12 @@ impl FieldEditor {
 
         if let Some(val) = self.fields[idx] {
             let f = [
-                self.fields[0].unwrap_or(0),
-                self.fields[1].unwrap_or(0),
-                self.fields[2].unwrap_or(0),
+                self.fields[Self::FIELD_HOUR].unwrap_or(0),
+                self.fields[Self::FIELD_MINUTE].unwrap_or(0),
+                self.fields[Self::FIELD_SECOND].unwrap_or(0),
             ];
             let min = self.config.field_min[idx];
-            let max = (self.config.field_max_fn[idx])(f[0], f[1], f[2]);
+            let max = (self.config.field_max_fn[idx])(f[Self::FIELD_HOUR], f[Self::FIELD_MINUTE], f[Self::FIELD_SECOND]);
             self.fields[idx] = Some(if self.config.field_wrap[idx] {
                 let v = val + delta;
                 if v > max { min } else if v < min { max } else { v }
@@ -120,33 +124,35 @@ impl FieldEditor {
         signal: &mut EventBits,
         rtc: &Arc<Mutex<dyn RTC + 'static>>,
         text: &dyn AsSyncStr,
-        param: ScreenParam, 
-        callback: ScreenCallback,
-    ) -> Result<()> {
+        param: ScreenParam
+    ) -> Result<Answer> {
         clean_context(lcd)?;
 
         let current_date_time = get_datetime_from_rtc!(rtc, ErrorFlag::DateTime);
 
         if self.result.is_none() {
-            if let Some(dt) = param.date_time {
-                let (f1, f2, f3) = (self.config.extractor)(&dt);
-                self.fields = [Some(f1), Some(f2), Some(f3)];
-                self.result = Some(dt);
+            match param {
+                ScreenParam::DateTime(dt) => {
+                    let (field_hour, field_minute, field_second) = (self.config.extractor)(&dt);
+                    self.fields = [Some(field_hour), Some(field_minute), Some(field_second)];
+                },
+                _ => {}
             }
         }
 
-        if self.fields[0].is_none() || self.fields[1].is_none() || self.fields[2].is_none() {
-            let (f1, f2, f3) = (self.config.extractor)(&current_date_time);
-            self.fields = [Some(f1), Some(f2), Some(f3)];
+        if self.fields[Self::FIELD_HOUR].is_none() || self.fields[Self::FIELD_MINUTE].is_none() || self.fields[Self::FIELD_SECOND].is_none() {
+            let (field_hour, field_minute, field_second) = (self.config.extractor)(&current_date_time);
+            self.fields = [Some(field_hour), Some(field_minute), Some(field_second)];
             *signal |= DisplayFlag::Draw as u32;
+            return Ok(Answer::Pending)
         }
 
         if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
             self.step = match self.step {
-                Step::Exit   => Step::Field1,
-                Step::Field1 => Step::Field2,
-                Step::Field2 => Step::Field3,
-                Step::Field3 => Step::End,
+                Step::Exit   => Step::FieldHour,
+                Step::FieldHour => Step::FieldMinute,
+                Step::FieldMinute => Step::FieldSecond,
+                Step::FieldSecond => Step::End,
                 Step::End    => Step::End,
             };
             *signal |= DisplayFlag::Draw as u32;
@@ -155,10 +161,10 @@ impl FieldEditor {
         if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
             self.step = match self.step {
                 Step::Exit   => Step::Exit,
-                Step::Field1 => Step::Exit,
-                Step::Field2 => Step::Field1,
-                Step::Field3 => Step::Field2,
-                Step::End    => Step::Field3,
+                Step::FieldHour => Step::Exit,
+                Step::FieldMinute => Step::FieldHour,
+                Step::FieldSecond => Step::FieldMinute,
+                Step::End    => Step::FieldSecond,
             };
             *signal |= DisplayFlag::Draw as u32;
         }
@@ -166,7 +172,7 @@ impl FieldEditor {
         self.update_field(signal);
 
         if *signal & DisplayFlag::Draw as u32 == 0 {
-            return Ok(());
+            return Ok(Answer::Pending);
         }
 
         let (width, _) = lcd.get_size();
@@ -195,9 +201,9 @@ impl FieldEditor {
         lcd.draw_str(&value_str, x_pos, SECOND_ROW_Y, &FONT_8X8)?;
 
         let (field_offset, field_width) = match self.step {
-            Step::Field1 => self.config.underlines[0],
-            Step::Field2 => self.config.underlines[1],
-            Step::Field3 => self.config.underlines[2],
+            Step::FieldHour => self.config.underlines[0],
+            Step::FieldMinute => self.config.underlines[1],
+            Step::FieldSecond => self.config.underlines[2],
             _            => (0, 0),
         };
         if field_offset > 0 || field_width > 0 {
@@ -213,25 +219,18 @@ impl FieldEditor {
         if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
             if self.step == Step::End {
                 self.result = (self.config.builder)(f[0], f[1], f[2]).ok();
-                if let Some(cb) = callback {
-                    let mut p = ScreenParam::default();
-                    p.date_time = self.result;
-                    cb(Some(p), true);
-                }
+
+                return Ok(Answer::Confirmed(ScreenParam::DateTime(self.result.unwrap_or(DateTime::default()))));
             }
         }
 
         if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
             if self.step == Step::Exit {
-                if let Some(cb) = callback {
-                    let mut p = ScreenParam::default();
-                    p.date_time = self.result;
-                    cb(Some(p), false);
-                }
+                return Ok(Answer::Cancelled);
             }
         }
 
-        Ok(())
+        Ok(Answer::Pending)
     }
 
     #[allow(unused)]

@@ -18,147 +18,110 @@
  *
  ***************************************************************************/
 
-use core::any::Any;
-use core::sync::atomic::{AtomicBool, Ordering};
-
-use alloc::sync::Arc;
-use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
-use osal_rs::utils::{Bytes, Error, Result};
+use osal_rs::utils::{Bytes, Result};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::config::Config;
 use crate::apps::display::input::Input;
 use crate::apps::session::User;
-use crate::apps::signals::display::DisplayFlag;
-use crate::traits::lcd_display::LCDDisplayFn;
-use crate::traits::rtc::RTC;
-use crate::traits::screen::{Screen, ScreenParam, ScreenRoute};
-
-static mut FSM_STATE: FSMState = FSMState::Email;
-static UPDATE_DRAW: AtomicBool = AtomicBool::new(false);
+use crate::apps::screen_route::ScreenId;
+use crate::apps::signals::display::request_redraw;
+use crate::drivers::encrypt::EncryptGeneric;
+use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum FSMState {
     Email,
     Passwd,
-    Save,
-    End,
 }
 
 pub(super) struct ScreenUser {
+    fsm_state: FSMState,
     email:  Input,
     passwd: Input,
 }
 
-impl ScreenRoute for ScreenUser {
-    fn draw(
-        &mut self,
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits,
-        _status_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>,
-    ) -> Result<()> {
-        if UPDATE_DRAW.load(Ordering::SeqCst) {
-            UPDATE_DRAW.store(false, Ordering::SeqCst);
-            *display_signal |= DisplayFlag::Draw as u32;
-        }
-
-        match unsafe { *&raw const FSM_STATE } {
-            FSMState::Email  => self.draw_email_state(lcd, display_signal, rtc)?,
-            FSMState::Passwd => self.draw_passwd_state(lcd, display_signal, rtc)?,
-            FSMState::Save   => self.draw_save_state()?,
-            FSMState::End    => return Ok(())
-        }
-
-        Err(Error::ReturnWithCode(1))
-    }
-
-    #[allow(unused)]
+impl ScreenRoute<ScreenId> for ScreenUser {
+    
     #[inline]
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
+    fn id(&self) -> ScreenId {
+        ScreenId::User
     }
 
-    #[allow(unused)]
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
+    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+        match self.fsm_state {
+            FSMState::Email  => self.draw_email_state(screen_route_ctx),
+            FSMState::Passwd => self.draw_passwd_state(screen_route_ctx),
+        }
     }
+    
 }
 
 impl ScreenUser {
-    fn draw_email_state(
-        &mut self,
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>,
-    ) -> Result<()> {
-        let mut param = ScreenParam::<u16>::default();
-        param.input = Some(Bytes::from_as_sync_str(
-            Config::shared().get_session().get_user_local().get_email(),
-        ));
 
-        self.email.draw(
-            lcd,
+    #[inline]
+    fn set_state(&mut self, display_signal: &mut EventBits, next: FSMState) {
+        self.fsm_state = next;
+        request_redraw(display_signal);
+    }
+
+    fn draw_email_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc}: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+       
+        match self.email.draw(
+            *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("User Email"),
-            param,
-            Some(|_, confirmed| {
-                unsafe { FSM_STATE = if confirmed { FSMState::Passwd } else { FSMState::End }; }
-                UPDATE_DRAW.store(true, Ordering::SeqCst);
-            }),
-        )?;
-
-        Ok(())
+            ScreenParam::Input { value: Config::shared().get_session().get_user_local().get_email().clone(), secret_mode: false }
+        )? {
+            Answer::Pending => Ok(Nav::Stay),
+            Answer::Confirmed(_) => {
+                self.set_state(display_signal, FSMState::Passwd);
+                Ok(Nav::Stay)
+            }
+            Answer::Cancelled => Ok(Nav::Pop),
+        }
     }
 
-    fn draw_passwd_state(
-        &mut self,
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>,
-    ) -> Result<()> {
-        let mut param = ScreenParam::<u16>::default();
-        param.input = Some(Bytes::from_as_sync_str(
-            Config::shared().get_session().get_user_local().get_password(),
-        ));
-        param.input_secret_mode = Some(true);
+    fn draw_passwd_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc}: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
 
-        self.passwd.draw(
-            lcd,
+        // The stored password is a SHA256 hash, so there is nothing to prefill.
+        match self.passwd.draw(
+            *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("User Password"),
-            param,
-            Some(|_, confirmed| {
-                unsafe { FSM_STATE = if confirmed { FSMState::Save } else { FSMState::Email }; }
-                UPDATE_DRAW.store(true, Ordering::SeqCst);
-            }),
-        )?;
-
-        Ok(())
+            ScreenParam::Input { value: Bytes::default(), secret_mode: true }
+        )? {
+            Answer::Pending => Ok(Nav::Stay),
+            Answer::Confirmed(_) => {
+                self.save()?;
+                Ok(Nav::Pop)
+            }
+            Answer::Cancelled => {
+                self.set_state(display_signal, FSMState::Email);
+                Ok(Nav::Stay)
+            }
+        }
     }
 
-    fn draw_save_state(&mut self) -> Result<()> {
+    fn save(&mut self) -> Result<()> {
         let email  = self.email.get_value()?;
         let passwd = self.passwd.get_value()?;
 
         let mut user = User::default();
         user.set_email(email.as_str());
-        user.set_password(passwd.as_str());
+        user.set_password(EncryptGeneric::get_sha256(passwd.to_bytes())?.as_str());
         Config::shared().get_session().set_user(&user);
         Config::shared().apply_session();
         Config::save()?;
-
-        unsafe { FSM_STATE = FSMState::End; }
-        UPDATE_DRAW.store(true, Ordering::SeqCst);
         Ok(())
     }
 
     pub(super) const fn new() -> Self {
         Self {
+            fsm_state: FSMState::Email,
             email:  Input::new(),
             passwd: Input::new(),
         }

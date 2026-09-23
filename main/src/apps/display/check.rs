@@ -31,7 +31,7 @@ use crate::assets::ic_check_on::IC_CHECK_ON;
 use crate::assets::types::Icon;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use crate::traits::rtc::RTC;
-use crate::traits::screen::{Screen, ScreenCallback, ScreenParam};
+use crate::traits::screen::{Answer, Screen, ScreenParam};
 
 pub(in crate::apps) struct Check 
 {
@@ -46,19 +46,21 @@ impl Screen<bool> for Check
         signal: &mut EventBits, 
         _: &Arc<Mutex<dyn RTC + 'static>>, 
         text: &dyn AsSyncStr, 
-        param: ScreenParam, 
-        callback: ScreenCallback
-    ) -> Result<()> {
+        param: ScreenParam 
+    ) -> Result<Answer> {
 
         clean_context(lcd)?;
 
         if self.checked.is_none() {
-            if param.check.unwrap_or(false) { 
-                self.icon = IC_CHECK_ON;
-                self.checked = Some(true);
-            } else {
-                self.icon = IC_CHECK_OFF;
-                self.checked = Some(false);
+            match param {
+                ScreenParam::Check(value) => {
+                    self.icon = if value { IC_CHECK_ON } else { IC_CHECK_OFF };
+                    self.checked = Some(value);
+                },
+                _ => {
+                    self.icon = IC_CHECK_OFF;
+                    self.checked = Some(false);
+                }
             }
         }
 
@@ -83,31 +85,19 @@ impl Screen<bool> for Check
         if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
             if self.icon.2 == IC_CHECK_ON.2 {
                 self.checked = Some(true);
-                if let Some(ref cb) = callback {
-                    let mut p = ScreenParam::default();
-                    p.check = self.checked;
-                    cb(Some(p), true);
-                }
-                *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+                return Ok(Answer::Confirmed(ScreenParam::Check(true)))
+                
             } else {
                 self.checked = Some(false);
-                if let Some(ref cb) = callback {
-                    let mut p = ScreenParam::default();
-                    p.check = self.checked;
-                    cb(Some(p), true);
-                }
-                *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+                return Ok(Answer::Confirmed(ScreenParam::Check(false)));
             };
         }
 
         if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
-            if let Some(ref cb) = callback {
-                cb(None, false);
-            }
-            *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+            return Ok(Answer::Cancelled);
         }
 
-        Ok(())
+        Ok(Answer::Pending)
         
     }
 

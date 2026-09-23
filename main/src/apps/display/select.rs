@@ -29,7 +29,7 @@ use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
-use crate::traits::screen::{Screen, ScreenCallback, ScreenParam, ScreenSelections, screen_selections_new};
+use crate::traits::screen::{Answer, Screen, ScreenParam, ScreenSelections, screen_selections_new};
 
 static NO_SELECTIONS: &str = "No selections available";
 
@@ -44,19 +44,18 @@ impl<const N: usize> Screen<ScreenSelections<N>, u16, N> for Select<N> {
         signal: &mut EventBits,
         _: &Arc<Mutex<dyn RTC + 'static>>,
         text: &dyn AsSyncStr,
-        param: ScreenParam<u16, N>,
-        callback: ScreenCallback<u16, N>
-    ) -> Result<()> {
+        param: ScreenParam<u16, N>
+    ) -> Result<Answer<u16, N>> {
 
         clean_context(lcd)?;
 
         if self.selections.is_none() {
-            match &param.selects {
-                Some(selections) => {
+            match &param {
+                ScreenParam::Selects(selections) => {
                     self.index = selections.iter().position(|(_, b)| *b).unwrap_or(0) as u8;
                     self.selections = Some(selections.clone());
                 }
-                None => {
+                _ => {
                     self.index = 0;
                     self.selections = Some(screen_selections_new());
                 }
@@ -102,30 +101,28 @@ impl<const N: usize> Screen<ScreenSelections<N>, u16, N> for Select<N> {
 
         lcd.draw_str(&display_text, x_position, SECOND_ROW_Y, &FONT_8X8)?;
         if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
-                if let Some(selected) = self.selections.as_ref() {
-                    let mut p = ScreenParam::default();
-                    p.selects = selected.clone().into();
-                    if let Some(ref cb) = callback {
-                        cb(Some(p), true);
+                if let Some(selected) = self.selections.as_mut() {
+                    // Mark the entry under the cursor as the only selected one.
+                    for (i, entry) in selected.iter_mut().enumerate() {
+                        entry.1 = i == self.index as usize;
                     }
-                *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+
+                    *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+                    return Ok(Answer::Confirmed(ScreenParam::Selects(selected.clone().into())));
+                    
             } else {
-                if let Some(ref cb) = callback {
-                    cb(None, false);
-                }
                 *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+                return Ok(Answer::Cancelled);
             }
         }
 
         if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
-            if let Some(ref cb) = callback {
-                cb(None, false);
-            }
             *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+            return Ok(Answer::Cancelled);
         }
 
         
-        Ok(())
+        Ok(Answer::Pending)
         
     }
 
@@ -153,7 +150,7 @@ impl<const N: usize> Select<N> {
             self.index = self.index.wrapping_add(1) % modulo; // Increment index and wrap around using modulo
             *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
         } else  if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
-            self.index = self.index.wrapping_sub(1) % modulo; // Decrement index and wrap around using modulo
+            self.index = (self.index + modulo - 1) % modulo; // Decrement index and wrap around using modulo
             *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
         }
     }

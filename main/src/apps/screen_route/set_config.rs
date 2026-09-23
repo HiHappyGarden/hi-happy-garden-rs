@@ -18,39 +18,33 @@
  *
  ***************************************************************************/
 
-use core::any::Any;
-use core::sync::atomic::{AtomicBool, Ordering};
-
+use alloc::boxed::Box;
 use alloc::sync::Arc;
 use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::os::types::EventBits;
-use osal_rs::utils::{Bytes, Error, Result, bytes_to_hex};
+use osal_rs::utils::{Bytes, Result, bytes_to_hex};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::config::Config;
 use crate::apps::display::check::Check;
 use crate::apps::display::commons::get_datetime_from_rtc;
-use crate::apps::display::input::Input;
 use crate::apps::display::date::Date;
+use crate::apps::display::input::Input;
 use crate::apps::display::select::Select;
 use crate::apps::display::time::Time;
-
 use crate::apps::session::User;
-use crate::apps::signals::display::DisplayFlag;
+use crate::apps::signals::display::request_redraw;
 use crate::apps::signals::error::ErrorFlag;
 use crate::apps::screen_route::auth::{fill_auth_selections, selected_auth_from_selections};
+use crate::apps::screen_route::menu::ScreenMenu;
+use crate::apps::screen_route::ScreenId;
 use crate::drivers::date_time::DateTime;
 use crate::drivers::encrypt::EncryptGeneric;
 use crate::drivers::platform::Hardware;
 use crate::drivers::wifi::Auth;
 use crate::traits::hardware::HardwareFn;
-use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
-use crate::traits::screen::{Screen, ScreenParam, ScreenRoute};
-
-static mut FSM_STATE: FSMState = FSMState::Serial;
-static mut OLD_FSM_STATE: FSMState = FSMState::Serial;
-static UPDATE_DRAW: AtomicBool = AtomicBool::new(false);
+use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum FSMState {
@@ -64,12 +58,11 @@ enum FSMState {
     Date,
     Time,
     EnableDst,
-    SetConfig,
-    End,
 }
 
 pub(super) struct ScreenSetConfig {
     config: &'static mut Config,
+    fsm_state: FSMState,
     serial: Input,
     email: Input,
     email_passwd: Input,
@@ -82,339 +75,213 @@ pub(super) struct ScreenSetConfig {
     enable_dst: Check,
 }
 
-impl ScreenRoute for ScreenSetConfig {
+impl ScreenRoute<ScreenId> for ScreenSetConfig {
+    
+    #[inline]
+    fn id(&self) -> ScreenId {
+        ScreenId::SetConfig
+    }
 
-     fn draw(&mut self, 
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits, 
-        _status_signal: &mut EventBits, 
-        rtc: &Arc<Mutex<dyn RTC + 'static>>,
-        
-    ) -> Result<()> {
-        Self::apply_pending_draw(display_signal);
-
-        let fsm_state = unsafe { *&raw const FSM_STATE };
-        
-        match fsm_state {
-            FSMState::Serial => self.draw_serial_state(lcd, display_signal, rtc)?,
-            FSMState::Email => self.draw_email_state(lcd, display_signal, rtc)?,
-            FSMState::EmailPasswd => self.draw_email_passwd_state(lcd, display_signal, rtc)?,
-            FSMState::EnableWifi => self.draw_enable_wifi_state(lcd, display_signal, rtc)?,
-            FSMState::Ssid => self.draw_ssid_state(lcd, display_signal, rtc)?,
-            FSMState::Passwd => self.draw_passwd_state(lcd, display_signal, rtc)?,
-            FSMState::Auth => self.draw_auth_state(lcd, display_signal, rtc)?,
-            FSMState::Date => self.draw_date_state(lcd, display_signal, rtc)?,
-            FSMState::Time => self.draw_time_state(lcd, display_signal, rtc)?,
-            FSMState::EnableDst => self.draw_enable_dst_state(lcd, display_signal, rtc)?,
-            FSMState::SetConfig => self.draw_set_config_state(rtc)?,
-            FSMState::End => return Ok(())
+    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+        match self.fsm_state {
+            FSMState::Serial      => self.draw_serial_state(screen_route_ctx),
+            FSMState::Email       => self.draw_email_state(screen_route_ctx),
+            FSMState::EmailPasswd => self.draw_email_passwd_state(screen_route_ctx),
+            FSMState::EnableWifi  => self.draw_enable_wifi_state(screen_route_ctx),
+            FSMState::Ssid        => self.draw_ssid_state(screen_route_ctx),
+            FSMState::Passwd      => self.draw_passwd_state(screen_route_ctx),
+            FSMState::Auth        => self.draw_auth_state(screen_route_ctx),
+            FSMState::Date        => self.draw_date_state(screen_route_ctx),
+            FSMState::Time        => self.draw_time_state(screen_route_ctx),
+            FSMState::EnableDst   => self.draw_enable_dst_state(screen_route_ctx),
         }
-
-        Err(Error::ReturnWithCode(1))
     }
 
-    #[allow(unused)]
-    #[inline]
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    #[allow(unused)]
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
+    fn requires_auth(&self) -> bool {
+        false
     }
 }
 
 impl ScreenSetConfig {
-    fn draw_serial_state(
-        &mut self,
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>,
-    ) -> Result<()> {
+
+    #[inline]
+    fn set_state(&mut self, display_signal: &mut EventBits, next: FSMState) {
+        self.fsm_state = next;
+        request_redraw(display_signal);
+    }
+
+    /// Moves to `confirmed` or `cancelled` according to the widget answer.
+    fn step<N, const N_SELECTS: usize>(&mut self, display_signal: &mut EventBits, answer: Answer<N, N_SELECTS>, confirmed: FSMState, cancelled: FSMState) -> Nav<ScreenId>
+    where N: crate::traits::integer::Integer
+    {
+        match answer {
+            Answer::Pending => {}
+            Answer::Confirmed(_) => self.set_state(display_signal, confirmed),
+            Answer::Cancelled => self.set_state(display_signal, cancelled),
+        }
+        Nav::Stay
+    }
+
+    fn draw_serial_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
         let unique_id = Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str(bytes_to_hex(&Hardware::get_unique_id()).as_str());
         let unique_id = Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_bytes(&unique_id[..(unique_id.len()/3) * 2]);
 
-        let mut param = ScreenParam::default();
-        param.input = Some(unique_id);
-
-        self.serial.draw(
-            lcd,
+        let answer = self.serial.draw(
+            *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Serial Number"),
-            param,
-            Some(|_, confirmed| {
-                if confirmed {
-                    Self::set_state_with_old(FSMState::Email);
-                } else {
-                    Self::request_draw();
-                }
-            }),
+            ScreenParam::Input { value: unique_id, secret_mode: false }
         )?;
 
-        Ok(())
+        // First step: there is nothing to go back to.
+        Ok(self.step(display_signal, answer, FSMState::Email, FSMState::Serial))
     }
 
-    fn draw_email_state(
-        &mut self,
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>,
-    ) -> Result<()> {
-        let mut param = ScreenParam::<u16>::default();
-        param.input = Some(Bytes::from_as_sync_str(self.config.get_session().get_user_local().get_email()));
+    fn draw_email_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
 
-        self.email.draw(
-            lcd,
+        let answer = self.email.draw(
+            *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Email"),
-            param,
-            Some(|_, confirmed| {
-                if confirmed {
-                    Self::set_state_with_old(FSMState::EmailPasswd);
-                } else {
-                    Self::set_state_with_old(FSMState::Serial);
-                }
-            }),
+            ScreenParam::Input { value: Bytes::from_as_sync_str(self.config.get_session().get_user_local().get_email()), secret_mode: false },
         )?;
 
-        Ok(())
+        Ok(self.step(display_signal, answer, FSMState::EmailPasswd, FSMState::Serial))
     }
 
-    fn draw_email_passwd_state(
-        &mut self,
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>,
-    ) -> Result<()> {
-        let mut param = ScreenParam::<u16>::default();
-        param.input = Some(Bytes::from_as_sync_str(self.config.get_session().get_user_local().get_password()));
-        param.input_secret_mode = Some(true);
-
-        self.email_passwd.draw(
-            lcd,
+    fn draw_email_passwd_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+        
+        let answer = self.email_passwd.draw(
+            *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Password"),
-            param,
-            Some(|_, confirmed| {
-                if confirmed {
-                    Self::set_state_with_old(FSMState::EnableWifi);
-                } else {
-                    Self::set_state_with_old(FSMState::Email);
-                }
-            }),
+            ScreenParam::Input { value: Bytes::default(), secret_mode: true },
         )?;
 
-        Ok(())
+        Ok(self.step(display_signal, answer, FSMState::EnableWifi, FSMState::Email))
     }
 
-    fn draw_enable_wifi_state(
-        &mut self,
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>,
-    ) -> Result<()> {
-        let mut param = ScreenParam::default();
-        param.check = Some(self.wifi_enable.get_value().unwrap_or(false));
-
-        self.wifi_enable.draw(
-            lcd,
+    fn draw_enable_wifi_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+        
+        match self.wifi_enable.draw(
+            *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Enable WiFi?"),
-            param,
-            Some(|param, confirmed| {
-                if confirmed {
-                    unsafe { OLD_FSM_STATE = FSM_STATE; }
-                    match param {
-                        Some(screen_param) => match screen_param.check {
-                            Some(true) => Self::set_state(FSMState::Ssid),
-                            Some(false) => Self::set_state(FSMState::Date),
-                            None => Self::set_state(FSMState::Serial),
-                        },
-                        None => Self::set_state(FSMState::Serial),
-                    }
-                } else {
-                    Self::set_state(FSMState::EmailPasswd);
-                }
-            }),
-        )?;
+            ScreenParam::Check (false),
+        )? {
+            Answer::Pending => {}
+            Answer::Confirmed(param) => {
+                // With WiFi the clock comes from NTP, otherwise it is set by hand.
 
-        Ok(())
+                match param {
+                    ScreenParam::Check(value) => {
+                        let next = if value { FSMState::Ssid } else { FSMState::Date };
+                        self.set_state(display_signal, next);
+                    }
+                    _ => {}
+                }
+
+                
+            }
+            Answer::Cancelled => self.set_state(display_signal, FSMState::EmailPasswd),
+        }
+
+        Ok(Nav::Stay)
     }
 
-    fn draw_ssid_state(
-        &mut self,
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>,
-    ) -> Result<()> {
-        let mut param = ScreenParam::default();
-        param.input = Some(Bytes::from_as_sync_str(&self.config.get_wifi_config().get_ssid()));
+    fn draw_ssid_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
 
-        self.wifi_ssid.draw(
-            lcd,
+        let answer = self.wifi_ssid.draw(
+            *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi SSID"),
-            param,
-            Some(|_, confirmed| {
-                if confirmed {
-                    Self::set_state_with_old(FSMState::Passwd);
-                } else {
-                    Self::set_state_with_old(FSMState::EnableWifi);
-                }
-            }),
+            ScreenParam::Input { value: self.config.get_wifi_config().get_ssid(), secret_mode: false },
         )?;
 
-        Ok(())
+        Ok(self.step(display_signal, answer, FSMState::Passwd, FSMState::EnableWifi))
     }
 
-    fn draw_passwd_state(
-        &mut self,
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>,
-    ) -> Result<()> {
-        let mut param = ScreenParam::default();
-        param.input = Some(Bytes::from_as_sync_str(&self.config.get_wifi_config().get_password()));
-
-        self.wifi_passwd.draw(
-            lcd,
+    fn draw_passwd_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+        
+        let answer = self.wifi_passwd.draw(
+            *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi Password"),
-            param,
-            Some(|_, confirmed| {
-                if confirmed {
-                    Self::set_state_with_old(FSMState::Auth);
-                } else {
-                    Self::set_state_with_old(FSMState::Ssid);
-                }
-            }),
+            ScreenParam::Input { value: Bytes::from_as_sync_str(&self.config.get_wifi_config().get_password()), secret_mode: true },
         )?;
 
-        Ok(())
+        Ok(self.step(display_signal, answer, FSMState::Auth, FSMState::Ssid))
     }
 
-    fn draw_auth_state(
-        &mut self,
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>,
-    ) -> Result<()> {
-        let mut param = ScreenParam::default();
-        param.selects = Some(fill_auth_selections(self.config.get_wifi_config().get_auth()));
-
-        self.auth.draw(
-            lcd,
+    fn draw_auth_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+        
+        let answer = self.auth.draw(
+            *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi Auth"),
-            param,
-            Some(|_, confirmed| {
-                if confirmed {
-                    Self::set_state_with_old(FSMState::EnableDst);
-                } else {
-                    Self::set_state_with_old(FSMState::Passwd);
-                }
-            }),
+            ScreenParam::Selects(fill_auth_selections(self.config.get_wifi_config().get_auth())),
         )?;
 
-        Ok(())
+        Ok(self.step(display_signal, answer, FSMState::EnableDst, FSMState::Passwd))
     }
 
-    fn draw_date_state(
-        &mut self,
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>,
-    ) -> Result<()> {
-        let date_time = get_datetime_from_rtc!(rtc, ErrorFlag::DateTime);
-
-        let mut param = ScreenParam::default();
-        param.date_time = Some(date_time.clone());
-
-        self.date.draw(
-            lcd,
+    fn draw_date_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+        
+        let answer = self.date.draw(
+            *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Set Date"),
-            param,
-            Some(|_, confirmed| {
-                if confirmed {
-                    Self::set_state_with_old(FSMState::Time);
-                } else {
-                    Self::set_state_with_old(FSMState::EnableWifi);
-                }
-            }),
+            ScreenParam::DateTime(get_datetime_from_rtc!(rtc, ErrorFlag::DateTime)),
         )?;
 
-        Ok(())
+        Ok(self.step(display_signal, answer, FSMState::Time, FSMState::EnableWifi))
     }
 
-    fn draw_time_state(
-        &mut self,
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>,
-    ) -> Result<()> {
-        let date_time = get_datetime_from_rtc!(rtc, ErrorFlag::DateTime);
-
-        let mut param = ScreenParam::default();
-        param.date_time = Some(date_time.clone());
-
-        self.time.draw(
-            lcd,
+    fn draw_time_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+        
+        let answer = self.time.draw(
+            *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Set Time"),
-            param,
-            Some(|_, confirmed| {
-                if confirmed {
-                    Self::set_state_with_old(FSMState::EnableDst);
-                } else {
-                    Self::set_state_with_old(FSMState::Date);
-                }
-            }),
+            ScreenParam::DateTime(get_datetime_from_rtc!(rtc, ErrorFlag::DateTime)),
         )?;
 
-        Ok(())
+        Ok(self.step(display_signal, answer, FSMState::EnableDst, FSMState::Date))
     }
 
-    fn draw_enable_dst_state(
-        &mut self,
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>,
-    ) -> Result<()> {
-        let mut param = ScreenParam::default();
-        param.check = Some(self.enable_dst.get_value().unwrap_or(false));
-
-        self.enable_dst.draw(
-            lcd,
+    fn draw_enable_dst_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+        
+        match self.enable_dst.draw(
+            *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Enable DST?"),
-            param,
-            Some(move |_, confirmed| {
-                if confirmed {
-                    Self::set_state(FSMState::SetConfig);
-                } else {
-                    unsafe { FSM_STATE = OLD_FSM_STATE; }
-                    Self::request_draw();
-                }
-            }),
-        )?;
-
-        Ok(())
+            ScreenParam::Check(false),
+        )? {
+            Answer::Pending => Ok(Nav::Stay),
+            Answer::Confirmed(_) => {
+                self.save(rtc)?;
+                // The wizard is the root of the stack: the menu takes its place.
+                Ok(Nav::Replace(Box::new(ScreenMenu::new())))
+            }
+            Answer::Cancelled => {
+                let previous = if self.wifi_enable.get_value().unwrap_or(false) { FSMState::Auth } else { FSMState::Time };
+                self.set_state(display_signal, previous);
+                Ok(Nav::Stay)
+            }
+        }
     }
 
-    fn draw_set_config_state(&mut self, rtc: &Arc<Mutex<dyn RTC + 'static>>) -> Result<()> {
+    fn save(&mut self, rtc: &Arc<Mutex<dyn RTC + 'static>>) -> Result<()> {
         let serial = self.serial.get_value()?;
         let email = self.email.get_value()?;
         let email_passwd = self.email_passwd.get_value()?;
@@ -422,10 +289,7 @@ impl ScreenSetConfig {
 
         let mut user = User::default();
         user.set_email(email.as_str());
-
-        let password_hash = EncryptGeneric::get_sha256(email_passwd.to_bytes())?;
-
-        user.set_password(&password_hash.as_str());
+        user.set_password(EncryptGeneric::get_sha256(email_passwd.to_bytes())?.as_str());
         self.config.get_session().set_user(&user);
 
         if wifi_enable {
@@ -455,7 +319,9 @@ impl ScreenSetConfig {
             rtc.lock()?.set_timestamp(date_time.to_timestamp())?;
         }
 
-        DateTime::set_daylight_saving_time(self.enable_dst.get_value().unwrap_or_default());
+        let enable_dst = self.enable_dst.get_value().unwrap_or_default();
+        DateTime::set_daylight_saving_time(enable_dst);
+        self.config.get_daylight_saving_time().set_enabled(enable_dst);
 
         self.config.set_serial(&Bytes::from_as_sync_str(&serial));
 
@@ -466,14 +332,13 @@ impl ScreenSetConfig {
         self.config.apply_session();
         Config::save()?;
 
-        Self::set_state_with_old(FSMState::End);
-
         Ok(())
     }
 
-    pub(super) const fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             config: Config::shared(),
+            fsm_state: FSMState::Serial,
             serial: Input::new(),
             email: Input::new(),
             email_passwd: Input::new(),
@@ -486,33 +351,4 @@ impl ScreenSetConfig {
             enable_dst: Check::new(),
         }
     }
-
-    #[inline]
-    fn apply_pending_draw(display_signal: &mut EventBits) {
-        if UPDATE_DRAW.load(Ordering::SeqCst) {
-            UPDATE_DRAW.store(false, Ordering::SeqCst);
-            *display_signal |= DisplayFlag::Draw as u32;
-        }
-    }
-
-    #[inline]
-    fn request_draw() {
-        UPDATE_DRAW.store(true, Ordering::SeqCst);
-    }
-
-    #[inline]
-    fn set_state(next: FSMState) {
-        unsafe { FSM_STATE = next; }
-        Self::request_draw();
-    }
-
-    #[inline]
-    fn set_state_with_old(next: FSMState) {
-        unsafe {
-            OLD_FSM_STATE = FSM_STATE;
-            FSM_STATE = next;
-        }
-        Self::request_draw();
-    }
-
 }

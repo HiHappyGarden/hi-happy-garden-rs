@@ -18,142 +18,109 @@
  *
  ***************************************************************************/
 
-use core::any::Any;
-use core::sync::atomic::{AtomicBool, Ordering};
-
 use alloc::sync::Arc;
 use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::os::types::EventBits;
-use osal_rs::utils::{Bytes, Error, Result};
+use osal_rs::utils::{Bytes, Result};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::display::commons::get_datetime_from_rtc;
 use crate::apps::display::date::Date;
 use crate::apps::display::time::Time;
-use crate::apps::signals::display::DisplayFlag;
+use crate::apps::screen_route::ScreenId;
+use crate::apps::signals::display::request_redraw;
 use crate::apps::signals::error::ErrorFlag;
 use crate::drivers::date_time::DateTime;
-use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
-use crate::traits::screen::{Screen, ScreenParam, ScreenRoute};
-
-static mut FSM_STATE: FSMState = FSMState::Date;
-static UPDATE_DRAW: AtomicBool = AtomicBool::new(false);
+use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum FSMState {
     Date,
     Time,
-    Save,
-    End,
 }
 
 pub(super) struct ScreenDateTime {
+    fsm_state: FSMState,
     date: Date,
     time: Time,
 }
 
-impl ScreenRoute for ScreenDateTime {
-    fn draw(
-        &mut self,
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits,
-        _status_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>,
-    ) -> Result<()> {
-        if UPDATE_DRAW.load(Ordering::SeqCst) {
-            UPDATE_DRAW.store(false, Ordering::SeqCst);
-            *display_signal |= DisplayFlag::Draw as u32;
-        }
+impl ScreenRoute<ScreenId> for ScreenDateTime {
 
-        match unsafe { *&raw const FSM_STATE } {
-            FSMState::Date => self.draw_date_state(lcd, display_signal, rtc)?,
-            FSMState::Time => self.draw_time_state(lcd, display_signal, rtc)?,
-            FSMState::Save => self.draw_save_state(rtc)?,
-            FSMState::End => return Ok(())
-            
-        }
-
-        Err(Error::ReturnWithCode(1))
+    #[inline]
+    fn id(&self) -> ScreenId {
+        ScreenId::DateTime
     }
 
-    #[allow(unused)]
-    #[inline]
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    #[allow(unused)]
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
+    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+        match self.fsm_state {
+            FSMState::Date => self.draw_date_state(screen_route_ctx),
+            FSMState::Time => self.draw_time_state(screen_route_ctx),
+        }
     }
 }
 
 impl ScreenDateTime {
-    fn draw_date_state(
-        &mut self,
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>,
-    ) -> Result<()> {
-        let date_time = get_datetime_from_rtc!(rtc, ErrorFlag::DateTime);
-        let mut param = ScreenParam::default();
-        param.date_time = Some(date_time);
 
-        self.date.draw(
-            lcd,
+    #[inline]
+    fn set_state(&mut self, display_signal: &mut EventBits, next: FSMState) {
+        self.fsm_state = next;
+        request_redraw(display_signal);
+    }
+
+    fn draw_date_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+        
+
+        match self.date.draw(
+            *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Set Date"),
-            param,
-            Some(|_, confirmed| {
-                unsafe { FSM_STATE = if confirmed { FSMState::Time } else { FSMState::End }; }
-                UPDATE_DRAW.store(true, Ordering::SeqCst);
-            }),
-        )?;
-
-        Ok(())
+            ScreenParam::DateTime(get_datetime_from_rtc!(rtc, ErrorFlag::DateTime)),
+        )? {
+            Answer::Pending => Ok(Nav::Stay),
+            Answer::Confirmed(_) => {
+                self.set_state(display_signal, FSMState::Time);
+                Ok(Nav::Stay)
+            }
+            Answer::Cancelled => Ok(Nav::Pop),
+        }
     }
 
-    fn draw_time_state(
-        &mut self,
-        lcd: &mut dyn LCDDisplayFn,
-        display_signal: &mut EventBits,
-        rtc: &Arc<Mutex<dyn RTC + 'static>>,
-    ) -> Result<()> {
-        let date_time = get_datetime_from_rtc!(rtc, ErrorFlag::DateTime);
-        let mut param = ScreenParam::default();
-        param.date_time = Some(date_time);
+    fn draw_time_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+        
 
-        self.time.draw(
-            lcd,
+        match self.time.draw(
+            *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Set Time"),
-            param,
-            Some(|_, confirmed| {
-                unsafe { FSM_STATE = if confirmed { FSMState::Save } else { FSMState::Date }; }
-                UPDATE_DRAW.store(true, Ordering::SeqCst);
-            }),
-        )?;
-
-        Ok(())
+            ScreenParam::DateTime(get_datetime_from_rtc!(rtc, ErrorFlag::DateTime)),
+        )? {
+            Answer::Pending => Ok(Nav::Stay),
+            Answer::Confirmed(_) => {
+                self.save(rtc)?;
+                Ok(Nav::Pop)
+            }
+            Answer::Cancelled => {
+                self.set_state(display_signal, FSMState::Date);
+                Ok(Nav::Stay)
+            }
+        }
     }
 
-    fn draw_save_state(&mut self, rtc: &Arc<Mutex<dyn RTC + 'static>>) -> Result<()> {
+    fn save(&self, rtc: &Arc<Mutex<dyn RTC + 'static>>) -> Result<()> {
         let DateTime { year, month, mday, wday, .. } = self.date.get_value()?;
         let DateTime { hour, minute, second, .. } = self.time.get_value()?;
         let date_time = DateTime::new(year, month, wday, mday, hour, minute, second)?;
         rtc.lock()?.set_timestamp(date_time.to_timestamp())?;
-
-        unsafe { FSM_STATE = FSMState::End; }
-        UPDATE_DRAW.store(true, Ordering::SeqCst);
         Ok(())
     }
 
     pub(super) const fn new() -> Self {
         Self {
+            fsm_state: FSMState::Date,
             date: Date::new(),
             time: Time::new(),
         }
