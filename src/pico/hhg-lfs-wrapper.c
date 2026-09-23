@@ -25,6 +25,7 @@
 
 #include <hardware/flash.h>
 #include <hardware/sync.h>
+#include <pico/flash.h>
 #include <pico/types.h>
 
 extern void * pvPortMalloc( size_t xWantedSize );
@@ -73,6 +74,24 @@ static lfs_t lfs;
 const char* HHG_FS_BASE = (char*)(PICO_FLASH_SIZE_BYTES - HHG_FS_SIZE);
 
 
+#define HHG_FLASH_SAFE_TIMEOUT_MS 1000
+
+typedef struct {
+    uint32_t offset;
+    const void* buffer;
+    size_t size;
+} hhg_flash_op_t;
+
+static void __not_in_flash_func(flash_prog_cb)(void* param) {
+    const hhg_flash_op_t* op = (const hhg_flash_op_t*)param;
+    flash_range_program(op->offset, op->buffer, op->size);
+}
+
+static void __not_in_flash_func(flash_erase_cb)(void* param) {
+    const hhg_flash_op_t* op = (const hhg_flash_op_t*)param;
+    flash_range_erase(op->offset, op->size);
+}
+
 static int flash_read(const struct lfs_config *c, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size)
 {
     assert(block < hhg_lfs_cfg.block_count);
@@ -84,27 +103,27 @@ static int flash_read(const struct lfs_config *c, lfs_block_t block, lfs_off_t o
 
 int flash_prog(const struct lfs_config *c, lfs_block_t block, lfs_off_t off, const void *buffer, lfs_size_t size) {
     assert(block < hhg_lfs_cfg.block_count);
-    uint32_t p = (uint32_t)HHG_FS_BASE + (block * hhg_lfs_cfg.block_size) + off;
-    
-    // Disable interrupts for flash operation
-    uint32_t ints = save_and_disable_interrupts();
-    flash_range_program(p, buffer, size);
-    restore_interrupts(ints);
-    
-    return LFS_ERR_OK;
+    hhg_flash_op_t op = {
+        .offset = (uint32_t)HHG_FS_BASE + (block * hhg_lfs_cfg.block_size) + off,
+        .buffer = buffer,
+        .size = size,
+    };
+
+    // Run with IRQs disabled and the other core parked outside flash
+    return flash_safe_execute(flash_prog_cb, &op, HHG_FLASH_SAFE_TIMEOUT_MS) == PICO_OK ? LFS_ERR_OK : LFS_ERR_IO;
 }
 
 
 int flash_erase(const struct lfs_config *c, lfs_block_t block) {
     assert(block < hhg_lfs_cfg.block_count);
-    uint32_t p = (uint32_t)HHG_FS_BASE + block * hhg_lfs_cfg.block_size;
-    
-    // Disable interrupts for flash operation
-    uint32_t ints = save_and_disable_interrupts();
-    flash_range_erase(p, hhg_lfs_cfg.block_size);
-    restore_interrupts(ints);
-    
-    return LFS_ERR_OK;
+    hhg_flash_op_t op = {
+        .offset = (uint32_t)HHG_FS_BASE + block * hhg_lfs_cfg.block_size,
+        .buffer = NULL,
+        .size = hhg_lfs_cfg.block_size,
+    };
+
+    // Run with IRQs disabled and the other core parked outside flash
+    return flash_safe_execute(flash_erase_cb, &op, HHG_FLASH_SAFE_TIMEOUT_MS) == PICO_OK ? LFS_ERR_OK : LFS_ERR_IO;
 }
 
 int flash_sync(const struct lfs_config *c) {
