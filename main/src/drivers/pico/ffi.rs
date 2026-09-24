@@ -387,6 +387,7 @@ unsafe extern "C" {
     pub(super) fn hhg_flash_errmsg(err: c_int) -> *const c_char;
 
     pub(super) fn hhg_get_unique_id(id_buffer: *mut u8);
+    pub(super) fn hhg_system_reset() -> !;
 
     pub(super) fn hhg_mbedtls_aes_init() -> *mut c_void;
     pub(super) fn hhg_mbedtls_aes_setkey_enc(aes: *mut c_void, key: *const u8, keybits: u32) -> i32;

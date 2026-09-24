@@ -24,6 +24,7 @@
 #include <pico/unique_id.h>
 #include <pico/sha256.h>
 #include <hardware/powman.h>
+#include <hardware/watchdog.h>
 
 extern void * pvPortMalloc( size_t xWantedSize );
 extern void vPortFree( void * pv );
@@ -32,6 +33,15 @@ void hhg_get_unique_id(uint8_t* id_buffer) {
     pico_unique_board_id_t board_id;
     pico_get_unique_board_id(&board_id);
     memcpy(id_buffer, board_id.id, PICO_UNIQUE_BOARD_ID_SIZE_BYTES);
+}
+
+void hhg_system_reset(void) {
+    // Full chip reset through the watchdog: AIRCR.SYSRESETREQ only resets the
+    // calling core, leaving the other SMP core running on RAM being re-initialized
+    watchdog_reboot(0, 0, 0);
+    for (;;) {
+        __asm volatile("wfi");
+    }
 }
 
 int hhg_pico_sha256_start_blocking(void **state, bool use_dma) {

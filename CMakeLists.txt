@@ -327,6 +327,7 @@ target_link_libraries(${PROJECT_NAME}
         hardware_adc
         hardware_i2c
         hardware_flash
+        hardware_watchdog
         pico_flash
         hardware_sha256
         hardware_powman

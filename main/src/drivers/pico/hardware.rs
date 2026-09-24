@@ -18,8 +18,6 @@
  *
  ***************************************************************************/
 
-use core::ptr::write_volatile;
-
 use alloc::sync::Arc;
 use osal_rs::log_info;
 use osal_rs::os::types::UBaseType;
@@ -32,7 +30,7 @@ use crate::drivers::encoder::Encoder;
 use crate::drivers::error::{HardwareErrorSignal, HardwareErrorFlag};
 use crate::drivers::filesystem::{Filesystem, FsStat};
 use crate::drivers::i2c::I2C;
-use crate::drivers::pico::ffi::{hhg_get_unique_id};
+use crate::drivers::pico::ffi::{hhg_get_unique_id, hhg_system_reset};
 use crate::drivers::relays::Relays;
 use crate::drivers::rgb_led::RgbLed;
 use crate::drivers::rtc::RTC;
@@ -55,7 +53,6 @@ use crate::traits::wifi::{OnWifiChangeStatus, SetOnWifiChangeStatus};
 
 
 const APP_TAG: &str = "Hardware";
-const PPB_BASE: usize = 0xe0000000;
 
 #[allow(dead_code)]
 #[repr(u32)]
@@ -305,11 +302,7 @@ impl Hardware {
     }
 
     pub fn reset() -> ! {
-        unsafe {
-            let aircr_register = (PPB_BASE + 0x0ED0C) as *mut u32;
-            write_volatile(aircr_register, 0x5FA0004);
-        }
-        loop {}
+        unsafe { hhg_system_reset() }
     }
 }
 
