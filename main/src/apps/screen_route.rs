@@ -168,7 +168,11 @@ impl ScreenRoute {
     /// a local user exists and nobody is logged in. After the login pops, the
     /// user is back on the screen that was on top (usually the menu).
     fn push(&mut self, screen: BoxedScreen, status_signal: &EventBits) {
+
+        let user = self.config.get_session().get_user_local();
+
         if screen.requires_auth()
+            && !user.get_password().is_empty()
             && self.config.get_session().is_set_user_local()
             && !StatusFlag::UserLogged.check_signal(*status_signal)
         {
