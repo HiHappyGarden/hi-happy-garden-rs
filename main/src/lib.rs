@@ -113,6 +113,8 @@ mod app {
                 panic!("App initialization failed");
             }
 
+            osal_rs::log_info!(APP_TAG, "App initialized heap_free:{}", System::get_free_heap_size());
+
         }
 
         loop {

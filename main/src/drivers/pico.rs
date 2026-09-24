@@ -30,8 +30,16 @@ pub(super) mod rtc_ds3231;
 pub(super) mod uart;
 pub(super) mod wifi_cyw43;
 
-use core::ffi::c_char;
+use core::ffi::{CStr, c_char};
 use osal_rs::os::types::ThreadHandle;
+
+unsafe extern "C" {
+    fn pcTaskGetName(task: ThreadHandle) -> *const c_char;
+    fn hhg_current_task_stack(base: *mut u32, end: *mut u32);
+}
+
+/// SIO CPUID register: 0 on core 0, 1 on core 1
+const SIO_CPUID: *const u32 = 0xd000_0000 as *const u32;
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vApplicationMallocFailedHook() -> ! {
@@ -45,7 +53,14 @@ pub unsafe extern "C" fn vApplicationIdleHook() {
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn vApplicationStackOverflowHook(_x_task: ThreadHandle, _pc_task_name: *mut c_char) -> ! {
+pub unsafe extern "C" fn vApplicationStackOverflowHook(_x_task: ThreadHandle, pc_task_name: *mut c_char) -> ! {
+    unsafe {
+        hardfault_uart_print(b"\r\n*** STACK OVERFLOW ***\r\nTask: ");
+        if !pc_task_name.is_null() {
+            hardfault_uart_print(CStr::from_ptr(pc_task_name).to_bytes());
+        }
+        hardfault_uart_print(b"\r\n");
+    }
     #[allow(clippy::empty_loop)]
     loop {}
 }
@@ -201,17 +216,33 @@ unsafe fn hardfault_uart_print_hex(val: u32) {
 pub unsafe extern "C" fn isr_hardfault() -> ! {
     // Determine which stack pointer was in use and get the exception frame
     let stack_ptr: *const ExceptionFrame;
-    
+    let exc_return: u32;
+    let (msp, msplim, psp, psplim): (u32, u32, u32, u32);
+
     unsafe {
         core::arch::asm!(
+            "mov {1}, lr",          // Save EXC_RETURN
             "tst lr, #4",           // Test bit 2 of LR (EXC_RETURN)
             "ite eq",               // If-Then-Else
             "mrseq {0}, msp",       // If using MSP, move MSP to output register
             "mrsne {0}, psp",       // If using PSP, move PSP to output register
+            "mrs {2}, msp",
+            "mrs {3}, msplim",
+            "mrs {4}, psp",
+            "mrs {5}, psplim",
             out(reg) stack_ptr,
-            options(nomem, nostack, preserves_flags)
+            out(reg) exc_return,
+            out(reg) msp,
+            out(reg) msplim,
+            out(reg) psp,
+            out(reg) psplim,
+            options(nomem, nostack)
         );
     }
+
+    // With STKOF the frame is not (fully) stacked, so its content is not reliable
+    let thread_mode = exc_return & (1 << 3) != 0;
+    let core = unsafe { core::ptr::read_volatile(SIO_CPUID) };
 
     // Read the exception frame from stack
     let frame = unsafe { &*stack_ptr };
@@ -244,6 +275,42 @@ pub unsafe extern "C" fn isr_hardfault() -> ! {
         }
         if fault_regs.cfsr & 0x8000 != 0 {
             hardfault_uart_print(b"BFAR: 0x"); hardfault_uart_print_hex(fault_regs.bfar); hardfault_uart_print(b"\r\n");
+        }
+        hardfault_uart_print(b"CORE: "); ffi::hhg_uart_putc(b'0' + (core & 0x1) as u8); hardfault_uart_print(b"\r\n");
+        hardfault_uart_print(b"EXCR: 0x"); hardfault_uart_print_hex(exc_return); hardfault_uart_print(b"\r\n");
+        hardfault_uart_print(b"MSP : 0x"); hardfault_uart_print_hex(msp); hardfault_uart_print(b" LIM: 0x"); hardfault_uart_print_hex(msplim); hardfault_uart_print(b"\r\n");
+        hardfault_uart_print(b"PSP : 0x"); hardfault_uart_print_hex(psp); hardfault_uart_print(b" LIM: 0x"); hardfault_uart_print_hex(psplim); hardfault_uart_print(b"\r\n");
+        if thread_mode && exc_return & (1 << 2) != 0 {
+            let name = pcTaskGetName(core::ptr::null_mut());
+            if !name.is_null() {
+                hardfault_uart_print(b"TASK: "); hardfault_uart_print(CStr::from_ptr(name).to_bytes()); hardfault_uart_print(b"\r\n");
+            }
+            let (mut base, mut end) = (0u32, 0u32);
+            hhg_current_task_stack(&mut base, &mut end);
+            hardfault_uart_print(b"STK : 0x"); hardfault_uart_print_hex(base); hardfault_uart_print(b" - 0x"); hardfault_uart_print_hex(end); hardfault_uart_print(b"\r\n");
+            // Raw dump from PSP upward: with STKOF this is stale data left at the stack bottom
+            let words = psp as *const u32;
+            for i in 0..32 {
+                if i % 4 == 0 {
+                    hardfault_uart_print(b"  0x"); hardfault_uart_print_hex(psp + i * 4); hardfault_uart_print(b":");
+                }
+                hardfault_uart_print(b" "); hardfault_uart_print_hex(core::ptr::read_volatile(words.add(i as usize)));
+                if i % 4 == 3 {
+                    hardfault_uart_print(b"\r\n");
+                }
+            }
+            // Poor man's backtrace: every word in the stack that looks like a Thumb return address in flash
+            hardfault_uart_print(b"BT  :\r\n");
+            let mut addr = psp;
+            let mut count = 0;
+            while addr < end && count < 96 {
+                let val = core::ptr::read_volatile(addr as *const u32);
+                if (0x1000_0000..0x1010_0000).contains(&val) && val & 1 == 1 {
+                    hardfault_uart_print(b"  0x"); hardfault_uart_print_hex(addr); hardfault_uart_print(b": 0x"); hardfault_uart_print_hex(val); hardfault_uart_print(b"\r\n");
+                    count += 1;
+                }
+                addr += 4;
+            }
         }
         hardfault_uart_print(b"******************\r\n");
     }

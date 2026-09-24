@@ -43,7 +43,7 @@ use crate::apps::signals::status::{StatusSignal, StatusFlag};
 
 const APP_TAG: &str = "AppParser";
 const THREAD_NAME: &str = "app_parser_thr";
-const STACK_SIZE: StackType = 2_048;
+const STACK_SIZE: StackType = 1_024 * 4; // words: factory reset (remove_recursive) and config saves need > 8KB
 const NEW_LINE: &str = "\r\n";
 const OK_RESPONSE: &str = "OK";
 const KO_RESPONSE: &str = "KO";

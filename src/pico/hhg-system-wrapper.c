@@ -25,6 +25,8 @@
 #include <pico/sha256.h>
 #include <hardware/powman.h>
 #include <hardware/watchdog.h>
+#include <FreeRTOS.h>
+#include <task.h>
 
 extern void * pvPortMalloc( size_t xWantedSize );
 extern void vPortFree( void * pv );
@@ -42,6 +44,13 @@ void hhg_system_reset(void) {
     for (;;) {
         __asm volatile("wfi");
     }
+}
+
+void hhg_current_task_stack(uint32_t* base, uint32_t* end) {
+    TaskStatus_t status;
+    vTaskGetInfo(NULL, &status, pdFALSE, eRunning);
+    *base = (uint32_t)status.pxStackBase;
+    *end = (uint32_t)status.pxEndOfStack;
 }
 
 int hhg_pico_sha256_start_blocking(void **state, bool use_dma) {
