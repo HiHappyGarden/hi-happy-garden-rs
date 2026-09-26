@@ -243,10 +243,12 @@ impl Wifi {
                 LinkStatus::WaitForIp => log_debug!(APP_TAG, "WiFi connected, waiting for DHCP..."),
                 LinkStatus::Down => {
                     transition_wifi_status!(Error, on_wifi_change_status);
+                    on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
                 }
                 LinkStatus::BadAuth => {
                     log_debug!(APP_TAG, "WiFi authentication failed");
                     transition_wifi_status!(Error, on_wifi_change_status);
+                    on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
                 }
             }
         }
@@ -288,10 +290,12 @@ impl Wifi {
                 }
                 LinkStatus::Down => {
                     transition_wifi_status!(Error, on_wifi_change_status);
+                    on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
                 }
                 LinkStatus::BadAuth => {
                     log_debug!(APP_TAG, "WiFi authentication failed");
                     transition_wifi_status!(Error, on_wifi_change_status);
+                    on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
                 }
             }
         }
