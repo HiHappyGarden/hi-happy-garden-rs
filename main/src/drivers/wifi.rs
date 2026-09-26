@@ -124,6 +124,7 @@ impl Deserialize for Auth {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum LinkStatus {
     Down,
+    LinkNoNet, // Link is up but no network connectivity may exist, especially on non2.4GHz networks
     WaitForIp,
     Up,
     BadAuth,
@@ -245,6 +246,11 @@ impl Wifi {
                     transition_wifi_status!(Error, on_wifi_change_status);
                     on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
                 }
+                LinkStatus::LinkNoNet => {
+                    log_debug!(APP_TAG, "WiFi connected but no network connectivity");
+                    transition_wifi_status!(Error, on_wifi_change_status);
+                    on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
+                }
                 LinkStatus::BadAuth => {
                     log_debug!(APP_TAG, "WiFi authentication failed");
                     transition_wifi_status!(Error, on_wifi_change_status);
@@ -289,6 +295,11 @@ impl Wifi {
                     transition_wifi_status!(WaitForIp, on_wifi_change_status);
                 }
                 LinkStatus::Down => {
+                    transition_wifi_status!(Error, on_wifi_change_status);
+                    on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
+                }
+                LinkStatus::LinkNoNet => {
+                    log_debug!(APP_TAG, "WiFi connected but no network connectivity");
                     transition_wifi_status!(Error, on_wifi_change_status);
                     on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
                 }

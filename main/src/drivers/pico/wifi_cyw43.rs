@@ -87,7 +87,8 @@ fn link_status(_: *mut c_void) -> LinkStatus {
     match unsafe { hhg_cyw43_wifi_link_status(0) } {
         CYW43_LINK_UP => Up,
         CYW43_LINK_DOWN | CYW43_LINK_JOIN | CYW43_LINK_NOIP => WaitForIp,    
-        CYW43_LINK_FAIL | CYW43_LINK_NONET => Down,
+        CYW43_LINK_FAIL => Down,
+        CYW43_LINK_NONET => LinkNoNet,
         CYW43_LINK_BADAUTH => BadAuth,
         _ => Down, // Default to Down for unknown statuses
     }
