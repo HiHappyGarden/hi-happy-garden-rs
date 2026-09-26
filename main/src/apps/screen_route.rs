@@ -24,7 +24,7 @@ mod daylight_saving_time;
 mod info;
 mod login;
 mod menu;
-mod set_config;
+mod wizard;
 mod sprinkler;
 mod user;
 mod wifi;
@@ -40,7 +40,7 @@ use crate::apps::screen_route::date_time::ScreenDateTime;
 use crate::apps::screen_route::daylight_saving_time::ScreenDaylightSavingTime;
 use crate::apps::screen_route::info::ScreenInfo;
 use crate::apps::screen_route::login::ScreenLogin;
-use crate::apps::screen_route::set_config::ScreenSetConfig;
+use crate::apps::screen_route::wizard::ScreenWizard;
 use crate::apps::screen_route::menu::ScreenMenu;
 use crate::apps::screen_route::sprinkler::ScreenSprinkler;
 use crate::apps::screen_route::user::ScreenUser;
@@ -55,7 +55,7 @@ use osal_rs::utils::Result;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub(in crate::apps) enum ScreenId {
-    SetConfig,
+    Wizard,
     Login,
     Menu,
     Info,
@@ -94,7 +94,7 @@ impl ScreenRoute {
         if StatusFlag::CheckConfig.check_signal(*status_signal) {
             self.check_staus_counter += 1;
             if self.check_staus_counter >= Self::CHECK_STATUS_THRESHOLD {
-                self.stack.push(Box::new(ScreenSetConfig::new()));
+                self.stack.push(Box::new(ScreenWizard::new()));
                 self.check_staus_counter = 0;
             }
         } else if StatusFlag::Ready.check_signal(*status_signal) {
@@ -171,8 +171,9 @@ impl ScreenRoute {
 
         let user = self.config.get_session().get_user_local();
 
+
         if screen.requires_auth()
-            && !user.get_password().is_empty()
+            && user.is_empty_passwd()
             && self.config.get_session().is_set_user_local()
             && !StatusFlag::UserLogged.check_signal(*status_signal)
         {
@@ -184,7 +185,7 @@ impl ScreenRoute {
 
     fn build(id: ScreenId) -> BoxedScreen {
         match id {
-            ScreenId::SetConfig          => Box::new(ScreenSetConfig::new()),
+            ScreenId::Wizard          => Box::new(ScreenWizard::new()),
             ScreenId::Login              => Box::new(ScreenLogin::new()),
             ScreenId::Menu               => Box::new(ScreenMenu::new()),
             ScreenId::Info               => Box::new(ScreenInfo::new()),

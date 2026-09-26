@@ -52,6 +52,7 @@ static mut TIMER: Option<Timer> = None;
 pub(super) struct User {
     email: Bytes<32>,
     password: Bytes<{SHA256_RESULT_BYTES * 2}>,
+    empty_passwd: bool,
 }
 
 impl Serialize for User {
@@ -73,6 +74,7 @@ impl Deserialize for User {
         Ok(Self {
             email: Bytes::from_str(&email),
             password: Bytes::from_str(&password),
+            empty_passwd: password.is_empty(),
         })
     }
 }
@@ -82,6 +84,7 @@ impl Default for User {
         Self {
             email: Bytes::new(),
             password: Bytes::new(),
+            empty_passwd: false,
         }
     }
 }
@@ -98,6 +101,11 @@ impl User {
         &self.password
     }
 
+    pub fn is_empty_passwd(&self) -> bool {
+        self.empty_passwd
+    }
+
+
     #[allow(dead_code)]
     #[inline]
     pub fn set_email(&mut self, email: &str) {
@@ -108,6 +116,7 @@ impl User {
     #[inline]
     pub fn set_password(&mut self, password: &str) {
         self.password = Bytes::from_str(password);
+        self.empty_passwd = password.is_empty();
     }
 }
 
@@ -163,6 +172,7 @@ impl AtContext<{Parser::CMD_SIZE}> for User {
 
         self.email = Bytes::from_str(arg0.as_ref());
         self.password = EncryptGeneric::get_sha256(arg1.as_bytes()).map_err(|_| (at_response, AtError::InvalidArgs))?;
+        self.empty_passwd = arg1.is_empty();
 
         Ok(at_cmd_response!(at_response; ""))
     }
@@ -179,6 +189,7 @@ impl User {
         Self { 
             email: Bytes::new(),
             password: Bytes::new(),
+            empty_passwd: false,
         }
     }
 
@@ -189,6 +200,7 @@ impl User {
     fn clear(&mut self) {
         self.email.clear();
         self.password.clear();
+        self.empty_passwd = false;
     }
 
 }
@@ -206,14 +218,14 @@ impl AtContext<{Parser::CMD_SIZE}> for Session {
 
         let user_tmp = unsafe { &*&raw mut USER_TMP };
         match user_tmp {
-            User{email, password} if email.len() == 0 || password.len() == 0 => {
+            User{email, password, ..} if email.len() == 0 || password.len() == 0 => {
                 if unsafe { USER_LOGGED }.is_none() {
                     return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE.into())));
                 }
                 Self::logout();
                 Ok(at_cmd_response!(at_response; ""))
             }
-            User{email, password} if email.len() > 0 && password.len() > 0 => self.login(at_response),
+            User{email, password, ..} if email.len() > 0 && password.len() > 0 => self.login(at_response),
             User { .. } => Err((at_response, AtError::InvalidArgs))
         }
 
@@ -248,11 +260,13 @@ impl AtContext<{Parser::CMD_SIZE}> for Session {
             unsafe {
                 USER_TMP.email = Bytes::from_str(arg1.as_ref());
                 USER_TMP.password = EncryptGeneric::get_sha256(arg2.as_bytes()).map_err(|_| (at_response, AtError::InvalidArgs))?;
+                USER_TMP.empty_passwd = arg2.is_empty();
             }
         } else if arg0 == "o" { // Logout
             unsafe {
                 (*USER_TMP.email).fill(0);
                 (*USER_TMP.password).fill(0);
+                USER_TMP.empty_passwd = false;
             }
             
         } else {
@@ -313,11 +327,11 @@ impl Session {
     fn login(&self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
         let user_tmp = unsafe { USER_TMP }.clone();
 
-        if user_tmp.email.len() == 0 || user_tmp.password.len() == 0 {
+        if user_tmp.email.len() == 0 {
             return Err((at_response, AtError::InvalidArgs));
         }
 
-        for User{email: user, password: pwd} in self.users.iter() {
+        for User{email: user, password: pwd, ..} in self.users.iter() {
             if *user == user_tmp.email && pwd.as_raw_bytes() == user_tmp.password.as_raw_bytes() {
                 unsafe { USER_LOGGED = Some(USER_TMP); }
 
@@ -332,6 +346,7 @@ impl Session {
             unsafe {
                 (*USER_TMP.email).fill(0);
                 (*USER_TMP.password).fill(0);
+                USER_TMP.empty_passwd = false;
             }
         }
 

@@ -60,7 +60,7 @@ enum FSMState {
     EnableDst,
 }
 
-pub(super) struct ScreenSetConfig {
+pub(super) struct ScreenWizard {
     config: &'static mut Config,
     fsm_state: FSMState,
     serial: Input,
@@ -75,11 +75,11 @@ pub(super) struct ScreenSetConfig {
     enable_dst: Check,
 }
 
-impl ScreenRoute<ScreenId> for ScreenSetConfig {
+impl ScreenRoute<ScreenId> for ScreenWizard {
     
     #[inline]
     fn id(&self) -> ScreenId {
-        ScreenId::SetConfig
+        ScreenId::Wizard
     }
 
     fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
@@ -102,7 +102,7 @@ impl ScreenRoute<ScreenId> for ScreenSetConfig {
     }
 }
 
-impl ScreenSetConfig {
+impl ScreenWizard {
 
     #[inline]
     fn set_state(&mut self, display_signal: &mut EventBits, next: FSMState) {
