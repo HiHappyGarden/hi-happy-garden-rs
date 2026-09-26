@@ -320,31 +320,33 @@ impl Wifi {
         (WIFI_FN.disable_sta_mode)(null_mut());
         let _ = (WIFI_FN.drop)(null_mut());
         INITIALIZED.store(false, Ordering::Release);
-        System::delay_with_to_tick(Duration::from_secs(25));
+        System::delay_with_to_tick(Duration::from_secs(5));
         on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
         gpio.write(&GpioPeripheral::Cyw43Led, 0);
         WifiFsmControl::Break
     }
 
     fn handle_error(
-        link_status: LinkStatus,
+        _: LinkStatus,
         count_error: &mut StackType,
         on_wifi_change_status: &'static dyn OnWifiChangeStatus,
     ) -> WifiFsmControl {
         use WifiStatus::*;
         if *count_error < MAX_ERROR {
             *count_error += 1;
-            log_error!(APP_TAG, "Error {}/{} retry...", count_error, MAX_ERROR);
             unsafe {
                 FSM_STATUS_CURRENT = FSM_STATUS_OLD;
                 FSM_STATUS_OLD = Error;
+                log_error!(APP_TAG, "Error status_current:{status_current} status_old:{status_old} {count_error}/{MAX_ERROR} retry...", status_current = *(&raw const FSM_STATUS_CURRENT), status_old = *(&raw const FSM_STATUS_OLD));
             }
             System::delay_with_to_tick(Duration::from_millis(1_000));
         } else {
-            log_error!(APP_TAG, "Resetting WiFi after {} errors", MAX_ERROR);
             unsafe {
                 FSM_STATUS_OLD = Error;
-                FSM_STATUS_CURRENT = if link_status == LinkStatus::BadAuth { Disconnected } else { Resetting };
+                //FSM_STATUS_CURRENT = if link_status == LinkStatus::BadAuth { Disconnected } else { Resetting };
+                FSM_STATUS_CURRENT = Resetting;
+                log_debug!(APP_TAG, "<-->{:?}/{:?}", *(&raw const FSM_STATUS_CURRENT), *(&raw const FSM_STATUS_OLD));
+                log_error!(APP_TAG, "Resetting status_current:{status_current} status_old:{status_old} WiFi after {MAX_ERROR} retry...", status_current = *(&raw const FSM_STATUS_CURRENT), status_old = *(&raw const FSM_STATUS_OLD));
                 let _ = on_wifi_change_status.on_status_change(Error, FSM_STATUS_CURRENT);
             }
         }
