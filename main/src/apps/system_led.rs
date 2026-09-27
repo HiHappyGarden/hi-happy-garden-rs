@@ -25,6 +25,7 @@ use osal_rs::log_info;
 use osal_rs::os::{System, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
 
+use crate::apps::config::Config;
 use crate::drivers::platform::ThreadPriority;
 use crate::drivers::rgb_led::RgbLed;
 use crate::traits::rgb_led::{Color, RgbLed as _};
@@ -61,6 +62,7 @@ static BLINK: AtomicBool = AtomicBool::new(false);
 const COLOR_RED: Color = Color::new(255, 0, 0);
 const COLOR_ORANGE: Color = Color::new(255, 165, 0);
 const COLOR_GREEN: Color = Color::new(0, 255, 0);
+const COLOR_YELLOW: Color = Color::new(255, 255, 0);
 const COLOR_OFF: Color = Color::new(0, 0, 0);
 
  pub struct SystemLed{
@@ -77,27 +79,88 @@ const COLOR_OFF: Color = Color::new(0, 0, 0);
             let rgb_led = RgbLed::new();
             rgb_led.set_color(&COLOR_OFF);
             
+
             
 
             loop {
                 let status: u32 = StatusSignal::get().into();
-                if status >= None.into() && status <= EnableWifi.into() {
-                    
-                    blink_led!(rgb_led, COLOR_ORANGE);
+            
+                let system_ready = Ready.check_signal(status);
+                let wifi_ready = Config::shared().get_wifi_config().is_enabled() && WifiReady.check_signal(status);
+                let error = Error.check_signal(status);
 
-                } else if Ready.check_signal(status) {
+                match (system_ready, wifi_ready, error) {
 
-                    Self::handle_ready(&rgb_led);
-
-                } else if Error.check_signal(status) {
-                    
-                    blink_led!(rgb_led, COLOR_RED);
-
-                } else {
-
-                   rgb_led.set_color(&COLOR_OFF);
-                   
+                    (_, _, true) => {
+                        blink_led!(rgb_led, COLOR_RED);
+                    }
+                    (true, false, ..) => {
+                        blink_led!(rgb_led, COLOR_YELLOW);
+                    }
+                    (true, ..) => {
+                        rgb_led.set_color(&COLOR_GREEN);
+                        TIMER.store(0, Ordering::SeqCst);
+                    }
+                    _ => {
+                        //println!(r#"WiFi not ready, blinking orange LED"#);
+                        blink_led!(rgb_led, COLOR_ORANGE);
+                    }
                 }
+
+
+                // if None.check_signal(status) 
+                //     || Startup.check_signal(status) 
+                //     || EnableSystemHandler.check_signal(status)
+                //     || EnableSession.check_signal(status)
+                //     || EnableParser.check_signal(status)
+                //     || EnableDisplay.check_signal(status)
+                //     || CheckConfig.check_signal(status)
+                //     || (is_wifi_enabled && EnableWifi.check_signal(status))
+                // {
+                    
+                //     // println!(r#"System not ready, blinking orange LED 
+                //     //             {} 
+                //     //             {} 
+                //     //             {} 
+                //     //             {} 
+                //     //             {} 
+                //     //             {} 
+                //     //             {} 
+                //     //             "#
+                //     //     , Startup.check_signal(status)
+                //     //     , EnableSystemHandler.check_signal(status)
+                //     //     , EnableSession.check_signal(status)
+                //     //     , EnableParser.check_signal(status)
+                //     //     , EnableDisplay.check_signal(status)
+                //     //     , CheckConfig.check_signal(status)
+                //     //     , (is_wifi_enabled && EnableWifi.check_signal(status))
+                //     // );
+                //     println!(r#"WiFi not ready, blinking orange LED"#);
+
+                //     blink_led!(rgb_led, COLOR_ORANGE);
+
+                // } else if is_wifi_enabled && Ready.check_signal(status) && !WifiReady.check_signal(status) {
+                    
+                //     println!(r#"WiFi not ready, blinking yellow LED"#);
+
+                //     blink_led!(rgb_led, COLOR_YELLOW);
+
+                // } else if Ready.check_signal(status) {
+
+                //     println!(r#"System ready, blinking green LED"#);
+                //     Self::handle_ready(&rgb_led);
+
+                // } else if Error.check_signal(status) {
+                    
+                //     println!(r#"System error, blinking red LED"#);
+
+                //     blink_led!(rgb_led, COLOR_RED);
+
+                // } else {
+
+                //    rgb_led.set_color(&COLOR_OFF);
+                   
+                // }
                 
                 System::delay_with_to_tick(Duration::from_millis(TICK_INTERVAL_MS as u64));
                 TIMER.fetch_add(TICK_INTERVAL_MS as u16, Ordering::SeqCst);
@@ -116,8 +179,4 @@ const COLOR_OFF: Color = Color::new(0, 0, 0);
         }
     }
 
-    fn handle_ready(rgb_led: &RgbLed) {
-        rgb_led.set_color(&COLOR_GREEN);
-        TIMER.store(0, Ordering::SeqCst);
-    }
  }

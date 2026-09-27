@@ -26,6 +26,7 @@ use osal_rs::utils::{Bytes, Result};
 use crate::apps::config::Config;
 use crate::apps::signals::display::DisplaySignal;
 use crate::apps::signals::error::{ErrorFlag, ErrorSignal};
+use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::drivers::date_time::DateTime;
 use crate::drivers::network::Network;
 use crate::set_app_error;
@@ -92,13 +93,18 @@ impl OnWifiChangeStatus for Wifi {
         let config = Config::shared();
 
         match status {
-            Disabled | Enabled | Connecting | WaitForIp => log_info!(APP_TAG, "Waiting for IP status: {status:?}"),
+            Disabled | Enabled | Connecting | WaitForIp => {
+                StatusSignal::clear(StatusFlag::WifiReady.into());
+                log_info!(APP_TAG, "Waiting for IP status: {status:?}")
+            }
             Connected => {
                 unsafe {
                     IP_ADDR = Network::dhcp_get_ip_address();
                     log_info!(APP_TAG, "Connected ip: {}", (*&raw const IP_ADDR));
                 }
                 
+                StatusSignal::set(StatusFlag::WifiReady.into());
+
                 let timestamp = ntp_sync!(APP_TAG, config);
                 
 
