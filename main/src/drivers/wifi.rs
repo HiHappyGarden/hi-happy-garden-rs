@@ -192,10 +192,10 @@ impl Wifi {
         WifiFsmControl::Next
     }
 
-    fn handle_enabled<const N: usize>(
+    fn handle_enabled<'a, const N: usize>(
         gpio: &Gpio<N>,
         count_error: &mut StackType,
-        on_wifi_change_status: &'static dyn OnWifiChangeStatus,
+        on_wifi_change_status: &'a dyn OnWifiChangeStatus,
     ) -> WifiFsmControl {
         use WifiStatus::*;
         gpio.write(&GpioPeripheral::Cyw43Led, 0);
@@ -206,10 +206,10 @@ impl Wifi {
         WifiFsmControl::Next
     }
 
-    fn handle_connecting<const N: usize>(
+    fn handle_connecting<'a, const N: usize>(
         gpio: &Gpio<N>,
         count_error: &mut StackType,
-        on_wifi_change_status: &'static dyn OnWifiChangeStatus,
+        on_wifi_change_status: &'a dyn OnWifiChangeStatus,
     ) -> WifiFsmControl {
         use WifiStatus::*;
         gpio.write(&GpioPeripheral::Cyw43Led, 0);
@@ -227,10 +227,10 @@ impl Wifi {
         WifiFsmControl::Continue
     }
 
-    fn handle_wait_for_ip<const N: usize>(
+    fn handle_wait_for_ip<'a, const N: usize>(
         gpio: &Gpio<N>,
         link_status: &mut LinkStatus,
-        on_wifi_change_status: &'static dyn OnWifiChangeStatus,
+        on_wifi_change_status: &'a dyn OnWifiChangeStatus,
     ) -> WifiFsmControl {
         use WifiStatus::*;
         gpio.write(&GpioPeripheral::Cyw43Led, 0);
@@ -261,12 +261,12 @@ impl Wifi {
         WifiFsmControl::Next
     }
 
-    fn handle_connected<const N: usize>(
+    fn handle_connected<'a, const N: usize>(
         gpio: &Gpio<N>,
         link_status: &mut LinkStatus,
         rssi_old: &mut i8,
         led_on: bool,
-        on_wifi_change_status: &'static dyn OnWifiChangeStatus,
+        on_wifi_change_status: &'a dyn OnWifiChangeStatus,
     ) -> WifiFsmControl {
         use WifiStatus::*;
         unsafe {
@@ -313,9 +313,9 @@ impl Wifi {
         WifiFsmControl::Next
     }
 
-    fn handle_disconnected<const N: usize>(
+    fn handle_disconnected<'a, const N: usize>(
         gpio: &Gpio<N>,
-        on_wifi_change_status: &'static dyn OnWifiChangeStatus,
+        on_wifi_change_status: &'a dyn OnWifiChangeStatus,
     ) -> WifiFsmControl {
         (WIFI_FN.disable_sta_mode)(null_mut());
         let _ = (WIFI_FN.drop)(null_mut());
@@ -326,10 +326,10 @@ impl Wifi {
         WifiFsmControl::Break
     }
 
-    fn handle_error(
+    fn handle_error<'a>(
         _: LinkStatus,
         count_error: &mut StackType,
-        on_wifi_change_status: &'static dyn OnWifiChangeStatus,
+        on_wifi_change_status: &'a dyn OnWifiChangeStatus,
     ) -> WifiFsmControl {
         use WifiStatus::*;
         if *count_error < MAX_ERROR {
@@ -352,9 +352,9 @@ impl Wifi {
         WifiFsmControl::Next
     }
 
-    fn handle_resetting<const N: usize>(
+    fn handle_resetting<'a, const N: usize>(
         gpio: &Gpio<N>,
-        on_wifi_change_status: &'static dyn OnWifiChangeStatus,
+        on_wifi_change_status: &'a dyn OnWifiChangeStatus,
     ) -> WifiFsmControl {
         use WifiStatus::*;
         log_warning!(APP_TAG, "Resetting WiFi wait 5 seconds...");
