@@ -33,6 +33,7 @@ use crate::drivers::filesystem::{FileBytes, Filesystem};
 use crate::drivers::platform::FS_SEPARATOR_DIR;
 
 
+const CROCKFORD: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
 pub(in crate::apps) fn deserialize_file<T>(mutex: &'static Option<RawMutex>, app_tag: &str, dir: &str, name: &str) -> Result<T> 
 where 
@@ -144,4 +145,46 @@ where
             log_info!(app_tag, "Saved successfully");
             Ok(t)
         })
+}
+
+fn fnv1a64(data: &[u8]) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for &b in data {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    h
+}
+
+fn luhn32_check(codes: &[u8]) -> u8 {
+    let mut factor = 2u32;
+    let mut sum = 0u32;
+    for &c in codes.iter().rev() {
+        let addend = factor * c as u32;
+        sum += addend / 32 + addend % 32;
+        factor = if factor == 2 { 1 } else { 2 };
+    }
+    ((32 - sum % 32) % 32) as u8
+}
+
+pub fn serial_from_uid(uid: &[u8]) -> [u8; 11] {
+    let v = fnv1a64(uid) >> 24; // 40 bit alti
+    let mut codes = [0u8; 8];
+    for (i, c) in codes.iter_mut().enumerate() {
+        *c = ((v >> (35 - i * 5)) & 0x1F) as u8;
+    }
+
+    let mut out = [0u8; 11];
+    let mut pos = 0;
+    for (i, &c) in codes.iter().enumerate() {
+        if i == 4 {
+            out[pos] = b'-';
+            pos += 1;
+        }
+        out[pos] = CROCKFORD[c as usize];
+        pos += 1;
+    }
+    out[pos] = b'-';
+    out[pos + 1] = CROCKFORD[luhn32_check(&codes) as usize];
+    out
 }

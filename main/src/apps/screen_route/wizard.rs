@@ -22,11 +22,11 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::os::types::EventBits;
-use osal_rs::utils::{Bytes, Error, Result, bytes_to_hex};
+use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::config::Config;
-use crate::apps::display::check::{self, Check};
+use crate::apps::display::check::Check;
 use crate::apps::display::commons::get_datetime_from_rtc;
 use crate::apps::display::date::Date;
 use crate::apps::display::input::Input;
@@ -38,6 +38,7 @@ use crate::apps::signals::error::ErrorFlag;
 use crate::apps::screen_route::auth::{fill_auth_selections, selected_auth_from_selections};
 use crate::apps::screen_route::menu::ScreenMenu;
 use crate::apps::screen_route::ScreenId;
+use crate::apps::utils::serial_from_uid;
 use crate::drivers::date_time::DateTime;
 use crate::drivers::encrypt::EncryptGeneric;
 use crate::drivers::platform::Hardware;
@@ -124,8 +125,8 @@ impl ScreenWizard {
     }
 
     fn draw_serial_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
-        let unique_id = Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str(bytes_to_hex(&Hardware::get_unique_id()).as_str());
-        let unique_id = Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_bytes(&unique_id[..(unique_id.len()/3) * 2]);
+        let serial = serial_from_uid(&Hardware::get_unique_id());
+        let unique_id = Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_bytes(&serial);
 
         let answer = self.serial.draw(
             *lcd,
@@ -172,7 +173,7 @@ impl ScreenWizard {
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Enable WiFi?"),
-            ScreenParam::Check (false),
+            ScreenParam::Check (self.config.get_wifi_config().is_enabled()),
         )? {
             Answer::Pending => {}
             Answer::Confirmed(param) => {
@@ -257,14 +258,11 @@ impl ScreenWizard {
         )?;
 
 
-        todo!("Handle the transition when daylight saving time is enabled");
-        // if self.config.get_daylight_saving_time().is_enabled() {
-        //     self.set_state(display_signal, FSMState::EnableDst);
-        // }
-                        //    self.save(rtc)?;
-                        //    return Ok(Nav::Replace(Box::new(ScreenMenu::new())))
-
+        // if self.wifi_enable.get_value().unwrap_or(self.config.get_wifi_config().is_enabled()) {
+        //     Ok(self.step(display_signal, answer, FSMState::Auth, FSMState::Passwd))
+        // } else {
         Ok(self.step(display_signal, answer, FSMState::EnableDst, FSMState::Date))
+        // }
     }
 
     fn draw_enable_dst_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
@@ -274,14 +272,14 @@ impl ScreenWizard {
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Enable DST?"),
-            ScreenParam::Check(false),
+            ScreenParam::Check(self.config.get_daylight_saving_time().is_enabled()),
         )? {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(answer) => {
                 match answer {
                     ScreenParam::Check(check) => {
-                        self.config.get_daylight_saving_time().set_enabled(check);
                         if check {
+                            self.config.get_daylight_saving_time().set_enabled(check);
                             self.save(rtc)?;
                             return Ok(Nav::Replace(Box::new(ScreenMenu::new())))
                         } else {
