@@ -22,11 +22,11 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::os::types::EventBits;
-use osal_rs::utils::{Bytes, Result, bytes_to_hex};
+use osal_rs::utils::{Bytes, Error, Result, bytes_to_hex};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::config::Config;
-use crate::apps::display::check::Check;
+use crate::apps::display::check::{self, Check};
 use crate::apps::display::commons::get_datetime_from_rtc;
 use crate::apps::display::date::Date;
 use crate::apps::display::input::Input;
@@ -43,6 +43,7 @@ use crate::drivers::encrypt::EncryptGeneric;
 use crate::drivers::platform::Hardware;
 use crate::drivers::wifi::Auth;
 use crate::traits::hardware::HardwareFn;
+use crate::traits::integer::Integer;
 use crate::traits::rtc::RTC;
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 
@@ -112,7 +113,7 @@ impl ScreenWizard {
 
     /// Moves to `confirmed` or `cancelled` according to the widget answer.
     fn step<N, const N_SELECTS: usize>(&mut self, display_signal: &mut EventBits, answer: Answer<N, N_SELECTS>, confirmed: FSMState, cancelled: FSMState) -> Nav<ScreenId>
-    where N: crate::traits::integer::Integer
+    where N: Integer
     {
         match answer {
             Answer::Pending => {}
@@ -255,6 +256,14 @@ impl ScreenWizard {
             ScreenParam::DateTime(get_datetime_from_rtc!(rtc, ErrorFlag::DateTime)),
         )?;
 
+
+        todo!("Handle the transition when daylight saving time is enabled");
+        // if self.config.get_daylight_saving_time().is_enabled() {
+        //     self.set_state(display_signal, FSMState::EnableDst);
+        // }
+                        //    self.save(rtc)?;
+                        //    return Ok(Nav::Replace(Box::new(ScreenMenu::new())))
+
         Ok(self.step(display_signal, answer, FSMState::EnableDst, FSMState::Date))
     }
 
@@ -268,10 +277,20 @@ impl ScreenWizard {
             ScreenParam::Check(false),
         )? {
             Answer::Pending => Ok(Nav::Stay),
-            Answer::Confirmed(_) => {
-                self.save(rtc)?;
-                // The wizard is the root of the stack: the menu takes its place.
-                Ok(Nav::Replace(Box::new(ScreenMenu::new())))
+            Answer::Confirmed(answer) => {
+                match answer {
+                    ScreenParam::Check(check) => {
+                        self.config.get_daylight_saving_time().set_enabled(check);
+                        if check {
+                            self.save(rtc)?;
+                            return Ok(Nav::Replace(Box::new(ScreenMenu::new())))
+                        } else {
+                            self.set_state(display_signal, FSMState::Date);
+                        }
+                        Ok(Nav::Stay)
+                    }
+                    _ => Err(Error::InvalidType),
+                }
             }
             Answer::Cancelled => {
                 let previous = if self.wifi_enable.get_value().unwrap_or(false) { FSMState::Auth } else { FSMState::Time };
