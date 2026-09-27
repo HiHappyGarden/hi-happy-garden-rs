@@ -345,7 +345,6 @@ impl Wifi {
                 FSM_STATUS_OLD = Error;
                 //FSM_STATUS_CURRENT = if link_status == LinkStatus::BadAuth { Disconnected } else { Resetting };
                 FSM_STATUS_CURRENT = Resetting;
-                log_debug!(APP_TAG, "<-->{:?}/{:?}", *(&raw const FSM_STATUS_CURRENT), *(&raw const FSM_STATUS_OLD));
                 log_error!(APP_TAG, "Resetting status_current:{status_current} status_old:{status_old} WiFi after {MAX_ERROR} retry...", status_current = *(&raw const FSM_STATUS_CURRENT), status_old = *(&raw const FSM_STATUS_OLD));
                 let _ = on_wifi_change_status.on_status_change(Error, FSM_STATUS_CURRENT);
             }
