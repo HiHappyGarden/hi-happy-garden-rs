@@ -34,7 +34,7 @@ fn main() {
     let default_wifi_password = env_string_literal("HHG_DEFAULT_WIFI_PASSWORD", "");
     let default_wifi_auth = env::var("HHG_DEFAULT_WIFI_AUTH").unwrap_or_else(|_| "3".to_string()).parse::<u8>().unwrap_or(3);
     let default_wifi_enabled = parse_bool(&env::var("HHG_DEFAULT_WIFI_ENABLED").unwrap_or_else(|_| "false".to_string()));
-    let default_timezone = env::var("HHG_DEFAULT_TIMEZONE").unwrap_or_else(|_| "0".to_string()).parse::<i16>().unwrap_or(60);
+    let default_timezone = env::var("HHG_DEFAULT_TIMEZONE").unwrap_or_else(|_| "60".to_string()).parse::<i16>().unwrap_or(60);
     let default_daylight_saving_enabled = parse_bool(&env::var("HHG_DEFAULT_DAYLIGHT_SAVING_ENABLED").unwrap_or_else(|_| "false".to_string()));
     let default_daylight_saving_start_month = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_MONTH").unwrap_or_else(|_| "3".to_string()).parse::<u8>().unwrap_or(3);
     let default_daylight_saving_start_day = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_DAY").unwrap_or_else(|_| "255".to_string()).parse::<u8>().unwrap_or(255);
