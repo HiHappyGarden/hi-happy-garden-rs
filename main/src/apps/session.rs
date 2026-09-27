@@ -101,22 +101,24 @@ impl User {
         &self.password
     }
 
+    #[inline]
     pub fn is_empty_passwd(&self) -> bool {
         self.empty_passwd
     }
-
-
-    #[allow(dead_code)]
+    
     #[inline]
     pub fn set_email(&mut self, email: &str) {
         self.email = Bytes::from_str(email);
     }
 
-    #[allow(dead_code)]
+    #[inline]
+    pub fn set_empty_passwd(&mut self, empty_passwd: bool) {
+        self.empty_passwd = empty_passwd;
+    }
+
     #[inline]
     pub fn set_password(&mut self, password: &str) {
         self.password = Bytes::from_str(password);
-        self.empty_passwd = password.is_empty();
     }
 }
 

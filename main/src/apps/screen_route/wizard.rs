@@ -257,12 +257,7 @@ impl ScreenWizard {
             ScreenParam::DateTime(get_datetime_from_rtc!(rtc, ErrorFlag::DateTime)),
         )?;
 
-
-        // if self.wifi_enable.get_value().unwrap_or(self.config.get_wifi_config().is_enabled()) {
-        //     Ok(self.step(display_signal, answer, FSMState::Auth, FSMState::Passwd))
-        // } else {
         Ok(self.step(display_signal, answer, FSMState::EnableDst, FSMState::Date))
-        // }
     }
 
     fn draw_enable_dst_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
@@ -306,6 +301,7 @@ impl ScreenWizard {
 
         let mut user = User::default();
         user.set_email(email.as_str());
+        user.set_empty_passwd(email_passwd.is_empty());
         user.set_password(EncryptGeneric::get_sha256(email_passwd.to_bytes())?.as_str());
         self.config.get_session().set_user(&user);
 
