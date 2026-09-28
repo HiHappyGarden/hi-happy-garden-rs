@@ -40,6 +40,7 @@ pub(in crate::apps) enum StatusFlag {
     WifiReady = 0x01_00,
     Error = 0x02_00,
     Reset = 0x04_00,
+    NtpError = 0x08_00,
     
     SystemCmd = 0x00_10_00_00,
     MqttCmd = 0x00_20_00_00,
@@ -63,7 +64,7 @@ impl From<u32> for StatusFlag {
             0x01_00 => WifiReady,
             0x02_00 => Error,
             0x04_00 => Reset,
-            
+            0x08_00 => NtpError,
             0x00_10_00_00 => SystemCmd,
             0x00_20_00_00 => MqttCmd,
             0x00_40_00_00 => UartCmd, 
@@ -106,6 +107,7 @@ impl StatusFlag {
             WifiReady => Bytes::from("WifiReady"),
             Error => Bytes::from("Error"),
             Reset => Bytes::from("Reset"),
+            NtpError => Bytes::from("NtpError"),
             SystemCmd => Bytes::from("SystemCmd"),
             MqttCmd => Bytes::from("MqttCmd"),
             UartCmd => Bytes::from("UartCmd"),

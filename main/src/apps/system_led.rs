@@ -86,7 +86,8 @@ const COLOR_OFF: Color = Color::new(0, 0, 0);
                 let status: u32 = StatusSignal::get().into();
             
                 let system_ready = Ready.check_signal(status);
-                let wifi_ready = Config::shared().get_wifi_config().is_enabled() && WifiReady.check_signal(status);
+                let wifi_ready = Config::shared().get_wifi_config().is_enabled() 
+                                        && (WifiReady.check_signal(status) || NtpError.check_signal(status));
                 let error = Error.check_signal(status);
 
                 match (system_ready, wifi_ready, error) {
