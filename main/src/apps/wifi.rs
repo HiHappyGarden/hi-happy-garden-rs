@@ -104,6 +104,7 @@ impl OnWifiChangeStatus for Wifi {
                 }
                 
                 StatusSignal::set(StatusFlag::WifiReady.into());
+                StatusSignal::clear(StatusFlag::NtpError.into());
 
                 let timestamp = ntp_sync!(APP_TAG, config);
                 
@@ -121,9 +122,12 @@ impl OnWifiChangeStatus for Wifi {
                         None => {
                             log_info!(APP_TAG, "RTC not set for WifiApp");
                             ErrorSignal::set(ErrorFlag::NTP.into());
+                            StatusSignal::set(StatusFlag::NtpError.into());                                
                         }
                         
                     }
+                } else {
+                    StatusSignal::set(StatusFlag::NtpError.into());
                 }
                 
             },
