@@ -19,6 +19,7 @@
  ***************************************************************************/
 
 use alloc::sync::Arc;
+use alloc::vec;
 use osal_rs::os::{Mutex, System, SystemFn};
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Bytes, Error, Result};
@@ -26,7 +27,6 @@ use osal_rs::utils::{AsSyncStr, Bytes, Error, Result};
 use super::commons::{FIRST_ROW_Y, SECOND_ROW_Y, MAX_SIZE, clean_context, scroll_text};
 use crate::apps::display::commons::SCROLL_DELAY_MS;
 use crate::apps::signals::display::DisplayFlag;
-use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use crate::traits::rtc::RTC;
@@ -34,16 +34,20 @@ use crate::traits::screen::Answer::Pending;
 use crate::traits::screen::{Answer, Screen, ScreenParam};
 
 
-const LONG_PRESS_TICK: u32 = 500;
-const DEFAULT_CHAR: &str = "a";
+const LONG_PRESS_TICK: u32 = 300;
+//const DEFAULT_CHAR: &str = "a";
+const SHIFT_CHAR: u8 = b'<';
+const CHAR_TABLE: [u8; 95] = *b"abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^`{|}~";
+
 
 pub(in crate::apps) struct Input {
     input: Option<Bytes<MAX_SIZE>>,
     original_input: Option<Bytes<MAX_SIZE>>,
-    idx: usize,
+    idx: isize,
     button_pressed_tick: u32,
     encoder_button_pressed_tick: u32,
     secret_mode: bool,
+    visible_chars: usize,
 }
 
 impl Screen<Bytes<MAX_SIZE>> for Input
@@ -61,16 +65,15 @@ impl Screen<Bytes<MAX_SIZE>> for Input
         if self.input.is_none() {
             let (input, secret_mode) = match param {
                 ScreenParam::Input { value: input, secret_mode } => (input, secret_mode),
-                _ => (Bytes::<DISPLAY_INPUT_MAX_SIZE>::default(), false),
+                _ => (Bytes::<MAX_SIZE>::default(), false),
             };
 
             self.input = Some(Bytes::from_as_sync_str(&input));
             self.original_input = Some(Bytes::from_as_sync_str(&input));
             if input.is_empty() {
-                self.input = Some(Bytes::from_str(DEFAULT_CHAR));
-                self.idx = 0;
-            } else {
-                self.idx = input.len().saturating_sub(1);
+                self.idx = -1;
+            } else {//input.len().saturating_sub(1);
+                self.idx = self.idx.saturating_add(input.len().saturating_sub(1) as isize);
             }
             
             self.secret_mode = secret_mode;
@@ -82,6 +85,9 @@ impl Screen<Bytes<MAX_SIZE>> for Input
         let (width, _) = lcd.get_size(); 
 
         let (visible_width, _) = lcd.get_visible_size(); 
+
+        self.visible_chars = (visible_width / FONT_8X8[0]) as usize;
+        let shifted_range = self.visible_chars - 1;
 
         let (display_text, x_position) = scroll_text(
             text.as_str(), 
@@ -97,26 +103,24 @@ impl Screen<Bytes<MAX_SIZE>> for Input
             }
         }
 
-        //write the input text on the second row, with a '<' marker if the text is wider than the display and is being scrolled, and with a 3px left margin to avoid overlapping with the first column of the display which is not fully visible. The input text should be centered if it fits within the visible area, otherwise it should scroll circularly with a 4-space separator. If secret_mode is enabled, show '*' instead of the actual chars.
+        // //write the input text on the second row, with a '<' marker if the text is wider than the display and is being scrolled, and with a 3px left margin to avoid overlapping with the first column of the display which is not fully visible. The input text should be centered if it fits within the visible area, otherwise it should scroll circularly with a 4-space separator. If secret_mode is enabled, show '*' instead of the actual chars.
         if let Some(input) = &self.input {
             let raw = input.as_raw_bytes();
             if !raw.is_empty() {
-                if raw.len() >= 16 {
-                    // The input is wider than the 16-char line.
-                    // Show an overflow marker ('<') plus the last 15 bytes.
-                    let offset = raw.len() - 15;
-                    let mut display_buf = [0u8; 16];
-                    display_buf[0] = b'<';
+                if raw.len() >= self.visible_chars {
+                    let offset = raw.len() - shifted_range;
+                    let mut display_buf = vec![0u8; self.visible_chars];
+                    display_buf[0] = SHIFT_CHAR;
                     let src = &raw[offset..];
-                    let copy_len = src.len().min(15);
+                    let copy_len = src.len().min(shifted_range);
                     if self.secret_mode {
                         for i in 0..copy_len {
                             display_buf[1 + i] = b'*';
                         }
                         // Keep visible the character currently being edited.
-                        if self.idx >= offset && self.idx < offset + copy_len {
-                            let visible_idx = self.idx - offset;
-                            display_buf[1 + visible_idx] = src[visible_idx];
+                        if self.idx >= offset as isize && self.idx < (offset + copy_len) as isize {
+                            let visible_idx = self.idx - offset as isize;
+                            display_buf[1 + visible_idx as usize] = src[visible_idx as usize];
                         }
                     } else {
                         display_buf[1..1 + copy_len].copy_from_slice(&src[..copy_len]);
@@ -127,10 +131,10 @@ impl Screen<Bytes<MAX_SIZE>> for Input
                         }
                     }
                 } else if self.secret_mode {
-                    let masked = [b'*'; 16];
+                    let masked = vec![b'*'; shifted_range];
                     let mut display_buf = masked;
-                    if self.idx < raw.len() {
-                        display_buf[self.idx] = raw[self.idx];
+                    if self.idx < raw.len() as isize{
+                        display_buf[self.idx as usize] = raw[self.idx as usize];
                     }
                     if let Err(e) = lcd.draw_bytes(&display_buf[..raw.len()], 3, SECOND_ROW_Y, &FONT_8X8) {
                         if e != Error::OutOfIndex {
@@ -150,21 +154,21 @@ impl Screen<Bytes<MAX_SIZE>> for Input
         // Keep cursor aligned to what is actually visible on screen.
         let cursor_col = if let Some(input) = &self.input {
             let raw_len = input.as_raw_bytes().len();
-            if raw_len >= 16 {
-                let offset = raw_len.saturating_sub(15);
-                if self.idx < offset {
+            if raw_len >= self.visible_chars {
+                let offset = raw_len.saturating_sub(shifted_range);
+                if self.idx < offset as isize{
                     0usize
                 } else {
-                    1usize + (self.idx - offset).min(14)
+                    1usize + (self.idx as usize - offset as usize).min(14)
                 }
             } else {
-                self.idx.min(raw_len.saturating_sub(1))
+                self.idx.min(raw_len.saturating_sub(1) as isize) as usize
             }
         } else {
             0usize
         };
 
-        let base_x = if self.input.as_ref().is_some_and(|input| input.as_raw_bytes().len() >= 16) {
+        let base_x = if self.input.as_ref().is_some_and(|input| input.as_raw_bytes().len() >= self.visible_chars) {
             0u16
         } else {
             2u16
@@ -180,40 +184,40 @@ impl Screen<Bytes<MAX_SIZE>> for Input
         }
 
         // Callback handling: encoder long press confirms the current input, while regular button long press restores the original input and short press cancels when the buffer becomes empty.
-        if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
-            let elapsed = System::get_tick_count().wrapping_sub(self.encoder_button_pressed_tick);
-            if elapsed >= LONG_PRESS_TICK {
-                // Long press on encoder button: confirm the current input.
-                if let Some(input) = self.input {
+        // if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        //     let elapsed = System::get_tick_count().wrapping_sub(self.encoder_button_pressed_tick);
+        //     if elapsed >= LONG_PRESS_TICK {
+        //         // Long press on encoder button: confirm the current input.
+        //         if let Some(input) = self.input {
 
-                    self.input = Some(input);
-                    return Ok(Answer::Confirmed(ScreenParam::Input { value: input, secret_mode: self.secret_mode }));
+        //             self.input = Some(input);
+        //             return Ok(Answer::Confirmed(ScreenParam::Input { value: input, secret_mode: self.secret_mode }));
 
-                }
-            }
-            self.encoder_button_pressed_tick = 0;
-            *signal &= !(DisplayFlag::EncoderButtonReleased as u32);
-            *signal |= DisplayFlag::Draw as u32;
+        //         }
+        //     }
+        //     self.encoder_button_pressed_tick = 0;
+        //     *signal &= !(DisplayFlag::EncoderButtonReleased as u32);
+        //     *signal |= DisplayFlag::Draw as u32;
 
-        } else if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
-            let elapsed = System::get_tick_count().wrapping_sub(self.button_pressed_tick);
-            self.button_pressed_tick = 0;
+        // } else if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
+        //     let elapsed = System::get_tick_count().wrapping_sub(self.button_pressed_tick);
+        //     self.button_pressed_tick = 0;
             
-            if elapsed >= LONG_PRESS_TICK {
-                // Long press: restore original input and exit
-                return Ok(Answer::Cancelled);
-            } else if self.input.as_ref().is_none_or(|input| input.is_empty()) {
-                // Empty buffer: cancel
-                return Ok(Answer::Cancelled);
-            } else {
-                // Normal short press: stay in the widget
-                *signal |= DisplayFlag::Draw as u32;
-    }
+        //     if elapsed >= LONG_PRESS_TICK {
+        //         // Long press: restore original input and exit
+        //         return Ok(Answer::Cancelled);
+        //     } else if self.input.as_ref().is_none_or(|input| input.is_empty()) {
+        //         // Empty buffer: cancel
+        //         return Ok(Answer::Cancelled);
+        //     } else {
+        //         // Normal short press: stay in the widget
+        //         *signal |= DisplayFlag::Draw as u32;
+        //     }
 
-            self.button_pressed_tick = 0;
-            *signal &= !(DisplayFlag::ButtonReleased as u32);
+        //     self.button_pressed_tick = 0;
+        //     *signal &= !(DisplayFlag::ButtonReleased as u32);
 
-        }
+        // }
 
         Ok(Pending)
     }
@@ -225,6 +229,7 @@ impl Screen<Bytes<MAX_SIZE>> for Input
 
 
 impl Input {
+
     pub(in crate::apps) const fn new() -> Self {
         Self { 
             input: None,
@@ -233,81 +238,82 @@ impl Input {
             button_pressed_tick: 0,
             encoder_button_pressed_tick: 0,
             secret_mode: false,
+            visible_chars: 0,
         }
     }
 
     fn update_input(&mut self, signal: &mut EventBits) {
-        if *signal & DisplayFlag::ButtonPressed as u32 != 0 {
-            self.button_pressed_tick = System::get_tick_count();
-            *signal &= !(DisplayFlag::ButtonPressed as u32);
-        }
+        // if *signal & DisplayFlag::ButtonPressed as u32 != 0 {
+        //     self.button_pressed_tick = System::get_tick_count();
+        //     *signal &= !(DisplayFlag::ButtonPressed as u32);
+        // }
 
-        //encoder rotattion
-        if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
-            if self.seed_input_if_empty() {
-            } else if let Some(current) = self.input.as_ref() {
-                let next_char = if current[self.idx] >= 0xFF {
-                    b' ' // wrap from 255 back to 32 (space)
-                } else {
-                    current[self.idx] + 1
-                };
-                self.input.as_mut().unwrap()[self.idx] = next_char;
-            }
-            *signal |= DisplayFlag::Draw as u32;
+        // //encoder rotattion
+        // if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
+        //     if self.seed_input_if_empty() {
+        //     } else if let Some(current) = self.input.as_ref() {
+        //         let next_char = if current[self.idx] >= 0xFF {
+        //             b' ' // wrap from 255 back to 32 (space)
+        //         } else {
+        //             current[self.idx] + 1
+        //         };
+        //         self.input.as_mut().unwrap()[self.idx] = next_char;
+        //     }
+        //     *signal |= DisplayFlag::Draw as u32;
         
-        } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
-            if self.seed_input_if_empty() {
-            } else if let Some(current) = self.input.as_ref() {
-                let prev_char = if current[self.idx] <= b' ' {
-                    0xFF // wrap from 32 (space) back to 255
-                } else {
-                    current[self.idx] - 1
-                };
-                self.input.as_mut().unwrap()[self.idx] = prev_char;
-            }
-            *signal |= DisplayFlag::Draw as u32;
-        }
+        // } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+        //     if self.seed_input_if_empty() {
+        //     } else if let Some(current) = self.input.as_ref() {
+        //         let prev_char = if current[self.idx] <= b' ' {
+        //             0xFF // wrap from 32 (space) back to 255
+        //         } else {
+        //             current[self.idx] - 1
+        //         };
+        //         self.input.as_mut().unwrap()[self.idx] = prev_char;
+        //     }
+        //     *signal |= DisplayFlag::Draw as u32;
+        // }
          
-        if *signal & DisplayFlag::EncoderButtonPressed as u32 != 0 {
-            //pressing the encoder button doesn't immediately trigger an action, we wait for the release to determine if it was a short or long press, but we still need to record the tick count at the moment of the press to measure the duration later
-            self.encoder_button_pressed_tick = System::get_tick_count();
-            *signal &= !(DisplayFlag::EncoderButtonPressed as u32); 
-        } else if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
-            let elapsed = System::get_tick_count().wrapping_sub(self.encoder_button_pressed_tick);
-            if elapsed >= LONG_PRESS_TICK {
-                // Long press: draw() will confirm the current input through the callback.
-                *signal |= DisplayFlag::Draw as u32;
-            } else {
-                if self.seed_input_if_empty() {
-                } else if let Some(mut input) = self.input {
-                    let current_len = input.len();
-                    if self.idx + 1 < current_len {
-                        self.idx += 1;
-                    } else if current_len < input.size() {
-                        let _ = input.push_char(DEFAULT_CHAR.chars().next().unwrap());
-                        self.idx = input.len().saturating_sub(1);
-                    }
-                    self.input = Some(input);
-                }
-                *signal |= DisplayFlag::Draw as u32;
-            }
-        } else if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
-            let elapsed = System::get_tick_count().wrapping_sub(self.button_pressed_tick);
-            if elapsed >= LONG_PRESS_TICK {
-                // Long press: draw() will restore the original input through the callback.
-                *signal |= DisplayFlag::Draw as u32;
-            } else {
-                if let Some(mut input) = self.input {
-                    if !input.is_empty() {
-                        let _ = input.pop();
-                        let new_len = input.len();
-                        self.idx = new_len.saturating_sub(1);
-                    }
-                    self.input = Some(input);
-                }
-                *signal |= DisplayFlag::Draw as u32;
-            }
-        } 
+        // if *signal & DisplayFlag::EncoderButtonPressed as u32 != 0 {
+        //     //pressing the encoder button doesn't immediately trigger an action, we wait for the release to determine if it was a short or long press, but we still need to record the tick count at the moment of the press to measure the duration later
+        //     self.encoder_button_pressed_tick = System::get_tick_count();
+        //     *signal &= !(DisplayFlag::EncoderButtonPressed as u32); 
+        // } else if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        //     let elapsed = System::get_tick_count().wrapping_sub(self.encoder_button_pressed_tick);
+        //     if elapsed >= LONG_PRESS_TICK {
+        //         // Long press: draw() will confirm the current input through the callback.
+        //         *signal |= DisplayFlag::Draw as u32;
+        //     } else {
+        //         if self.seed_input_if_empty() {
+        //         } else if let Some(mut input) = self.input {
+        //             let current_len = input.len();
+        //             if self.idx + 1 < current_len {
+        //                 self.idx += 1;
+        //             } else if current_len < input.size() {
+        //                 let _ = input.push_char(DEFAULT_CHAR.chars().next().unwrap());
+        //                 self.idx = input.len().saturating_sub(1);
+        //             }
+        //             self.input = Some(input);
+        //         }
+        //         *signal |= DisplayFlag::Draw as u32;
+        //     }
+        // } else if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
+        //     let elapsed = System::get_tick_count().wrapping_sub(self.button_pressed_tick);
+        //     if elapsed >= LONG_PRESS_TICK {
+        //         // Long press: draw() will restore the original input through the callback.
+        //         *signal |= DisplayFlag::Draw as u32;
+        //     } else {
+        //         if let Some(mut input) = self.input {
+        //             if !input.is_empty() {
+        //                 let _ = input.pop();
+        //                 let new_len = input.len();
+        //                 self.idx = new_len.saturating_sub(1);
+        //             }
+        //             self.input = Some(input);
+        //         }
+        //         *signal |= DisplayFlag::Draw as u32;
+        //     }
+        // } 
     }
 
     fn seed_input_if_empty(&mut self) -> bool {
@@ -317,8 +323,7 @@ impl Input {
         };
 
         if needs_seed {
-            self.input = Some(Bytes::from_str(DEFAULT_CHAR));
-            self.idx = 0;
+            self.idx = -1;
             true
         } else {
             false
