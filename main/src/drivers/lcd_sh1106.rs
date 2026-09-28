@@ -129,7 +129,7 @@ impl LCDDisplayFn for LCDSH1106 {
 
     fn get_visible_size(&self) -> (u8, u8) {
         let (width, height) = self.get_size();
-        (width, height - 4)
+        (width - 4, height)
     }
 
     fn draw(&mut self) -> Result<()> {
