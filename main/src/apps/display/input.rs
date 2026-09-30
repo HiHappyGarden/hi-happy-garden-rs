@@ -19,7 +19,6 @@
  ***************************************************************************/
 
 use alloc::sync::Arc;
-use alloc::vec;
 use osal_rs::os::{Mutex, System, SystemFn};
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Bytes, Error, Result};
@@ -33,20 +32,19 @@ use crate::traits::rtc::RTC;
 use crate::traits::screen::Answer::Pending;
 use crate::traits::screen::{Answer, Screen, ScreenParam};
 
+
+const LONG_PRESS_TICK: u32 = 300;
 const SHIFT_CHAR: u8 = b'<';
-const LONG_PRESS_TICK: u32 = 250;
 const CHAR_TABLE: [u8; 95] = *b"abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^`{|}~";
-
-
 
 pub(in crate::apps) struct Input {
     input: Option<Bytes<MAX_SIZE>>,
     original_input: Option<Bytes<MAX_SIZE>>,
-    idx: isize,
+    idx: usize,
     button_pressed_tick: u32,
     encoder_button_pressed_tick: u32,
     secret_mode: bool,
-    visible_chars: usize
+    max_visible_chars: usize,
 }
 
 impl Screen<Bytes<MAX_SIZE>> for Input
@@ -62,7 +60,7 @@ impl Screen<Bytes<MAX_SIZE>> for Input
         clean_context(lcd)?;
 
         if self.input.is_none() {
-            let (input, secret_mode) = match param {
+            let (mut input, secret_mode) = match param {
                 ScreenParam::Input { value: input, secret_mode } => (input, secret_mode),
                 _ => (Bytes::<MAX_SIZE>::default(), false),
             };
@@ -73,7 +71,8 @@ impl Screen<Bytes<MAX_SIZE>> for Input
                 self.input = Some(Bytes::from_bytes(&CHAR_TABLE[0..1]));
                 self.idx = 0;
             } else {
-                self.idx = input.len().saturating_sub(1);
+                input.append_bytes(&CHAR_TABLE[0..1]);
+                self.idx = input.len();
             }
             
             self.secret_mode = secret_mode;
@@ -86,12 +85,16 @@ impl Screen<Bytes<MAX_SIZE>> for Input
 
         let (visible_width, _) = lcd.get_visible_size(); 
 
-        self.visible_chars = (visible_width / FONT_8X8[0]) as usize;
+        // Clamped to MAX_SIZE so it always fits the stack-allocated display buffer.
+        self.max_visible_chars = ((visible_width / FONT_8X8[0]) as usize).clamp(1, MAX_SIZE);
+
+        // Horizontal offset of the first visible pixel column.
+        let x_offset = (width - visible_width) / 2;
 
         let (display_text, x_position) = scroll_text(
             text.as_str(), 
             signal,  
-            (width - visible_width) / 2, visible_width,
+            x_offset, visible_width,
             FONT_8X8[0],
             SCROLL_DELAY_MS
         );
@@ -102,48 +105,48 @@ impl Screen<Bytes<MAX_SIZE>> for Input
             }
         }
 
-        // //write the input text on the second row, with a '<' marker if the text is wider than the display and is being scrolled, and with a 3px left margin to avoid overlapping with the first column of the display which is not fully visible. The input text should be centered if it fits within the visible area, otherwise it should scroll circularly with a 4-space separator. If secret_mode is enabled, show '*' instead of the actual chars.
+        //write the input text on the second row, with a SHIFT_CHAR marker if the text is wider than the display and is being scrolled, and with a 3px left margin to avoid overlapping with the first column of the display which is not fully visible. The input text should be centered if it fits within the visible area, otherwise it should scroll circularly with a 4-space separator. If secret_mode is enabled, show '*' instead of the actual chars.
         if let Some(input) = &self.input {
             let raw = input.as_raw_bytes();
             if !raw.is_empty() {
-                if raw.len() >= self.visible_chars {
-                    // The input is wider than the 16-char line.
-                    // Show an overflow marker ('<') plus the last 15 bytes.
-                    let offset = raw.len() - (self.visible_chars - 1);
-                    let mut display_buf = [0u8; 32];
+                let max_chars = self.max_visible_chars;
+                if raw.len() >= max_chars {
+                    // The input is wider than the visible line.
+                    // Show an overflow marker (SHIFT_CHAR) plus the last max_chars - 1 bytes.
+                    let offset = raw.len() - (max_chars - 1);
+                    let mut display_buf = [0u8; MAX_SIZE];
                     display_buf[0] = SHIFT_CHAR;
                     let src = &raw[offset..];
-                    let copy_len = src.len().min(self.visible_chars - 1);
+                    let copy_len = src.len().min(max_chars - 1);
                     if self.secret_mode {
                         for i in 0..copy_len {
                             display_buf[1 + i] = b'*';
                         }
                         // Keep visible the character currently being edited.
-                        if self.idx >= offset as isize && self.idx < (offset + copy_len) as isize {
-                            let visible_idx = self.idx - offset as isize;
-                            display_buf[1 + visible_idx as usize] = src[visible_idx as usize];
+                        if self.idx >= offset && self.idx < offset + copy_len {
+                            let visible_idx = self.idx - offset;
+                            display_buf[1 + visible_idx] = src[visible_idx];
                         }
                     } else {
                         display_buf[1..1 + copy_len].copy_from_slice(&src[..copy_len]);
                     }
-                    if let Err(e) = lcd.draw_bytes(&display_buf[..1 + copy_len], 3, SECOND_ROW_Y, &FONT_8X8) {
+                    if let Err(e) = lcd.draw_bytes(&display_buf[..1 + copy_len], x_offset, SECOND_ROW_Y, &FONT_8X8) {
                         if e != Error::OutOfIndex {
                             return Err(e);
                         }
                     }
                 } else if self.secret_mode {
-                    let masked = vec![b'*'; shifted_range];
-                    let mut display_buf = masked;
-                    if self.idx < raw.len() as isize{
-                        display_buf[self.idx as usize] = raw[self.idx as usize];
+                    let mut display_buf = [b'*'; MAX_SIZE];
+                    if self.idx < raw.len() {
+                        display_buf[self.idx] = raw[self.idx];
                     }
-                    if let Err(e) = lcd.draw_bytes(&display_buf[..raw.len()], 3, SECOND_ROW_Y, &FONT_8X8) {
+                    if let Err(e) = lcd.draw_bytes(&display_buf[..raw.len()], x_offset, SECOND_ROW_Y, &FONT_8X8) {
                         if e != Error::OutOfIndex {
                             return Err(e);
                         }
                     }
                 } else {
-                    if let Err(e) = lcd.draw_bytes(raw, 3, SECOND_ROW_Y, &FONT_8X8) {
+                    if let Err(e) = lcd.draw_bytes(raw, x_offset, SECOND_ROW_Y, &FONT_8X8) {
                         if e != Error::OutOfIndex {
                             return Err(e);
                         }
@@ -155,28 +158,23 @@ impl Screen<Bytes<MAX_SIZE>> for Input
         // Keep cursor aligned to what is actually visible on screen.
         let cursor_col = if let Some(input) = &self.input {
             let raw_len = input.as_raw_bytes().len();
-            if raw_len >= self.visible_chars {
-                let offset = raw_len.saturating_sub(self.visible_chars - 1);
+            let max_chars = self.max_visible_chars;
+            if raw_len >= max_chars {
+                let offset = raw_len.saturating_sub(max_chars - 1);
                 if self.idx < offset {
                     0usize
                 } else {
-                    1usize + (self.idx - offset).min(self.visible_chars - 2)
+                    1usize + (self.idx - offset).min(max_chars.saturating_sub(2))
                 }
             } else {
-                self.idx.min(raw_len.saturating_sub(1) as isize) as usize
+                self.idx.min(raw_len.saturating_sub(1))
             }
         } else {
             0usize
         };
 
-        let base_x = if self.input.as_ref().is_some_and(|input| input.as_raw_bytes().len() >= self.visible_chars) {
-            0u16
-        } else {
-            2u16
-        };
-
         let max_x = (width as u16).saturating_sub(8);
-        let x = (base_x + (cursor_col as u16 * 8)).min(max_x) as u8;
+        let x = (x_offset as u16 + (cursor_col as u16 * 8)).min(max_x) as u8;
 
         if let Err(e) = lcd.draw_rect(x, SECOND_ROW_Y + 9, 8, 1, LCDWriteMode::INVERT) {
             if e != Error::OutOfIndex {
@@ -185,27 +183,24 @@ impl Screen<Bytes<MAX_SIZE>> for Input
         }
 
         // Callback handling: encoder long press confirms the current input, while regular button long press restores the original input and short press cancels when the buffer becomes empty.
-        // if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
-        //     let elapsed = System::get_tick_count().wrapping_sub(self.encoder_button_pressed_tick);
-        //     if elapsed >= LONG_PRESS_TICK {
-        //         // Long press on encoder button: confirm the current input.
-        //         if let Some(input) = self.input {
+        if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+            let elapsed = System::get_tick_count().wrapping_sub(self.encoder_button_pressed_tick);
+            if elapsed >= LONG_PRESS_TICK {
+                // Long press on encoder button: confirm the current input.
+                if let Some(input) = self.input {
 
-                    
-
-                    //self.input = Some(input.pop());
-
+                    self.input = Some(input);
                     return Ok(Answer::Confirmed(ScreenParam::Input { value: input, secret_mode: self.secret_mode }));
 
-        //         }
-        //     }
-        //     self.encoder_button_pressed_tick = 0;
-        //     *signal &= !(DisplayFlag::EncoderButtonReleased as u32);
-        //     *signal |= DisplayFlag::Draw as u32;
+                }
+            }
+            self.encoder_button_pressed_tick = 0;
+            *signal &= !(DisplayFlag::EncoderButtonReleased as u32);
+            *signal |= DisplayFlag::Draw as u32;
 
-        // } else if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
-        //     let elapsed = System::get_tick_count().wrapping_sub(self.button_pressed_tick);
-        //     self.button_pressed_tick = 0;
+        } else if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
+            let elapsed = System::get_tick_count().wrapping_sub(self.button_pressed_tick);
+            self.button_pressed_tick = 0;
             
             if elapsed >= LONG_PRESS_TICK {
                 // Long press: restore original input and exit
@@ -216,12 +211,12 @@ impl Screen<Bytes<MAX_SIZE>> for Input
             } else {
                 // Normal short press: stay in the widget
                 *signal |= DisplayFlag::Draw as u32;
-            }
+    }
 
-        //     self.button_pressed_tick = 0;
-        //     *signal &= !(DisplayFlag::ButtonReleased as u32);
+            self.button_pressed_tick = 0;
+            *signal &= !(DisplayFlag::ButtonReleased as u32);
 
-        // }
+        }
 
         Ok(Pending)
     }
@@ -233,7 +228,6 @@ impl Screen<Bytes<MAX_SIZE>> for Input
 
 
 impl Input {
-
     pub(in crate::apps) const fn new() -> Self {
         Self { 
             input: None,
@@ -242,27 +236,25 @@ impl Input {
             button_pressed_tick: 0,
             encoder_button_pressed_tick: 0,
             secret_mode: false,
-            visible_chars: 16,
+            max_visible_chars: 1,
         }
     }
 
     fn update_input(&mut self, signal: &mut EventBits) {
-        // if *signal & DisplayFlag::ButtonPressed as u32 != 0 {
-        //     self.button_pressed_tick = System::get_tick_count();
-        //     *signal &= !(DisplayFlag::ButtonPressed as u32);
-        // }
+        if *signal & DisplayFlag::ButtonPressed as u32 != 0 {
+            self.button_pressed_tick = System::get_tick_count();
+            *signal &= !(DisplayFlag::ButtonPressed as u32);
+        }
 
         //encoder rotattion
         if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
             if self.seed_input_if_empty() {
             } else if let Some(current) = self.input.as_ref() {
-
-                let next_char = if self.idx >= CHAR_TABLE.len() {
-                    CHAR_TABLE[0]
+                let next_char = if current[self.idx] >= 0xFF {
+                    b' ' // wrap from 255 back to 32 (space)
                 } else {
-                    CHAR_TABLE[self.idx]
+                    current[self.idx] + 1
                 };
-
                 self.input.as_mut().unwrap()[self.idx] = next_char;
             }
             *signal |= DisplayFlag::Draw as u32;
@@ -270,13 +262,11 @@ impl Input {
         } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
             if self.seed_input_if_empty() {
             } else if let Some(current) = self.input.as_ref() {
-
-                let prev_char = if self.idx == 0 {
-                    CHAR_TABLE[CHAR_TABLE.len() - 1]
+                let prev_char = if current[self.idx] <= b' ' {
+                    0xFF // wrap from 32 (space) back to 255
                 } else {
-                    CHAR_TABLE[self.idx - 1]
+                    current[self.idx] - 1
                 };
-
                 self.input.as_mut().unwrap()[self.idx] = prev_char;
             }
             *signal |= DisplayFlag::Draw as u32;
@@ -298,7 +288,7 @@ impl Input {
                     if self.idx + 1 < current_len {
                         self.idx += 1;
                     } else if current_len < input.size() {
-                        let _ = input.push_char(*CHAR_TABLE.last().unwrap_or(&CHAR_TABLE[0]) as char);
+                        let _ = input.push_char(CHAR_TABLE[0] as char);
                         self.idx = input.len().saturating_sub(1);
                     }
                     self.input = Some(input);
@@ -338,4 +328,3 @@ impl Input {
             false
         }
     }
-}
