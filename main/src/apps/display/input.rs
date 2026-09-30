@@ -35,7 +35,8 @@ use crate::traits::screen::{Answer, Screen, ScreenParam};
 
 const LONG_PRESS_TICK: u32 = 300;
 const SHIFT_CHAR: u8 = b'<';
-const CHAR_TABLE: [u8; 95] = *b"abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^`{|}~";
+const SECRET_CHAR: u8 = b'*';
+const CHAR_TABLE: [u8; 95] = *b" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^`{|}~";
 
 pub(in crate::apps) struct Input {
     input: Option<Bytes<MAX_SIZE>>,
@@ -65,14 +66,15 @@ impl Screen<Bytes<MAX_SIZE>> for Input
                 _ => (Bytes::<MAX_SIZE>::default(), false),
             };
 
-            self.input = Some(Bytes::from_as_sync_str(&input));
+            
             self.original_input = Some(Bytes::from_as_sync_str(&input));
             if input.is_empty() {
                 self.input = Some(Bytes::from_bytes(&CHAR_TABLE[0..1]));
                 self.idx = 0;
             } else {
                 input.append_bytes(&CHAR_TABLE[0..1]);
-                self.idx = input.len();
+                self.idx = input.len() - 1;
+                self.input = Some(input);
             }
             
             self.secret_mode = secret_mode;
@@ -105,22 +107,22 @@ impl Screen<Bytes<MAX_SIZE>> for Input
             }
         }
 
-        //write the input text on the second row, with a SHIFT_CHAR marker if the text is wider than the display and is being scrolled, and with a 3px left margin to avoid overlapping with the first column of the display which is not fully visible. The input text should be centered if it fits within the visible area, otherwise it should scroll circularly with a 4-space separator. If secret_mode is enabled, show '*' instead of the actual chars.
+        //write the input text on the second row, with a SHIFT_CHAR marker if the text is wider than the display and is being scrolled, and with a 3px left margin to avoid overlapping with the first column of the display which is not fully visible. The input text should be centered if it fits within the visible area, otherwise it should scroll circularly with a 4-space separator. If secret_mode is enabled, show SECRET_CHAR instead of the actual chars.
         if let Some(input) = &self.input {
             let raw = input.as_raw_bytes();
+            let mut display_buf = [0u8; MAX_SIZE];
             if !raw.is_empty() {
-                let max_chars = self.max_visible_chars;
-                if raw.len() >= max_chars {
+                if raw.len() >= self.max_visible_chars {
                     // The input is wider than the visible line.
                     // Show an overflow marker (SHIFT_CHAR) plus the last max_chars - 1 bytes.
-                    let offset = raw.len() - (max_chars - 1);
-                    let mut display_buf = [0u8; MAX_SIZE];
+                    let offset = raw.len() - (self.max_visible_chars - 1);
+                    
                     display_buf[0] = SHIFT_CHAR;
                     let src = &raw[offset..];
-                    let copy_len = src.len().min(max_chars - 1);
+                    let copy_len = src.len().min(self.max_visible_chars - 1);
                     if self.secret_mode {
                         for i in 0..copy_len {
-                            display_buf[1 + i] = b'*';
+                            display_buf[1 + i] = SECRET_CHAR;
                         }
                         // Keep visible the character currently being edited.
                         if self.idx >= offset && self.idx < offset + copy_len {
@@ -136,7 +138,7 @@ impl Screen<Bytes<MAX_SIZE>> for Input
                         }
                     }
                 } else if self.secret_mode {
-                    let mut display_buf = [b'*'; MAX_SIZE];
+                    display_buf.fill(SECRET_CHAR);
                     if self.idx < raw.len() {
                         display_buf[self.idx] = raw[self.idx];
                     }
@@ -187,8 +189,11 @@ impl Screen<Bytes<MAX_SIZE>> for Input
             let elapsed = System::get_tick_count().wrapping_sub(self.encoder_button_pressed_tick);
             if elapsed >= LONG_PRESS_TICK {
                 // Long press on encoder button: confirm the current input.
-                if let Some(input) = self.input {
+                if let Some(mut input) = self.input {
 
+                    if !input.is_empty() {
+                        input.pop();
+                    }
                     self.input = Some(input);
                     return Ok(Answer::Confirmed(ScreenParam::Input { value: input, secret_mode: self.secret_mode }));
 
@@ -211,7 +216,7 @@ impl Screen<Bytes<MAX_SIZE>> for Input
             } else {
                 // Normal short press: stay in the widget
                 *signal |= DisplayFlag::Draw as u32;
-    }
+            }
 
             self.button_pressed_tick = 0;
             *signal &= !(DisplayFlag::ButtonReleased as u32);
@@ -250,10 +255,10 @@ impl Input {
         if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
             if self.seed_input_if_empty() {
             } else if let Some(current) = self.input.as_ref() {
-                let next_char = if current[self.idx] >= 0xFF {
-                    b' ' // wrap from 255 back to 32 (space)
+                let next_char = if self.idx >= CHAR_TABLE.len() {
+                    CHAR_TABLE[0] // wrap from the end back to the first character (space)
                 } else {
-                    current[self.idx] + 1
+                    CHAR_TABLE[(CHAR_TABLE.iter().position(|&c| c == current[self.idx]).unwrap() + 1) % CHAR_TABLE.len()]
                 };
                 self.input.as_mut().unwrap()[self.idx] = next_char;
             }
@@ -262,10 +267,10 @@ impl Input {
         } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
             if self.seed_input_if_empty() {
             } else if let Some(current) = self.input.as_ref() {
-                let prev_char = if current[self.idx] <= b' ' {
-                    0xFF // wrap from 32 (space) back to 255
+                let prev_char = if self.idx == 0 {
+                    CHAR_TABLE[CHAR_TABLE.len() - 1] // wrap from the first character back to the last character
                 } else {
-                    current[self.idx] - 1
+                    CHAR_TABLE[(CHAR_TABLE.iter().position(|&c| c == current[self.idx]).unwrap() + CHAR_TABLE.len() - 1) % CHAR_TABLE.len()]
                 };
                 self.input.as_mut().unwrap()[self.idx] = prev_char;
             }
@@ -283,11 +288,12 @@ impl Input {
                 *signal |= DisplayFlag::Draw as u32;
             } else {
                 if self.seed_input_if_empty() {
+
                 } else if let Some(mut input) = self.input {
                     let current_len = input.len();
                     if self.idx + 1 < current_len {
                         self.idx += 1;
-                    } else if current_len < input.size() {
+                    } else if current_len < CHAR_TABLE.len() {
                         let _ = input.push_char(CHAR_TABLE[0] as char);
                         self.idx = input.len().saturating_sub(1);
                     }
@@ -328,3 +334,4 @@ impl Input {
             false
         }
     }
+}
