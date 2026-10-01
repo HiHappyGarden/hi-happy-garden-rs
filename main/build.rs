@@ -3,6 +3,7 @@ use std::env;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 fn unquote(value: &str) -> &str {
     let trimmed = value.trim();
@@ -20,8 +21,44 @@ fn rust_string_literal(value: &str) -> String {
     format!("{:?}", unquote(value))
 }
 
+/// Path of the secrets file, at the repository root next to the main CMakeLists.txt.
+fn secrets_path() -> PathBuf {
+    PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("..").join("secrets.cmake")
+}
+
+/// Parses the `set(NAME value)` lines of secrets.cmake.
+///
+/// Used as fallback when cargo is not invoked by CMake (e.g. rust-analyzer, plain `cargo check`).
+fn secrets_file() -> &'static Vec<(String, String)> {
+    static SECRETS: OnceLock<Vec<(String, String)>> = OnceLock::new();
+    SECRETS.get_or_init(|| {
+        let content = std::fs::read_to_string(secrets_path()).unwrap_or_default();
+        content
+            .lines()
+            .map(str::trim)
+            .filter_map(|line| line.strip_prefix("set("))
+            .filter_map(|rest| rest.rfind(')').map(|end| rest[..end].trim()))
+            .filter_map(|args| {
+                let (name, value) = args.split_once(char::is_whitespace)?;
+                Some((name.to_string(), unquote(value).to_string()))
+            })
+            .collect()
+    })
+}
+
+/// Reads a configuration variable from the environment (set by CMake), falling back to secrets.cmake.
+fn hhg_var(var_name: &str) -> Result<String, env::VarError> {
+    env::var(var_name).or_else(|err| {
+        secrets_file()
+            .iter()
+            .find(|(name, _)| name == var_name)
+            .map(|(_, value)| value.clone())
+            .ok_or(err)
+    })
+}
+
 fn env_string_literal(var_name: &str, default: &str) -> String {
-    let value = env::var(var_name).unwrap_or_else(|_| default.to_string());
+    let value = hhg_var(var_name).unwrap_or_else(|_| default.to_string());
     rust_string_literal(&value)
 }
 
@@ -29,7 +66,7 @@ fn env_string_literal(var_name: &str, default: &str) -> String {
 ///
 /// Panics if the variable is missing or empty, stopping the build.
 fn env_required(var_name: &str) -> String {
-    let value = env::var(var_name).unwrap_or_default();
+    let value = hhg_var(var_name).unwrap_or_default();
     let value = unquote(&value);
     if value.is_empty() {
         panic!("{} is not set: define it in secrets.cmake (see secrets.cmake.example)", var_name);
@@ -46,18 +83,18 @@ fn main() {
     // Read configuration from environment variables set by CMake
     let default_wifi_ssid = env_string_literal("HHG_DEFAULT_WIFI_SSID", "");
     let default_wifi_password = env_string_literal("HHG_DEFAULT_WIFI_PASSWORD", "");
-    let default_wifi_auth = env::var("HHG_DEFAULT_WIFI_AUTH").unwrap_or_else(|_| "3".to_string()).parse::<u8>().unwrap_or(3);
-    let default_wifi_enabled = parse_bool(&env::var("HHG_DEFAULT_WIFI_ENABLED").unwrap_or_else(|_| "false".to_string()));
-    let default_timezone = env::var("HHG_DEFAULT_TIMEZONE").unwrap_or_else(|_| "60".to_string()).parse::<i16>().unwrap_or(60);
-    let default_daylight_saving_enabled = parse_bool(&env::var("HHG_DEFAULT_DAYLIGHT_SAVING_ENABLED").unwrap_or_else(|_| "false".to_string()));
-    let default_daylight_saving_start_month = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_MONTH").unwrap_or_else(|_| "3".to_string()).parse::<u8>().unwrap_or(3);
-    let default_daylight_saving_start_day = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_DAY").unwrap_or_else(|_| "255".to_string()).parse::<u8>().unwrap_or(255);
-    let default_daylight_saving_start_hour = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_HOUR").unwrap_or_else(|_| "2".to_string()).parse::<u8>().unwrap_or(2);
-    let default_daylight_saving_end_month = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_END_MONTH").unwrap_or_else(|_| "10".to_string()).parse::<u8>().unwrap_or(10);
-    let default_daylight_saving_end_day = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_END_DAY").unwrap_or_else(|_| "255".to_string()).parse::<u8>().unwrap_or(255);
-    let default_daylight_saving_end_hour = env::var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_END_HOUR").unwrap_or_else(|_| "3".to_string()).parse::<u8>().unwrap_or(3);
-    let default_ntp_msg_len = env::var("HHG_DEFAULT_NTP_MSG_LEN").unwrap_or_else(|_| "48".to_string()).parse::<u16>().unwrap_or(48);
-    let default_ntp_port = env::var("HHG_DEFAULT_NTP_PORT").unwrap_or_else(|_| "123".to_string()).parse::<u16>().unwrap_or(123);
+    let default_wifi_auth = hhg_var("HHG_DEFAULT_WIFI_AUTH").unwrap_or_else(|_| "3".to_string()).parse::<u8>().unwrap_or(3);
+    let default_wifi_enabled = parse_bool(&hhg_var("HHG_DEFAULT_WIFI_ENABLED").unwrap_or_else(|_| "false".to_string()));
+    let default_timezone = hhg_var("HHG_DEFAULT_TIMEZONE").unwrap_or_else(|_| "60".to_string()).parse::<i16>().unwrap_or(60);
+    let default_daylight_saving_enabled = parse_bool(&hhg_var("HHG_DEFAULT_DAYLIGHT_SAVING_ENABLED").unwrap_or_else(|_| "false".to_string()));
+    let default_daylight_saving_start_month = hhg_var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_MONTH").unwrap_or_else(|_| "3".to_string()).parse::<u8>().unwrap_or(3);
+    let default_daylight_saving_start_day = hhg_var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_DAY").unwrap_or_else(|_| "255".to_string()).parse::<u8>().unwrap_or(255);
+    let default_daylight_saving_start_hour = hhg_var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_HOUR").unwrap_or_else(|_| "2".to_string()).parse::<u8>().unwrap_or(2);
+    let default_daylight_saving_end_month = hhg_var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_END_MONTH").unwrap_or_else(|_| "10".to_string()).parse::<u8>().unwrap_or(10);
+    let default_daylight_saving_end_day = hhg_var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_END_DAY").unwrap_or_else(|_| "255".to_string()).parse::<u8>().unwrap_or(255);
+    let default_daylight_saving_end_hour = hhg_var("HHG_DEFAULT_DAYLIGHT_SAVING_TIME_END_HOUR").unwrap_or_else(|_| "3".to_string()).parse::<u8>().unwrap_or(3);
+    let default_ntp_msg_len = hhg_var("HHG_DEFAULT_NTP_MSG_LEN").unwrap_or_else(|_| "48".to_string()).parse::<u16>().unwrap_or(48);
+    let default_ntp_port = hhg_var("HHG_DEFAULT_NTP_PORT").unwrap_or_else(|_| "123".to_string()).parse::<u16>().unwrap_or(123);
     let default_ntp_server = env_string_literal("HHG_DEFAULT_NTP_SERVER", "0.europe.pool.ntp.org");
     let hhg_aes_key_salt = rust_string_literal(&env_required("HHG_AES_KEY_SALT"));
     let hhg_aes_iv_salt = rust_string_literal(&env_required("HHG_AES_IV_SALT"));
@@ -101,6 +138,7 @@ fn main() {
     println!("cargo:warning=File written and flushed to: {}", dest_path.display());
 
     
+    println!("cargo:rerun-if-changed={}", secrets_path().display());
     println!("cargo:rerun-if-env-changed=HHG_DEFAULT_WIFI_SSID");
     println!("cargo:rerun-if-env-changed=HHG_DEFAULT_WIFI_PASSWORD");
     println!("cargo:rerun-if-env-changed=HHG_DEFAULT_WIFI_AUTH");
