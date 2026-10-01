@@ -4,23 +4,37 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
-fn rust_string_literal(value: &str) -> String {
+fn unquote(value: &str) -> &str {
     let trimmed = value.trim();
-    let normalized = if trimmed.len() >= 2
+    if trimmed.len() >= 2
         && ((trimmed.starts_with('"') && trimmed.ends_with('"'))
             || (trimmed.starts_with('\'') && trimmed.ends_with('\'')))
     {
         &trimmed[1..trimmed.len() - 1]
     } else {
         trimmed
-    };
+    }
+}
 
-    format!("{:?}", normalized)
+fn rust_string_literal(value: &str) -> String {
+    format!("{:?}", unquote(value))
 }
 
 fn env_string_literal(var_name: &str, default: &str) -> String {
     let value = env::var(var_name).unwrap_or_else(|_| default.to_string());
     rust_string_literal(&value)
+}
+
+/// Reads a secret that must be provided by CMake (from secrets.cmake), without default.
+///
+/// Panics if the variable is missing or empty, stopping the build.
+fn env_required(var_name: &str) -> String {
+    let value = env::var(var_name).unwrap_or_default();
+    let value = unquote(&value);
+    if value.is_empty() {
+        panic!("{} is not set: define it in secrets.cmake (see secrets.cmake.example)", var_name);
+    }
+    value.to_string()
 }
 
 fn parse_bool(s: &str) -> bool {
@@ -45,24 +59,13 @@ fn main() {
     let default_ntp_msg_len = env::var("HHG_DEFAULT_NTP_MSG_LEN").unwrap_or_else(|_| "48".to_string()).parse::<u16>().unwrap_or(48);
     let default_ntp_port = env::var("HHG_DEFAULT_NTP_PORT").unwrap_or_else(|_| "123".to_string()).parse::<u16>().unwrap_or(123);
     let default_ntp_server = env_string_literal("HHG_DEFAULT_NTP_SERVER", "0.europe.pool.ntp.org");
-    let hhg_aes_key_salt = env_string_literal("HHG_AES_KEY_SALT", "AES_KEY");
-    let hhg_aes_iv_salt = env_string_literal("HHG_AES_IV_SALT", "AES_IV");
-    let default_system_user_email = env_string_literal("HHG_DEFAULT_SYSTEM_USER_EMAIL", "");
-    let raw_password = env::var("HHG_DEFAULT_SYSTEM_USER_PASSWORD").unwrap_or_default();
-    let raw_password = {
-        let t = raw_password.trim();
-        if t.len() >= 2
-            && ((t.starts_with('"') && t.ends_with('"'))
-                || (t.starts_with('\'') && t.ends_with('\'')))
-        {
-            t[1..t.len() - 1].to_string()
-        } else {
-            t.to_string()
-        }
-    };
+    let hhg_aes_key_salt = rust_string_literal(&env_required("HHG_AES_KEY_SALT"));
+    let hhg_aes_iv_salt = rust_string_literal(&env_required("HHG_AES_IV_SALT"));
+    let system_user_email = rust_string_literal(&env_required("HHG_SYSTEM_USER_EMAIL"));
+    let raw_password = env_required("HHG_SYSTEM_USER_PASSWORD");
     let mut hasher = Sha256::new();
     hasher.update(raw_password.as_bytes());
-    let default_system_user_password = format!("{:?}", format!("{:x}", hasher.finalize()));
+    let system_user_password = format!("{:?}", format!("{:x}", hasher.finalize()));
 
     // Generate defaults.rs file
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
@@ -88,8 +91,8 @@ fn main() {
     writeln!(f, "pub const DEFAULT_NTP_SERVER: &str = {};", default_ntp_server).unwrap();
     writeln!(f, "pub const AES_KEY_SALT: &str = {};", hhg_aes_key_salt).unwrap();
     writeln!(f, "pub const AES_IV_SALT: &str = {};", hhg_aes_iv_salt).unwrap();
-    writeln!(f, "pub const DEFAULT_SYSTEM_USER_EMAIL: &str = {};", default_system_user_email).unwrap();
-    writeln!(f, "pub const DEFAULT_SYSTEM_USER_PASSWORD: &str = {};", default_system_user_password).unwrap();
+    writeln!(f, "pub const SYSTEM_USER_EMAIL: &str = {};", system_user_email).unwrap();
+    writeln!(f, "pub const SYSTEM_USER_PASSWORD: &str = {};", system_user_password).unwrap();
 
     // Flush and close file explicitly
     f.flush().unwrap();
@@ -115,6 +118,6 @@ fn main() {
     println!("cargo:rerun-if-env-changed=HHG_DEFAULT_NTP_SERVER");
     println!("cargo:rerun-if-env-changed=HHG_AES_KEY_SALT");
     println!("cargo:rerun-if-env-changed=HHG_AES_IV_SALT");
-    println!("cargo:rerun-if-env-changed=HHG_DEFAULT_SYSTEM_USER_EMAIL");
-    println!("cargo:rerun-if-env-changed=HHG_DEFAULT_SYSTEM_USER_PASSWORD");
+    println!("cargo:rerun-if-env-changed=HHG_SYSTEM_USER_EMAIL");
+    println!("cargo:rerun-if-env-changed=HHG_SYSTEM_USER_PASSWORD");
 }

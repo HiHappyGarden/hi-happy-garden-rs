@@ -58,17 +58,22 @@ pico_sdk_init()
 message(STATUS "PROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}")
 message(STATUS "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}")
 
+# Variables that must be defined in secrets.cmake (no defaults, configuration fails without them)
+set(HHG_SECRETS_REQUIRED_VARS
+    HHG_AES_KEY_SALT
+    HHG_AES_IV_SALT
+    HHG_SYSTEM_USER_EMAIL
+    HHG_SYSTEM_USER_PASSWORD
+)
+
 # Variables that secrets.cmake is allowed to override, anything else set there is ignored
 set(HHG_SECRETS_ALLOWED_VARS
+    ${HHG_SECRETS_REQUIRED_VARS}
     HHG_DEFAULT_WIFI_SSID
     HHG_DEFAULT_WIFI_PASSWORD
     HHG_DEFAULT_WIFI_AUTH
     HHG_DEFAULT_WIFI_ENABLED
     HHG_DEFAULT_DAYLIGHT_SAVING_ENABLED
-    HHG_AES_KEY_SALT
-    HHG_AES_IV_SALT
-    HHG_DEFAULT_SYSTEM_USER_EMAIL
-    HHG_DEFAULT_SYSTEM_USER_PASSWORD
 )
 
 # Include the secrets file in a function scope and export only the allowed variables
@@ -86,6 +91,19 @@ function(hhg_load_secrets secrets_file)
         endif()
     endforeach()
 
+    # Required variables must be set and not empty
+    set(missing "")
+    foreach(var IN LISTS HHG_SECRETS_REQUIRED_VARS)
+        if("${${var}}" STREQUAL "__HHG_NOT_SET__" OR "${${var}}" STREQUAL "")
+            list(APPEND missing ${var})
+        endif()
+    endforeach()
+    if(missing)
+        list(JOIN missing ", " missing)
+        message(FATAL_ERROR "secrets.cmake: missing required variables: ${missing}\n"
+                            "See secrets.cmake.example for reference.")
+    endif()
+
     # Warn about variables set in the file that are not allowed
     file(STRINGS "${secrets_file}" lines REGEX "^[ \t]*(set|option)[ \t]*\\(")
     foreach(line IN LISTS lines)
@@ -96,15 +114,14 @@ function(hhg_load_secrets secrets_file)
     endforeach()
 endfunction()
 
-# Include the secrets file if it exists
-if(EXISTS "${CMAKE_SOURCE_DIR}/secrets.cmake")
-    hhg_load_secrets("${CMAKE_SOURCE_DIR}/secrets.cmake")
-    message(STATUS "Found secrets.cmake")
-else()
-    message(STATUS "Not found secrets.cmake")
+# The secrets file is mandatory
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/secrets.cmake")
+    list(JOIN HHG_SECRETS_REQUIRED_VARS ", " required)
+    message(FATAL_ERROR "secrets.cmake not found in ${CMAKE_SOURCE_DIR}\n"
+                        "Create it from secrets.cmake.example and set: ${required}")
 endif()
-
-
+hhg_load_secrets("${CMAKE_SOURCE_DIR}/secrets.cmake")
+message(STATUS "Found secrets.cmake")
 
 # --- cJSON Integration from GitHub ---
 include(FetchContent)
@@ -178,12 +195,9 @@ set(HHG_DEFAULT_DAYLIGHT_SAVING_TIME_END_HOUR    "3"             CACHE STRING "D
 set(HHG_DEFAULT_NTP_SERVER             "0.europe.pool.ntp.org"   CACHE STRING "NTP server address")
 set(HHG_DEFAULT_NTP_PORT               "123"                     CACHE STRING "NTP server port")
 set(HHG_DEFAULT_NTP_MSG_LEN            "48"                      CACHE STRING "NTP message length in bytes")
-set(HHG_DEFAULT_SYSTEM_USER_EMAIL      "admin@hhg.local"         CACHE STRING "Default system user email (position 0 in session)")
-set(HHG_DEFAULT_SYSTEM_USER_PASSWORD   "mysecretpassword"        CACHE STRING "Default system user password (plaintext, will be hashed)")
 
-# AES encryption salt values for key derivation (can be customized per deployment)
-set(HHG_AES_KEY_SALT "AES_KEY" CACHE STRING "Salt for AES key derivation from unique_id")
-set(HHG_AES_IV_SALT  "AES_IV"  CACHE STRING "Salt for AES IV derivation from unique_id")
+# HHG_AES_KEY_SALT, HHG_AES_IV_SALT, HHG_SYSTEM_USER_EMAIL and
+# HHG_SYSTEM_USER_PASSWORD have no defaults, they come from secrets.cmake
 
 # Convert booleans to Rust-compatible strings
 if(HHG_DEFAULT_WIFI_ENABLED)
@@ -230,14 +244,11 @@ endif()
 if(HHG_AES_IV_SALT) 
     message(STATUS "HHG_AES_IV_SALT: is set")
 endif()
-if(HHG_DEFAULT_SYSTEM_USER_EMAIL)
-    message(STATUS "HHG_DEFAULT_SYSTEM_USER_EMAIL: ${HHG_DEFAULT_SYSTEM_USER_EMAIL}")
+if(HHG_SYSTEM_USER_EMAIL)
+    message(STATUS "HHG_SYSTEM_USER_EMAIL: ${HHG_SYSTEM_USER_EMAIL}")
 endif()
-if(HHG_DEFAULT_SYSTEM_USER_PASSWORD)
-    message(STATUS "HHG_DEFAULT_SYSTEM_USER_PASSWORD: is set")
-endif()
-if(HHG_DEFAULT_SYSTEM_USER_PASSWORD STREQUAL "mysecretpassword")
-    message(WARNING "HHG_DEFAULT_SYSTEM_USER_PASSWORD uses the public default, override it in secrets.cmake")
+if(HHG_SYSTEM_USER_PASSWORD)
+    message(STATUS "HHG_SYSTEM_USER_PASSWORD: is set")
 endif()
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/hhg-config.h.in ${CMAKE_CURRENT_SOURCE_DIR}/inc/hhg-config/pico/hhg-config.h)
@@ -313,8 +324,8 @@ add_custom_command(
         HHG_DEFAULT_NTP_SERVER=${HHG_DEFAULT_NTP_SERVER}
         HHG_AES_KEY_SALT=${HHG_AES_KEY_SALT}
         HHG_AES_IV_SALT=${HHG_AES_IV_SALT}
-        HHG_DEFAULT_SYSTEM_USER_EMAIL=${HHG_DEFAULT_SYSTEM_USER_EMAIL}
-        HHG_DEFAULT_SYSTEM_USER_PASSWORD=${HHG_DEFAULT_SYSTEM_USER_PASSWORD}
+        HHG_SYSTEM_USER_EMAIL=${HHG_SYSTEM_USER_EMAIL}
+        HHG_SYSTEM_USER_PASSWORD=${HHG_SYSTEM_USER_PASSWORD}
         cargo build --target ${CARGO_TARGET} ${RUST_PROFILE} --features pico,${HHG_TESTS_FEATURE} 
     DEPENDS ${RUST_SOURCES} ${OSAL_RS_SOURCES} ${HHG_PARSER_SOURCES} ${PARSER_RS_SOURCES}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/main

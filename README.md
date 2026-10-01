@@ -23,7 +23,7 @@ You can configure the application's default values via CMake options. These valu
 
 ### WiFi Configuration
 
-> **Note**: WiFi credentials (**HHG_DEFAULT_WIFI_SSID** and **HHG_DEFAULT_WIFI_PASSWORD**) should be configured using the `secrets.cmake` file, which is excluded from git. See the `secrets.cmake.example` file for reference.
+> **Note**: WiFi credentials (**HHG_DEFAULT_WIFI_SSID** and **HHG_DEFAULT_WIFI_PASSWORD**) should be configured using the `secrets.cmake` file, which is excluded from git. See [Secrets Configuration](#secrets-configuration).
 
 - **HHG_DEFAULT_WIFI_SSID**: WiFi network SSID (default: "")
 - **HHG_DEFAULT_WIFI_PASSWORD**: WiFi network password (default: "")
@@ -43,19 +43,19 @@ You can configure the application's default values via CMake options. These valu
 
 ### System User Configuration
 
-> **Note**: System user credentials should be configured using the `secrets.cmake` file, which is excluded from git.
+> **Required**: System user credentials must be defined in `secrets.cmake`. They have no default and CMake configuration fails if they are missing or empty.
 
 The system user is stored at position 0 of the session user list and is loaded from the config file at startup. It is initialised from these CMake values only when the config file does not yet exist on the device.
 
-- **HHG_DEFAULT_SYSTEM_USER_EMAIL**: Email address of the system user (default: "")
-- **HHG_DEFAULT_SYSTEM_USER_PASSWORD**: Plain-text password of the system user — it is hashed with SHA256 before being stored (default: "")
+- **HHG_SYSTEM_USER_EMAIL**: Email address of the system user (required, `secrets.cmake` only)
+- **HHG_SYSTEM_USER_PASSWORD**: Plain-text password of the system user — it is hashed with SHA256 before being stored (required, `secrets.cmake` only)
 
 ### AES Encryption Configuration
 
-The filesystem uses AES encryption with keys derived from the hardware's unique ID. You can customize the salt values used in the key derivation process:
+The filesystem uses AES encryption with keys derived from the hardware's unique ID. The salt values used in the key derivation process must be defined in `secrets.cmake`: they have no default and CMake configuration fails if they are missing or empty.
 
-- **HHG_AES_KEY_SALT**: Salt for AES key derivation (default: "AES_KEY")
-- **HHG_AES_IV_SALT**: Salt for AES IV derivation (default: "AES_IV")
+- **HHG_AES_KEY_SALT**: Salt for AES key derivation (required, `secrets.cmake` only)
+- **HHG_AES_IV_SALT**: Salt for AES IV derivation (required, `secrets.cmake` only)
 
 > **How it works**: The encryption key and IV are generated using SHA256-based key derivation:
 > - Key (32 bytes): `SHA256(hardware_unique_id || HHG_AES_KEY_SALT)`
@@ -78,40 +78,46 @@ When **HHG_DEFAULT_DAYLIGHT_SAVING_ENABLED** is enabled, you can configure the D
 
 ## Secrets Configuration
 
-For security reasons, WiFi credentials should not be hardcoded in CMakeLists.txt. Instead, use the `secrets.cmake` file:
+Sensitive values are not hardcoded in CMakeLists.txt: they are read from the `secrets.cmake` file in the project root, which is **mandatory**. CMake configuration stops with an error if the file does not exist.
 
 1. Copy the example file:
    ```bash
    cp secrets.cmake.example secrets.cmake
    ```
 
-2. Edit `secrets.cmake` with your credentials:
+2. Edit `secrets.cmake` with your values:
    ```cmake
-   set(HHG_DEFAULT_WIFI_SSID "YourSSID")
-   set(HHG_DEFAULT_WIFI_PASSWORD "YourPassword")
-
-   # Optional: Customize AES encryption salts for enhanced security
-   # These are combined with hardware unique_id to derive encryption keys
+   # Required: configuration fails if any of these is missing or empty
    set(HHG_AES_KEY_SALT "MyCustomKeySalt2024")
    set(HHG_AES_IV_SALT "MyCustomIVSalt2024")
+   set(HHG_SYSTEM_USER_EMAIL "admin@hhg.local")
+   set(HHG_SYSTEM_USER_PASSWORD "change_me")
 
-   # Optional: System user (stored at session position 0, password is SHA256-hashed)
-   set(HHG_DEFAULT_SYSTEM_USER_EMAIL "admin@hhg.local")
-   set(HHG_DEFAULT_SYSTEM_USER_PASSWORD "mysecretpassword")
+   # Optional
+   set(HHG_DEFAULT_WIFI_SSID "YourSSID")
+   set(HHG_DEFAULT_WIFI_PASSWORD "YourPassword")
+   set(HHG_DEFAULT_WIFI_AUTH "3")
+   set(HHG_DEFAULT_WIFI_ENABLED ON)
+   set(HHG_DEFAULT_DAYLIGHT_SAVING_ENABLED ON)
    ```
 
-3. Include it in your CMakeLists.txt (if not already included):
-   ```cmake
-   include(secrets.cmake OPTIONAL)
-   ```
+Rules enforced by CMakeLists.txt:
 
-> **Note**: The `secrets.cmake` file is in `.gitignore` and will not be committed to version control.
+| Variable | In `secrets.cmake` |
+|---|---|
+| `HHG_AES_KEY_SALT`, `HHG_AES_IV_SALT`, `HHG_SYSTEM_USER_EMAIL`, `HHG_SYSTEM_USER_PASSWORD` | **Required**, no default, cannot be passed with `-D` |
+| `HHG_DEFAULT_WIFI_SSID`, `HHG_DEFAULT_WIFI_PASSWORD`, `HHG_DEFAULT_WIFI_AUTH`, `HHG_DEFAULT_WIFI_ENABLED`, `HHG_DEFAULT_DAYLIGHT_SAVING_ENABLED` | Optional |
+| Any other variable | Ignored, with a CMake warning |
+
+The file is included in a function scope, so only the variables above leave it. Use plain `set(VAR value)`: a `set(... CACHE ... FORCE)` would write the cache directly and bypass these checks.
+
+> **Note**: The `secrets.cmake` file is excluded from git (`*.cmake` rule in `.gitignore`) and will not be committed to version control.
 
 ## Usage Examples
 
 ### Using .env File
 
-You can use a `.env` file to store your configuration and load it before building:
+You can use a `.env` file to store the non-secret configuration and load it before building (`secrets.cmake` is still required):
 
 1. Create a `.env` file:
 ```bash
@@ -125,8 +131,6 @@ NTP_PORT=123
 NTP_MSG_LEN=48
 TIMEZONE=60
 DAYLIGHT_SAVING=ON
-SYSTEM_USER_EMAIL="admin@hhg.local"
-SYSTEM_USER_PASSWORD="mysecretpassword"
 BUILD_TYPE=Release
 ...
 ```
@@ -147,9 +151,7 @@ cmake -B build \
   -DHHG_DEFAULT_NTP_PORT=${NTP_PORT} \
   -DHHG_DEFAULT_NTP_MSG_LEN=${NTP_MSG_LEN} \
   -DHHG_DEFAULT_TIMEZONE=${TIMEZONE} \
-  -DHHG_DEFAULT_DAYLIGHT_SAVING=${DAYLIGHT_SAVING} \
-  -DHHG_DEFAULT_SYSTEM_USER_EMAIL="${SYSTEM_USER_EMAIL}" \
-  -DHHG_DEFAULT_SYSTEM_USER_PASSWORD="${SYSTEM_USER_PASSWORD}"
+  -DHHG_DEFAULT_DAYLIGHT_SAVING=${DAYLIGHT_SAVING}
 
 # Build
 cmake --build build -j$(nproc)
@@ -188,12 +190,10 @@ cmake -B build-production \
   -DHHG_DEFAULT_NTP_PORT=123 \
   -DHHG_DEFAULT_NTP_MSG_LEN=48 \
   -DHHG_DEFAULT_TIMEZONE=60 \
-  -DHHG_DEFAULT_DAYLIGHT_SAVING=ON \
-  -DHHG_AES_KEY_SALT="PROD_KEY_2024" \
-  -DHHG_AES_IV_SALT="PROD_IV_2024" \
-  -DHHG_DEFAULT_SYSTEM_USER_EMAIL="admin@hhg.local" \
-  -DHHG_DEFAULT_SYSTEM_USER_PASSWORD="mysecretpassword"
+  -DHHG_DEFAULT_DAYLIGHT_SAVING=ON
 ```
+
+> AES salts and system user credentials are not passed on the command line: set production values in `secrets.cmake`.
 
 ### Debug Only (without WiFi)
 
@@ -211,11 +211,12 @@ cmake -B build-debug \
 3. **Runtime**: When `Config::load()` is called:
    - If the configuration file exists and is not empty, it is loaded
    - Otherwise, the compiled default values are used
-   - The system user (position 0) is initialised from `HHG_DEFAULT_SYSTEM_USER_EMAIL` / `HHG_DEFAULT_SYSTEM_USER_PASSWORD` only on first boot (empty config file); the password is stored as a SHA256 hash
+   - The system user (position 0) is initialised from `HHG_SYSTEM_USER_EMAIL` / `HHG_SYSTEM_USER_PASSWORD` only on first boot (empty config file); the password is stored as a SHA256 hash
 
 ## Files Involved
 
-- **CMakeLists.txt**: Defines the options and passes them to cargo
+- **CMakeLists.txt**: Defines the options, loads `secrets.cmake` and passes them to cargo
+- **secrets.cmake** (not in git, copy of `secrets.cmake.example`): Required secrets and optional overrides
 - **main/build.rs**: Build script that generates the defaults.rs file
 - **main/src/apps/configuration.rs**: Uses the defaults when necessary
 
@@ -238,7 +239,7 @@ During CMake configuration, the set values are printed:
 ### AES Encryption Security
 
 - **Unique per device**: Encryption keys are derived from each device's hardware unique ID
-- **Customizable salts**: Change `HHG_AES_KEY_SALT` and `HHG_AES_IV_SALT` for different deployments
+- **Customizable salts**: `HHG_AES_KEY_SALT` and `HHG_AES_IV_SALT` are required in `secrets.cmake`, use different values for different deployments
 - **Cryptographically secure**: Uses SHA256-based key derivation function (KDF)
 - **⚠️ Data compatibility**: Changing salt values makes previously encrypted data unreadable
 - **Best practice**: Use different salts for development, testing, and production environments

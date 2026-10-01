@@ -405,7 +405,7 @@ impl Default for Config {
         };
 
         // Set system user (position 0) from CMake defaults
-        let _ = config.session.set_system_user(DEFAULT_SYSTEM_USER_EMAIL, DEFAULT_SYSTEM_USER_PASSWORD);
+        let _ = config.session.set_system_user(SYSTEM_USER_EMAIL, SYSTEM_USER_PASSWORD);
 
         config
     }
