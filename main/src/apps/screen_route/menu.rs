@@ -113,7 +113,7 @@ impl ScreenRoute<ScreenId> for ScreenMenu {
             screen_route_ctx.display_signal,
             screen_route_ctx.rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str(self.item.label()),
-            ScreenParam::<u16>::default()
+            ScreenParam::default()
         )? {
             // The router builds the screen, so the menu stays independent from it.
             Answer::Confirmed(_) => Ok(Nav::PushId(self.item.into())),

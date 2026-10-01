@@ -94,7 +94,7 @@ impl ScreenLogin {
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Login Email"),
-            ScreenParam::<u16>::default(),
+            ScreenParam::default(),
         )? {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(_) => {
@@ -112,7 +112,7 @@ impl ScreenLogin {
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Login Password"),
-            ScreenParam::<u16>::default(),
+            ScreenParam::default(),
         )? {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(_) => {
@@ -140,7 +140,7 @@ impl ScreenLogin {
             display_signal, 
             rtc, 
             &text, 
-            ScreenParam::<u16>::default()
+            ScreenParam::default()
         )? {
             Answer::Pending => Ok(Nav::Stay),
             // Any button: leave on success, retry from the email otherwise.

@@ -54,7 +54,7 @@ impl ScreenRoute<ScreenId> for ScreenInfo {
             screen_route_ctx.display_signal,
             screen_route_ctx.rtc,
             &text,
-            ScreenParam::<u16>::default()
+            ScreenParam::default()
         )? {
             Answer::Pending => Ok(Nav::Stay),
             // Any button goes back to the menu.
