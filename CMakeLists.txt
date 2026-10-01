@@ -58,9 +58,47 @@ pico_sdk_init()
 message(STATUS "PROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}")
 message(STATUS "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}")
 
+# Variables that secrets.cmake is allowed to override, anything else set there is ignored
+set(HHG_SECRETS_ALLOWED_VARS
+    HHG_DEFAULT_WIFI_SSID
+    HHG_DEFAULT_WIFI_PASSWORD
+    HHG_DEFAULT_WIFI_AUTH
+    HHG_DEFAULT_WIFI_ENABLED
+    HHG_DEFAULT_DAYLIGHT_SAVING_ENABLED
+    HHG_AES_KEY_SALT
+    HHG_AES_IV_SALT
+    HHG_DEFAULT_SYSTEM_USER_EMAIL
+    HHG_DEFAULT_SYSTEM_USER_PASSWORD
+)
+
+# Include the secrets file in a function scope and export only the allowed variables
+function(hhg_load_secrets secrets_file)
+    # Mark the allowed variables to detect which ones the file actually sets
+    foreach(var IN LISTS HHG_SECRETS_ALLOWED_VARS)
+        set(${var} "__HHG_NOT_SET__")
+    endforeach()
+
+    include("${secrets_file}")
+
+    foreach(var IN LISTS HHG_SECRETS_ALLOWED_VARS)
+        if(NOT "${${var}}" STREQUAL "__HHG_NOT_SET__")
+            set(${var} "${${var}}" PARENT_SCOPE)
+        endif()
+    endforeach()
+
+    # Warn about variables set in the file that are not allowed
+    file(STRINGS "${secrets_file}" lines REGEX "^[ \t]*(set|option)[ \t]*\\(")
+    foreach(line IN LISTS lines)
+        string(REGEX REPLACE "^[ \t]*(set|option)[ \t]*\\([ \t]*([A-Za-z0-9_]+).*" "\\2" var "${line}")
+        if(NOT var IN_LIST HHG_SECRETS_ALLOWED_VARS)
+            message(WARNING "secrets.cmake: ${var} cannot be overridden here, ignored")
+        endif()
+    endforeach()
+endfunction()
+
 # Include the secrets file if it exists
 if(EXISTS "${CMAKE_SOURCE_DIR}/secrets.cmake")
-    include(secrets.cmake)
+    hhg_load_secrets("${CMAKE_SOURCE_DIR}/secrets.cmake")
     message(STATUS "Found secrets.cmake")
 else()
     message(STATUS "Not found secrets.cmake")
@@ -197,6 +235,9 @@ if(HHG_DEFAULT_SYSTEM_USER_EMAIL)
 endif()
 if(HHG_DEFAULT_SYSTEM_USER_PASSWORD)
     message(STATUS "HHG_DEFAULT_SYSTEM_USER_PASSWORD: is set")
+endif()
+if(HHG_DEFAULT_SYSTEM_USER_PASSWORD STREQUAL "mysecretpassword")
+    message(WARNING "HHG_DEFAULT_SYSTEM_USER_PASSWORD uses the public default, override it in secrets.cmake")
 endif()
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/hhg-config.h.in ${CMAKE_CURRENT_SOURCE_DIR}/inc/hhg-config/pico/hhg-config.h)
