@@ -31,6 +31,7 @@ use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRouteCtx, Sc
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 enum FSMState {
+    Select,
     Schedule,
     Zone,
 }
@@ -39,6 +40,7 @@ enum FSMState {
 pub(super) struct ScreenSprinkler {
     fsm_state: FSMState,
     selected_schedule: usize,
+    select: Select<2>,
     schedule: Select<{ScheduleController::SIZE}>,
     zone: Select<{ZoneController::SIZE}>,
 }
@@ -52,6 +54,7 @@ impl ScreenRoute<ScreenId> for ScreenSprinkler {
 
     fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
         match self.fsm_state {
+            FSMState::Select => self.draw_select_state(screen_route_ctx),
             FSMState::Schedule => self.draw_schedule_state(screen_route_ctx),
             FSMState::Zone => self.draw_zone_state(screen_route_ctx),
         }
@@ -62,10 +65,11 @@ impl ScreenRoute<ScreenId> for ScreenSprinkler {
 impl ScreenSprinkler {
     pub(super) fn new() -> Self {
         Self {
-            fsm_state: FSMState::Schedule,
+            fsm_state: FSMState::Select,
             selected_schedule: 0,
-            schedule: Select::<{ScheduleController::SIZE}>::new(),
-            zone: Select::<{ZoneController::SIZE}>::new()
+            select: Select::new(),
+            schedule: Select::new(),
+            zone: Select::new()
         }
     }
 
@@ -73,6 +77,15 @@ impl ScreenSprinkler {
     fn set_state(&mut self, display_signal: &mut EventBits, next: FSMState) {
         self.fsm_state = next;
         request_redraw(display_signal);
+    }
+
+    fn select_selections(&self) -> ScreenSelections<2> {
+        let selects: [(Bytes<_>, bool); 2] = [
+            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Schedule"), false),
+            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Zone"), false),
+        ];
+
+        selects
     }
 
     fn schedule_selections(&self) -> ScreenSelections<{ScheduleController::SIZE}> {
@@ -105,6 +118,19 @@ impl ScreenSprinkler {
         selects
     }
 
+    fn draw_select_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc}: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+        
+        self.select.draw(
+            *lcd,
+            display_signal,
+            rtc,
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str(""),
+            ScreenParam::Selects(self.select_selections())
+        )?;
+
+        Ok(Nav::Stay)
+    }
+
     fn draw_schedule_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc}: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
 
         
@@ -113,7 +139,7 @@ impl ScreenSprinkler {
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Schedules"),
-            ScreenParam::<u16, {ScheduleController::SIZE}>::Selects(self.schedule_selections())
+            ScreenParam::Selects(self.schedule_selections())
         )? {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(param) => {
@@ -140,7 +166,7 @@ impl ScreenSprinkler {
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Zones"),
-            ScreenParam::<u16, {ZoneController::SIZE}>::Selects(self.zone_selections())
+            ScreenParam::Selects(self.zone_selections())
         )? {
             Answer::Pending => Ok(Nav::Stay),
             // Any button goes back to the schedule list.
