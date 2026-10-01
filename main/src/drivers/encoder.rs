@@ -200,7 +200,7 @@ impl Encoder {
             gpio_ccw_ref: GpioPeripheral::EncoderCCW,
             gpio_cw_ref: GpioPeripheral::EncoderCW,
             gpio_btn_ref: GpioPeripheral::EncoderBtn,
-            thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),
+            thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::BelowHigh),
             thread_started: AtomicBool::new(false),
         }
     }
