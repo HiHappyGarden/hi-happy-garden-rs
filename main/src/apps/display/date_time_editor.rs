@@ -46,7 +46,7 @@ enum Step {
 /// Drives both the date editor (year / month / day) and the time editor
 /// (hour / minute / second) from a single generic implementation.
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy)]
 pub(super) struct FieldEditorConfig {
     /// Minimum value for each field.
     pub(super) field_min: [i32; 3],
@@ -64,6 +64,16 @@ pub(super) struct FieldEditorConfig {
     /// Builds a `DateTime` from the confirmed field values.
     pub(super) builder: fn(i32, i32, i32) -> Result<DateTime>,
 }
+
+impl PartialEq for FieldEditorConfig {
+    fn eq(&self, other: &Self) -> bool {
+        self.field_min == other.field_min
+            && self.field_wrap == other.field_wrap
+            && self.underlines == other.underlines
+    }
+}
+
+impl Eq for FieldEditorConfig {}
 
 #[derive(Clone, PartialEq, Eq)]
 pub(super) struct FieldEditor {

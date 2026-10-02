@@ -20,7 +20,7 @@
 
 use osal_rs::utils::Result;
 
-use crate::apps::screen_route::ScreenId;
+use crate::apps::screen_route::sprinkler::ScreenId;
 use crate::traits::screen::{Nav, ScreenRoute, ScreenRouteCtx};
 
 #[derive(Copy, Clone, PartialEq, Eq)]

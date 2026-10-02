@@ -18,12 +18,22 @@
  *
  ***************************************************************************/
 
+use alloc::boxed::Box;
 use osal_rs::utils::{Bytes, Result};
 
 use crate::apps::display::select::Select;
-use crate::apps::screen_route::ScreenId;
+use crate::apps::screen_route::{BoxedScreen, ScreenId as FatherScreenId};
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRouteCtx, ScreenRoute, ScreenSelections};
+
+use crate::apps::screen_route::schedule::ScreenSchedule;
+use crate::apps::screen_route::zone::ScreenZone;
+            
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub(in crate::apps) enum ScreenId {
+    Schedule,
+    Zone
+}
 
 
 impl From<usize> for ScreenId {
@@ -31,28 +41,25 @@ impl From<usize> for ScreenId {
         match value {
             0 => ScreenId::Schedule,
             1 => ScreenId::Zone,
-            _ => ScreenId::Sprinkler,
+            _ => ScreenId::Schedule,
         }
     }
 }
 
 
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub(super) struct ScreenSprinkler {
-    selected_schedule: usize,
-    selects: Select<2>,
-}
+pub(super) struct ScreenSprinkler (Select<2>);
 
-impl ScreenRoute<ScreenId> for ScreenSprinkler {
+impl ScreenRoute<FatherScreenId> for ScreenSprinkler {
 
     #[inline]
-    fn id(&self) -> ScreenId {
-        ScreenId::Sprinkler
+    fn id(&self) -> FatherScreenId {
+        FatherScreenId::Sprinkler
     }
 
-    fn draw(&mut self, ScreenRouteCtx{lcd, display_signal, rtc, ..}: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn draw(&mut self, ScreenRouteCtx{lcd, display_signal, rtc, ..}: &mut ScreenRouteCtx<'_>) -> Result<Nav<FatherScreenId>> {
         
-        match self.selects.draw(
+        match self.0.draw(
                     *lcd,
                     display_signal,
                     rtc,
@@ -63,10 +70,15 @@ impl ScreenRoute<ScreenId> for ScreenSprinkler {
                     Answer::Confirmed(param) => {
                         match param {
                             ScreenParam::Selects(selected) => {
-                                self.selected_schedule = selected.iter().position(|(_, b)| *b).unwrap_or(0);
+                                let selected_schedule = selected.iter().position(|(_, b)| *b).unwrap_or(0);
 
-                                Ok(Nav::PushId(self.selected_schedule.into()))
-                                
+                                // let screen: BoxedScreen = match selected_schedule.into() {
+                                //     ScreenId::Schedule           => Box::new(ScreenSchedule::new()),
+                                //     ScreenId::Zone               => Box::new(ScreenZone::new()),
+                                // };
+
+                                // Ok(Nav::Push(screen))
+                                Ok(Nav::Stay)
                             }
                             _ => Ok(Nav::Stay)
                         }
@@ -79,11 +91,10 @@ impl ScreenRoute<ScreenId> for ScreenSprinkler {
 }
 
 impl ScreenSprinkler {
+
+    #[inline]
     pub(super) fn new() -> Self {
-        Self {
-            selected_schedule: 0,
-            selects: Select::new(),
-        }
+        Self(Select::new())
     }
 
 
