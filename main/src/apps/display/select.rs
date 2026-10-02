@@ -33,6 +33,7 @@ use crate::traits::screen::{Answer, Screen, ScreenParam, ScreenSelections, scree
 
 static NO_SELECTIONS: &str = "No selections available";
 
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub(in crate::apps) struct Select<const N: usize = 6> {
     index: u8,
     selections: Option<ScreenSelections<N>>,

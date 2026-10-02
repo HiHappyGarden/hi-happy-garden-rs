@@ -25,9 +25,11 @@ mod info;
 mod login;
 mod menu;
 mod wizard;
+mod schedule;
 mod sprinkler;
 mod user;
 mod wifi;
+mod zone;
 
 use alloc::boxed::Box;
 use alloc::vec::Vec;
