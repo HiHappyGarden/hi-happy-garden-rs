@@ -33,6 +33,7 @@ use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use crate::traits::rtc::RTC;
 use crate::traits::screen::{Answer, Screen, ScreenParam};
 
+#[derive(Clone, PartialEq, Eq)]
 pub(in crate::apps) struct Check 
 {
     icon: Icon<120>,

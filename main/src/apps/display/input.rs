@@ -38,6 +38,7 @@ const SHIFT_CHAR: u8 = b'<';
 const SECRET_CHAR: u8 = b'*';
 const CHAR_TABLE: [u8; 95] = *b" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^`{|}~";
 
+#[derive(Clone, PartialEq, Eq)]
 pub(in crate::apps) struct Input {
     input: Option<Bytes<MAX_SIZE>>,
     original_input: Option<Bytes<MAX_SIZE>>,

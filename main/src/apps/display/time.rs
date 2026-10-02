@@ -31,6 +31,7 @@ use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
 use crate::traits::screen::{Answer, Screen, ScreenParam};
 
+#[derive(Clone, PartialEq, Eq)]
 pub(in crate::apps) struct Time(FieldEditor);
 
 impl Screen<DateTime> for Time

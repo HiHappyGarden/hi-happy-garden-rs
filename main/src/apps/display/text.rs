@@ -31,7 +31,7 @@ use crate::traits::rtc::RTC;
 use crate::traits::screen::{Answer, Screen, ScreenParam};
 
 
-
+#[derive(Clone, PartialEq, Eq)]
 pub(in crate::apps) struct Text;
 
 

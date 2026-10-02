@@ -33,7 +33,7 @@ use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use crate::traits::rtc::RTC;
 use crate::traits::screen::{Answer, ScreenParam};
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum Step {
     Exit,
     FieldHour,
@@ -45,6 +45,8 @@ enum Step {
 /// Configuration for a 3-field step-by-step editor.
 /// Drives both the date editor (year / month / day) and the time editor
 /// (hour / minute / second) from a single generic implementation.
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) struct FieldEditorConfig {
     /// Minimum value for each field.
     pub(super) field_min: [i32; 3],
@@ -63,6 +65,7 @@ pub(super) struct FieldEditorConfig {
     pub(super) builder: fn(i32, i32, i32) -> Result<DateTime>,
 }
 
+#[derive(Clone, PartialEq, Eq)]
 pub(super) struct FieldEditor {
     fields: [Option<i32>; 3],
     step: Step,

@@ -32,7 +32,8 @@ use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
 use crate::traits::screen::{Answer, Screen, ScreenParam};
 
- #[allow(dead_code)]
+#[allow(dead_code)]
+#[derive(Clone, PartialEq, Eq)]
 pub(super) struct Number<N>
 where
     N: Integer,
