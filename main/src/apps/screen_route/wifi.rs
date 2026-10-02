@@ -27,7 +27,6 @@ use crate::apps::display::check::Check;
 use crate::apps::display::input::Input;
 use crate::apps::display::select::Select;
 use crate::apps::screen_route::auth::{fill_auth_selections, selected_auth_from_selections};
-use crate::apps::screen_route::ScreenId;
 use crate::apps::signals::display::request_redraw;
 use crate::drivers::wifi::Auth;
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
@@ -48,14 +47,12 @@ pub(super) struct ScreenWifi {
     auth:    Select,
 }
 
-impl ScreenRoute<ScreenId> for ScreenWifi {
-
-    #[inline]
-    fn id(&self) -> ScreenId {
-        ScreenId::Wifi
+impl ScreenRoute for ScreenWifi {
+    fn id() -> &'static str {
+        "ScreenWifi"
     }
 
-    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn renderize(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
         match self.fsm_state {
             FSMState::Enable   => self.draw_enable_state(screen_route_ctx),
             FSMState::Ssid     => self.draw_ssid_state(screen_route_ctx),
@@ -73,7 +70,7 @@ impl ScreenWifi {
         request_redraw(display_signal);
     }
 
-    fn draw_enable_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn draw_enable_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
         
         match self.enable.draw(
             *lcd,
@@ -100,7 +97,7 @@ impl ScreenWifi {
         }
     }
 
-    fn draw_ssid_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn draw_ssid_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
         
         match self.ssid.draw(
             *lcd,
@@ -121,7 +118,7 @@ impl ScreenWifi {
         }
     }
 
-    fn draw_passwd_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn draw_passwd_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
 
         match self.passwd.draw(
             *lcd,
@@ -142,7 +139,7 @@ impl ScreenWifi {
         }
     }
 
-    fn draw_auth_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn draw_auth_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
 
         match self.auth.draw(
             *lcd,

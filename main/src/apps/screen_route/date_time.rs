@@ -27,7 +27,6 @@ use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::display::commons::get_datetime_from_rtc;
 use crate::apps::display::date::Date;
 use crate::apps::display::time::Time;
-use crate::apps::screen_route::ScreenId;
 use crate::apps::signals::display::request_redraw;
 use crate::apps::signals::error::ErrorFlag;
 use crate::drivers::date_time::DateTime;
@@ -46,14 +45,12 @@ pub(super) struct ScreenDateTime {
     time: Time,
 }
 
-impl ScreenRoute<ScreenId> for ScreenDateTime {
-
-    #[inline]
-    fn id(&self) -> ScreenId {
-        ScreenId::DateTime
+impl ScreenRoute for ScreenDateTime {
+    fn id() -> &'static str {
+        "ScreenDateTime"
     }
 
-    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn renderize(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
         match self.fsm_state {
             FSMState::Date => self.draw_date_state(screen_route_ctx),
             FSMState::Time => self.draw_time_state(screen_route_ctx),
@@ -69,7 +66,7 @@ impl ScreenDateTime {
         request_redraw(display_signal);
     }
 
-    fn draw_date_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn draw_date_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
         
 
         match self.date.draw(
@@ -88,7 +85,7 @@ impl ScreenDateTime {
         }
     }
 
-    fn draw_time_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn draw_time_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
         
 
         match self.time.draw(

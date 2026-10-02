@@ -38,41 +38,19 @@ use alloc::sync::Arc;
 use crate::apps::config::Config;
 use crate::apps::signals::display::{DisplayFlag, request_redraw};
 use crate::apps::signals::status::StatusFlag;
-use crate::apps::screen_route::date_time::ScreenDateTime;
-use crate::apps::screen_route::daylight_saving_time::ScreenDaylightSavingTime;
-use crate::apps::screen_route::info::ScreenInfo;
 use crate::apps::screen_route::login::ScreenLogin;
 use crate::apps::screen_route::wizard::ScreenWizard;
 use crate::apps::screen_route::menu::ScreenMenu;
-use crate::apps::screen_route::sprinkler::ScreenSprinkler;
-use crate::apps::screen_route::user::ScreenUser;
-use crate::apps::screen_route::wifi::ScreenWifi;
-use crate::traits::screen::{Nav, ScreenRoute as ScreenRouteFn, ScreenRouteCtx};
+use crate::traits::screen::{BoxedScreenRoute, Nav, ScreenRoute as ScreenRouteFn, ScreenRouteCtx};
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
-
 use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::Result;
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub(in crate::apps) enum ScreenId {
-    Wizard,
-    Login,
-    Menu,
-    Info,
-    DateTime,
-    DaylightSavingTime,
-    Wifi,
-    User,
-    Sprinkler,
-}
-
-type BoxedScreen<T = ScreenId> = Box<dyn ScreenRouteFn<T>>;
-
  pub(in crate::apps) struct ScreenRoute {
     config: &'static mut Config,
-    stack: Vec<BoxedScreen>,
+    stack: Vec<(&'static str, BoxedScreenRoute)>,
     check_staus_counter: u8,
 }
 
@@ -96,13 +74,13 @@ impl ScreenRoute {
         if StatusFlag::CheckConfig.check_signal(*status_signal) {
             self.check_staus_counter += 1;
             if self.check_staus_counter >= Self::CHECK_STATUS_THRESHOLD {
-                self.stack.push(Box::new(ScreenWizard::new()));
+                self.stack.push((ScreenWizard::id(), Box::new(ScreenWizard::new())));
                 self.check_staus_counter = 0;
             }
         } else if StatusFlag::Ready.check_signal(*status_signal) {
             self.check_staus_counter += 1;
             if self.check_staus_counter >= Self::CHECK_STATUS_THRESHOLD {
-                self.stack.push(Box::new(ScreenMenu::new()));
+                self.stack.push((ScreenMenu::id(), Box::new(ScreenMenu::new())));
                 self.check_staus_counter = 0;
             }
         } else {
@@ -137,29 +115,23 @@ impl ScreenRoute {
                 rtc,
             };
 
-            top.draw(screen_route_ctx)?
+            top.1.renderize(screen_route_ctx)?
         };
 
         self.navigate(nav, display_signal, status_signal);
         Ok(())
     }
 
-    fn navigate(&mut self, nav: Nav<ScreenId>, display_signal: &mut EventBits, status_signal: &EventBits) {
+    fn navigate(&mut self, nav: Nav, display_signal: &mut EventBits, status_signal: &EventBits) {
         match nav {
             Nav::Stay => return,
-            Nav::Push(screen) => self.push(screen, status_signal),
-            Nav::PushId(id) => self.push(Self::build(id), status_signal),
+            Nav::Push{ id, screen } => self.push(id, screen, status_signal),
             Nav::Pop => {
                 self.stack.pop();
             }
-            Nav::PopTo(id) => {
-                while self.stack.last().is_some_and(|screen| screen.id() != id) {
-                    self.stack.pop();
-                }
-            }
-            Nav::Replace(screen) => {
+            Nav::Replace{ id, screen } => {
                 self.stack.pop();
-                self.push(screen, status_signal);
+                self.stack.push((id, screen));
             }
         }
 
@@ -169,7 +141,7 @@ impl ScreenRoute {
     /// Pushes `screen`, or the login screen in its place when it is protected,
     /// a local user exists and nobody is logged in. After the login pops, the
     /// user is back on the screen that was on top (usually the menu).
-    fn push(&mut self, screen: BoxedScreen, status_signal: &EventBits) {
+    fn push(&mut self, id: &'static str, screen: BoxedScreenRoute, status_signal: &EventBits) {
 
         let user = self.config.get_session().get_user_local();
 
@@ -179,23 +151,9 @@ impl ScreenRoute {
             && self.config.get_session().is_set_user_local()
             && !StatusFlag::UserLogged.check_signal(*status_signal)
         {
-            self.stack.push(Box::new(ScreenLogin::new()));
+            self.stack.push((ScreenLogin::id(), Box::new(ScreenLogin::new())));
         } else {
-            self.stack.push(screen);
-        }
-    }
-
-    fn build(id: ScreenId) -> BoxedScreen {
-        match id {
-            ScreenId::Wizard          => Box::new(ScreenWizard::new()),
-            ScreenId::Login              => Box::new(ScreenLogin::new()),
-            ScreenId::Menu               => Box::new(ScreenMenu::new()),
-            ScreenId::Info               => Box::new(ScreenInfo::new()),
-            ScreenId::DateTime           => Box::new(ScreenDateTime::new()),
-            ScreenId::DaylightSavingTime => Box::new(ScreenDaylightSavingTime::new()),
-            ScreenId::Wifi               => Box::new(ScreenWifi::new()),
-            ScreenId::User               => Box::new(ScreenUser::new()),
-            ScreenId::Sprinkler          => Box::new(ScreenSprinkler::new())
+            self.stack.push((id, screen));
         }
     }
 

@@ -25,7 +25,6 @@ use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::config::Config;
 use crate::apps::display::input::Input;
 use crate::apps::session::User;
-use crate::apps::screen_route::ScreenId;
 use crate::apps::signals::display::request_redraw;
 use crate::drivers::encrypt::EncryptGeneric;
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
@@ -42,14 +41,12 @@ pub(super) struct ScreenUser {
     passwd: Input,
 }
 
-impl ScreenRoute<ScreenId> for ScreenUser {
-    
-    #[inline]
-    fn id(&self) -> ScreenId {
-        ScreenId::User
+impl ScreenRoute for ScreenUser {
+    fn id() -> &'static str {
+        "ScreenUser"
     }
 
-    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn renderize(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
         match self.fsm_state {
             FSMState::Email  => self.draw_email_state(screen_route_ctx),
             FSMState::Passwd => self.draw_passwd_state(screen_route_ctx),
@@ -66,7 +63,7 @@ impl ScreenUser {
         request_redraw(display_signal);
     }
 
-    fn draw_email_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc}: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn draw_email_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc}: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
        
         match self.email.draw(
             *lcd,
@@ -84,7 +81,7 @@ impl ScreenUser {
         }
     }
 
-    fn draw_passwd_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc}: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn draw_passwd_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc}: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
 
         // The stored password is a SHA256 hash, so there is nothing to prefill.
         match self.passwd.draw(

@@ -18,14 +18,20 @@
  *
  ***************************************************************************/
 
+use alloc::boxed::Box;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Bytes, Result};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::display::text::Text;
-use crate::apps::screen_route::ScreenId;
+use crate::apps::screen_route::date_time::ScreenDateTime;
+use crate::apps::screen_route::daylight_saving_time::ScreenDaylightSavingTime;
+use crate::apps::screen_route::info::ScreenInfo;
+use crate::apps::screen_route::sprinkler::ScreenSprinkler;
+use crate::apps::screen_route::user::ScreenUser;
+use crate::apps::screen_route::wifi::ScreenWifi;
 use crate::apps::signals::display::DisplayFlag;
-use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
+use crate::traits::screen::{Answer, BoxedScreenRoute, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 
 /// Entries of the main menu, in rotation order.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -48,6 +54,19 @@ impl MenuItem {
         MenuItem::Sprinkler,
     ];
 
+
+    fn new_screen_route(&self) -> BoxedScreenRoute {
+        match self {
+            MenuItem::Info               => Box::new(ScreenInfo::new()),
+            MenuItem::DateTime           => Box::new(ScreenDateTime::new()),
+            MenuItem::DaylightSavingTime => Box::new(ScreenDaylightSavingTime::new()),
+            MenuItem::Wifi               => Box::new(ScreenWifi::new()),
+            MenuItem::User               => Box::new(ScreenUser::new()),
+            MenuItem::Sprinkler          => Box::new(ScreenSprinkler::new()),
+        }
+        
+    }
+
     fn label(self) -> &'static str {
         match self {
             MenuItem::Info               => "Info",
@@ -58,6 +77,8 @@ impl MenuItem {
             MenuItem::Sprinkler          => "Sprinkler",
         }
     }
+
+
 
     fn index(self) -> usize {
         match self {
@@ -79,32 +100,17 @@ impl MenuItem {
     }
 }
 
-impl From<MenuItem> for ScreenId {
-    fn from(item: MenuItem) -> Self {
-        match item {
-            MenuItem::Info               => ScreenId::Info,
-            MenuItem::DateTime           => ScreenId::DateTime,
-            MenuItem::DaylightSavingTime => ScreenId::DaylightSavingTime,
-            MenuItem::Wifi               => ScreenId::Wifi,
-            MenuItem::User               => ScreenId::User,
-            MenuItem::Sprinkler          => ScreenId::Sprinkler,
-        }
-    }
-}
-
 pub(super) struct ScreenMenu {
     item: MenuItem,
     text: Text,
 }
 
-impl ScreenRoute<ScreenId> for ScreenMenu {
-    
-    #[inline]
-    fn id(&self) -> ScreenId {
-        ScreenId::Menu
+impl ScreenRoute for ScreenMenu {
+    fn id() -> &'static str {
+        "ScreenMenu"
     }
- 
-    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+
+    fn renderize(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
 
         self.update_input(screen_route_ctx.display_signal);
 
@@ -115,8 +121,7 @@ impl ScreenRoute<ScreenId> for ScreenMenu {
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str(self.item.label()),
             ScreenParam::default()
         )? {
-            // The router builds the screen, so the menu stays independent from it.
-            Answer::Confirmed(_) => Ok(Nav::PushId(self.item.into())),
+            Answer::Confirmed(_) => Ok(Nav::Push{ id: self.item.label(), screen: self.item.new_screen_route() }),
             Answer::Pending | Answer::Cancelled => Ok(Nav::Stay),
         }
     }

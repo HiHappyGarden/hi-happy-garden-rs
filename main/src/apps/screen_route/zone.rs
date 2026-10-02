@@ -21,7 +21,6 @@
 use osal_rs::utils::Result;
 
 use crate::apps::display::text::Text;
-use crate::apps::screen_route::sprinkler::ScreenId;
 use crate::traits::screen::{Nav, ScreenRoute, ScreenRouteCtx};
 
 #[derive(Clone, PartialEq, Eq)]
@@ -29,14 +28,12 @@ pub(super) struct ScreenZone {
     foo: Text,
 }
 
-impl ScreenRoute<ScreenId> for ScreenZone {
-
-    #[inline]
-    fn id(&self) -> ScreenId {
-        ScreenId::Zone
+impl ScreenRoute for ScreenZone {
+    fn id() -> &'static str {
+        "ScreenZone"
     }
 
-    fn draw(&mut self, ScreenRouteCtx{lcd: _, display_signal: _, rtc: _, ..}: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn renderize(&mut self, ScreenRouteCtx{lcd: _, display_signal: _, rtc: _, ..}: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
 
         //todo!("ScreenZone::draw not implemented yet");
         

@@ -37,7 +37,6 @@ use crate::apps::signals::display::request_redraw;
 use crate::apps::signals::error::ErrorFlag;
 use crate::apps::screen_route::auth::{fill_auth_selections, selected_auth_from_selections};
 use crate::apps::screen_route::menu::ScreenMenu;
-use crate::apps::screen_route::ScreenId;
 use crate::apps::utils::serial_from_uid;
 use crate::drivers::date_time::DateTime;
 use crate::drivers::encrypt::EncryptGeneric;
@@ -77,14 +76,12 @@ pub(super) struct ScreenWizard {
     enable_dst: Check,
 }
 
-impl ScreenRoute<ScreenId> for ScreenWizard {
-    
-    #[inline]
-    fn id(&self) -> ScreenId {
-        ScreenId::Wizard
+impl ScreenRoute for ScreenWizard {
+    fn id() -> &'static str {
+        "ScreenWizard"
     }
 
-    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn renderize(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
         match self.fsm_state {
             FSMState::Serial      => self.draw_serial_state(screen_route_ctx),
             FSMState::Email       => self.draw_email_state(screen_route_ctx),
@@ -113,7 +110,7 @@ impl ScreenWizard {
     }
 
     /// Moves to `confirmed` or `cancelled` according to the widget answer.
-    fn step<N, const N_SELECTS: usize>(&mut self, display_signal: &mut EventBits, answer: Answer<N, N_SELECTS>, confirmed: FSMState, cancelled: FSMState) -> Nav<ScreenId>
+    fn step<N, const N_SELECTS: usize>(&mut self, display_signal: &mut EventBits, answer: Answer<N, N_SELECTS>, confirmed: FSMState, cancelled: FSMState) -> Nav
     where N: Integer
     {
         match answer {
@@ -124,7 +121,7 @@ impl ScreenWizard {
         Nav::Stay
     }
 
-    fn draw_serial_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn draw_serial_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
         let serial = serial_from_uid(&Hardware::get_unique_id());
         let unique_id = Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_bytes(&serial);
 
@@ -140,7 +137,7 @@ impl ScreenWizard {
         Ok(self.step(display_signal, answer, FSMState::Email, FSMState::Serial))
     }
 
-    fn draw_email_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn draw_email_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
 
         let answer = self.email.draw(
             *lcd,
@@ -153,7 +150,7 @@ impl ScreenWizard {
         Ok(self.step(display_signal, answer, FSMState::EmailPasswd, FSMState::Serial))
     }
 
-    fn draw_email_passwd_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn draw_email_passwd_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
         
         let answer = self.email_passwd.draw(
             *lcd,
@@ -166,7 +163,7 @@ impl ScreenWizard {
         Ok(self.step(display_signal, answer, FSMState::EnableWifi, FSMState::Email))
     }
 
-    fn draw_enable_wifi_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn draw_enable_wifi_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
         
         match self.wifi_enable.draw(
             *lcd,
@@ -195,7 +192,7 @@ impl ScreenWizard {
         Ok(Nav::Stay)
     }
 
-    fn draw_ssid_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn draw_ssid_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
 
         let answer = self.wifi_ssid.draw(
             *lcd,
@@ -208,7 +205,7 @@ impl ScreenWizard {
         Ok(self.step(display_signal, answer, FSMState::Passwd, FSMState::EnableWifi))
     }
 
-    fn draw_passwd_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn draw_passwd_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
         
         let answer = self.wifi_passwd.draw(
             *lcd,
@@ -221,7 +218,7 @@ impl ScreenWizard {
         Ok(self.step(display_signal, answer, FSMState::Auth, FSMState::Ssid))
     }
 
-    fn draw_auth_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn draw_auth_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
         
         let answer = self.auth.draw(
             *lcd,
@@ -234,7 +231,7 @@ impl ScreenWizard {
         Ok(self.step(display_signal, answer, FSMState::EnableDst, FSMState::Passwd))
     }
 
-    fn draw_date_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn draw_date_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
         
         let answer = self.date.draw(
             *lcd,
@@ -247,7 +244,7 @@ impl ScreenWizard {
         Ok(self.step(display_signal, answer, FSMState::Time, FSMState::EnableWifi))
     }
 
-    fn draw_time_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn draw_time_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
         
         let answer = self.time.draw(
             *lcd,
@@ -260,7 +257,7 @@ impl ScreenWizard {
         Ok(self.step(display_signal, answer, FSMState::EnableDst, FSMState::Date))
     }
 
-    fn draw_enable_dst_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn draw_enable_dst_state(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
         
         match self.enable_dst.draw(
             *lcd,
@@ -276,7 +273,7 @@ impl ScreenWizard {
                         if check {
                             self.config.get_daylight_saving_time().set_enabled(check);
                             self.save(rtc)?;
-                            return Ok(Nav::Replace(Box::new(ScreenMenu::new())))
+                            return Ok(Nav::Replace{ id: Self::id(), screen: Box::new(ScreenMenu::new())})
                         } else {
                             self.set_state(display_signal, FSMState::Date);
                         }

@@ -31,7 +31,7 @@ use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
 
 pub type ScreenSelections<const N_SELECTS: usize = 6> = [(Bytes<{DISPLAY_INPUT_MAX_SIZE}>, bool); N_SELECTS];
-
+pub type BoxedScreenRoute = Box<dyn ScreenRoute>;
 
 pub struct ScreenRouteCtx<'a> {
     pub lcd: &'a mut dyn LCDDisplayFn,
@@ -42,17 +42,12 @@ pub struct ScreenRouteCtx<'a> {
     pub rtc: &'a Arc<Mutex<dyn RTC + 'static>>,
 }
 
-pub enum Nav<Id> {
+pub enum Nav {
     Stay,
     #[allow(unused)]
-    Push(Box<dyn ScreenRoute<Id>>),
-    /// Like [`Nav::Push`] but the screen is built by the router, so a screen
-    /// does not need to depend on the screens it can navigate to.
-    PushId(Id),
+    Push{ id: &'static str, screen: BoxedScreenRoute },
     Pop,
-    #[allow(unused)]
-    PopTo(Id),
-    Replace(Box<dyn ScreenRoute<Id>>),
+    Replace{ id: &'static str, screen: BoxedScreenRoute},
 }
 
 pub enum Answer<N = u16, const N_SELECTS: usize = 6>
@@ -98,12 +93,11 @@ where N: Integer
     fn get_value(&self) -> Result<T>;
 }
 
-pub trait ScreenRoute<Id>
-where Id: Copy + PartialEq
-{
-    fn id(&self) -> Id;
+pub trait ScreenRoute {
 
-    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<Id>>;
+    fn id() -> &'static str where Self: Sized;
+
+    fn renderize(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav>;
 
     fn requires_auth(&self) -> bool { true }
 }

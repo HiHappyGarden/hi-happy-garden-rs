@@ -23,7 +23,6 @@ use osal_rs::utils::{Bytes, Result};
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::config::Config;
 use crate::apps::display::check::Check;
-use crate::apps::screen_route::ScreenId;
 use crate::drivers::date_time::DateTime;
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 
@@ -31,14 +30,12 @@ pub(super) struct ScreenDaylightSavingTime {
     enable_dst: Check,
 }
 
-impl ScreenRoute<ScreenId> for ScreenDaylightSavingTime {
-
-    #[inline]
-    fn id(&self) -> ScreenId {
-        ScreenId::DaylightSavingTime
+impl ScreenRoute for ScreenDaylightSavingTime {
+    fn id() -> &'static str {
+        "ScreenDaylightSavingTime"
     }
 
-    fn draw(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn renderize(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
     
         match self.enable_dst.draw(
             *lcd,

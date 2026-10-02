@@ -18,16 +18,12 @@
  *
  ***************************************************************************/
 
-use alloc::boxed::Box;
 use osal_rs::utils::{Bytes, Result};
 
 use crate::apps::display::select::Select;
-use crate::apps::screen_route::{BoxedScreen, ScreenId as FatherScreenId};
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRouteCtx, ScreenRoute, ScreenSelections};
 
-use crate::apps::screen_route::schedule::ScreenSchedule;
-use crate::apps::screen_route::zone::ScreenZone;
             
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub(in crate::apps) enum ScreenId {
@@ -50,14 +46,12 @@ impl From<usize> for ScreenId {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub(super) struct ScreenSprinkler (Select<2>);
 
-impl ScreenRoute<FatherScreenId> for ScreenSprinkler {
-
-    #[inline]
-    fn id(&self) -> FatherScreenId {
-        FatherScreenId::Sprinkler
+impl ScreenRoute for ScreenSprinkler {
+    fn id() -> &'static str {
+        "ScreenSprinkler"
     }
 
-    fn draw(&mut self, ScreenRouteCtx{lcd, display_signal, rtc, ..}: &mut ScreenRouteCtx<'_>) -> Result<Nav<FatherScreenId>> {
+    fn renderize(&mut self, ScreenRouteCtx{lcd, display_signal, rtc, ..}: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
         
         match self.0.draw(
                     *lcd,
@@ -69,8 +63,8 @@ impl ScreenRoute<FatherScreenId> for ScreenSprinkler {
                     Answer::Pending => Ok(Nav::Stay),
                     Answer::Confirmed(param) => {
                         match param {
-                            ScreenParam::Selects(selected) => {
-                                let selected_schedule = selected.iter().position(|(_, b)| *b).unwrap_or(0);
+                            ScreenParam::Selects(_selected) => {
+                                //let selected_schedule = selected.iter().position(|(_, b)| *b).unwrap_or(0);
 
                                 // let screen: BoxedScreen = match selected_schedule.into() {
                                 //     ScreenId::Schedule           => Box::new(ScreenSchedule::new()),

@@ -29,7 +29,6 @@ use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::config::Config;
 use crate::apps::display::input::Input;
 use crate::apps::display::text::Text;
-use crate::apps::screen_route::ScreenId;
 use crate::apps::signals::display::request_redraw;
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 
@@ -49,14 +48,12 @@ pub(super) struct ScreenLogin {
     status: Text,
 }
 
-impl ScreenRoute<ScreenId> for ScreenLogin {
-
-    #[inline]
-    fn id(&self) -> ScreenId {
-        ScreenId::Login
+impl ScreenRoute for ScreenLogin {
+    fn id() -> &'static str {
+        "ScreenLogin"
     }
 
-    fn draw(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn renderize(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
         match self.fsm_state {
             FSMState::Email => self.handle_email(screen_route_ctx),
             FSMState::EmailPasswd => self.handle_email_passwd(screen_route_ctx),
@@ -87,7 +84,7 @@ impl ScreenLogin {
         request_redraw(display_signal);
     }
 
-    fn handle_email(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn handle_email(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
 
         match self.email.draw(
             *lcd,
@@ -105,7 +102,7 @@ impl ScreenLogin {
         }
     }
 
-    fn handle_email_passwd(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn handle_email_passwd(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
         
         match self.email_passwd.draw(
             *lcd,
@@ -127,7 +124,7 @@ impl ScreenLogin {
         }   
     }
 
-    fn handle_status(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn handle_status(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
 
         let text = if self.logged {
             Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Login successful")
