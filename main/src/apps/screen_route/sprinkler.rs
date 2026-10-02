@@ -25,6 +25,18 @@ use crate::apps::screen_route::ScreenId;
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRouteCtx, ScreenRoute, ScreenSelections};
 
+
+impl From<usize> for ScreenId {
+    fn from(value: usize) -> Self {
+        match value {
+            0 => ScreenId::Schedule,
+            1 => ScreenId::Zone,
+            _ => ScreenId::Sprinkler,
+        }
+    }
+}
+
+
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub(super) struct ScreenSprinkler {
     selected_schedule: usize,
@@ -38,7 +50,7 @@ impl ScreenRoute<ScreenId> for ScreenSprinkler {
         ScreenId::Sprinkler
     }
 
-    fn draw(&mut self, ScreenRouteCtx{lcd, display_signal, status_signal, rtc}: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+    fn draw(&mut self, ScreenRouteCtx{lcd, display_signal, rtc, ..}: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
         
         match self.selects.draw(
                     *lcd,
@@ -52,19 +64,13 @@ impl ScreenRoute<ScreenId> for ScreenSprinkler {
                         match param {
                             ScreenParam::Selects(selected) => {
                                 self.selected_schedule = selected.iter().position(|(_, b)| *b).unwrap_or(0);
-                                match self.selected_schedule {
-                                    0 => {
-                                        // Handle "Schedule" selection
-                                    }
-                                    1 => {
-                                        // Handle "Zone" selection
-                                    }
-                                    _ => {}
-                                }
+
+                                Ok(Nav::PushId(self.selected_schedule.into()))
+                                
                             }
-                            _ => {}
+                            _ => Ok(Nav::Stay)
                         }
-                        Ok(Nav::Stay)
+                        
                     }
                     Answer::Cancelled => Ok(Nav::Pop),
                 }

@@ -36,6 +36,8 @@ use alloc::vec::Vec;
 use alloc::sync::Arc;
 
 use crate::apps::config::Config;
+use crate::apps::screen_route::schedule::ScreenSchedule;
+use crate::apps::screen_route::zone::ScreenZone;
 use crate::apps::signals::display::{DisplayFlag, request_redraw};
 use crate::apps::signals::status::StatusFlag;
 use crate::apps::screen_route::date_time::ScreenDateTime;
@@ -66,6 +68,8 @@ pub(in crate::apps) enum ScreenId {
     Wifi,
     User,
     Sprinkler,
+    Schedule,
+    Zone,
 }
 
 type BoxedScreen = Box<dyn ScreenRouteFn<ScreenId>>;
@@ -196,6 +200,8 @@ impl ScreenRoute {
             ScreenId::Wifi               => Box::new(ScreenWifi::new()),
             ScreenId::User               => Box::new(ScreenUser::new()),
             ScreenId::Sprinkler          => Box::new(ScreenSprinkler::new()),
+            ScreenId::Schedule           => Box::new(ScreenSchedule::new()),
+            ScreenId::Zone               => Box::new(ScreenZone::new()),
         }
     }
 

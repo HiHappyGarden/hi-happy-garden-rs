@@ -17,3 +17,38 @@
  * with this program; if not, see <https://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
+
+use osal_rs::utils::Result;
+
+use crate::apps::screen_route::ScreenId;
+use crate::traits::screen::{Nav, ScreenRoute, ScreenRouteCtx};
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub(super) struct ScreenSchedule {
+    foo: usize,
+}
+
+impl ScreenRoute<ScreenId> for ScreenSchedule {
+
+    #[inline]
+    fn id(&self) -> ScreenId {
+        ScreenId::Schedule
+    }
+
+    fn draw(&mut self, ScreenRouteCtx{lcd: _, display_signal: _, rtc: _, ..}: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+
+        todo!("ScreenSchedule::draw not implemented yet");
+        // Ok(Nav::Stay)
+    }
+
+}
+
+impl ScreenSchedule {
+    pub(super) fn new() -> Self {
+        Self {
+            foo: 0,
+        }
+    }
+
+
+}

@@ -17,3 +17,38 @@
  * with this program; if not, see <https://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
+
+use osal_rs::utils::Result;
+
+use crate::apps::screen_route::ScreenId;
+use crate::traits::screen::{Nav, ScreenRoute, ScreenRouteCtx};
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub(super) struct ScreenZone {
+    foo: usize,
+}
+
+impl ScreenRoute<ScreenId> for ScreenZone {
+
+    #[inline]
+    fn id(&self) -> ScreenId {
+        ScreenId::Zone
+    }
+
+    fn draw(&mut self, ScreenRouteCtx{lcd: _, display_signal: _, rtc: _, ..}: &mut ScreenRouteCtx<'_>) -> Result<Nav<ScreenId>> {
+
+        todo!("ScreenZone::draw not implemented yet");
+        // Ok(Nav::Stay)
+    }
+
+}
+
+impl ScreenZone {
+    pub(super) fn new() -> Self {
+        Self {
+            foo: 0,
+        }
+    }
+
+
+}
