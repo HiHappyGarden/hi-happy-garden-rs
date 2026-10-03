@@ -45,7 +45,7 @@ const TAG: &str = "ZoneTests";
 const RELAYS: [ZoneRelay; 4] = [ZoneRelay::Relay0, ZoneRelay::Relay1, ZoneRelay::Relay2, ZoneRelay::Relay3];
 
 fn zones() -> [Zone; ZoneController::SIZE] {
-    unsafe { (*&raw const SHARED).zones }
+    unsafe { (*&raw const SHARED).0 }
 }
 
 fn zone(relay: ZoneRelay) -> Result<Zone> {
@@ -188,7 +188,7 @@ fn test_save_reload() -> Result<()> {
         let expected = zones();
         test_assert!(set(controller, "0,sv")?.is_empty());
         let reloaded: ZoneController = deserialize_file(unsafe { &*&raw const MUTEX }, TAG, FS_CONFIG_DIR, ZoneController::FILE_NAME)?;
-        test_assert_eq!(reloaded.zones, expected);
+        test_assert_eq!(reloaded.0, expected);
         Ok(())
     }))
 }

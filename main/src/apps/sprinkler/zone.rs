@@ -195,9 +195,7 @@ impl Zone {
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
-pub(in crate::apps) struct ZoneController {
-    zones: [Zone; ZoneController::SIZE]
-}
+pub(in crate::apps) struct ZoneController ([Zone; ZoneController::SIZE]);
 
 
 impl Initializable for ZoneController {
@@ -206,7 +204,7 @@ impl Initializable for ZoneController {
 
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
-        //*self = deserialize_file::<ZoneController>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, ZoneController::FILE_NAME)?;
+        *self = deserialize_file::<ZoneController>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, ZoneController::FILE_NAME)?;
 
         Ok(())
     }
@@ -226,7 +224,7 @@ impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
 
         let Zone{zone_relay, description: descr, weight, ..} = unsafe { &mut *&raw mut ZONE_TMP };
 
-        let zone = self.zones.iter_mut().find(|zone| zone.zone_relay == *zone_relay)
+        let zone = self.0.iter_mut().find(|zone| zone.zone_relay == *zone_relay)
             .ok_or((at_response, AtError::InvalidArgs))?;
         zone.weight = *weight;
         zone.description = *descr;
@@ -245,7 +243,7 @@ impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
         }
 
         let mut response = Bytes::<{Parser::CMD_SIZE}>::new();
-        for zone in self.zones.iter() {
+        for zone in self.0.iter() {
             response.format(format_args!("{},{},{}\r\n",
                 <ZoneRelay as Into<u8>>::into(zone.zone_relay), zone.weight, quoted!(zone.description.as_str())));
         }
@@ -271,7 +269,7 @@ impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
 
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
-        let zone = self.zones.iter().find(|zone| zone.zone_relay == zone_relay)
+        let zone = self.0.iter().find(|zone| zone.zone_relay == zone_relay)
             .ok_or((at_response, AtError::InvalidArgs))?;
 
         unsafe {
@@ -320,12 +318,12 @@ impl ZoneController {
     const FILE_NAME: &'static str = "zones.json";
 
     /// one zone per relay, description `"Relay N"` and weight = relay index
-    const DEFAULT: Self = Self { zones: [
+    const DEFAULT: Self = Self ([ 
         Zone::new_with_description(Relay0.as_str(), Relay0),
         Zone::new_with_description(Relay1.as_str(), Relay1),
         Zone::new_with_description(Relay2.as_str(), Relay2),
         Zone::new_with_description(Relay3.as_str(), Relay3)
-    ]};
+    ]);
 
     pub(in crate::apps) fn shared() -> &'static mut Self {
         unsafe {
@@ -350,10 +348,10 @@ impl ZoneController {
 
 
         let selects: [(Bytes<_>, bool); ZoneController::SIZE] = [
-            (Bytes::from_bytes(zone_controller.zones[0].description.as_ref()), false),
-            (Bytes::from_bytes(zone_controller.zones[1].description.as_ref()), false),
-            (Bytes::from_bytes(zone_controller.zones[2].description.as_ref()), false),
-            (Bytes::from_bytes(zone_controller.zones[3].description.as_ref()), false),
+            (Bytes::from_bytes(zone_controller.0[0].description.as_ref()), false),
+            (Bytes::from_bytes(zone_controller.0[1].description.as_ref()), false),
+            (Bytes::from_bytes(zone_controller.0[2].description.as_ref()), false),
+            (Bytes::from_bytes(zone_controller.0[3].description.as_ref()), false),
         ];
 
         ScreenSelections::<{ZoneController::SIZE}>::from(selects)
