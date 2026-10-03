@@ -36,12 +36,7 @@ use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
 use super::commons::Status;
 
-static mut SHARED: ScheduleController = ScheduleController { schedules: [
-    Schedule::new(),
-    Schedule::new(),
-    Schedule::new(),
-    Schedule::new()
-]};
+static mut SHARED: ScheduleController = ScheduleController::DEFAULT;
 
 
 static mut MUTEX: Option<RawMutex> = None;
@@ -222,6 +217,21 @@ impl Schedule {
         }
     }
 
+    pub(super) const fn new_with_description(description: &str) -> Self {
+        let src = description.as_bytes();
+        let mut array = [0u8; DISPLAY_INPUT_MAX_SIZE];
+        let mut i = 0usize;
+        while i < src.len() && i < DISPLAY_INPUT_MAX_SIZE {
+            array[i] = src[i];
+            i += 1;
+        }
+
+        Self {
+            description: Bytes(array),
+            ..Self::new()
+        }
+    }
+
     fn is_modified(tmp: &Self) -> bool {
         static EMPTY: Schedule = Schedule::new();
         EMPTY != *tmp 
@@ -281,9 +291,7 @@ impl Schedule {
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
-pub(in crate::apps) struct ScheduleController {
-    schedules: [Schedule; ScheduleController::SIZE]
-}
+pub(in crate::apps) struct ScheduleController ([Schedule; ScheduleController::SIZE]);
 
 
 impl Initializable for ScheduleController {
@@ -300,11 +308,7 @@ impl Initializable for ScheduleController {
 
 impl Default for ScheduleController {
     fn default() -> Self {
-        let mut ret = Self { schedules: [Schedule::new(); ScheduleController::SIZE] };
-        for (idx, Schedule{description: descr, ..}) in ret.schedules.iter_mut().enumerate() {
-            descr.format(format_args!("Schedule {idx}"));
-        }
-        ret
+        Self::DEFAULT
     }
 }
 
@@ -313,7 +317,7 @@ impl<'a> IntoIterator for &'a mut ScheduleController {
     type IntoIter = core::slice::IterMut<'a, Schedule>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.schedules.iter_mut()
+        self.0.iter_mut()
     }
 }
 
@@ -331,7 +335,7 @@ impl AtContext<{Parser::CMD_SIZE}> for ScheduleController {
 
         let (index, schedule_tmp) = unsafe { &mut *&raw mut SCHEDULE_TMP };
 
-        let schedule = self.schedules.get_mut(*index)
+        let schedule = self.0.get_mut(*index)
             .ok_or((at_response, AtError::InvalidArgs))?;
         *schedule = *schedule_tmp;
 
@@ -461,6 +465,14 @@ impl ScheduleController {
     pub(in crate::apps) const AT_CMD: &'static str = "AT+SCH";
     pub(in crate::apps) const AT_RESP: &'static str = "+SCH: ";
     const FILE_NAME: &'static str = "schedules.json";
+
+    const DEFAULT: Self = Self ([ 
+        Schedule::new_with_description("Schedule 0"),
+        Schedule::new_with_description("Schedule 1"),
+        Schedule::new_with_description("Schedule 2"),
+        Schedule::new_with_description("Schedule 3")
+    ]);
+
 
     pub(in crate::apps) fn shared() -> &'static mut Self {
         unsafe {

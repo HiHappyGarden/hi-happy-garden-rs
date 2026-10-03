@@ -44,7 +44,7 @@ use crate::tests::{TestStats, run_tests, test_assert, test_assert_eq};
 const TAG: &str = "ScheduleTests";
 
 fn schedule(idx: usize) -> Schedule {
-    unsafe { (*&raw const SHARED).schedules[idx] }
+    unsafe { (*&raw const SHARED).0[idx] }
 }
 
 fn reset_staging() {
@@ -168,10 +168,10 @@ fn test_exec_bad_index() -> Result<()> {
 
 fn test_save_reload() -> Result<()> {
     with_schedules_restored(|controller| logged(|| {
-        let expected = unsafe { (*&raw const SHARED).schedules };
+        let expected = unsafe { (*&raw const SHARED).0 };
         test_assert!(set(controller, "0,sv")?.is_empty());
         let reloaded: ScheduleController = deserialize_file(unsafe { &*&raw const MUTEX }, TAG, FS_CONFIG_DIR, ScheduleController::FILE_NAME)?;
-        test_assert_eq!(reloaded.schedules, expected);
+        test_assert_eq!(reloaded.0, expected);
         Ok(())
     }))
 }
