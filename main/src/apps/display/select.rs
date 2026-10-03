@@ -29,7 +29,7 @@ use crate::apps::signals::display::DisplayFlag;
 use crate::assets::font_8x8::FONT_8X8;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
-use crate::traits::screen::{Answer, Screen, ScreenParam, ScreenSelections, screen_selections_new};
+use crate::traits::screen::{Answer, Screen, ScreenParam, ScreenSelections, new_screen_selections};
 
 static NO_SELECTIONS: &str = "No selections available";
 
@@ -58,7 +58,7 @@ impl<const N: usize> Screen<ScreenSelections<N>, u16, N> for Select<N> {
                 }
                 _ => {
                     self.index = 0;
-                    self.selections = Some(screen_selections_new());
+                    self.selections = Some(new_screen_selections());
                 }
             }
         }

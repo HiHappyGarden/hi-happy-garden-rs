@@ -102,6 +102,6 @@ pub trait ScreenRoute {
     fn requires_auth(&self) -> bool { true }
 }
 
-pub const fn screen_selections_new<const N_SELECTS: usize>() -> ScreenSelections<N_SELECTS> {
+pub const fn new_screen_selections<const N_SELECTS: usize>() -> ScreenSelections<N_SELECTS> {
     [(Bytes::new(), false); N_SELECTS]
 }

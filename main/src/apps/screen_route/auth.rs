@@ -22,7 +22,7 @@ use osal_rs::utils::Bytes;
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::drivers::wifi::Auth;
-use crate::traits::screen::{ScreenSelections, screen_selections_new};
+use crate::traits::screen::{ScreenSelections, new_screen_selections};
 
 pub(super) fn auth_as_bytes(auth: Auth) -> Bytes<DISPLAY_INPUT_MAX_SIZE> {
     match auth {
@@ -37,7 +37,7 @@ pub(super) fn auth_as_bytes(auth: Auth) -> Bytes<DISPLAY_INPUT_MAX_SIZE> {
 }
 
 pub(super) fn fill_auth_selections(selected: Auth) -> ScreenSelections {
-    let mut selections = screen_selections_new();
+    let mut selections = new_screen_selections();
     selections[0] = (auth_as_bytes(Auth::Open), selected == Auth::Open);
     selections[1] = (auth_as_bytes(Auth::Wpa), selected == Auth::Wpa);
     selections[2] = (auth_as_bytes(Auth::Wpa2), selected == Auth::Wpa2);
