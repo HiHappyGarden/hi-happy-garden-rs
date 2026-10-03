@@ -5,8 +5,9 @@ Stato al 2026-10-03. I bug sono emersi durante la scrittura della suite di test 
 passerà quando il bug sarà corretto. I bug marcati *senza test* farebbero andare in panic
 la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da un test.
 
-> I test non sono ancora stati eseguiti sulla scheda: l'esito "fallisce" è dedotto
-> dalla lettura del codice.
+> **Esecuzione su HW del 2026-10-03 (Pico 2 W):** 137 test passati, 11 falliti. Gli 11
+> fallimenti corrispondono ai bug 1–7, 11, 12 e 17 di questo documento: nessun altro
+> test fallisce. La suite osal-rs passa per intero.
 
 ## Riepilogo
 
@@ -28,6 +29,7 @@ la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da
 | 14 | Bassa   | Utils | Fallback di `deserialize_file` legge un file aperto in sola scrittura | *senza test* |
 | 15 | Bassa   | Config | `AT+DST` non valida i range | *senza test* |
 | 16 | Bassa   | Build | Documentazione di `HHG_DEFAULT_WIFI_AUTH` non coerente con `Auth` | *senza test* |
+| 17 | Media   | Sprinkler | `AT+ZN?` restituisce solo l'ultima zona | `ZoneTests::test_query` |
 
 ---
 
@@ -226,6 +228,37 @@ La descrizione dice `0=Open,1=WPA,2=WPA2,3=WPA2-Mixed`, ma `drivers::wifi::Auth`
 `0=Open,1=Web,2=Wpa,3=Wpa2,4=Wpa2Mixed,5=Wpa3,6=Wpa2Wpa3`. Con il default `3` si ottiene
 WPA2, non WPA2-Mixed come dice la documentazione.
 
+## 17. `AT+ZN?` restituisce solo l'ultima zona
+
+**File:** [main/src/apps/sprinkler/zone.rs:241](../main/src/apps/sprinkler/zone.rs#L241)
+
+La query chiama `response.format(...)` per ogni zona dentro il ciclo, ma `Bytes::format`
+svuota il buffer prima di scrivere: della risposta resta solo l'ultima riga. Trovato
+eseguendo la suite su HW (`"0,0,\"\"\r\n"` invece di 4 righe).
+
+**Correzione proposta:** scrivere le righe in coda (`write!(response, ...)` tramite
+`core::fmt::Write`, oppure formattare ogni riga in un buffer temporaneo e usare
+`append_as_sync_str`). Attenzione alla dimensione: 4 righe con descrizioni di
+`DISPLAY_INPUT_MAX_SIZE` caratteri possono superare `Parser::CMD_SIZE` (96 byte).
+
+---
+
+## Risolti
+
+- **osal-rs: `TaskStatus` non allineata a `TaskStatus_t`.** La struttura Rust era di
+  36 byte, quella C di 48 (`pxTopOfStack`/`pxEndOfStack` con
+  `configRECORD_STACK_HIGH_ADDRESS=1`, `uxCoreAffinityMask` in SMP). Di conseguenza
+  `System::get_all_thread()` scriveva oltre il buffer nell'heap, `vTaskGetInfo` oltre la
+  variabile sullo stack, e i campi dal secondo task in poi venivano letti sfasati.
+  Ora `osal-rs-build` legge `FreeRTOSConfig.h` ed emette i cfg
+  `freertos_record_stack_high_address` / `freertos_core_affinity`.
+- **Build: `FREERTOS_CONFIG_PATH` non arrivava a cargo.** `CARGO_BUILD_FLAGS` era definito
+  ma non usato nel comando `cargo build`, quindi osal-rs cercava `inc/FreeRTOSConfig.h`
+  (inesistente). Ora la variabile è passata nell'ambiente del comando e
+  `FreeRTOSConfig.h` è tra le dipendenze del target Rust.
+- **osal-rs-tests: `test_system_thread_metadata`.** Pretendeva priorità > 0 per tutti i
+  task, ma i task idle (`IDLE0`/`IDLE1`) girano a `tskIDLE_PRIORITY = 0`.
+
 ---
 
 ## Note non classificate come bug
@@ -236,3 +269,17 @@ WPA2, non WPA2-Mixed come dice la documentazione.
 - `AppMain::check_config` ([main.rs:132](../main/src/apps/main.rs#L132)) lascia la FSM ferma in
   `CheckConfig` finché il seriale è vuoto. Probabilmente è voluto (lo imposta il wizard), da confermare.
 - `Parser::commands` crea più `&mut` sullo stesso `Config::shared()` (aliasing già noto, refactor in corso).
+- **Core 1 fermo nella bootrom (non riprodotto).** Durante la prima esecuzione su HW il core 1
+  era rimasto nella bootrom (PC=0xda, il ciclo in cui aspetta di essere avviato) mentre
+  FreeRTOS gli aveva già assegnato il task dei test: sulla seriale si vedeva solo il banner.
+  Era appena stata chiusa una sessione Cortex-Debug e c'erano stati reset inviati al suo
+  openocd. In seguito il problema non si è più presentato: 15 `reset run` consecutivi, il
+  vecchio comando `program ... verify reset exit`, sessione Cortex-Debug chiusa normalmente
+  e con `kill -9`. Ogni volta entrambi i core eseguono FreeRTOS. Causa non identificata. Il
+  task "Flash" ora usa `init; reset halt; program ... verify; reset halt; resume; exit`
+  (innocuo, ma non dimostrato necessario).
+- **"Run Project" (`picotool load -fx`)** non funziona con questo setup: sull'USB è visibile
+  solo la Debug Probe, e il firmware non espone l'interfaccia di reset USB
+  (`pico_enable_stdio_usb 0`), quindi `-f` non può riavviare la scheda in BOOTSEL.
+- I sorgenti di `osal-rs-tests` non sono tra le dipendenze CMake del target Rust: una
+  modifica lì non ricompila il firmware finché non si tocca un file tracciato.
