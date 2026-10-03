@@ -36,6 +36,7 @@ use crate::apps::parser::{Parser, at_cmd_response};
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::apps::utils::{deserialize_file, serialize_file};
 use crate::drivers::platform::{FS_CONFIG_DIR, GpioPeripheral};
+use crate::traits::screen::ScreenSelections;
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
 use super::commons::Status;
@@ -313,6 +314,25 @@ impl ZoneController {
 
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         unsafe { &mut *&raw mut SHARED }
+    }
+
+    pub(in crate::apps) fn new_selections() -> ScreenSelections<{ZoneController::SIZE}> {
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+
+        let zone_controller = unsafe {
+            &mut *&raw mut SHARED
+        };
+
+
+        let selects: [(Bytes<_>, bool); ZoneController::SIZE] = [
+            (Bytes::from_bytes(zone_controller.zones[0].description.as_ref()), false),
+            (Bytes::from_bytes(zone_controller.zones[1].description.as_ref()), false),
+            (Bytes::from_bytes(zone_controller.zones[2].description.as_ref()), false),
+            (Bytes::from_bytes(zone_controller.zones[3].description.as_ref()), false),
+        ];
+
+        ScreenSelections::<{ZoneController::SIZE}>::from(selects)
+
     }
 
 }

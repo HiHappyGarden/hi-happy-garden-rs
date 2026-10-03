@@ -18,36 +18,53 @@
  *
  ***************************************************************************/
 
-use osal_rs::utils::Result;
+use osal_rs::utils::{Bytes, Result};
 
-use crate::apps::display::text::Text;
+use crate::apps::display::select::Select;
+use crate::apps::DISPLAY_INPUT_MAX_SIZE;
+use crate::traits::screen::{Answer, Screen, ScreenParam};
+use crate::apps::sprinkler::zone::ZoneController;
 use crate::traits::screen::{Nav, ScreenRoute, ScreenRouteCtx};
 
 #[derive(Clone, PartialEq, Eq)]
-pub(super) struct ScreenZone {
-    foo: Text,
-}
+pub(super) struct ScreenZone (Select<{ZoneController::SIZE}>);
 
 impl ScreenRoute for ScreenZone {
     fn id() -> &'static str {
         "ScreenZone"
     }
 
-    fn renderize(&mut self, ScreenRouteCtx{lcd: _, display_signal: _, rtc: _, ..}: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
+    fn renderize(&mut self, ScreenRouteCtx{lcd, display_signal, rtc, ..}: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
 
-        //todo!("ScreenZone::draw not implemented yet");
+            match self.0.draw(
+                    *lcd,
+                    display_signal,
+                    rtc,
+                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Select an option"),
+                    ScreenParam::Selects(ZoneController::new_selections())
+                )? {
+                    Answer::Pending => Ok(Nav::Stay),
+                    Answer::Confirmed(_param) => {
+                        // match param {
+                        //     ScreenParam::Selects(selected) => {
+
+                        //         Ok(Nav::Push{id:screen.0, screen:screen.1})
+                        //     }
+                        //     _ => Ok(Nav::Stay)
+                        // }
+
+                        todo!("Handle confirmed selection for ScreenZone")
+                    }
+                    Answer::Cancelled => Ok(Nav::Pop),
+                }
         
-        Ok(Nav::Stay)
     }
 
 }
 
 impl ScreenZone {
     pub(super) fn new() -> Self {
-        Self {
-            foo: Text::new(),
-        }
+        Self(Select::new())
     }
-
 
 }
