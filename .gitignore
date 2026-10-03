@@ -46,3 +46,4 @@ build-host/cJSON
 
 .claude
 *old
+.~lock.*
