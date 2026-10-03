@@ -90,6 +90,11 @@ un'ora all'anno l'ora locale è sbagliata e i programmi in quella fascia scattan
 **Correzione proposta:** confrontare la fine con `end_hour - 1`, oppure documentare che
 `end_hour` è in ora solare e portare il default a 2. L'inizio (`start_hour=2`, in ora solare) è già corretto.
 
+**Output su HW (2026-10-03):**
+```
+[DateTimeTests] test_dst_eu_fall_back FAILED: Unhandled error owned: src/drivers/date_time/tests.rs:260: DST still active after switch: 2024-10-27 03:30:00 (UTC+01:00) DST
+```
+
 ## 8. `file_read` va in panic su errore littlefs
 
 **File:** [main/src/drivers/pico/flash.rs:129](../main/src/drivers/pico/flash.rs#L129)
@@ -139,6 +144,15 @@ giovedì. Su questo dispositivo è irrilevante (l'RTC parte dal 2020), ma `DateT
 di supportare date precedenti al 1970.
 
 **Correzione proposta:** `timestamp.div_euclid(Self::SECONDS_PER_DAY)`.
+
+**Output su HW (2026-10-03):**
+```
+[DateTimeTests] test_negative_timestamp FAILED: Unhandled error owned:
+```
+Il messaggio dopo `Unhandled error owned:` è vuoto, anche se `test_assert_eq!` produce sempre
+`file:riga: ...`. Quindi l'assert che fallisce (wday atteso a riga 129, oppure le righe 126/127)
+non è identificato con certezza. Il testo potrebbe essersi perso sulla seriale. Va verificato
+alla prossima esecuzione, prima di correggere.
 
 ## 13. Errore di scrittura littlefs ignorato
 
