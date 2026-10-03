@@ -28,6 +28,9 @@ use crate::define_signal;
 
 define_signal!(HardwareErrorSignal, HARDWARE_ERROR_SIGNAL);
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 #[derive(Debug, Clone, Copy)]
 pub enum HardwareErrorFlag {
     Filesystem = 0x01,

@@ -48,6 +48,9 @@ pub type FileBytes = Bytes<256>;
 
 const APP_TAG: &str = "Filesystem";
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 const KEY_SIZE: usize = 32;
 const IV_SIZE: usize = 16;
 

@@ -33,16 +33,16 @@ mod traits;
 
 const APP_TAG: &str = "main";
 
+mod ffi {
+    unsafe extern "C" {
+        pub(crate) fn print_systick_status();
+
+        pub(crate) fn get_g_setup_called() -> u32;
+    }
+}
+
 #[cfg(not(feature = "tests"))]
 mod app {
-
-    mod ffi {
-        unsafe extern "C" {
-            pub(super) fn print_systick_status();
-
-            pub(super) fn get_g_setup_called() -> u32;
-        }
-    }
 
     use alloc::boxed::Box;
 
@@ -54,7 +54,7 @@ mod app {
     use crate::APP_TAG;
     use crate::drivers::platform::Hardware;
     use crate::traits::state::Initializable;
-    use ffi::{get_g_setup_called, print_systick_status};
+    use crate::ffi::{get_g_setup_called, print_systick_status};
     use crate::apps::AppMain;
 
     pub(super) const THREAD_NAME: &str = "main_thr";
@@ -175,6 +175,21 @@ pub unsafe extern "C" fn start() {
 }
 
 
+/// On-target firmware test suite.
+///
+/// `cargo test` cannot run on a `no_std` target, so the suite is linked into
+/// the firmware behind the `tests` feature (CMake `-DHHG_TESTS=ON`) and runs
+/// on the real board in place of `AppMain`: first the osal-rs suite, then the
+/// firmware tests of `drivers` and `apps`.
+///
+/// Every module under test owns a child `tests` module (the same layout as a
+/// `#[cfg(test)] mod tests`), so the tests can reach `pub(in ...)` and private
+/// items without widening their visibility.
+///
+/// A test is a plain `fn() -> Result<()>`: the [`test_assert!`] /
+/// [`test_assert_eq!`] macros return an `Err` instead of panicking, so a
+/// failing test is logged and counted while the rest of the suite keeps
+/// running — reflashing the board for each failure would be far too slow.
 #[cfg(feature = "tests")]
 mod tests {
 
@@ -183,17 +198,141 @@ mod tests {
     use osal_rs::os::types::{StackType, TickType};
     use osal_rs::os::{System, SystemFn, ThreadFn, ThreadParam};
     use osal_rs::utils::Result;
+    use osal_rs::{log_error, log_fatal, log_info};
 
     use crate::APP_TAG;
+    use crate::drivers::platform::Hardware;
+    use crate::ffi::get_g_setup_called;
+    use crate::traits::state::Initializable;
 
     pub(super) const TEST_THREAD_NAME: &str = "test_thr";
     pub(super) const TEST_STACK_SIZE: StackType = 1_024 * 8; // 8KB stack
+
+    static mut HARDWARE: Option<Hardware> = None;
+
+    /// Returns `Err` with file/line and the failed condition when `$cond` is false.
+    macro_rules! test_assert {
+        ($cond:expr) => {
+            if !($cond) {
+                return Err(osal_rs::utils::Error::UnhandledOwned(alloc::format!(
+                    "{}:{}: assertion failed: {}", file!(), line!(), stringify!($cond)
+                )));
+            }
+        };
+        ($cond:expr, $($arg:tt)+) => {
+            if !($cond) {
+                return Err(osal_rs::utils::Error::UnhandledOwned(alloc::format!(
+                    "{}:{}: {}", file!(), line!(), format_args!($($arg)+)
+                )));
+            }
+        };
+    }
+    pub(crate) use test_assert;
+
+    /// Returns `Err` with file/line and both values when `$left != $right`.
+    macro_rules! test_assert_eq {
+        ($left:expr, $right:expr) => {
+            match (&$left, &$right) {
+                (left, right) => {
+                    if *left != *right {
+                        return Err(osal_rs::utils::Error::UnhandledOwned(alloc::format!(
+                            "{}:{}: {} != {} ({:?} != {:?})",
+                            file!(), line!(), stringify!($left), stringify!($right), left, right
+                        )));
+                    }
+                }
+            }
+        };
+        ($left:expr, $right:expr, $($arg:tt)+) => {
+            match (&$left, &$right) {
+                (left, right) => {
+                    if *left != *right {
+                        return Err(osal_rs::utils::Error::UnhandledOwned(alloc::format!(
+                            "{}:{}: {} ({:?} != {:?})",
+                            file!(), line!(), format_args!($($arg)+), left, right
+                        )));
+                    }
+                }
+            }
+        };
+    }
+    pub(crate) use test_assert_eq;
+
+    /// Runs each test function, logging and recording its outcome in `$stats`.
+    ///
+    /// ```ignore
+    /// run_tests!(TAG, stats; test_a, test_b);
+    /// ```
+    macro_rules! run_tests {
+        ($tag:expr, $stats:expr; $($test:ident),+ $(,)?) => {
+            osal_rs::log_info!($tag, "========== Running {} ==========", $tag);
+            $( $stats.record($tag, stringify!($test), $test()); )+
+        };
+    }
+    pub(crate) use run_tests;
+
+    /// Pass/fail counters of the whole firmware suite.
+    #[derive(Debug, Default)]
+    pub(crate) struct TestStats {
+        pub(crate) passed: u32,
+        pub(crate) failed: u32,
+    }
+
+    impl TestStats {
+        pub(crate) fn record(&mut self, tag: &str, name: &str, result: Result<()>) {
+            match result {
+                Ok(()) => {
+                    log_info!(tag, "{name} PASSED");
+                    self.passed += 1;
+                }
+                Err(e) => {
+                    log_error!(tag, "{name} FAILED: {e}");
+                    self.failed += 1;
+                }
+            }
+        }
+    }
+
+    /// The board initialised by [`test_thread`], for the tests that drive real peripherals.
+    pub(crate) fn hardware() -> &'static mut Hardware {
+        match unsafe { &mut *&raw mut HARDWARE } {
+            Some(hardware) => hardware,
+            None => panic!("Hardware not initialized"),
+        }
+    }
 
     pub(super) fn test_thread(_thread: Box<dyn ThreadFn>, _: Option<ThreadParam>) -> Result<ThreadParam> {
         match osal_rs_tests::freertos::run_all_tests() {
             Ok(_) => osal_rs::log_info!(APP_TAG, "All tests passed!"),
             Err(e) => panic!("Tests failed with error: {:?}", e),
         };
+
+        // Same handshake as the application main thread: the C side must
+        // have finished the board setup before the drivers touch it.
+        while unsafe { get_g_setup_called() } != 1 {}
+
+        unsafe {
+            HARDWARE = Some(Hardware::new());
+        }
+
+        if let Err(err) = hardware().init() {
+            log_fatal!(APP_TAG, "Hardware error: {:?}", err);
+            panic!("Hardware initialization failed");
+        }
+
+        let mut stats = TestStats::default();
+
+        crate::drivers::run_all_tests(&mut stats);
+        crate::apps::run_all_tests(&mut stats);
+
+        log_info!(APP_TAG, "========================================");
+        if stats.failed == 0 {
+            log_info!(APP_TAG, "   FW tests PASSED: {} passed, 0 failed", stats.passed);
+        } else {
+            log_error!(APP_TAG, "   FW tests FAILED: {} passed, {} failed", stats.passed, stats.failed);
+        }
+        log_info!(APP_TAG, "   heap_free:{}", System::get_free_heap_size());
+        log_info!(APP_TAG, "========================================");
 
         loop {
             System::delay(TickType::MAX);

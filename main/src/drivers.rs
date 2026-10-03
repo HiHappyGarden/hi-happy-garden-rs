@@ -34,3 +34,19 @@ pub mod platform {
     pub const RTC_MINIMUM_DATE: i64 = crate::drivers::rtc::RTC::MINIMUM_DATE;    
 }
 
+
+/// Runs the on-target driver tests, see `crate::tests`.
+///
+/// Board health first (a failing peripheral explains the failures that
+/// follow), then pure logic, then the tests that drive real peripherals.
+#[cfg(feature = "tests")]
+pub(crate) fn run_all_tests(stats: &mut crate::tests::TestStats) {
+    error::tests::run_all_tests(stats);
+    date_time::tests::run_all_tests(stats);
+    encrypt::tests::run_all_tests(stats);
+    filesystem::tests::run_all_tests(stats);
+    i2c::tests::run_all_tests(stats);
+    rtc::tests::run_all_tests(stats);
+    gpio::tests::run_all_tests(stats);
+    relays::tests::run_all_tests(stats);
+}

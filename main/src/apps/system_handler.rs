@@ -32,6 +32,9 @@ use crate::traits::signal::Signal;
 
 static mut SYSTEM_HANDLER: SystemHandler = SystemHandler;
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 pub(in crate::apps) struct SystemHandler;
     
 impl AtContext<{Parser::CMD_SIZE}> for SystemHandler {

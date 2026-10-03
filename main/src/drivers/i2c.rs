@@ -33,6 +33,9 @@ use crate::drivers::platform::I2C_FN;
 
 const APP_TAG: &str = "I2C";
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 #[allow(unused)]
 pub(in crate::drivers) struct I2CFn {
     pub(in crate::drivers) init: fn(u8, u32) -> Result<*mut c_void>, //i2c_instance, baudrate

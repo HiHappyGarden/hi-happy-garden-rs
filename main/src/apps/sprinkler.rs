@@ -35,6 +35,9 @@ mod commons;
 pub(in crate::apps) mod zone;
 pub(in crate::apps) mod schedule;
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 const APP_TAG: &str = "AppSprinkler";
 
 static DISBURSEMENT_IN_PROGRESS: AtomicBool = AtomicBool::new(false);

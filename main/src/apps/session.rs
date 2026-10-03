@@ -37,6 +37,9 @@ use crate::apps::signals::status::{StatusSignal, StatusFlag};
 
 const APP_TAG: &str = "AppSession";
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 /// Temp user data for update local user
 static mut USER_LOCAL: User = User::new();
 

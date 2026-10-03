@@ -51,6 +51,9 @@ static mut SCHEDULE_TMP: (usize, Schedule) = (0, Schedule::new());
 
 const APP_TAG: &str = "SchedulerController";
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
  #[allow(dead_code)]
  #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(in crate::apps) enum Day {

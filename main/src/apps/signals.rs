@@ -22,4 +22,7 @@ pub(super) mod display;
 pub(super) mod error;
 pub(super) mod status;
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 

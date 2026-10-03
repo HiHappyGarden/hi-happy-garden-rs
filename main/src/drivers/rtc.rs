@@ -28,6 +28,9 @@ use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "RTC";
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 #[derive(Clone, Debug)]
 pub(in crate::drivers) struct RTCFn {
     pub(in crate::drivers) init: fn (&mut I2C<{I2C0_INSTANCE}, {I2C_BAUDRATE}>) -> Result<()>,

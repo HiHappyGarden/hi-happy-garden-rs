@@ -37,6 +37,9 @@ use crate::drivers::platform::{GPIO_CONFIG_SIZE, GPIO_CONFIGS, GPIO_FN};
 
 const APP_TAG: &str = "GPIO";
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 //// Interrupt Configuration ////
 
 pub type InterruptCallback = extern "C" fn();

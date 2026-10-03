@@ -44,6 +44,9 @@ use crate::traits::state::Initializable;
 use crate::traits::wifi::SetOnWifiChangeStatus;
 
 const APP_TAG: &str = "AppMain";
+
+#[cfg(feature = "tests")]
+pub(super) mod tests;
 const THREAD_NAME: &str = "app_main_thr";
 const STACK_SIZE: StackType = 1_024 * 2; // 2KB stack size for the main thread
 const TICK_INTERVAL_MS: u16 = 100;

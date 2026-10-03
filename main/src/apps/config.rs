@@ -52,6 +52,9 @@ use defaults::*;
 
 const APP_TAG: &str = "AppConfig";
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 pub(super) static mut MUTEX: Option<RawMutex> = None;
 
 

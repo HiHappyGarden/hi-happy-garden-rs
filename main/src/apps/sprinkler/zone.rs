@@ -56,6 +56,9 @@ static mut ZONE_TMP: Zone = Zone::new(Relay0);
 
 const APP_TAG: &str = "ZoneController";
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 
 
 #[repr(u8)]
