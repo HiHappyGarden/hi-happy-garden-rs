@@ -8,14 +8,14 @@ la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da
 > **Esecuzione su HW del 2026-10-03 (Pico 2 W):** 137 test passati, 11 falliti. Gli 11
 > fallimenti corrispondono ai bug 1–7, 11, 12 e 17 di questo documento: nessun altro
 > test fallisce. La suite osal-rs passa per intero.
+>
+> **Aggiornamento 2026-10-03:** i bug 1, 2 e 3 sono corretti nel codice (il firmware compila)
+> e spostati in [Risolti](#risolti). I relativi test non sono ancora stati rieseguiti su HW.
 
 ## Riepilogo
 
 | #  | Gravità | Area | Titolo | Test |
 |----|---------|------|--------|------|
-| 1  | Alta    | Sprinkler | Maschera dei mesi spostata di uno | `SprinklerTests::test_months` |
-| 2  | Alta    | Sprinkler | I programmi `UNACTIVE` sono eseguibili | `SprinklerTests::test_inactive_not_executable` |
-| 3  | Alta    | Sprinkler | Zone di default tutte su `Relay0`, senza descrizione | `ZoneTests::test_zones_cover_all_relays`, `test_zones_have_description` |
 | 4  | Media   | Sprinkler | `AT+ZN`: le modifiche in staging si perdono | `ZoneTests::test_set_many_then_exec` |
 | 5  | Media   | Sprinkler | `AT+ZN` accetta un relè inesistente e modifica la zona 0 | `ZoneTests::test_set_unknown_relay` |
 | 6  | Media   | Sprinkler | `AT+SCH` accetta valori fuori range | `ScheduleTests::test_set_out_of_range` |
@@ -33,61 +33,9 @@ la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da
 
 ---
 
-## 1. Maschera dei mesi spostata di uno
-
-**File:** [main/src/apps/sprinkler/schedule.rs:127](../main/src/apps/sprinkler/schedule.rs#L127), usata in `executable()` alla riga 230.
-
-`From<Month> for u8` converte `January → 0 … December → 11`, mentre `DateTime::month`
-va da 1 a 12. Il confronto `<Month as Into<u8>>::into(*m) == now.month` è quindi
-spostato di un mese.
-
-**Effetto:** un programma impostato per gennaio (`mo = 0x0001`) gira a febbraio; uno per
-dicembre non gira mai.
-
-**Correzione proposta:** far partire la conversione da 1 (`January => 1 … December => 12`),
-oppure confrontare con `now.month - 1`. La prima opzione è più leggibile; verificare che
-`u8::from(Month)` non sia usato altrove con la semantica 0-based.
-
-## 2. I programmi `UNACTIVE` sono eseguibili
-
-**File:** [main/src/apps/sprinkler/schedule.rs:230](../main/src/apps/sprinkler/schedule.rs#L230)
-
-`executable()` scarta solo lo stato `RUN`. Un programma disattivato, o mai configurato
-(`Schedule::new()`: tutti i campi `NOT_SET` = "ogni minuto"), risulta eseguibile a qualunque ora.
-
-**Effetto:** al primo tick `Ready` della FSM, `Sprinkler::check` mette il programma 0 di
-fabbrica in `RUN` e imposta `DISBURSEMENT_IN_PROGRESS`, che non viene mai azzerato. Oggi
-`RUN` non pilota ancora i relè; quando lo farà, questo bug aprirà le valvole.
-
-**Correzione proposta:** in testa a `executable()` restituire `false` se
-`self.status != Status::ACTIVE`.
-
-## 3. Zone di default tutte su `Relay0`, senza descrizione
-
-**File:** [main/src/apps/sprinkler/zone.rs:201](../main/src/apps/sprinkler/zone.rs#L201)
-(stesso schema in [schedule.rs:304](../main/src/apps/sprinkler/schedule.rs#L304))
-
-`ZoneController::init` prepara `SHARED` (relè, peso, descrizione) e poi lo sovrascrive con
-`deserialize_file`. Se `/etc/zones.json` non esiste, il valore restituito è
-`ZoneController::default()`, cioè `#[derive(Default)]`: 4 zone con `zone_relay = Relay0`
-e descrizione vuota. Il default viene anche salvato su flash, quindi il problema
-sopravvive ai riavvii.
-
-Per gli schedule succede lo stesso con le descrizioni `"Schedule N"`.
-
-In più, alla riga 194 `descr.push((*zone_relay).into())` inserisce il **byte** 0..3 (un
-carattere di controllo) e non il testo `"Relay N"`.
-
-**Effetto:** i relè 1–3 non sono raggiungibili da nessuna zona; `AT+ZN=1,...` risponde `InvalidArgs`.
-
-**Correzione proposta:** implementare `Default` a mano per `ZoneController` (zone
-`Relay0..Relay3` con descrizione `"Relay N"`, peso = indice) e per `ScheduleController`;
-eliminare la preparazione di `SHARED` in `init`. Sulle schede già inizializzate serve una
-migrazione, oppure cancellare `zones.json`.
-
 ## 4. `AT+ZN`: le modifiche in staging si perdono
 
-**File:** [main/src/apps/sprinkler/zone.rs:270](../main/src/apps/sprinkler/zone.rs#L270)
+**File:** [main/src/apps/sprinkler/zone.rs:290](../main/src/apps/sprinkler/zone.rs#L290)
 
 Ogni `set` esegue `ZONE_TMP = *zone`, ricopiando la zona salvata sopra l'area di staging.
 
@@ -106,8 +54,8 @@ riguarda un altro relè.
 
 ## 5. `AT+ZN` accetta un relè inesistente
 
-**File:** [main/src/apps/sprinkler/zone.rs:261](../main/src/apps/sprinkler/zone.rs#L261)
-(stesso schema in [schedule.rs:434](../main/src/apps/sprinkler/schedule.rs#L434) per `zn`)
+**File:** [main/src/apps/sprinkler/zone.rs:281](../main/src/apps/sprinkler/zone.rs#L281)
+(stesso schema in [schedule.rs:432](../main/src/apps/sprinkler/schedule.rs#L432) per `zn`)
 
 `ZoneRelay::from(u8)` mappa ogni valore sconosciuto su `Relay0`, quindi `AT+ZN=7,ds,X`
 modifica la zona 0 invece di rispondere errore.
@@ -117,7 +65,7 @@ punti in cui il valore arriva dall'esterno (AT, JSON).
 
 ## 6. `AT+SCH` accetta valori fuori range
 
-**File:** [main/src/apps/sprinkler/schedule.rs:389](../main/src/apps/sprinkler/schedule.rs#L389)
+**File:** [main/src/apps/sprinkler/schedule.rs:390](../main/src/apps/sprinkler/schedule.rs#L390)
 
 `set` controlla solo che il valore stia nel tipo (`u8`/`u16`). Vengono quindi accettati
 `mi,61`, `hr,25`, `dy,128`, `mo,4096`, `st,9` e il relè 7 in `zn`. Sono valori che lo
@@ -230,7 +178,7 @@ WPA2, non WPA2-Mixed come dice la documentazione.
 
 ## 17. `AT+ZN?` restituisce solo l'ultima zona
 
-**File:** [main/src/apps/sprinkler/zone.rs:241](../main/src/apps/sprinkler/zone.rs#L241)
+**File:** [main/src/apps/sprinkler/zone.rs:261](../main/src/apps/sprinkler/zone.rs#L261)
 
 La query chiama `response.format(...)` per ogni zona dentro il ciclo, ma `Bytes::format`
 svuota il buffer prima di scrivere: della risposta resta solo l'ultima riga. Trovato
@@ -245,6 +193,23 @@ eseguendo la suite su HW (`"0,0,\"\"\r\n"` invece di 4 righe).
 
 ## Risolti
 
+- **#1 Maschera dei mesi spostata di uno** (Sprinkler, alta). `From<Month> for u8` ora
+  restituisce 1..12, come `DateTime::month`; `Month::map` usa il bit `idx - 1`.
+  Test: `SprinklerTests::test_months`, *da rieseguire su HW*.
+- **#2 Programmi `UNACTIVE` eseguibili** (Sprinkler, alta). `executable()` ora restituisce
+  `false` se lo stato non è `ACTIVE`. Test: `SprinklerTests::test_inactive_not_executable`,
+  *da rieseguire su HW*. Resta aperto un aspetto collegato: `Sprinkler::check` mette il
+  programma in `RUN` e nessuno lo riporta ad `ACTIVE` né azzera `DISBURSEMENT_IN_PROGRESS`.
+  Va gestito quando si implementa l'erogazione.
+- **#3 Zone di default tutte su `Relay0`, senza descrizione** (Sprinkler, alta).
+  `ZoneController` e `ScheduleController` hanno ora un `Default` scritto a mano: zone
+  `Relay0..Relay3` con descrizione `"Relay N"` e peso = indice, schedule con descrizione
+  `"Schedule N"`. La preparazione di `SHARED` in `init` è stata rimossa. Test:
+  `ZoneTests::test_zones_cover_all_relays`, `test_zones_have_description`, *da rieseguire su HW*.
+  Sulle schede già inizializzate bisogna cancellare `zones.json`/`schedules.json`.
+  **Attenzione:** al momento in `ZoneController::init` la chiamata a `deserialize_file` è
+  commentata e in `Hardware::init_fs` è attivo `remove_recursive("/")`: entrambe le modifiche
+  vanno ripristinate prima del commit.
 - **osal-rs: `TaskStatus` non allineata a `TaskStatus_t`.** La struttura Rust era di
   36 byte, quella C di 48 (`pxTopOfStack`/`pxEndOfStack` con
   `configRECORD_STACK_HIGH_ADDRESS=1`, `uxCoreAffinityMask` in SMP). Di conseguenza

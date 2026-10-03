@@ -42,12 +42,7 @@ use crate::traits::state::Initializable;
 use super::commons::Status;
 use ZoneRelay::*;
 
-static mut SHARED: ZoneController = ZoneController { zones: [
-    Zone::new(Relay0),
-    Zone::new(Relay1),
-    Zone::new(Relay2),
-    Zone::new(Relay3)
-]};
+static mut SHARED: ZoneController = ZoneController::DEFAULT;
 
 static mut MUTEX: Option<RawMutex> = None;
 
@@ -62,23 +57,28 @@ pub(super) mod tests;
 
 
 #[repr(u8)]
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(in crate::apps) enum ZoneRelay {
-    #[default]
     Relay0,
     Relay1,
     Relay2,
     Relay3,
 }
 
-impl From<ZoneRelay> for &str {
-    fn from(value: ZoneRelay) -> Self {
-        match value {
+impl ZoneRelay {
+    pub(in crate::apps) const fn as_str(self) -> &'static str {
+        match self {
             Relay0 => "Relay 0",
             Relay1 => "Relay 1",
             Relay2 => "Relay 2",
             Relay3 => "Relay 3",
         }
+    }
+}
+
+impl From<ZoneRelay> for &str {
+    fn from(value: ZoneRelay) -> Self {
+        value.as_str()
     }
 }
 
@@ -137,7 +137,7 @@ impl Deserialize for ZoneRelay {
     }
 }
 
-#[derive(Debug, Default, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub(in crate::apps) struct Zone {
 
     /// description of zone
@@ -162,7 +162,7 @@ impl Display for Zone {
 
 
 impl Zone {
-    const fn new(zone_relay: ZoneRelay) -> Self {
+    pub(in crate::apps) const fn new(zone_relay: ZoneRelay) -> Self {
         Self {
             description: Bytes::new(),
             zone_relay,
@@ -171,13 +171,30 @@ impl Zone {
         }
     } 
 
+    /// const constructor with description, truncated to `DISPLAY_INPUT_MAX_SIZE`
+    pub(in crate::apps) const fn new_with_description(description: &str, zone_relay: ZoneRelay) -> Self {
+        let src = description.as_bytes();
+        let mut array = [0u8; DISPLAY_INPUT_MAX_SIZE];
+        let mut i = 0usize;
+        while i < src.len() && i < DISPLAY_INPUT_MAX_SIZE {
+            array[i] = src[i];
+            i += 1;
+        }
+
+        Self {
+            description: Bytes(array),
+            weight: zone_relay as u8,
+            ..Self::new(zone_relay)
+        }
+    }
+
     fn is_modified(tmp: &Self) -> bool {
         static EMPTY: Zone = Zone::new(Relay0);
-        EMPTY != *tmp 
+        EMPTY != *tmp
     }
 }
 
-#[derive(Debug, Default, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub(in crate::apps) struct ZoneController {
     zones: [Zone; ZoneController::SIZE]
 }
@@ -189,16 +206,7 @@ impl Initializable for ZoneController {
 
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
-        unsafe {
-            for Zone{description: descr, weight, status, zone_relay, ..} in &mut *&raw mut SHARED.zones {
-                descr.push((*zone_relay).into())?;
-                *weight = (*zone_relay).into();
-                *status = Status::UNACTIVE;
-            }
-        }
-        
-        
-        *self = deserialize_file::<ZoneController>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, ZoneController::FILE_NAME)?;
+        //*self = deserialize_file::<ZoneController>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, ZoneController::FILE_NAME)?;
 
         Ok(())
     }
@@ -297,6 +305,12 @@ impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
     }
 }
 
+impl Default for ZoneController {
+    #[inline]
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
 
 
 impl ZoneController {
@@ -304,6 +318,14 @@ impl ZoneController {
     pub(in crate::apps) const AT_CMD: &'static str = "AT+ZN";
     pub(in crate::apps) const AT_RESP: &'static str = "+ZN: ";
     const FILE_NAME: &'static str = "zones.json";
+
+    /// one zone per relay, description `"Relay N"` and weight = relay index
+    const DEFAULT: Self = Self { zones: [
+        Zone::new_with_description(Relay0.as_str(), Relay0),
+        Zone::new_with_description(Relay1.as_str(), Relay1),
+        Zone::new_with_description(Relay2.as_str(), Relay2),
+        Zone::new_with_description(Relay3.as_str(), Relay3)
+    ]};
 
     pub(in crate::apps) fn shared() -> &'static mut Self {
         unsafe {

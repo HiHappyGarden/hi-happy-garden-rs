@@ -127,18 +127,18 @@ pub(in crate::apps) enum Month {
 impl From<Month> for u8 {
     fn from(value: Month) -> Self {
         match value {
-            Month::January => 0,
-            Month::February => 1,
-            Month::March => 2,
-            Month::April => 3,
-            Month::May => 4,
-            Month::June => 5,
-            Month::July => 6,
-            Month::August => 7,
-            Month::September => 8,
-            Month::October => 9,
-            Month::November => 10,
-            Month::December => 11
+            Month::January => 1,
+            Month::February => 2,
+            Month::March => 3,
+            Month::April => 4,
+            Month::May => 5,
+            Month::June => 6,
+            Month::July => 7,
+            Month::August => 8,
+            Month::September => 9,
+            Month::October => 10,
+            Month::November => 11,
+            Month::December => 12
         }
     }
 }
@@ -149,25 +149,25 @@ impl Month {
         
         let mut ret = [None; 12];
 
-        for idx in 0u16..12 {
-            if value & (1 << idx) > 0 {
-                ret[idx as usize] = match idx {
-                    0 => Some(January),
-                    1 => Some(February),
-                    2 => Some(March),
-                    3 => Some(April),
-                    4 => Some(May),
-                    5 => Some(June),
-                    6 => Some(July),
-                    7 => Some(August),
-                    8 => Some(September),
-                    9 => Some(October),
-                    10 => Some(November),
-                    11 => Some(December),
+        for idx in 1u16..=12 {
+            if value & (1 << (idx - 1)) > 0 {
+                ret[(idx - 1) as usize] = match idx {
+                    1 => Some(January),
+                    2 => Some(February),
+                    3 => Some(March),
+                    4 => Some(April),
+                    5 => Some(May),
+                    6 => Some(June),
+                    7 => Some(July),
+                    8 => Some(August),
+                    9 => Some(September),
+                    10 => Some(October),
+                    11 => Some(November),
+                    12 => Some(December),
                     _ => None
                 }
             } else {
-                ret[idx as usize] = None;
+                ret[(idx - 1) as usize] = None;
             }
         }
 
@@ -228,7 +228,7 @@ impl Schedule {
     }
 
     pub(in super) fn executable(&self, now: &DateTime) -> bool {
-        if self.status == Status::RUN {
+        if self.status != Status::ACTIVE {
             return false;
         }
 
@@ -280,7 +280,7 @@ impl Schedule {
     }
 }
 
-#[derive(Debug, Default, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub(in crate::apps) struct ScheduleController {
     schedules: [Schedule; ScheduleController::SIZE]
 }
@@ -292,18 +292,19 @@ impl Initializable for ScheduleController {
 
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
-        let mut count = 0u8;
-        unsafe {
-            for Schedule{description: descr, status,  .. } in &mut *&raw mut SHARED.schedules {
-                descr.format(format_args!("Schedule {count}"));
-                *status = Status::UNACTIVE;
-                count += 1;
-            }
-        }
-
         *self = deserialize_file::<ScheduleController>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, ScheduleController::FILE_NAME)?;
 
         Ok(())
+    }
+}
+
+impl Default for ScheduleController {
+    fn default() -> Self {
+        let mut ret = Self { schedules: [Schedule::new(); ScheduleController::SIZE] };
+        for (idx, Schedule{description: descr, ..}) in ret.schedules.iter_mut().enumerate() {
+            descr.format(format_args!("Schedule {idx}"));
+        }
+        ret
     }
 }
 
