@@ -1,0 +1,14 @@
+name: hhg-codeql
+
+# Test modules hold fixed crypto test vectors (e.g. NIST AES keys/IVs) that
+# trigger rust/hard-coded-cryptographic-value false positives.
+paths-ignore:
+  - main/src/**/tests.rs
+  - main/src/**/tests/**
+  # Third-party / separately scanned submodules
+  - pico-sdk/**
+  - FreeRTOS-Kernel/**
+  - osal-rs/**
+  - at-parser-rs/**
+  - cjson-bindings/**
+  - build/**
