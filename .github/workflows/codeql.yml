@@ -12,6 +12,14 @@ jobs:
   analyze:
     name: Analyze (rust)
     runs-on: ubuntu-latest
+    env:
+      # Placeholders so build.rs scripts can run during extraction: the
+      # analysis produces no firmware, real values live in secrets.cmake.
+      HHG_AES_KEY_SALT: codeql-placeholder
+      HHG_AES_IV_SALT: codeql-placeholder
+      HHG_SYSTEM_USER_EMAIL: codeql@hhg.local
+      HHG_SYSTEM_USER_PASSWORD: codeql-placeholder
+      FREERTOS_CONFIG_PATH: ${{ github.workspace }}/inc/hhg-config/pico/FreeRTOSConfig.h
     permissions:
       security-events: write
       contents: read
@@ -19,6 +27,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Only the Rust path dependencies of main/Cargo.toml: pico-sdk and
+      # FreeRTOS-Kernel are not needed for the Rust extraction.
+      - name: Checkout Rust submodules
+        run: git submodule update --init --depth 1 osal-rs at-parser-rs cjson-bindings
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
