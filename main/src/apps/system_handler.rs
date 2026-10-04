@@ -18,6 +18,9 @@
  *
  ***************************************************************************/
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 use at_parser_rs::{AtError, AtResult};
 use at_parser_rs::context::AtContext;
 
@@ -31,9 +34,6 @@ use crate::traits::signal::Signal;
 
 
 static mut SYSTEM_HANDLER: SystemHandler = SystemHandler;
-
-#[cfg(feature = "tests")]
-pub(super) mod tests;
 
 pub(in crate::apps) struct SystemHandler;
     

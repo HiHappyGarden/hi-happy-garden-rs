@@ -18,6 +18,9 @@
  *
  ***************************************************************************/
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 use core::str::from_utf8;
 use core::time::Duration;
 
@@ -42,9 +45,6 @@ use crate::apps::signals::status::{StatusSignal, StatusFlag};
 
 
 const APP_TAG: &str = "AppParser";
-
-#[cfg(feature = "tests")]
-pub(super) mod tests;
 
 const THREAD_NAME: &str = "app_parser_thr";
 const STACK_SIZE: StackType = 1_024 * 4; // words: factory reset (remove_recursive) and config saves need > 8KB

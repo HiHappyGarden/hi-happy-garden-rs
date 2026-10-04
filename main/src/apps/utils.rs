@@ -19,6 +19,9 @@
  ***************************************************************************/
 
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -34,9 +37,6 @@ use crate::drivers::platform::FS_SEPARATOR_DIR;
 
 
 const CROCKFORD: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-
-#[cfg(feature = "tests")]
-pub(super) mod tests;
 
 pub(in crate::apps) fn deserialize_file<T>(mutex: &'static Option<RawMutex>, app_tag: &str, dir: &str, name: &str) -> Result<T> 
 where 

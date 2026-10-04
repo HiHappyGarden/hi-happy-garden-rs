@@ -18,6 +18,9 @@
  *
  ***************************************************************************/
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 use osal_rs::log_info;
 use osal_rs::utils::{Error, Result};
 
@@ -27,9 +30,6 @@ use crate::drivers::platform::{I2C0_INSTANCE, I2C_BAUDRATE};
 use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "RTC";
-
-#[cfg(feature = "tests")]
-pub(super) mod tests;
 
 #[derive(Clone, Debug)]
 pub(in crate::drivers) struct RTCFn {

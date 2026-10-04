@@ -18,6 +18,9 @@
  *
  ***************************************************************************/
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 use osal_rs::log_info;
 use osal_rs::utils::OsalRsBool;
 
@@ -27,9 +30,6 @@ use crate::traits::relays::Relays as RaleayFn;
 use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "Relays";
-
-#[cfg(feature = "tests")]
-pub(super) mod tests;
 
 pub struct Relays (Gpio<GPIO_CONFIG_SIZE>);
 

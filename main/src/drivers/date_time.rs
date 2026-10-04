@@ -20,15 +20,15 @@
 
 #![allow(unused)]
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 use core::fmt::{Debug, Display};
 
 use alloc::string::String;
 use osal_rs::utils::{Error, Result};
 
 use crate::drivers::rtc::RTC;
-
-#[cfg(feature = "tests")]
-pub(super) mod tests;
 
 static mut TIMEZONE: i16 = 0; // in minutes, e.g. +120 for UTC+2, -60 for UTC-1
 static mut DAYLIGHT_SAVING_TIME_ENABLED: bool = false; // true if daylight saving time is in effect

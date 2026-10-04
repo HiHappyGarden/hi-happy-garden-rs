@@ -18,6 +18,9 @@
  *
  ***************************************************************************/
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 use core::ffi::c_void;
 use core::ptr::null_mut;
 use alloc::{str, vec::Vec};
@@ -28,8 +31,6 @@ use crate::drivers::pico::mbedtls::ENCRYPT_FN;
 
 const APP_TAG: &str = "Encrypt";
 
-#[cfg(feature = "tests")]
-pub(super) mod tests;
 pub const SHA256_RESULT_BYTES: usize = 32;
 
 pub(in crate::drivers) struct EncryptFn {

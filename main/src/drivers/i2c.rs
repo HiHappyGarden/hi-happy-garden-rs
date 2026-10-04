@@ -20,6 +20,9 @@
  
 //#![allow(unused)]
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 use core::ffi::c_void;
 use core::ptr::null_mut;
 
@@ -32,9 +35,6 @@ use crate::traits::state::Initializable;
 use crate::drivers::platform::I2C_FN;
 
 const APP_TAG: &str = "I2C";
-
-#[cfg(feature = "tests")]
-pub(super) mod tests;
 
 #[allow(unused)]
 pub(in crate::drivers) struct I2CFn {

@@ -20,6 +20,9 @@
  
  #![allow(dead_code)]
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 use core::any::Any; 
 use core::ops::{Index, IndexMut};
 
@@ -36,9 +39,6 @@ use crate::traits::state::{Deinitializable, Initializable};
 use crate::drivers::platform::{GPIO_CONFIG_SIZE, GPIO_CONFIGS, GPIO_FN};
 
 const APP_TAG: &str = "GPIO";
-
-#[cfg(feature = "tests")]
-pub(super) mod tests;
 
 //// Interrupt Configuration ////
 

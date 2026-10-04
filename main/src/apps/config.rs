@@ -19,6 +19,9 @@
  ***************************************************************************/
 
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 use osal_rs::os::RawMutex;
 use osal_rs::os::RawMutexGuard;
 use osal_rs::utils::Bytes;
@@ -51,9 +54,6 @@ mod defaults {
 use defaults::*;
 
 const APP_TAG: &str = "AppConfig";
-
-#[cfg(feature = "tests")]
-pub(super) mod tests;
 
 pub(super) static mut MUTEX: Option<RawMutex> = None;
 

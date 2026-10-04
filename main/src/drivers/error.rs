@@ -20,6 +20,9 @@
 
 
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 use core::fmt::Error;
 use core::fmt::{Display, Formatter};
 use osal_rs::utils::Result;
@@ -27,9 +30,6 @@ use osal_rs::utils::Result;
 use crate::define_signal;
 
 define_signal!(HardwareErrorSignal, HARDWARE_ERROR_SIGNAL);
-
-#[cfg(feature = "tests")]
-pub(super) mod tests;
 
 #[derive(Debug, Clone, Copy)]
 pub enum HardwareErrorFlag {

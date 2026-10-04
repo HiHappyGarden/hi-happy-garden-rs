@@ -20,6 +20,9 @@
 
 #![allow(dead_code)]
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use osal_rs::log_info;
@@ -34,9 +37,6 @@ use crate::traits::state::Initializable;
 mod commons;
 pub(in crate::apps) mod zone;
 pub(in crate::apps) mod schedule;
-
-#[cfg(feature = "tests")]
-pub(super) mod tests;
 
 const APP_TAG: &str = "AppSprinkler";
 

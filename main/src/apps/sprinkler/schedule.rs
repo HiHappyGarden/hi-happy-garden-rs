@@ -18,6 +18,9 @@
  *
  ***************************************************************************/
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 use at_parser_rs::{Args, AtError, AtResult};
 use at_parser_rs::context::AtContext;
 use osal_rs::{access_static_option, log_info};
@@ -45,9 +48,6 @@ static mut MUTEX: Option<RawMutex> = None;
 static mut SCHEDULE_TMP: (usize, Schedule) = (0, Schedule::new());
 
 const APP_TAG: &str = "SchedulerController";
-
-#[cfg(feature = "tests")]
-pub(super) mod tests;
 
  #[allow(dead_code)]
  #[derive(Debug, Copy, Clone, PartialEq, Eq)]
