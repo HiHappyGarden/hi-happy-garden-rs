@@ -291,7 +291,9 @@ impl Schedule {
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
-pub(in crate::apps) struct ScheduleController ([Schedule; ScheduleController::SIZE]);
+pub(in crate::apps) struct ScheduleController {
+    schedules: [Schedule; ScheduleController::SIZE],
+}
 
 
 impl Initializable for ScheduleController {
@@ -317,7 +319,7 @@ impl<'a> IntoIterator for &'a mut ScheduleController {
     type IntoIter = core::slice::IterMut<'a, Schedule>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.0.iter_mut()
+        self.schedules.iter_mut()
     }
 }
 
@@ -335,7 +337,7 @@ impl AtContext<{Parser::CMD_SIZE}> for ScheduleController {
 
         let (index, schedule_tmp) = unsafe { &mut *&raw mut SCHEDULE_TMP };
 
-        let schedule = self.0.get_mut(*index)
+        let schedule = self.schedules.get_mut(*index)
             .ok_or((at_response, AtError::InvalidArgs))?;
         *schedule = *schedule_tmp;
 
@@ -412,7 +414,7 @@ impl AtContext<{Parser::CMD_SIZE}> for ScheduleController {
 
 
         if !Schedule::is_modified(&schedule.1) || schedule.0 != idx {
-            *schedule = (idx, self.0[idx]);   
+            *schedule = (idx, self.schedules[idx]);   
         }
 
         match cmd.as_ref() {
@@ -500,12 +502,14 @@ impl ScheduleController {
     pub(in crate::apps) const AT_RESP: &'static str = "+SCH: ";
     const FILE_NAME: &'static str = "schedules.json";
 
-    const DEFAULT: Self = Self ([ 
-        Schedule::new_with_description("Schedule 0"),
-        Schedule::new_with_description("Schedule 1"),
-        Schedule::new_with_description("Schedule 2"),
-        Schedule::new_with_description("Schedule 3")
-    ]);
+    const DEFAULT: Self = Self { 
+        schedules: [
+            Schedule::new_with_description("Schedule 0"),
+            Schedule::new_with_description("Schedule 1"),
+            Schedule::new_with_description("Schedule 2"),
+            Schedule::new_with_description("Schedule 3")
+        ]
+    };
 
 
     pub(in crate::apps) fn shared() -> &'static mut Self {
