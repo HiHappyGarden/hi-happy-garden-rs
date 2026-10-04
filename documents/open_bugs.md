@@ -21,12 +21,17 @@ la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da
 > `ScheduleTests::test_set_bounds`: il test accettava ancora `st,2`, mentre la guardia era già
 > stata portata a `st ≤ ACTIVE`. Il test è stato allineato dopo l'esecuzione e va rieseguito.
 > Il log ha mostrato anche il nuovo bug 18, che nessun test fa fallire.
+>
+> **Esecuzione su HW del 2026-10-04, seconda (Pico 2 W, dopo `23dbe84` e osal-rs `91947f0`):**
+> 145 test passati, 5 falliti. Restano solo i fallimenti dei bug 5, 7, 11, 12 e 17.
+> `ScheduleTests::test_set_bounds` ora passa. Il bug 18 è corretto: nel log non ci sono più
+> errori di deserializzazione di `zones.json`/`schedules.json`. Bug 18 spostato in
+> [Risolti](#risolti).
 
 ## Riepilogo
 
 | #  | Gravità | Area | Titolo | Test |
 |----|---------|------|--------|------|
-| 18 | Alta    | Serde | `zones.json`/`schedules.json` salvati non si ricaricano: tornano ai default | *nessun test fallisce* (vedi sotto) |
 | 5  | Media   | Sprinkler | `AT+ZN` accetta un relè inesistente e modifica la zona 0 | `ZoneTests::test_set_unknown_relay` |
 | 7  | Media   | DateTime | Fine ora legale un'ora in ritardo | `DateTimeTests::test_dst_eu_fall_back` |
 | 8  | Media   | Filesystem | `file_read` va in panic su errore littlefs | *senza test* |
@@ -42,41 +47,6 @@ la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da
 
 ---
 
-## 18. `zones.json`/`schedules.json` salvati non si ricaricano
-
-**File:** [osal-rs/osal-rs-serde/derive/src/lib.rs:95](../osal-rs/osal-rs-serde/derive/src/lib.rs#L95)
-(`Serialize`) e [:181](../osal-rs/osal-rs-serde/derive/src/lib.rs#L181) (`Deserialize`)
-
-Per le tuple struct il derive non è simmetrico:
-- `Serialize` scrive un oggetto con i campi `"0"`, `"1"`, … (`serialize_struct_start` +
-  `serialize_field("0", …)`);
-- `Deserialize` legge i campi interni direttamente dalla radice, senza entrare nell'oggetto e
-  senza cercare `"0"`.
-
-Dai commit `85f070f` e `f5d7828` `ScheduleController` e `ZoneController` sono tuple struct
-(`struct ZoneController([Zone; SIZE])`). Il JSON salvato con `sv` (o all'avvio) non si
-rilegge più: `deserialize_file` fallisce, carica i default e **sovrascrive il file**. A ogni
-riavvio zone e programmi tornano ai valori di fabbrica.
-
-**Output su HW (2026-10-04),** subito dopo `sv` in `test_save_reload`:
-```
-[ZoneController] Saved successfully
-[cJSON-RS] Failed to deserialize JSON: Wrong type
-[ZoneTests] Using default config values err: Invalid data format
-```
-Lo stesso accade per `ScheduleTests`.
-
-**Perché nessun test fallisce:** `test_save_reload` (zone e schedule) salva i dati ripristinati,
-cioè i default, e il fallback di `deserialize_file` restituisce di nuovo i default: il
-confronto risulta uguale anche se la lettura è fallita.
-
-**Correzione proposta:**
-- rendere `Deserialize` per le tuple struct simmetrico a `Serialize`: entrare nell'oggetto e
-  leggere i campi `"0"`, `"1"`, …; in alternativa riportare i due controller a struct con
-  campo nominato;
-- rendere `test_save_reload` significativo: modificare un valore, salvare, ricaricare e
-  confrontare, poi salvare di nuovo il backup per lasciare pulito il file.
-
 ## 5. `AT+ZN` accetta un relè inesistente
 
 **File:** [main/src/apps/sprinkler/zone.rs:267](../main/src/apps/sprinkler/zone.rs#L267)
@@ -90,6 +60,11 @@ tra i risolti); `AT+ZN` invece passa ancora il valore direttamente a `ZoneRelay:
 **Correzione proposta:** stessa guardia in `ZoneController::set` prima di `ZoneRelay::from`,
 oppure sostituire `From<u8>` con `TryFrom<u8>` nei punti in cui il valore arriva
 dall'esterno (AT, JSON).
+
+**Output su HW (2026-10-04):**
+```
+[ZoneTests] test_set_unknown_relay FAILED: Unhandled error owned: src/apps/sprinkler/zone/tests.rs:180: relay 7 accepted
+```
 
 ## 7. Fine ora legale un'ora in ritardo
 
@@ -149,6 +124,11 @@ come quelle restituite da `HardwareErrorSignal::get()`.
 **File:** [main/src/apps/signals/error.rs:40](../main/src/apps/signals/error.rs#L40)
 
 Nel `match` manca il caso `0x08 => DisplayHeader`, quindi la conversione non fa il roundtrip.
+
+**Output su HW (2026-10-04):**
+```
+[SignalsTests] test_error_flags FAILED: Unhandled error owned: src/apps/signals/tests.rs:101: ErrorFlag::from(u32::from(flag)) != flag (None != DisplayHeader)
+```
 
 ## 12. `wday` errato per timestamp negativi
 
@@ -216,6 +196,11 @@ eseguendo la suite su HW (`"0,0,\"\"\r\n"` invece di 4 righe).
 `append_as_sync_str`). Attenzione alla dimensione: 4 righe con descrizioni di
 `DISPLAY_INPUT_MAX_SIZE` caratteri possono superare `Parser::CMD_SIZE` (96 byte).
 
+**Output su HW (2026-10-04):**
+```
+[ZoneTests] test_query FAILED: Unhandled error owned: src/apps/sprinkler/zone/tests.rs:122: body != expected ("3,3,\"Relay 3\"\r\n" != "0,0,\"Relay 0\"\r\n1,1,\"Relay 1\"\r\n2,2,\"Relay 2\"\r\n3,3,\"Relay 3\"\r\n")
+```
+
 ---
 
 ## Risolti
@@ -234,9 +219,11 @@ eseguendo la suite su HW (`"0,0,\"\"\r\n"` invece di 4 righe).
   `"Schedule N"`. La preparazione di `SHARED` in `init` è stata rimossa. Test:
   `ZoneTests::test_zones_cover_all_relays`, `test_zones_have_description`, passati su HW il 2026-10-04.
   Sulle schede già inizializzate bisogna cancellare `zones.json`/`schedules.json`.
-  **Attenzione:** al momento in `ZoneController::init` la chiamata a `deserialize_file` è
-  commentata e in `Hardware::init_fs` è attivo `remove_recursive("/")`: entrambe le modifiche
-  vanno ripristinate prima del commit.
+  **Attenzione:** in `ZoneController::init` la chiamata a `deserialize_file` è di nuovo attiva,
+  ma in [`Hardware::init_fs`](../main/src/drivers/pico/hardware.rs#L261) c'è ancora
+  `remove_recursive("/")` (verificato il 2026-10-04): a ogni avvio il filesystem viene
+  cancellato, quindi nessuna configurazione salvata sopravvive al riavvio. Va rimosso o
+  limitato alla build dei test.
 - **#4 `AT+ZN`: le modifiche in staging si perdevano** (Sprinkler, media). `set` copia la
   zona in `ZONE_TMP` solo se lo staging è vuoto o riguarda un altro relè, quindi più `set`
   sulla stessa zona si accumulano fino all'`exec`, come in `AT+SCH`.
@@ -247,8 +234,19 @@ eseguendo la suite su HW (`"0,0,\"\"\r\n"` invece di 4 righe).
   zona disattivata ed è accettato. Poiché l'indice è validato in `set`, `SCHEDULE_TMP` non può
   più contenere un indice fuori range; il controllo in `exec` resta come seconda difesa.
   Test: `ScheduleTests::test_set_out_of_range`, `test_set_bounds` (0 e massimo accettati),
-  `test_set_bad_index`, `test_exec_bad_index`: passati su HW il 2026-10-04, tranne
-  `test_set_bounds` (allineato a `st ≤ ACTIVE` dopo l'esecuzione, *da rieseguire su HW*).
+  `test_set_bad_index`, `test_exec_bad_index`: passati su HW il 2026-10-04. `test_set_bounds`
+  (allineato a `st ≤ ACTIVE`) è passato nella seconda esecuzione dello stesso giorno.
+- **#18 `zones.json`/`schedules.json` salvati non si ricaricavano** (Serde, alta). Il derive di
+  osal-rs-serde non era simmetrico per le tuple struct: `Serialize` scriveva un oggetto con i
+  campi `"0"`, `"1"`, …, mentre `Deserialize` leggeva i campi direttamente dalla radice. Il JSON
+  salvato non si rileggeva, venivano caricati i default e il file veniva sovrascritto.
+  Corretto su due fronti: in osal-rs (`44b754a`) `Deserialize` ora entra nell'oggetto e legge
+  `"0"`, `"1"`, …; in `23dbe84` `ZoneController` e `ScheduleController` sono tornati a struct
+  con campo nominato (`zones`, `schedules`). Nell'esecuzione su HW del 2026-10-04 (la seconda)
+  non compare più `Failed to deserialize JSON` dopo il `sv` di zone e schedule.
+  **Da fare:** `test_save_reload` (zone e schedule) resta poco significativo: salva i dati
+  ripristinati, cioè i default, quindi passerebbe anche con una lettura fallita. Andrebbe
+  modificato un valore prima del salvataggio, confrontato dopo il ricaricamento e poi ripristinato.
 - **osal-rs: `TaskStatus` non allineata a `TaskStatus_t`.** La struttura Rust era di
   36 byte, quella C di 48 (`pxTopOfStack`/`pxEndOfStack` con
   `configRECORD_STACK_HIGH_ADDRESS=1`, `uxCoreAffinityMask` in SMP). Di conseguenza
