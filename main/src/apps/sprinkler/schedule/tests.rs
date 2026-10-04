@@ -35,7 +35,7 @@ use osal_rs::utils::Result;
 use super::{Day, MUTEX, Month, SCHEDULE_TMP, SHARED, Schedule, ScheduleController};
 use crate::apps::parser::Parser;
 use crate::apps::sprinkler::commons::Status;
-use crate::apps::sprinkler::zone::ZoneRelay;
+use crate::apps::sprinkler::zone::{ZoneController, ZoneRelay};
 use crate::apps::test_helpers::{at_body, at_error, logged};
 use crate::apps::utils::deserialize_file;
 use crate::drivers::platform::FS_CONFIG_DIR;
@@ -148,7 +148,7 @@ fn test_set_invalid() -> Result<()> {
 fn test_set_out_of_range() -> Result<()> {
     with_schedules_restored(|controller| logged(|| {
         // Values the scheduler can never match must be refused, not stored
-        for raw in ["0,mi,61", "0,hr,25", "0,dy,128", "0,mo,4096", "0,zn,7,10", "0,st,9"] {
+        for raw in ["0,mi,61", "0,hr,25", "0,dy,128", "0,dy,255", "0,mo,4096", "0,mo,65535", "0,zn,4,10", "0,zn,7,10", "0,st,2", "0,st,9"] {
             let accepted = controller.set(ScheduleController::AT_RESP, Args { raw }).is_ok();
             reset_staging();
             test_assert!(!accepted, "{raw:?} accepted");
@@ -157,10 +157,41 @@ fn test_set_out_of_range() -> Result<()> {
     }))
 }
 
+fn test_set_bounds() -> Result<()> {
+    with_schedules_restored(|controller| logged(|| {
+        // NOT_SET (0) and the highest allowed value must both be accepted
+        let last_relay = ZoneController::SIZE - 1;
+        for raw in ["0,mi,0", "0,mi,60", "0,hr,0", "0,hr,24", "0,dy,0", "0,dy,127", "0,mo,0", "0,mo,4095", "0,st,0", "0,st,1", "0,zn,0,10"]
+            .map(String::from)
+            .into_iter()
+            .chain([format!("0,zn,{last_relay},10")]) {
+            let accepted = controller.set(ScheduleController::AT_RESP, Args { raw: &raw }).is_ok();
+            reset_staging();
+            test_assert!(accepted, "{raw:?} refused");
+        }
+        Ok(())
+    }))
+}
+
+fn test_set_bad_index() -> Result<()> {
+    with_schedules_restored(|controller| logged(|| {
+        // Out of range indexes are refused by set and leave the staging area untouched
+        for idx in [ScheduleController::SIZE, ScheduleController::SIZE + 1, usize::MAX] {
+            test_assert_eq!(at_error(controller.set(ScheduleController::AT_RESP, Args { raw: &format!("{idx},mi,1") }))?, "InvalidArgs", "{idx} accepted");
+            test_assert_eq!(at_error(controller.set(ScheduleController::AT_RESP, Args { raw: &format!("{idx},sv") }))?, "InvalidArgs", "{idx},sv accepted");
+            test_assert!(!Schedule::is_modified(unsafe { &(*&raw const SCHEDULE_TMP).1 }), "{idx} staged");
+        }
+        test_assert_eq!(at_error(controller.exec(ScheduleController::AT_RESP))?, "No modify applied");
+        Ok(())
+    }))
+}
+
 fn test_exec_bad_index() -> Result<()> {
     with_schedules_restored(|controller| logged(|| {
-        let idx = ScheduleController::SIZE;
-        set(controller, &format!("{idx},mi,1"))?;
+        // set can no longer stage a bad index: force it to check the exec guard
+        let mut staged = Schedule::new();
+        staged.minute = 1;
+        unsafe { SCHEDULE_TMP = (ScheduleController::SIZE, staged); }
         test_assert_eq!(at_error(controller.exec(ScheduleController::AT_RESP))?, "InvalidArgs");
         Ok(())
     }))
@@ -190,6 +221,8 @@ pub(in crate::apps) fn run_all_tests(stats: &mut TestStats) {
         test_set_query_exec,
         test_set_invalid,
         test_set_out_of_range,
+        test_set_bounds,
+        test_set_bad_index,
         test_exec_bad_index,
         test_save_reload,
         test_test_form,

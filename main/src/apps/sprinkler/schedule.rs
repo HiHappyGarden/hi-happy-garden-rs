@@ -190,7 +190,7 @@ pub(in crate::apps) struct Schedule {
     /// description 
     pub description: Bytes<DISPLAY_INPUT_MAX_SIZE>,
 
-    /// zones associated to the schedule and watering time in minutes
+    /// zones associated to the schedule and watering time in minutes, 0 minutes = zone disabled
     pub zones: [Option<(ZoneRelay, u8)>; ZoneController::SIZE],
 
     /// status of the schedule
@@ -400,31 +400,55 @@ impl AtContext<{Parser::CMD_SIZE}> for ScheduleController {
             .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
         let cmd = args.get(1).ok_or((at_response, AtError::InvalidArgs))?;
 
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        if idx >= ScheduleController::SIZE {
+            return Err((at_response, AtError::InvalidArgs));
+        }
 
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         let schedule = unsafe {
             &mut *&raw mut SCHEDULE_TMP
         };
 
-        schedule.0 = idx;
+
+        if !Schedule::is_modified(&schedule.1) || schedule.0 != idx {
+            *schedule = (idx, self.0[idx]);   
+        }
 
         match cmd.as_ref() {
-            "mi" => // minute
-                schedule.1.minute = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
-                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+            "mi" => { // minute
+                let min = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+                if min > 60 {
+                    return Err((at_response, AtError::InvalidArgs));
+                }
+                schedule.1.minute = min;
+            }
+            "hr" => { // hour
+                let hour = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
 
-            "hr" => // hour
-                schedule.1.hour = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
-                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
-
-            "dy" => // days (bitmask, see Day)
-                schedule.1.days = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
-                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
-
-            "mo" => // month (bitmask, see Month)
-                schedule.1.month = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
-                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+                if hour > 24 {
+                    return Err((at_response, AtError::InvalidArgs));
+                }
+                schedule.1.hour = hour;
+            }
+            "dy" => {// days (bitmask, see Day)
+                let days = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+                if days > 0x7F {
+                    return Err((at_response, AtError::InvalidArgs));
+                }
+                schedule.1.days = days;
+            }
+            "mo" => { // month (bitmask, see Month)
+                let month = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+                if month > 0x0FFF {
+                    return Err((at_response, AtError::InvalidArgs));
+                }
+                schedule.1.month = month;
+            }
 
             "ds" => { // description
                 let value = args.get(2).ok_or((at_response, AtError::InvalidArgs))?;
@@ -433,9 +457,12 @@ impl AtContext<{Parser::CMD_SIZE}> for ScheduleController {
                 }
                 schedule.1.description = Bytes::from_str(value.as_ref());
             }
-            "zn" => { // zone relay + watering time in minutes
+            "zn" => { // zone relay + watering time in minutes (0 = zone disabled)
                 let zone_relay: u8 = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
                     .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+                if zone_relay >= ZoneController::SIZE as u8{
+                    return Err((at_response, AtError::InvalidArgs));
+                }
                 let zone_relay = ZoneRelay::from(zone_relay);
                 let minutes: u8 = args.get(3).ok_or((at_response, AtError::InvalidArgs))?
                     .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
@@ -443,11 +470,18 @@ impl AtContext<{Parser::CMD_SIZE}> for ScheduleController {
                 let position = schedule.1.zones.iter().position(|z| matches!(z, Some((relay, _)) if *relay == zone_relay))
                     .or_else(|| schedule.1.zones.iter().position(|z| z.is_none()))
                     .ok_or((at_response, AtError::InvalidArgs))?;
+
+
                 schedule.1.zones[position] = Some((zone_relay, minutes));
             }
             "st" => { // status
                 let value: u8 = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
                     .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+                
+                if value > Status::ACTIVE.into() {
+                    return Err((at_response, AtError::InvalidArgs));
+                }
+                
                 schedule.1.status = Status::from(value);
             }
             "sv" => {// save

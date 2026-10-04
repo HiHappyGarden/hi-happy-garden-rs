@@ -1,6 +1,6 @@
 # Bug aperti — Hi Happy Garden firmware
 
-Stato al 2026-10-03. I bug sono emersi durante la scrittura della suite di test on-target
+Stato al 2026-10-04. I bug sono emersi durante la scrittura della suite di test on-target
 (`-DHHG_TESTS=ON`). Dove indicato, la suite contiene un test che oggi **fallisce** e che
 passerà quando il bug sarà corretto. I bug marcati *senza test* farebbero andare in panic
 la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da un test.
@@ -11,14 +11,23 @@ la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da
 >
 > **Aggiornamento 2026-10-03:** i bug 1, 2 e 3 sono corretti nel codice (il firmware compila)
 > e spostati in [Risolti](#risolti). I relativi test non sono ancora stati rieseguiti su HW.
+>
+> **Aggiornamento 2026-10-04:** corretti nel codice anche i bug 4 e 6 (la suite compila con
+> `--features tests`), spostati in [Risolti](#risolti). Per il bug 5 è corretta solo la parte
+> `zn` di `AT+SCH`: `AT+ZN` resta aperto.
+>
+> **Esecuzione su HW del 2026-10-04 (Pico 2 W):** 144 test passati, 6 falliti. Confermati
+> corretti i bug 1, 2, 3, 4 e 6. Restano i fallimenti dei bug 5, 7, 11, 12 e 17, più
+> `ScheduleTests::test_set_bounds`: il test accettava ancora `st,2`, mentre la guardia era già
+> stata portata a `st ≤ ACTIVE`. Il test è stato allineato dopo l'esecuzione e va rieseguito.
+> Il log ha mostrato anche il nuovo bug 18, che nessun test fa fallire.
 
 ## Riepilogo
 
 | #  | Gravità | Area | Titolo | Test |
 |----|---------|------|--------|------|
-| 4  | Media   | Sprinkler | `AT+ZN`: le modifiche in staging si perdono | `ZoneTests::test_set_many_then_exec` |
+| 18 | Alta    | Serde | `zones.json`/`schedules.json` salvati non si ricaricano: tornano ai default | *nessun test fallisce* (vedi sotto) |
 | 5  | Media   | Sprinkler | `AT+ZN` accetta un relè inesistente e modifica la zona 0 | `ZoneTests::test_set_unknown_relay` |
-| 6  | Media   | Sprinkler | `AT+SCH` accetta valori fuori range | `ScheduleTests::test_set_out_of_range` |
 | 7  | Media   | DateTime | Fine ora legale un'ora in ritardo | `DateTimeTests::test_dst_eu_fall_back` |
 | 8  | Media   | Filesystem | `file_read` va in panic su errore littlefs | *senza test* |
 | 9  | Media   | Parser | Panic con più righe in un solo `on_receive` | *senza test* |
@@ -33,48 +42,54 @@ la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da
 
 ---
 
-## 4. `AT+ZN`: le modifiche in staging si perdono
+## 18. `zones.json`/`schedules.json` salvati non si ricaricano
 
-**File:** [main/src/apps/sprinkler/zone.rs:290](../main/src/apps/sprinkler/zone.rs#L290)
+**File:** [osal-rs/osal-rs-serde/derive/src/lib.rs:95](../osal-rs/osal-rs-serde/derive/src/lib.rs#L95)
+(`Serialize`) e [:181](../osal-rs/osal-rs-serde/derive/src/lib.rs#L181) (`Deserialize`)
 
-Ogni `set` esegue `ZONE_TMP = *zone`, ricopiando la zona salvata sopra l'area di staging.
+Per le tuple struct il derive non è simmetrico:
+- `Serialize` scrive un oggetto con i campi `"0"`, `"1"`, … (`serialize_struct_start` +
+  `serialize_field("0", …)`);
+- `Deserialize` legge i campi interni direttamente dalla radice, senza entrare nell'oggetto e
+  senza cercare `"0"`.
 
-**Riproduzione:**
+Dai commit `85f070f` e `f5d7828` `ScheduleController` e `ZoneController` sono tuple struct
+(`struct ZoneController([Zone; SIZE])`). Il JSON salvato con `sv` (o all'avvio) non si
+rilegge più: `deserialize_file` fallisce, carica i default e **sovrascrive il file**. A ogni
+riavvio zone e programmi tornano ai valori di fabbrica.
+
+**Output su HW (2026-10-04),** subito dopo `sv` in `test_save_reload`:
 ```
-AT+ZN=0,wt,5
-AT+ZN=0,ds,Orto
-AT+ZN
+[ZoneController] Saved successfully
+[cJSON-RS] Failed to deserialize JSON: Wrong type
+[ZoneTests] Using default config values err: Invalid data format
 ```
-Viene applicata la descrizione `Orto`, ma il peso 5 è perso.
+Lo stesso accade per `ScheduleTests`.
 
-`AT+SCH` invece accumula correttamente in `SCHEDULE_TMP`: i due comandi si comportano in modo diverso.
+**Perché nessun test fallisce:** `test_save_reload` (zone e schedule) salva i dati ripristinati,
+cioè i default, e il fallback di `deserialize_file` restituisce di nuovo i default: il
+confronto risulta uguale anche se la lettura è fallita.
 
-**Correzione proposta:** copiare la zona in `ZONE_TMP` solo se lo staging è vuoto o
-riguarda un altro relè.
+**Correzione proposta:**
+- rendere `Deserialize` per le tuple struct simmetrico a `Serialize`: entrare nell'oggetto e
+  leggere i campi `"0"`, `"1"`, …; in alternativa riportare i due controller a struct con
+  campo nominato;
+- rendere `test_save_reload` significativo: modificare un valore, salvare, ricaricare e
+  confrontare, poi salvare di nuovo il backup per lasciare pulito il file.
 
 ## 5. `AT+ZN` accetta un relè inesistente
 
-**File:** [main/src/apps/sprinkler/zone.rs:281](../main/src/apps/sprinkler/zone.rs#L281)
-(stesso schema in [schedule.rs:432](../main/src/apps/sprinkler/schedule.rs#L432) per `zn`)
+**File:** [main/src/apps/sprinkler/zone.rs:267](../main/src/apps/sprinkler/zone.rs#L267)
 
 `ZoneRelay::from(u8)` mappa ogni valore sconosciuto su `Relay0`, quindi `AT+ZN=7,ds,X`
 modifica la zona 0 invece di rispondere errore.
 
-**Correzione proposta:** sostituire `From<u8>` con `TryFrom<u8>` (o un controllo `< 4`) nei
-punti in cui il valore arriva dall'esterno (AT, JSON).
+Il `zn` di `AT+SCH` ora è protetto (`zone_relay >= ZoneController::SIZE` → `InvalidArgs`, vedi #6
+tra i risolti); `AT+ZN` invece passa ancora il valore direttamente a `ZoneRelay::from`.
 
-## 6. `AT+SCH` accetta valori fuori range
-
-**File:** [main/src/apps/sprinkler/schedule.rs:390](../main/src/apps/sprinkler/schedule.rs#L390)
-
-`set` controlla solo che il valore stia nel tipo (`u8`/`u16`). Vengono quindi accettati
-`mi,61`, `hr,25`, `dy,128`, `mo,4096`, `st,9` e il relè 7 in `zn`. Sono valori che lo
-scheduler non può mai far scattare, quindi il programma resta muto senza alcun errore.
-Inoltre `exec` con un indice fuori range lascia `SCHEDULE_TMP` sporco e fallisce anche ai
-tentativi successivi.
-
-**Correzione proposta:** validare i range (`mi` 0..=60, `hr` 0..=24, `dy` ≤ 0x7F,
-`mo` ≤ 0x0FFF, relè < 4, `st` ≤ 2) e l'indice già in `set`; azzerare `SCHEDULE_TMP` anche quando `exec` fallisce.
+**Correzione proposta:** stessa guardia in `ZoneController::set` prima di `ZoneRelay::from`,
+oppure sostituire `From<u8>` con `TryFrom<u8>` nei punti in cui il valore arriva
+dall'esterno (AT, JSON).
 
 ## 7. Fine ora legale un'ora in ritardo
 
@@ -145,14 +160,12 @@ di supportare date precedenti al 1970.
 
 **Correzione proposta:** `timestamp.div_euclid(Self::SECONDS_PER_DAY)`.
 
-**Output su HW (2026-10-03):**
+**Output su HW (2026-10-04):**
 ```
-[DateTimeTests] test_negative_timestamp FAILED: Unhandled error owned:
+[DateTimeTests] test_negative_timestamp FAILED: Unhandled error owned: src/drivers/date_time/tests.rs:129: dt.wday != 3 (4 != 3)
 ```
-Il messaggio dopo `Unhandled error owned:` è vuoto, anche se `test_assert_eq!` produce sempre
-`file:riga: ...`. Quindi l'assert che fallisce (wday atteso a riga 129, oppure le righe 126/127)
-non è identificato con certezza. Il testo potrebbe essersi perso sulla seriale. Va verificato
-alla prossima esecuzione, prima di correggere.
+Fallisce l'assert sul `wday` (giovedì invece di mercoledì): la causa è quella indicata sopra.
+Nell'esecuzione del 2026-10-03 il messaggio era arrivato vuoto, probabilmente perso sulla seriale.
 
 ## 13. Errore di scrittura littlefs ignorato
 
@@ -209,21 +222,33 @@ eseguendo la suite su HW (`"0,0,\"\"\r\n"` invece di 4 righe).
 
 - **#1 Maschera dei mesi spostata di uno** (Sprinkler, alta). `From<Month> for u8` ora
   restituisce 1..12, come `DateTime::month`; `Month::map` usa il bit `idx - 1`.
-  Test: `SprinklerTests::test_months`, *da rieseguire su HW*.
+  Test: `SprinklerTests::test_months`, passato su HW il 2026-10-04.
 - **#2 Programmi `UNACTIVE` eseguibili** (Sprinkler, alta). `executable()` ora restituisce
   `false` se lo stato non è `ACTIVE`. Test: `SprinklerTests::test_inactive_not_executable`,
-  *da rieseguire su HW*. Resta aperto un aspetto collegato: `Sprinkler::check` mette il
+  passato su HW il 2026-10-04. Resta aperto un aspetto collegato: `Sprinkler::check` mette il
   programma in `RUN` e nessuno lo riporta ad `ACTIVE` né azzera `DISBURSEMENT_IN_PROGRESS`.
   Va gestito quando si implementa l'erogazione.
 - **#3 Zone di default tutte su `Relay0`, senza descrizione** (Sprinkler, alta).
   `ZoneController` e `ScheduleController` hanno ora un `Default` scritto a mano: zone
   `Relay0..Relay3` con descrizione `"Relay N"` e peso = indice, schedule con descrizione
   `"Schedule N"`. La preparazione di `SHARED` in `init` è stata rimossa. Test:
-  `ZoneTests::test_zones_cover_all_relays`, `test_zones_have_description`, *da rieseguire su HW*.
+  `ZoneTests::test_zones_cover_all_relays`, `test_zones_have_description`, passati su HW il 2026-10-04.
   Sulle schede già inizializzate bisogna cancellare `zones.json`/`schedules.json`.
   **Attenzione:** al momento in `ZoneController::init` la chiamata a `deserialize_file` è
   commentata e in `Hardware::init_fs` è attivo `remove_recursive("/")`: entrambe le modifiche
   vanno ripristinate prima del commit.
+- **#4 `AT+ZN`: le modifiche in staging si perdevano** (Sprinkler, media). `set` copia la
+  zona in `ZONE_TMP` solo se lo staging è vuoto o riguarda un altro relè, quindi più `set`
+  sulla stessa zona si accumulano fino all'`exec`, come in `AT+SCH`.
+  Test: `ZoneTests::test_set_many_then_exec`, passato su HW il 2026-10-04.
+- **#6 `AT+SCH` accettava valori fuori range** (Sprinkler, media). `set` ora rifiuta con
+  `InvalidArgs`: indice `>= ScheduleController::SIZE`, `mi > 60`, `hr > 24`, `dy > 0x7F`,
+  `mo > 0x0FFF`, relè `zn >= ZoneController::SIZE`, `st > ACTIVE` (`RUN` è uno stato di esecuzione e non si imposta via AT). In `zn` 0 minuti indica una
+  zona disattivata ed è accettato. Poiché l'indice è validato in `set`, `SCHEDULE_TMP` non può
+  più contenere un indice fuori range; il controllo in `exec` resta come seconda difesa.
+  Test: `ScheduleTests::test_set_out_of_range`, `test_set_bounds` (0 e massimo accettati),
+  `test_set_bad_index`, `test_exec_bad_index`: passati su HW il 2026-10-04, tranne
+  `test_set_bounds` (allineato a `st ≤ ACTIVE` dopo l'esecuzione, *da rieseguire su HW*).
 - **osal-rs: `TaskStatus` non allineata a `TaskStatus_t`.** La struttura Rust era di
   36 byte, quella C di 48 (`pxTopOfStack`/`pxEndOfStack` con
   `configRECORD_STACK_HIGH_ADDRESS=1`, `uxCoreAffinityMask` in SMP). Di conseguenza
@@ -247,6 +272,10 @@ eseguendo la suite su HW (`"0,0,\"\"\r\n"` invece di 4 righe).
   (sincronizza POWMAN dal DS3231), ma il nome trae in inganno.
 - `AppMain::check_config` ([main.rs:132](../main/src/apps/main.rs#L132)) lascia la FSM ferma in
   `CheckConfig` finché il seriale è vuoto. Probabilmente è voluto (lo imposta il wizard), da confermare.
+- `AT+SCH` e `AT+ZN` caricano in staging la copia salvata già al primo `set`, anche se il comando
+  poi fallisce (es. `AT+SCH=1,mi,99`). Poiché i default hanno una descrizione, la copia risulta
+  "modificata" e un `exec` successivo risponde OK riapplicando valori invariati invece di
+  `No modify applied`. Innocuo, ma la risposta è fuorviante.
 - `Parser::commands` crea più `&mut` sullo stesso `Config::shared()` (aliasing già noto, refactor in corso).
 - **Core 1 fermo nella bootrom (non riprodotto).** Durante la prima esecuzione su HW il core 1
   era rimasto nella bootrom (PC=0xda, il ciclo in cui aspetta di essere avviato) mentre

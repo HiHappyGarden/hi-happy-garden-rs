@@ -273,7 +273,9 @@ impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
             .ok_or((at_response, AtError::InvalidArgs))?;
 
         unsafe {
-            ZONE_TMP = *zone;
+            if !Zone::is_modified(&*(&raw const ZONE_TMP)) || ZONE_TMP.zone_relay != zone_relay {
+                ZONE_TMP = *zone;
+            }
         }
 
         match cmd.as_ref() {
