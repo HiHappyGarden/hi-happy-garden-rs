@@ -62,7 +62,7 @@ static BLINK: AtomicBool = AtomicBool::new(false);
 const COLOR_RED: Color = Color::new(255, 0, 0);
 const COLOR_ORANGE: Color = Color::new(255, 165, 0);
 const COLOR_GREEN: Color = Color::new(0, 255, 0);
-const COLOR_YELLOW: Color = Color::new(255, 255, 0);
+const COLOR_YELLOW: Color = Color::new(255, 128, 0);
 const COLOR_OFF: Color = Color::new(0, 0, 0);
 
  pub struct SystemLed{
