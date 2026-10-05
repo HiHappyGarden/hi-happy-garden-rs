@@ -33,7 +33,7 @@ use osal_rs::utils::{Error, Result};
 use super::flags::{CREAT, RDONLY, TRUNC, WRONLY};
 use super::{EntryType, FileBytes, Filesystem, SeekFrom};
 use crate::drivers::platform::{FS_CONFIG_DIR, FS_DATA_DIR, FS_LOG_DIR};
-use crate::drivers::plt::flash::lfs_errors::{LFS_ERR_EXIST, LFS_ERR_NOENT};
+use crate::drivers::plt::flash::lfs_errors::{LFS_ERR_BADF, LFS_ERR_EXIST, LFS_ERR_NOENT};
 use crate::tests::{TestStats, run_tests, test_assert, test_assert_eq};
 
 const TAG: &str = "FilesystemTests";
@@ -174,6 +174,17 @@ fn test_seek_tell_size() -> Result<()> {
     Ok(())
 }
 
+fn test_read_error() -> Result<()> {
+    let name = path("write_only.txt");
+    write_file(&name, b"not empty", false)?;
+
+    // A failed lfs read (negative length) must come back as an error, not a panic
+    let mut file = Filesystem::open_with_as_sync_str(&name, WRONLY)?;
+    test_assert!(matches!((super::FILE_FN.read)(file.handler), Err(Error::ReturnWithCode(LFS_ERR_BADF))));
+    test_assert!(matches!(file.read(false), Err(Error::ReturnWithCode(LFS_ERR_BADF))));
+    Ok(())
+}
+
 fn test_closed_file() -> Result<()> {
     let name = path("closed.txt");
     let mut file = Filesystem::open_with_as_sync_str(&name, WRONLY | CREAT | TRUNC)?;
@@ -258,6 +269,7 @@ pub(crate) fn run_all_tests(stats: &mut TestStats) {
         test_empty_file,
         test_sha256_integrity,
         test_seek_tell_size,
+        test_read_error,
         test_closed_file,
         test_rename_remove,
         test_ls,

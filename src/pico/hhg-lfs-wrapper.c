@@ -180,11 +180,15 @@ int hhg_flash_close(void* file) {
     return res;
 }
 
-lfs_size_t hhg_flash_write(void* file, const void* buffer, lfs_size_t size) {
+lfs_ssize_t hhg_flash_write(void* file, const void* buffer, lfs_size_t size) {
     return lfs_file_write(&lfs, (lfs_file_t*)file, buffer, size);
 }
 
-lfs_size_t hhg_flash_read(void* file, void* buffer, lfs_size_t size) {
+lfs_ssize_t hhg_flash_read(void* file, void* buffer, lfs_size_t size) {
+    // littlefs asserts on a file not opened for reading: report it as an error instead
+    if ((((lfs_file_t*)file)->flags & LFS_O_RDONLY) != LFS_O_RDONLY) {
+        return LFS_ERR_BADF;
+    }
     return lfs_file_read(&lfs, (lfs_file_t*)file, buffer, size);
 }
 

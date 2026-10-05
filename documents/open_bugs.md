@@ -1,6 +1,6 @@
 # Bug aperti — Hi Happy Garden firmware
 
-Stato al 2026-10-04. I bug sono emersi durante la scrittura della suite di test on-target
+Stato al 2026-10-05. I bug sono emersi durante la scrittura della suite di test on-target
 (`-DHHG_TESTS=ON`). Dove indicato, la suite contiene un test che oggi **fallisce** e che
 passerà quando il bug sarà corretto. I bug marcati *senza test* farebbero andare in panic
 la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da un test.
@@ -27,14 +27,21 @@ la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da
 > `ScheduleTests::test_set_bounds` ora passa. Il bug 18 è corretto: nel log non ci sono più
 > errori di deserializzazione di `zones.json`/`schedules.json`. Bug 18 spostato in
 > [Risolti](#risolti).
+>
+> **Esecuzione su HW del 2026-10-05 (Pico 2 W, dopo `d226534`, `af165eb` e `2c858bc`):**
+> 148 test passati, 3 falliti. Restano solo i fallimenti dei bug 11, 12 e 17.
+> Confermati corretti i bug 5 (`ZoneTests::test_set_unknown_relay`) e 7
+> (`DateTimeTests::test_dst_eu_fall_back`, più il nuovo `test_dst_end_at_midnight`),
+> spostati in [Risolti](#risolti).
+>
+> **Aggiornamento 2026-10-05:** il bug 8 è corretto nel codice (il firmware compila) e spostato in
+> [Risolti](#risolti), con il nuovo test `FilesystemTests::test_read_error`, non ancora eseguito su HW.
+> La descrizione originale era imprecisa: vedi la voce in [Risolti](#risolti) e il bug 14.
 
 ## Riepilogo
 
 | #  | Gravità | Area | Titolo | Test |
 |----|---------|------|--------|------|
-| 5  | Media   | Sprinkler | `AT+ZN` accetta un relè inesistente e modifica la zona 0 | `ZoneTests::test_set_unknown_relay` |
-| 7  | Media   | DateTime | Fine ora legale un'ora in ritardo | `DateTimeTests::test_dst_eu_fall_back` |
-| 8  | Media   | Filesystem | `file_read` va in panic su errore littlefs | *senza test* |
 | 9  | Media   | Parser | Panic con più righe in un solo `on_receive` | *senza test* |
 | 10 | Bassa   | Drivers | `HardwareErrorFlag::from` va in panic su valore sconosciuto | *senza test* |
 | 11 | Bassa   | Signals | `ErrorFlag::from(0x08)` non restituisce `DisplayHeader` | `SignalsTests::test_error_flags` |
@@ -46,54 +53,6 @@ la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da
 | 17 | Media   | Sprinkler | `AT+ZN?` restituisce solo l'ultima zona | `ZoneTests::test_query` |
 
 ---
-
-## 5. `AT+ZN` accetta un relè inesistente
-
-**File:** [main/src/apps/sprinkler/zone.rs:267](../main/src/apps/sprinkler/zone.rs#L267)
-
-`ZoneRelay::from(u8)` mappa ogni valore sconosciuto su `Relay0`, quindi `AT+ZN=7,ds,X`
-modifica la zona 0 invece di rispondere errore.
-
-Il `zn` di `AT+SCH` ora è protetto (`zone_relay >= ZoneController::SIZE` → `InvalidArgs`, vedi #6
-tra i risolti); `AT+ZN` invece passa ancora il valore direttamente a `ZoneRelay::from`.
-
-**Correzione proposta:** stessa guardia in `ZoneController::set` prima di `ZoneRelay::from`,
-oppure sostituire `From<u8>` con `TryFrom<u8>` nei punti in cui il valore arriva
-dall'esterno (AT, JSON).
-
-**Output su HW (2026-10-04):**
-```
-[ZoneTests] test_set_unknown_relay FAILED: Unhandled error owned: src/apps/sprinkler/zone/tests.rs:180: relay 7 accepted
-```
-
-## 7. Fine ora legale un'ora in ritardo
-
-**File:** [main/src/drivers/date_time.rs:262](../main/src/drivers/date_time.rs#L262)
-
-`is_daylight_saving_time` confronta `(mese, giorno, ora)` dell'ora **solare** locale con
-`end_hour`. Il default `HHG_DEFAULT_DAYLIGHT_SAVING_TIME_END_HOUR=3` è però espresso in ora
-**legale** (regola UE: 03:00 CEST = 02:00 CET = 01:00 UTC).
-
-**Effetto:** il 27/10/2024 alle 01:30 UTC il firmware mostra 03:30 invece di 02:30. Per
-un'ora all'anno l'ora locale è sbagliata e i programmi in quella fascia scattano in ritardo.
-
-**Correzione proposta:** confrontare la fine con `end_hour - 1`, oppure documentare che
-`end_hour` è in ora solare e portare il default a 2. L'inizio (`start_hour=2`, in ora solare) è già corretto.
-
-**Output su HW (2026-10-03):**
-```
-[DateTimeTests] test_dst_eu_fall_back FAILED: Unhandled error owned: src/drivers/date_time/tests.rs:260: DST still active after switch: 2024-10-27 03:30:00 (UTC+01:00) DST
-```
-
-## 8. `file_read` va in panic su errore littlefs
-
-**File:** [main/src/drivers/pico/flash.rs:129](../main/src/drivers/pico/flash.rs#L129)
-
-Il valore restituito da `hhg_flash_read` non viene controllato: se è negativo
-(ad es. `LFS_ERR_BADF` su un file aperto in sola scrittura), `len as usize` diventa
-enorme e `buffer[..len]` va in panic.
-
-**Correzione proposta:** `if len < 0 { return Err(Error::ReturnWithCode(len)) }`.
 
 ## 9. Panic con più righe in un solo `on_receive`
 
@@ -132,7 +91,7 @@ Nel `match` manca il caso `0x08 => DisplayHeader`, quindi la conversione non fa 
 
 ## 12. `wday` errato per timestamp negativi
 
-**File:** [main/src/drivers/date_time.rs:325](../main/src/drivers/date_time.rs#L325)
+**File:** [main/src/drivers/date_time.rs:334](../main/src/drivers/date_time.rs#L334)
 
 `timestamp / SECONDS_PER_DAY` tronca verso zero: per `-1` (1969-12-31, mercoledì) restituisce
 giovedì. Su questo dispositivo è irrilevante (l'RTC parte dal 2020), ma `DateTime` dichiara
@@ -162,9 +121,11 @@ viene quindi segnalato come riuscito.
 
 **File:** [main/src/apps/utils.rs:56](../main/src/apps/utils.rs#L56)
 
-Su `-2` (NOENT) il file viene riaperto con `WRONLY | CREAT` e poi letto: la lettura fallisce
-(con il bug #8 va in panic). Il ramo è raro, perché `RDWR | CREAT` non dovrebbe mai dare NOENT,
-ma è sbagliato.
+Su `-2` (NOENT) il file viene riaperto con `WRONLY | CREAT` e poi letto. littlefs non
+restituisce un errore ma esegue `LFS_ASSERT` (attivo in Debug), quindi il firmware si sarebbe
+fermato. Dal 2026-10-05 `hhg_flash_read` intercetta il caso e restituisce `LFS_ERR_BADF` (vedi #8
+tra i risolti): ora la lettura fallisce senza crash e si passa ai default. Il ramo è raro, perché
+`RDWR | CREAT` non dovrebbe mai dare NOENT, ma resta sbagliato.
 
 **Correzione proposta:** nel fallback restituire direttamente i default e salvarli, senza leggere.
 
@@ -236,6 +197,37 @@ eseguendo la suite su HW (`"0,0,\"\"\r\n"` invece di 4 righe).
   Test: `ScheduleTests::test_set_out_of_range`, `test_set_bounds` (0 e massimo accettati),
   `test_set_bad_index`, `test_exec_bad_index`: passati su HW il 2026-10-04. `test_set_bounds`
   (allineato a `st ≤ ACTIVE`) è passato nella seconda esecuzione dello stesso giorno.
+- **#5 `AT+ZN` accettava un relè inesistente** (Sprinkler, media). `ZoneRelay::from(u8)`
+  mappa ogni valore sconosciuto su `Relay0`, quindi `AT+ZN=7,ds,X` modificava la zona 0.
+  In `d226534` `ZoneController::set` rifiuta con `InvalidArgs` un `zone_relay >= ZoneController::SIZE`
+  prima della conversione, come già il `zn` di `AT+SCH` (#6). `ZoneRelay::from` resta
+  permissivo: un `TryFrom<u8>` eviterebbe il problema anche per i valori letti da JSON.
+  Test: `ZoneTests::test_set_unknown_relay`, passato su HW il 2026-10-05.
+- **#7 Fine ora legale un'ora in ritardo** (DateTime, media). `END_HOUR` è espresso in ora
+  legale (regola UE: 03:00 CEST = 02:00 CET), mentre `is_daylight_saving_time` lavora sull'ora
+  solare locale: il 27/10/2024 alle 01:30 UTC il firmware mostrava 03:30 invece di 02:30.
+  In `af165eb` la fine è stata anticipata di un'ora (`end_hour - 1`), ma su `u8`: con
+  `end_hour = 0` andava in underflow (panic in Debug, `255` in Release, cioè ora legale attiva
+  per tutto il giorno di fine). In `2c858bc` il confronto usa le ore dall'inizio dell'anno
+  (`hour_of_year`), così l'ora sottratta passa correttamente al giorno o al mese precedente.
+  Test: `DateTimeTests::test_dst_eu_fall_back` e `test_dst_end_at_midnight` (fine il 1° novembre
+  alle 00:00), passati su HW il 2026-10-05.
+- **#8 `file_read` andava in panic su errore littlefs** (Filesystem, media). `hhg_flash_read`
+  era dichiarata con ritorno `lfs_size_t` in C e `LfsSize` (`u32`) in Rust: un codice d'errore
+  negativo diventava una lunghezza enorme e `buffer[..len]` andava in panic. Ora il ritorno è
+  `lfs_ssize_t`/`LfsSsize` (`i32`) da entrambe le parti, e `file_read` restituisce
+  `Err(Error::ReturnWithCode(len))` se `len < 0`
+  ([flash.rs:129](../main/src/drivers/pico/flash.rs#L129)). Lo stesso cambio di tipo è stato fatto
+  su `hhg_flash_write`, ma il controllo in `file_write` manca ancora (#13).
+  **Correzione della descrizione originale:** l'esempio "`LFS_ERR_BADF` su un file aperto in sola
+  scrittura" era sbagliato. In littlefs v2.11.2, `lfs_file_read` su un file senza `LFS_O_RDONLY`
+  esegue `LFS_ASSERT` invece di restituire un errore, e in Debug l'assert ferma il firmware. I valori
+  negativi arrivavano solo da `lfs_file_flush` o da errori della flash (`LFS_ERR_IO`, `LFS_ERR_CORRUPT`).
+  Per questo `hhg_flash_read` ([hhg-lfs-wrapper.c](../src/pico/hhg-lfs-wrapper.c)) ora controlla il
+  flag e restituisce `LFS_ERR_BADF`, come `read` POSIX su un descrittore in sola scrittura.
+  `hhg_flash_write` ha lo stesso assert per i file aperti in sola lettura e non è ancora protetta.
+  Test: `FilesystemTests::test_read_error`, che legge un file aperto in `WRONLY` sia da `FILE_FN.read`
+  sia da `File::read` e si aspetta `ReturnWithCode(LFS_ERR_BADF)`. Da eseguire su HW.
 - **#18 `zones.json`/`schedules.json` salvati non si ricaricavano** (Serde, alta). Il derive di
   osal-rs-serde non era simmetrico per le tuple struct: `Serialize` scriveva un oggetto con i
   campi `"0"`, `"1"`, …, mentre `Deserialize` leggeva i campi direttamente dalla radice. Il JSON

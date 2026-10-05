@@ -337,8 +337,8 @@ unsafe extern "C" {
     pub(super) fn hhg_flash_mount(format: bool) -> c_int;
     pub(super) fn hhg_flash_open(path: *const c_char, flags: c_int, err: *mut c_int) -> *mut c_void;
     pub(super) fn hhg_flash_close(file: *mut c_void) -> c_int;
-    pub(super) fn hhg_flash_write(file: *mut c_void, buffer: *const c_void, size: LfsSize) -> LfsSize;
-    pub(super) fn hhg_flash_read(file: *mut c_void, buffer: *mut c_void, size: LfsSize) -> LfsSize;
+    pub(super) fn hhg_flash_write(file: *mut c_void, buffer: *const c_void, size: LfsSize) -> LfsSsize;
+    pub(super) fn hhg_flash_read(file: *mut c_void, buffer: *mut c_void, size: LfsSize) -> LfsSsize;
     pub(super) fn hhg_flash_rewind(file: *mut c_void) -> c_int;
     pub(super) fn hhg_flash_umount() -> c_int;
     pub(super) fn hhg_flash_remove(path: *const c_char) -> c_int;

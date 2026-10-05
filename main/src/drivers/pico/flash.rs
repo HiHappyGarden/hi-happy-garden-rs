@@ -126,6 +126,10 @@ fn file_read(handler: *mut c_void) -> Result<Vec<u8>> {
         )
     };
 
+    if len < 0 { 
+        return Err(Error::ReturnWithCode(len)) 
+    }
+
     Ok(buffer[..len as usize].to_vec())
 }
 
