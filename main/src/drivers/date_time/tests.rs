@@ -281,6 +281,24 @@ fn test_dst_southern_hemisphere() -> Result<()> {
     })
 }
 
+fn test_dst_end_at_midnight() -> Result<()> {
+    with_locale_reset(|| {
+        // DST ends on 1st November at 00:00 DST time, i.e. 31st October 23:00 standard time:
+        // the 1h shift on END_HOUR must roll back to the previous day and month
+        DateTime::set_timezone(0);
+        DateTime::set_daylight_saving_time_whit_param(true, 3, 1, 0, 11, 1, 0);
+
+        let before = DateTime::from_timestamp_locale(1_730_413_800, true)?; // 2024-10-31 22:30:00 UTC
+        test_assert!(before.is_apply_daylight_saving_time(), "DST not active before switch: {before}");
+        test_assert_eq!((before.mday, before.hour, before.minute), (31, 23, 30));
+
+        let after = DateTime::from_timestamp_locale(1_730_417_400, true)?; // 2024-10-31 23:30:00 UTC
+        test_assert!(!after.is_apply_daylight_saving_time(), "DST still active after switch: {after}");
+        test_assert_eq!((after.mday, after.hour, after.minute), (31, 23, 30));
+        Ok(())
+    })
+}
+
 pub(crate) fn run_all_tests(stats: &mut TestStats) {
     run_tests!(TAG, stats;
         test_days_in_month,
@@ -298,5 +316,6 @@ pub(crate) fn run_all_tests(stats: &mut TestStats) {
         test_dst_eu_spring_forward,
         test_dst_eu_fall_back,
         test_dst_southern_hemisphere,
+        test_dst_end_at_midnight,
     );
 }

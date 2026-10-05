@@ -221,6 +221,13 @@ impl DateTime {
         days_in_month
     }
 
+    /// Returns the number of hours elapsed since Jan 1 00:00 of the given year
+    fn hour_of_year(year: i32, month: u8, mday: u8, hour: u8) -> i32 {
+        let days: i32 = (1..month).map(|m| Self::days_in_month(m, year) as i32).sum::<i32>()
+            + mday as i32 - 1;
+        days * 24 + hour as i32
+    }
+
     /// Checks if the current date/time is within the daylight saving time period based on the configured start and end dates/times
     /// START_DAY and END_DAY should be in range 1-31 (not 0-based)
     /// Special value: 0xFF means "last Sunday of the month" (for EU DST rules)
@@ -256,10 +263,12 @@ impl DateTime {
         // Compare dates directly instead of using timestamps
         // This avoids issues with timezone/DST already applied to self
         
-        // Create comparison values as (month, day, hour)
-        let now = (self.month, self.mday, self.hour);
-        let start = (start_month, start_mday, start_hour);
-        let end = (end_month, end_mday, end_hour - 1);
+        // Create comparison values as hours elapsed since the start of the year
+        let now = Self::hour_of_year(self.year, self.month, self.mday, self.hour);
+        let start = Self::hour_of_year(self.year, start_month, start_mday, start_hour);
+        // END_HOUR is expressed in DST time: shift back 1h to compare against standard time
+        // (done on the linear value so that hour 0 rolls back to the previous day/month)
+        let end = Self::hour_of_year(self.year, end_month, end_mday, end_hour) - 1;
 
         // Handle both Northern and Southern hemisphere cases
         if start < end {
