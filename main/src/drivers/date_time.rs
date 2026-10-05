@@ -259,7 +259,7 @@ impl DateTime {
         // Create comparison values as (month, day, hour)
         let now = (self.month, self.mday, self.hour);
         let start = (start_month, start_mday, start_hour);
-        let end = (end_month, end_mday, end_hour);
+        let end = (end_month, end_mday, end_hour - 1);
 
         // Handle both Northern and Southern hemisphere cases
         if start < end {
