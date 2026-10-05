@@ -267,6 +267,11 @@ impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
 
         let zone_relay: u8 = args.get(0).ok_or((at_response, AtError::InvalidArgs))?
             .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+
+        if zone_relay >= ZoneController::SIZE as u8 {
+            return Err((at_response, AtError::InvalidArgs));
+        }
+
         let zone_relay = ZoneRelay::from(zone_relay);
         let cmd = args.get(1).ok_or((at_response, AtError::InvalidArgs))?;
 
