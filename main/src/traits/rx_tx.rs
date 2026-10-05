@@ -21,7 +21,7 @@
 use osal_rs::utils::Result;
 
 #[allow(dead_code)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Source {
     Uart,
     Mqtt

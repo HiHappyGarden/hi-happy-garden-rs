@@ -248,6 +248,26 @@ fn test_uart_long_line() -> Result<()> {
     Ok(())
 }
 
+fn test_uart_two_lines_in_one_buffer() -> Result<()> {
+    // Bug #9: one on_receive carries one command. A second line in the same data has no
+    // source: it must be discarded (it used to make the parser task panic)
+    Parser::shared().on_receive(Source::Uart, b"AT+SYS=?\r\nAT+SYS=?\r\n")?;
+    System::delay_with_to_tick(Duration::from_millis(200));
+
+    let output = unsafe { &*&raw const OUTPUT }.as_ref().ok_or(Error::NullPtr)?;
+    let replies = {
+        let mut output = output.lock()?;
+        let replies = String::from_utf8_lossy(&output).into_owned();
+        output.clear();
+        replies
+    };
+    test_assert_eq!(replies, "+SYS: <rs|fr|hwe|e|s>\r\n");
+
+    // The parser is still alive and the source is free again
+    test_assert_eq!(send("AT+SYS=?")?, "+SYS: <rs|fr|hwe|e|s>");
+    Ok(())
+}
+
 pub(in crate::apps) fn run_all_tests(stats: &mut TestStats) {
     run_tests!(TAG, stats;
         test_dispatch_forms,
@@ -265,5 +285,6 @@ pub(in crate::apps) fn run_all_tests(stats: &mut TestStats) {
         test_uart_session,
         test_uart_bad_login,
         test_uart_long_line,
+        test_uart_two_lines_in_one_buffer,
     );
 }

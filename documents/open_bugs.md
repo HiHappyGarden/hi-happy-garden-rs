@@ -37,12 +37,13 @@ la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da
 > **Aggiornamento 2026-10-05:** il bug 8 è corretto nel codice (il firmware compila) e spostato in
 > [Risolti](#risolti), con il nuovo test `FilesystemTests::test_read_error`, non ancora eseguito su HW.
 > La descrizione originale era imprecisa: vedi la voce in [Risolti](#risolti) e il bug 14.
+> Corretto nel codice anche il bug 9 (spostato in [Risolti](#risolti)), con il test
+> `ParserTests::test_uart_two_lines_in_one_buffer`, non ancora eseguito su HW.
 
 ## Riepilogo
 
 | #  | Gravità | Area | Titolo | Test |
 |----|---------|------|--------|------|
-| 9  | Media   | Parser | Panic con più righe in un solo `on_receive` | *senza test* |
 | 10 | Bassa   | Drivers | `HardwareErrorFlag::from` va in panic su valore sconosciuto | *senza test* |
 | 11 | Bassa   | Signals | `ErrorFlag::from(0x08)` non restituisce `DisplayHeader` | `SignalsTests::test_error_flags` |
 | 12 | Bassa   | DateTime | `wday` errato per timestamp negativi | `DateTimeTests::test_negative_timestamp` |
@@ -53,21 +54,6 @@ la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da
 | 17 | Media   | Sprinkler | `AT+ZN?` restituisce solo l'ultima zona | `ZoneTests::test_query` |
 
 ---
-
-## 9. Panic con più righe in un solo `on_receive`
-
-**File:** [main/src/apps/parser.rs:94](../main/src/apps/parser.rs#L94), righe 158 e 247
-
-`on_receive` imposta `SOURCE` solo **dopo** aver accodato tutti i byte; il task del parser
-lo azzera (`SOURCE = None`) dopo ogni riga. Se un buffer contiene due righe, alla seconda
-`access_static_option!(SOURCE)` va in panic.
-
-Oggi la UART passa un byte per volta dalla ISR, quindi il problema non si manifesta. Si
-manifesterà con MQTT (`Source::Mqtt`), che passa il payload intero; in più `MQTT_CHANNEL`
-non viene mai impostato.
-
-**Correzione proposta:** accodare la sorgente insieme ai byte (oppure impostare `SOURCE`
-prima di accodare) e non azzerarla tra una riga e l'altra.
 
 ## 10. `HardwareErrorFlag::from` va in panic su valore sconosciuto
 
@@ -228,6 +214,22 @@ eseguendo la suite su HW (`"0,0,\"\"\r\n"` invece di 4 righe).
   `hhg_flash_write` ha lo stesso assert per i file aperti in sola lettura e non è ancora protetta.
   Test: `FilesystemTests::test_read_error`, che legge un file aperto in `WRONLY` sia da `FILE_FN.read`
   sia da `File::read` e si aspetta `ReturnWithCode(LFS_ERR_BADF)`. Da eseguire su HW.
+- **#9 Panic con più righe in un solo `on_receive`** (Parser, media). Il protocollo prevede un
+  comando per ogni `on_receive`, perché a ogni comando corrisponde una risposta: più righe nello
+  stesso buffer non sono un caso d'uso valido. Il task del parser però andava in panic: `SOURCE`
+  veniva impostata solo dopo aver accodato i byte e azzerata dopo ogni riga, quindi alla seconda
+  riga `access_static_option!(SOURCE)` trovava `None`. Lo stesso valeva per `MQTT_CHANNEL`, mai
+  impostato. Ora:
+  - `on_receive` imposta `SOURCE` **prima** di accodare e rifiuta con `Error::InvalidType` i dati
+    di un'altra sorgente finché il comando in corso non è stato letto;
+  - il task prende la sorgente (`take()`) appena la riga è completa: la libera su ogni percorso,
+    compreso il `KO` di una sessione aperta da un'altra sorgente, che prima lasciava `SOURCE`
+    impostata e avrebbe bloccato per sempre l'altro canale;
+  - una riga senza sorgente o senza canale viene scartata con un log di errore invece del panic.
+  Test: `ParserTests::test_uart_two_lines_in_one_buffer` passa due righe in una sola chiamata con
+  `Source::Uart`, si aspetta una sola risposta e verifica che il comando successivo funzioni. Da
+  eseguire su HW. `MQTT_CHANNEL` va ancora impostato quando si collega MQTT: oggi i comandi MQTT
+  verrebbero scartati con `Channel is not set`.
 - **#18 `zones.json`/`schedules.json` salvati non si ricaricavano** (Serde, alta). Il derive di
   osal-rs-serde non era simmetrico per le tuple struct: `Serialize` scriveva un oggetto con i
   campi `"0"`, `"1"`, …, mentre `Deserialize` leggeva i campi direttamente dalla radice. Il JSON

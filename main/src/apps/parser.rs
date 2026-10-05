@@ -78,8 +78,18 @@ macro_rules! clear_buffer {
 pub(super) struct Parser (Thread);
 
 impl OnReceive for Parser {
+
     fn on_receive(&self, source: Source, data: &[u8]) -> Result<()> {
         
+        unsafe {
+            let local_source = Some(source);
+
+            if (*(&raw const SOURCE)).is_some() && SOURCE != local_source {
+                return Err(Error::InvalidType);
+            }    
+
+            SOURCE = local_source;
+        }
 
         let queue = access_static_option!(QUEUE);
 
@@ -88,10 +98,6 @@ impl OnReceive for Parser {
                 Source::Uart => queue.post_from_isr(&[byte])?,
                 Source::Mqtt => queue.post_with_to_tick(&[byte], Duration::from_millis(100))?,
             }
-        }
-
-        unsafe {
-            SOURCE = Some(source);
         }
 
         Ok(())
@@ -154,13 +160,21 @@ impl Initializable for Parser {
                         buffer_count -= 1; 
                     }
 
-                    
-                    let src = access_static_option!(SOURCE);
-                    let source_flag = <StatusFlag as Into<u32>>::into(StatusFlag::from(src));
+                    let Some(src) = (unsafe { (*&raw mut SOURCE).take() }) else {
+                        log_error!(APP_TAG, "Source is not set");
+                        clear_buffer!(buffer, buffer_count);
+                        continue;
+                    };
+                    let source_flag: u32 = <StatusFlag as Into<u32>>::into(StatusFlag::from(&src));
 
                     let channel = match src {
-                        Source::Uart => *access_static_option!(UART_CHANNEL),
-                        Source::Mqtt => *access_static_option!(MQTT_CHANNEL),
+                        Source::Uart => unsafe { UART_CHANNEL },
+                        Source::Mqtt => unsafe { MQTT_CHANNEL },
+                    };
+                    let Some(channel) = channel else {
+                        log_error!(APP_TAG, "Channel is not set");
+                        clear_buffer!(buffer, buffer_count);
+                        continue;
                     };
 
 
@@ -242,10 +256,7 @@ impl Initializable for Parser {
                     if !is_logged {
                         StatusSignal::clear(source_flag); // Clear the status flag for the source of the command
                     }
-                    
-                    unsafe {
-                        SOURCE = None;
-                    }
+
                     clear_buffer!(buffer, buffer_count);
                 }
             }
