@@ -8,23 +8,38 @@ readme = "README.md"
 repository = "https://github.com/HiHappyGarden/hi-happy-garden-rs"
 
 [lib]
-crate-type = ["staticlib"]
+# staticlib: linked by CMake into the Pico firmware
+# rlib: linked by the `hhg-emulator` host binary
+crate-type = ["staticlib", "rlib"]
+
+[[bin]]
+name = "hhg-emulator"
+path = "src/bin/hhg-emulator.rs"
+required-features = ["emulator"]
 
 [features]
 default = ["pico", "encryption"]
-pico = []
+# Raspberry Pi Pico 2 W firmware on FreeRTOS (built by CMake)
+pico = ["osal-rs/freertos", "osal-rs-tests?/freertos", "at-parser-rs/freertos", "cjson-bindings/freertos"]
+# The Pico 2 W board emulated on a POSIX host: the `hhg_*` C layer of
+# `src/pico` is replaced by host models, everything above it is unchanged
+emulator = ["osal-rs/posix", "osal-rs-tests?/posix", "at-parser-rs/posix", "cjson-bindings/posix", "dep:aes", "dep:sha2"]
 encryption = []
-tests = ["osal-rs-tests"]
+tests = ["dep:osal-rs-tests"]
 
 [dependencies]
-osal-rs = { path = "../osal-rs/osal-rs", features = ["freertos", "serde", "async"] }
+osal-rs = { path = "../osal-rs/osal-rs", default-features = false, features = ["serde", "async"] }
 osal-rs-serde = { path = "../osal-rs/osal-rs-serde", features = ["derive"] }
-osal-rs-tests = { path = "../osal-rs/osal-rs-tests", features = ["freertos", "serde", "async"], optional = true }
-at-parser-rs = { path = "../at-parser-rs", features = ["freertos"] }
+osal-rs-tests = { path = "../osal-rs/osal-rs-tests", default-features = false, features = ["serde", "async"], optional = true }
+at-parser-rs = { path = "../at-parser-rs", default-features = false }
 cjson-bindings = { path = "../cjson-bindings", features = ["osal_rs"] }
+# emulator only: host replacement of the mbedtls AES and the RP2350 SHA-256 accelerator
+aes = { version = "0.8", optional = true }
+sha2 = { version = "0.10", optional = true }
 
 [build-dependencies]
 sha2 = { version = "0.10", default-features = false }
+cc = "1"
 
 [profile.dev]
 panic = "abort"

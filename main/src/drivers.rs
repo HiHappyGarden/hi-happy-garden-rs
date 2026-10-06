@@ -15,10 +15,16 @@ mod uart;
 mod timer;
 pub(super) mod wifi;
 
-#[cfg(feature = "pico")]
+// The emulator runs the Pico 2 W platform layer unchanged: only the `hhg_*`
+// functions under it (the C wrappers of src/pico on the board) are swapped
+// for the host models of `emulator`
+#[cfg(any(feature = "pico", feature = "emulator"))]
 mod pico;
 
-#[cfg(feature = "pico")]
+#[cfg(feature = "emulator")]
+pub(crate) mod emulator;
+
+#[cfg(any(feature = "pico", feature = "emulator"))]
 use crate::drivers::pico as plt;
 
 pub mod platform {

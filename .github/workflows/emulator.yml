@@ -1,0 +1,88 @@
+name: Emulator
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  # Placeholders so main/build.rs can generate defaults.rs: the emulator is
+  # never a real device, real values live in secrets.cmake
+  HHG_AES_KEY_SALT: ci-placeholder
+  HHG_AES_IV_SALT: ci-placeholder
+  HHG_SYSTEM_USER_EMAIL: ci@hhg.local
+  HHG_SYSTEM_USER_PASSWORD: ci-placeholder
+
+jobs:
+  tests:
+    name: Firmware tests on the emulated board
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Only the Rust path dependencies of main/Cargo.toml: pico-sdk and
+      # FreeRTOS-Kernel are not needed on the host.
+      - name: Checkout Rust submodules
+        run: git submodule update --init --depth 1 osal-rs at-parser-rs cjson-bindings
+
+      - name: Install latest Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: main
+
+      - name: Fetch littlefs and cJSON sources
+        run: scripts/emulator-deps.sh
+
+      - name: Build
+        working-directory: main
+        run: cargo build --no-default-features --features emulator,encryption,tests --bin hhg-emulator
+
+      # stdin from /dev/null: the emulated UART sees a silent line. The exit
+      # status is 0 only when every firmware test passed.
+      - name: Run the firmware test suite
+        working-directory: main
+        run: timeout 600 ./target/debug/hhg-emulator < /dev/null
+
+  firmware:
+    name: Firmware Rust build (thumbv8m)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      FREERTOS_CONFIG_PATH: ${{ github.workspace }}/inc/hhg-config/pico/FreeRTOSConfig.h
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Checkout Rust submodules
+        run: git submodule update --init --depth 1 osal-rs at-parser-rs cjson-bindings
+
+      - name: Install latest Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv8m.main-none-eabi
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: main
+
+      # The emulator touches the platform layer: the board build must keep
+      # compiling (the C side and the link need the pico-sdk, left to CMake)
+      - name: Build (pico)
+        working-directory: main
+        run: cargo build --target thumbv8m.main-none-eabi --features pico
+
+      - name: Build (pico, tests)
+        working-directory: main
+        run: cargo build --target thumbv8m.main-none-eabi --features pico,tests

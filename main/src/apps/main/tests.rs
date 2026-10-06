@@ -23,6 +23,7 @@
 //! over the display, the UART and the relays); its steps are tested where
 //! they are plain functions.
 
+use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Bytes, Result};
 
 use super::AppMain;
@@ -35,7 +36,7 @@ const TAG: &str = "AppMainTests";
 
 /// Runs `check_config` from `CheckConfig` with `serial`, restoring the serial
 /// and the status bits it touches.
-fn check_config_with(serial: &str) -> Result<(StatusFlag, StatusFlag, u32)> {
+fn check_config_with(serial: &str) -> Result<(StatusFlag, StatusFlag, EventBits)> {
     let config = Config::shared();
     let backup = config.get_serial();
     config.set_serial(&Bytes::from_str(serial));
@@ -46,7 +47,7 @@ fn check_config_with(serial: &str) -> Result<(StatusFlag, StatusFlag, u32)> {
     AppMain::check_config(config, &mut current, &mut old);
     let status = StatusSignal::get();
 
-    StatusSignal::clear(u32::from(StatusFlag::CheckConfig) | u32::from(StatusFlag::EnableWifi));
+    StatusSignal::clear(EventBits::from(StatusFlag::CheckConfig) | EventBits::from(StatusFlag::EnableWifi));
     config.set_serial(&backup);
     Ok((current, old, status))
 }

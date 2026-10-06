@@ -22,7 +22,7 @@
 //! handler. ARM assembly and RP2350 registers, so they are left out of the
 //! emulator build.
 
-use core::{ffi::{CStr, c_char}, ptr::{null_mut, read_volatile}};
+use core::ffi::{CStr, c_char};
 use osal_rs::os::types::ThreadHandle;
 
 use super::ffi;
@@ -88,12 +88,12 @@ impl FaultRegisters {
     unsafe fn read() -> Self {
         unsafe {
             Self {
-                cfsr: read_volatile(0xE000_ED28 as *const u32),
-                hfsr: read_volatile(0xE000_ED2C as *const u32),
-                dfsr: read_volatile(0xE000_ED30 as *const u32),
-                mmfar: read_volatile(0xE000_ED34 as *const u32),
-                bfar: read_volatile(0xE000_ED38 as *const u32),
-                afsr: read_volatile(0xE000_ED3C as *const u32),
+                cfsr: core::ptr::read_volatile(0xE000_ED28 as *const u32),
+                hfsr: core::ptr::read_volatile(0xE000_ED2C as *const u32),
+                dfsr: core::ptr::read_volatile(0xE000_ED30 as *const u32),
+                mmfar: core::ptr::read_volatile(0xE000_ED34 as *const u32),
+                bfar: core::ptr::read_volatile(0xE000_ED38 as *const u32),
+                afsr: core::ptr::read_volatile(0xE000_ED3C as *const u32),
             }
         }
     }
@@ -236,7 +236,7 @@ pub unsafe extern "C" fn isr_hardfault() -> ! {
 
     // With STKOF the frame is not (fully) stacked, so its content is not reliable
     let thread_mode = exc_return & (1 << 3) != 0;
-    let core = unsafe { read_volatile(SIO_CPUID) };
+    let core = unsafe { core::ptr::read_volatile(SIO_CPUID) };
 
     // Read the exception frame from stack
     let frame = unsafe { &*stack_ptr };
@@ -275,7 +275,7 @@ pub unsafe extern "C" fn isr_hardfault() -> ! {
         hardfault_uart_print(b"MSP : 0x"); hardfault_uart_print_hex(msp); hardfault_uart_print(b" LIM: 0x"); hardfault_uart_print_hex(msplim); hardfault_uart_print(b"\r\n");
         hardfault_uart_print(b"PSP : 0x"); hardfault_uart_print_hex(psp); hardfault_uart_print(b" LIM: 0x"); hardfault_uart_print_hex(psplim); hardfault_uart_print(b"\r\n");
         if thread_mode && exc_return & (1 << 2) != 0 {
-            let name = pcTaskGetName(null_mut());
+            let name = pcTaskGetName(core::ptr::null_mut());
             if !name.is_null() {
                 hardfault_uart_print(b"TASK: "); hardfault_uart_print(CStr::from_ptr(name).to_bytes()); hardfault_uart_print(b"\r\n");
             }
@@ -288,7 +288,7 @@ pub unsafe extern "C" fn isr_hardfault() -> ! {
                 if i % 4 == 0 {
                     hardfault_uart_print(b"  0x"); hardfault_uart_print_hex(psp + i * 4); hardfault_uart_print(b":");
                 }
-                hardfault_uart_print(b" "); hardfault_uart_print_hex(read_volatile(words.add(i as usize)));
+                hardfault_uart_print(b" "); hardfault_uart_print_hex(core::ptr::read_volatile(words.add(i as usize)));
                 if i % 4 == 3 {
                     hardfault_uart_print(b"\r\n");
                 }
@@ -298,7 +298,7 @@ pub unsafe extern "C" fn isr_hardfault() -> ! {
             let mut addr = psp;
             let mut count = 0;
             while addr < end && count < 96 {
-                let val = read_volatile(addr as *const u32);
+                let val = core::ptr::read_volatile(addr as *const u32);
                 if (0x1000_0000..0x1010_0000).contains(&val) && val & 1 == 1 {
                     hardfault_uart_print(b"  0x"); hardfault_uart_print_hex(addr); hardfault_uart_print(b": 0x"); hardfault_uart_print_hex(val); hardfault_uart_print(b"\r\n");
                     count += 1;

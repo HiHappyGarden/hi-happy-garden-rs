@@ -3,23 +3,25 @@
 
 #![allow(non_camel_case_types)]
 
+// Some are only used by the board extern block below
+#[cfg_attr(feature = "emulator", allow(unused_imports))]
 use core::ffi::{c_uchar, c_ushort, c_char, c_int, c_uint, c_ulonglong, c_void};
 
 use crate::drivers::network::IP4Addr;
 
 
 #[repr(C)]
-pub(super) struct pwm_config {
+pub(in crate::drivers) struct pwm_config {
     pub csr: u32,
     pub div: u32,
     pub top: u32,
 }
 
-pub(super) const GPIO_OUT: bool = true;
-pub(super) const GPIO_IN: bool = false;  
+pub(in crate::drivers) const GPIO_OUT: bool = true;
+pub(in crate::drivers) const GPIO_IN: bool = false;  
 
 #[allow(dead_code)]
-pub(super) mod gpio_function_type {
+pub(in crate::drivers) mod gpio_function_type {
     pub const GPIO_FUNC_HSTX: u32 = 0;
     pub const GPIO_FUNC_SPI: u32 = 1;
     pub const GPIO_FUNC_UART: u32 = 2;
@@ -66,7 +68,7 @@ pub(crate) enum pico_error_codes {
 
 #[repr(u32)]
 #[derive(Clone, Copy)]
-pub(super) enum gpio_irq_level {
+pub(in crate::drivers) enum gpio_irq_level {
     GPIO_IRQ_LEVEL_LOW = 0x1,  
     GPIO_IRQ_LEVEL_HIGH = 0x2, 
     GPIO_IRQ_EDGE_FALL = 0x4,  
@@ -90,7 +92,7 @@ pub(crate) enum aes_mode {
 }
 
 #[allow(dead_code)]
-pub(super) struct MbedtlsAes (pub *mut c_void);
+pub(in crate::drivers) struct MbedtlsAes (pub *mut c_void);
 
 unsafe impl Send for MbedtlsAes {}
 unsafe impl Sync for MbedtlsAes {}
@@ -102,7 +104,7 @@ pub(crate) type LfsSsize = i32;
 pub(crate) type LfsSoff = i32;
 pub(crate) type LfsOff = u32;
 
-pub(super) mod cyw43_auth {
+pub(in crate::drivers) mod cyw43_auth {
     ///< No authorisation required (open)
     pub const OPEN: u32 = 0;
 
@@ -122,9 +124,9 @@ pub(super) mod cyw43_auth {
     pub const WPA3_WPA2_AES_PSK: u32 = 0x01400004;
 }
 
-pub(super) type ip_addr = IP4Addr;
+pub(in crate::drivers) type ip_addr = IP4Addr;
 
-pub(super) mod cyw43_status {
+pub(in crate::drivers) mod cyw43_status {
     ///< link is down
     pub const CYW43_LINK_DOWN   : i32 = 0;
     ///< Connected to wifi
@@ -142,7 +144,7 @@ pub(super) mod cyw43_status {
 }
 
 #[allow(dead_code)]
-pub(super) mod lwip_ip_addr_type {
+pub(in crate::drivers) mod lwip_ip_addr_type {
   /** IPv4 */
   pub const IPADDR_TYPE_V4: u8 = 0;
   /** IPv6 */
@@ -153,7 +155,7 @@ pub(super) mod lwip_ip_addr_type {
 
 #[allow(dead_code)]
 #[repr(i8)]
-pub(super) enum err_enum {
+pub(in crate::drivers) enum err_enum {
 /** No error, everything OK. */
   ERR_OK         = 0,
 /** Out of memory error.     */
@@ -193,7 +195,7 @@ pub(super) enum err_enum {
 
 
 #[repr(C)]
-pub(super) struct pbuf {
+pub(in crate::drivers) struct pbuf {
     /// next pbuf in singly linked pbuf chain
     pub next: *mut pbuf,
     
@@ -229,11 +231,11 @@ pub(super) struct pbuf {
     // LWIP_PBUF_CUSTOM_DATA (se necessario, aggiungi qui i campi custom)
 }
 
-type udp_recv_fn = unsafe extern "C" fn( arg: *mut c_void, pcb: *mut udp_pcb, p: *mut pbuf, addr: *const ip_addr, port: u16);
+pub(in crate::drivers) type udp_recv_fn = unsafe extern "C" fn( arg: *mut c_void, pcb: *mut udp_pcb, p: *mut pbuf, addr: *const ip_addr, port: u16);
 
 /// The UDP protocol control block
 #[repr(C)]
-pub(super) struct udp_pcb {
+pub(in crate::drivers) struct udp_pcb {
     // Common members from IP_PCB macro
     /// IP addresses in network byte order
     pub local_ip: ip_addr,
@@ -259,149 +261,158 @@ pub(super) struct udp_pcb {
     pub recv_arg: *mut c_void,
 }
 
+// littlefs wrapper: C on both targets, src/pico/hhg-lfs-wrapper.c on the
+// board and its twin src/emulator/hhg-lfs-wrapper.c on the host
 #[allow(dead_code)]
 unsafe extern "C" {
-    pub(super) fn hhg_gpio_init(gpio: u32);
-    pub(super) fn hhg_gpio_set_dir(gpio: u32, out: bool);
-    pub(super) fn hhg_gpio_put(gpio: u32, value: bool);
-    pub(super) fn hhg_gpio_get(gpio: u32) -> bool;
-    pub(super) fn hhg_gpio_pull_up(gpio: u32);
-    pub(super) fn hhg_gpio_pull_down(gpio: u32);
-    pub(super) fn hhg_gpio_disable_pulls(gpio: u32);
-    pub(super) fn hhg_gpio_set_function(gpio: u32, fn_: u32);
-    pub(super) fn hhg_pwm_gpio_to_slice_num(gpio: u32) -> u32;
-    pub(super) fn hhg_pwm_get_default_config() -> pwm_config;
-    pub(super) fn hhg_pwm_config_set_clkdiv(c: *mut pwm_config, div: f32);
-    pub(super) fn hhg_pwm_config_set_wrap(c: *mut pwm_config, wrap: u16);
-    pub(super) fn hhg_pwm_init(slice_num: u32, c: *mut pwm_config, start: bool);
-    pub(super) fn hhg_pwm_set_gpio_level(gpio: u32, level: u16);
-    pub(super) fn hhg_gpio_set_irq_enabled_with_callback(gpio: u32, events: u32, enabled: bool, callback: extern "C" fn());
-    pub(super) fn hhg_gpio_set_irq_enabled(gpio: u32, events: u32, enabled: bool);
-
-    pub(super) fn hhg_uart_init(baudrate: c_uint) -> c_uint;
-    pub(super) fn hhg_uart_deinit();
-    pub(super) fn hhg_uart_set_hw_flow(cts: bool, rts: bool);
-    pub(super) fn hhg_uart_set_format(data_bits: c_uint, stop_bits: c_uint, parity: uart_parity);
-    pub(super) fn hhg_uart_set_fifo_enabled(enabled: bool);
-    pub(super) fn hhg_uart_irq_set_exclusive_handler(handler: unsafe extern "C" fn());
-    pub(super) fn hhg_uart_irq_set_enabled(enabled: bool);
-    pub(super) fn hhg_uart_irq_set_high_priority();
-    pub(super) fn hhg_uart_set_irq_enables(rx_en: bool, tx_en: bool);
-    pub(super) fn hhg_uart_clear_irq();
-    pub(super) fn hhg_uart_is_readable() -> bool;
-    pub(super) fn hhg_uart_getc() -> u8;
-    pub(super) fn hhg_uart_read(dst: *mut u8, len: usize) -> usize;
-    pub(super) fn hhg_uart_putc(c: u8);
-
-    pub(super) fn hhg_adc_init();
-    pub(super) fn hhg_adc_set_temp_sensor_enabled(enable: bool);
-    pub(super) fn hhg_adc_select_input(input: c_uint);
-    pub(super) fn hhg_adc_read() -> u16;
-
-    pub(super) fn hhg_cyw43_arch_gpio_put(wl_gpio: u32, value: bool);
-    pub(super) fn hhg_cyw43_arch_gpio_get(wl_gpio: u32) -> bool;
-    pub(super) fn hhg_cyw43_arch_init_with_country(country_code: c_uint) -> c_int;
-    pub(super) fn hhg_cyw43_arch_deinit();
-    pub(super) fn hhg_cyw43_arch_enable_sta_mode();
-    pub(super) fn hhg_cyw43_arch_disable_sta_mode();
-    pub(super) fn hhg_cyw43_wifi_link_status(itf: c_int) -> c_int;
-    pub(super) fn hhg_cyw43_arch_wifi_connect(ssid: *const c_char, pw: *const c_char, auth: c_uint) -> c_int;
-    pub(super) fn hhg_cyw43_arch_poll();
-    pub(super) fn hhg_cyw43_arch_lwip_begin();
-    pub(super) fn hhg_cyw43_arch_lwip_end();
-    pub(super) fn hhg_cyw43_wifi_get_rssi(rssi: *mut i32) -> i32;
-
-    pub(super) fn hhg_dhcp_get_ip_address() -> *const c_char;
-    pub(super) fn hhg_dhcp_get_binary_ip_address() -> c_uint;
-    pub(super) fn hhg_dhcp_supplied_address() -> bool;
-    pub(super) fn hhg_udp_new_ip_type(_type: c_uchar) -> *mut udp_pcb;
-    pub(super) fn hhg_pbuf_copy_partial(buf: *mut pbuf, dataptr: *mut c_void, len: u16, offset: u16) -> u16;
-    pub(super) fn hhg_pbuf_alloc(length: c_ushort) -> *mut pbuf;
-    pub(super) fn hhg_pbuf_free(p: *mut pbuf) -> c_uchar;
-    pub(super) fn hhg_pbuf_get_at(p: * const pbuf, offset: u16) -> u8;
-    pub(super) fn hhg_netif_is_link_up() -> c_uchar;
-    pub(super) fn hhg_ip_addr_cmp(addr: *const ip_addr, addr2: *const ip_addr) -> i32;
-    pub(super) fn hhg_dns_gethostbyname(hostname: *const c_char, addr: *mut ip_addr, dns_found_callback: extern "C" fn(name: *const c_char, ipaddr: *const ip_addr, callback_arg: *mut c_void), callback_arg: *mut c_void) -> c_char;
-    pub(super) fn hhg_udp_sendto(buf: *mut udp_pcb, p: *mut pbuf, ipaddr: *const ip_addr, port: u16) -> i8;
-    pub(super) fn hhg_udp_recv(pcb: *mut udp_pcb, recv: udp_recv_fn ,  recv_arg: *mut c_void);
-
-    pub(super) fn hhg_i2c_instance(i2c_num: u8) -> *mut c_void;
-    pub(super) fn hhg_i2c_init(i2c: *mut c_void, baudrate: c_uint) -> c_uint;
-    pub(super) fn hhg_i2c0_init_pins_with_func();
-    pub(super) fn hhg_i2c1_init_pins_with_func();
-    pub(super) fn hhg_i2c_write_blocking(i2c: *mut c_void, addr: u8, src: *const u8, len: usize, nostop: bool) -> i32;
-    pub(super) fn hhg_i2c_write_blocking_dma(i2c: *mut c_void, addr: u8, src: *const u8, len: usize, nostop: bool) -> i32;
-    pub(super) fn hhg_i2c_read_blocking(i2c: *mut c_void, addr: u8, dst: *mut u8, len: usize, nostop: bool) -> i32;
-    pub(super) fn hhg_i2c_deinit(i2c: *mut c_void);
-    
-    pub(super) fn hhg_flash_mount(format: bool) -> c_int;
-    pub(super) fn hhg_flash_open(path: *const c_char, flags: c_int, err: *mut c_int) -> *mut c_void;
-    pub(super) fn hhg_flash_close(file: *mut c_void) -> c_int;
-    pub(super) fn hhg_flash_write(file: *mut c_void, buffer: *const c_void, size: LfsSize) -> LfsSsize;
-    pub(super) fn hhg_flash_read(file: *mut c_void, buffer: *mut c_void, size: LfsSize) -> LfsSsize;
-    pub(super) fn hhg_flash_rewind(file: *mut c_void) -> c_int;
-    pub(super) fn hhg_flash_umount() -> c_int;
-    pub(super) fn hhg_flash_remove(path: *const c_char) -> c_int;
-    pub(super) fn hhg_flash_rename(oldpath: *const c_char, newpath: *const c_char) -> c_int;
-    pub(super) fn hhg_flash_fsstat(
+    pub(in crate::drivers) fn hhg_flash_mount(format: bool) -> c_int;
+    pub(in crate::drivers) fn hhg_flash_open(path: *const c_char, flags: c_int, err: *mut c_int) -> *mut c_void;
+    pub(in crate::drivers) fn hhg_flash_close(file: *mut c_void) -> c_int;
+    pub(in crate::drivers) fn hhg_flash_write(file: *mut c_void, buffer: *const c_void, size: LfsSize) -> LfsSsize;
+    pub(in crate::drivers) fn hhg_flash_read(file: *mut c_void, buffer: *mut c_void, size: LfsSize) -> LfsSsize;
+    pub(in crate::drivers) fn hhg_flash_rewind(file: *mut c_void) -> c_int;
+    pub(in crate::drivers) fn hhg_flash_umount() -> c_int;
+    pub(in crate::drivers) fn hhg_flash_remove(path: *const c_char) -> c_int;
+    pub(in crate::drivers) fn hhg_flash_rename(oldpath: *const c_char, newpath: *const c_char) -> c_int;
+    pub(in crate::drivers) fn hhg_flash_fsstat(
         block_size: *mut LfsSize,
         block_count: *mut LfsSize,
         blocks_used: *mut LfsSize,
     ) -> c_int;
-    pub(super) fn hhg_flash_lseek(file: *mut c_void, off: LfsSoff, whence: c_int) -> LfsSoff;
-    pub(super) fn hhg_flash_truncate(file: *mut c_void, size: LfsOff) -> c_int;
-    pub(super) fn hhg_flash_tell(file: *mut c_void) -> LfsSoff;
-    pub(super) fn hhg_flash_stat(
+    pub(in crate::drivers) fn hhg_flash_lseek(file: *mut c_void, off: LfsSoff, whence: c_int) -> LfsSoff;
+    pub(in crate::drivers) fn hhg_flash_truncate(file: *mut c_void, size: LfsOff) -> c_int;
+    pub(in crate::drivers) fn hhg_flash_tell(file: *mut c_void) -> LfsSoff;
+    pub(in crate::drivers) fn hhg_flash_stat(
         path: *const c_char,
         type_: *mut u8,
         size: *mut LfsSize,
         name: *mut c_char,
     ) -> c_int;
-    pub(super) fn hhg_flash_getattr(
+    pub(in crate::drivers) fn hhg_flash_getattr(
         path: *const c_char,
         type_: u8,
         buffer: *mut c_void,
         size: LfsSize,
     ) -> LfsSsize;
-    pub(super) fn hhg_flash_setattr(
+    pub(in crate::drivers) fn hhg_flash_setattr(
         path: *const c_char,
         type_: u8,
         buffer: *const c_void,
         size: LfsSize,
     ) -> c_int;
-    pub(super) fn hhg_flash_removeattr(path: *const c_char, type_: u8) -> c_int;
-    pub(super) fn hhg_flash_fflush(file: *mut c_void) -> c_int;
-    pub(super) fn hhg_flash_size(file: *mut c_void) -> LfsSoff;
-    pub(super) fn hhg_flash_mkdir(path: *const c_char) -> c_int;
-    pub(super) fn hhg_flash_dir_open(path: *const c_char) -> *mut c_void;
-    pub(super) fn hhg_flash_dir_close(dir: *mut c_void) -> c_int;
-    pub(super) fn hhg_flash_dir_read(
+    pub(in crate::drivers) fn hhg_flash_removeattr(path: *const c_char, type_: u8) -> c_int;
+    pub(in crate::drivers) fn hhg_flash_fflush(file: *mut c_void) -> c_int;
+    pub(in crate::drivers) fn hhg_flash_size(file: *mut c_void) -> LfsSoff;
+    pub(in crate::drivers) fn hhg_flash_mkdir(path: *const c_char) -> c_int;
+    pub(in crate::drivers) fn hhg_flash_dir_open(path: *const c_char) -> *mut c_void;
+    pub(in crate::drivers) fn hhg_flash_dir_close(dir: *mut c_void) -> c_int;
+    pub(in crate::drivers) fn hhg_flash_dir_read(
         dir: *mut c_void,
         type_: *mut u8,
         size: *mut LfsSize,
         name: *mut c_char,
     ) -> c_int;
-    pub(super) fn hhg_flash_dir_seek(dir: *mut c_void, off: LfsOff) -> c_int;
-    pub(super) fn hhg_flash_dir_tell(dir: *mut c_void) -> LfsSoff;
-    pub(super) fn hhg_flash_dir_rewind(dir: *mut c_void) -> c_int;
-    pub(super) fn hhg_flash_errmsg(err: c_int) -> *const c_char;
+    pub(in crate::drivers) fn hhg_flash_dir_seek(dir: *mut c_void, off: LfsOff) -> c_int;
+    pub(in crate::drivers) fn hhg_flash_dir_tell(dir: *mut c_void) -> LfsSoff;
+    pub(in crate::drivers) fn hhg_flash_dir_rewind(dir: *mut c_void) -> c_int;
+    pub(in crate::drivers) fn hhg_flash_errmsg(err: c_int) -> *const c_char;
+}
 
-    pub(super) fn hhg_get_unique_id(id_buffer: *mut u8);
-    pub(super) fn hhg_system_reset() -> !;
+#[cfg(feature = "emulator")]
+pub(in crate::drivers) use crate::drivers::emulator::hal::*;
 
-    pub(super) fn hhg_mbedtls_aes_init() -> *mut c_void;
-    pub(super) fn hhg_mbedtls_aes_setkey_enc(aes: *mut c_void, key: *const u8, keybits: u32) -> i32;
-    pub(super) fn hhg_mbedtls_aes_crypt_cbc(aes: *mut c_void, mode: i32, length: usize, iv: *mut u8, input: *const u8, output: *mut u8) -> i32;
-    pub(super) fn hhg_mbedtls_aes_setkey_dec(aes: *mut c_void, key: *const u8, keybits: u32) -> i32;
-    pub(super) fn hhg_mbedtls_aes_free(aes: *mut c_void);
+#[cfg(feature = "pico")]
+#[allow(dead_code)]
+unsafe extern "C" {
+    pub(in crate::drivers) fn hhg_gpio_init(gpio: u32);
+    pub(in crate::drivers) fn hhg_gpio_set_dir(gpio: u32, out: bool);
+    pub(in crate::drivers) fn hhg_gpio_put(gpio: u32, value: bool);
+    pub(in crate::drivers) fn hhg_gpio_get(gpio: u32) -> bool;
+    pub(in crate::drivers) fn hhg_gpio_pull_up(gpio: u32);
+    pub(in crate::drivers) fn hhg_gpio_pull_down(gpio: u32);
+    pub(in crate::drivers) fn hhg_gpio_disable_pulls(gpio: u32);
+    pub(in crate::drivers) fn hhg_gpio_set_function(gpio: u32, fn_: u32);
+    pub(in crate::drivers) fn hhg_pwm_gpio_to_slice_num(gpio: u32) -> u32;
+    pub(in crate::drivers) fn hhg_pwm_get_default_config() -> pwm_config;
+    pub(in crate::drivers) fn hhg_pwm_config_set_clkdiv(c: *mut pwm_config, div: f32);
+    pub(in crate::drivers) fn hhg_pwm_config_set_wrap(c: *mut pwm_config, wrap: u16);
+    pub(in crate::drivers) fn hhg_pwm_init(slice_num: u32, c: *mut pwm_config, start: bool);
+    pub(in crate::drivers) fn hhg_pwm_set_gpio_level(gpio: u32, level: u16);
+    pub(in crate::drivers) fn hhg_gpio_set_irq_enabled_with_callback(gpio: u32, events: u32, enabled: bool, callback: extern "C" fn());
+    pub(in crate::drivers) fn hhg_gpio_set_irq_enabled(gpio: u32, events: u32, enabled: bool);
 
-    pub(super) fn hhg_pico_sha256_start_blocking(state: *mut *mut c_void, use_dma: bool) -> c_int;
-    pub(super) fn hhg_pico_sha256_update_blocking(state: *mut c_void, data: *const c_uchar, data_size_bytes: usize);
-    pub(super) fn hhg_pico_sha256_finish(state: *mut c_void, out: *mut c_uchar);
+    pub(in crate::drivers) fn hhg_uart_init(baudrate: c_uint) -> c_uint;
+    pub(in crate::drivers) fn hhg_uart_deinit();
+    pub(in crate::drivers) fn hhg_uart_set_hw_flow(cts: bool, rts: bool);
+    pub(in crate::drivers) fn hhg_uart_set_format(data_bits: c_uint, stop_bits: c_uint, parity: uart_parity);
+    pub(in crate::drivers) fn hhg_uart_set_fifo_enabled(enabled: bool);
+    pub(in crate::drivers) fn hhg_uart_irq_set_exclusive_handler(handler: unsafe extern "C" fn());
+    pub(in crate::drivers) fn hhg_uart_irq_set_enabled(enabled: bool);
+    pub(in crate::drivers) fn hhg_uart_irq_set_high_priority();
+    pub(in crate::drivers) fn hhg_uart_set_irq_enables(rx_en: bool, tx_en: bool);
+    pub(in crate::drivers) fn hhg_uart_clear_irq();
+    pub(in crate::drivers) fn hhg_uart_is_readable() -> bool;
+    pub(in crate::drivers) fn hhg_uart_getc() -> u8;
+    pub(in crate::drivers) fn hhg_uart_read(dst: *mut u8, len: usize) -> usize;
+    pub(in crate::drivers) fn hhg_uart_putc(c: u8);
 
-    pub(super) fn hhg_powman_timer_set_ms(time_ms: c_ulonglong);
-    pub(super) fn hhg_powman_timer_get_ms() -> c_ulonglong;
+    pub(in crate::drivers) fn hhg_adc_init();
+    pub(in crate::drivers) fn hhg_adc_set_temp_sensor_enabled(enable: bool);
+    pub(in crate::drivers) fn hhg_adc_select_input(input: c_uint);
+    pub(in crate::drivers) fn hhg_adc_read() -> u16;
 
-    pub(super) fn hhg_add_repeating_timer_ms(delay_ms: c_int, callback: extern "C" fn(*mut c_void), user_data: *mut c_void, out: *mut *mut c_void) -> bool;
-    pub(super) fn hhg_cancel_repeating_timer(timer: *mut c_void) -> bool;
+    pub(in crate::drivers) fn hhg_cyw43_arch_gpio_put(wl_gpio: u32, value: bool);
+    pub(in crate::drivers) fn hhg_cyw43_arch_gpio_get(wl_gpio: u32) -> bool;
+    pub(in crate::drivers) fn hhg_cyw43_arch_init_with_country(country_code: c_uint) -> c_int;
+    pub(in crate::drivers) fn hhg_cyw43_arch_deinit();
+    pub(in crate::drivers) fn hhg_cyw43_arch_enable_sta_mode();
+    pub(in crate::drivers) fn hhg_cyw43_arch_disable_sta_mode();
+    pub(in crate::drivers) fn hhg_cyw43_wifi_link_status(itf: c_int) -> c_int;
+    pub(in crate::drivers) fn hhg_cyw43_arch_wifi_connect(ssid: *const c_char, pw: *const c_char, auth: c_uint) -> c_int;
+    pub(in crate::drivers) fn hhg_cyw43_arch_poll();
+    pub(in crate::drivers) fn hhg_cyw43_arch_lwip_begin();
+    pub(in crate::drivers) fn hhg_cyw43_arch_lwip_end();
+    pub(in crate::drivers) fn hhg_cyw43_wifi_get_rssi(rssi: *mut i32) -> i32;
+
+    pub(in crate::drivers) fn hhg_dhcp_get_ip_address() -> *const c_char;
+    pub(in crate::drivers) fn hhg_dhcp_get_binary_ip_address() -> c_uint;
+    pub(in crate::drivers) fn hhg_dhcp_supplied_address() -> bool;
+    pub(in crate::drivers) fn hhg_udp_new_ip_type(_type: c_uchar) -> *mut udp_pcb;
+    pub(in crate::drivers) fn hhg_pbuf_copy_partial(buf: *mut pbuf, dataptr: *mut c_void, len: u16, offset: u16) -> u16;
+    pub(in crate::drivers) fn hhg_pbuf_alloc(length: c_ushort) -> *mut pbuf;
+    pub(in crate::drivers) fn hhg_pbuf_free(p: *mut pbuf) -> c_uchar;
+    pub(in crate::drivers) fn hhg_pbuf_get_at(p: * const pbuf, offset: u16) -> u8;
+    pub(in crate::drivers) fn hhg_netif_is_link_up() -> c_uchar;
+    pub(in crate::drivers) fn hhg_ip_addr_cmp(addr: *const ip_addr, addr2: *const ip_addr) -> i32;
+    pub(in crate::drivers) fn hhg_dns_gethostbyname(hostname: *const c_char, addr: *mut ip_addr, dns_found_callback: extern "C" fn(name: *const c_char, ipaddr: *const ip_addr, callback_arg: *mut c_void), callback_arg: *mut c_void) -> c_char;
+    pub(in crate::drivers) fn hhg_udp_sendto(buf: *mut udp_pcb, p: *mut pbuf, ipaddr: *const ip_addr, port: u16) -> i8;
+    pub(in crate::drivers) fn hhg_udp_recv(pcb: *mut udp_pcb, recv: udp_recv_fn ,  recv_arg: *mut c_void);
+
+    pub(in crate::drivers) fn hhg_i2c_instance(i2c_num: u8) -> *mut c_void;
+    pub(in crate::drivers) fn hhg_i2c_init(i2c: *mut c_void, baudrate: c_uint) -> c_uint;
+    pub(in crate::drivers) fn hhg_i2c0_init_pins_with_func();
+    pub(in crate::drivers) fn hhg_i2c1_init_pins_with_func();
+    pub(in crate::drivers) fn hhg_i2c_write_blocking(i2c: *mut c_void, addr: u8, src: *const u8, len: usize, nostop: bool) -> i32;
+    pub(in crate::drivers) fn hhg_i2c_write_blocking_dma(i2c: *mut c_void, addr: u8, src: *const u8, len: usize, nostop: bool) -> i32;
+    pub(in crate::drivers) fn hhg_i2c_read_blocking(i2c: *mut c_void, addr: u8, dst: *mut u8, len: usize, nostop: bool) -> i32;
+    pub(in crate::drivers) fn hhg_i2c_deinit(i2c: *mut c_void);
+    
+    pub(in crate::drivers) fn hhg_get_unique_id(id_buffer: *mut u8);
+    pub(in crate::drivers) fn hhg_system_reset() -> !;
+
+    pub(in crate::drivers) fn hhg_mbedtls_aes_init() -> *mut c_void;
+    pub(in crate::drivers) fn hhg_mbedtls_aes_setkey_enc(aes: *mut c_void, key: *const u8, keybits: u32) -> i32;
+    pub(in crate::drivers) fn hhg_mbedtls_aes_crypt_cbc(aes: *mut c_void, mode: i32, length: usize, iv: *mut u8, input: *const u8, output: *mut u8) -> i32;
+    pub(in crate::drivers) fn hhg_mbedtls_aes_setkey_dec(aes: *mut c_void, key: *const u8, keybits: u32) -> i32;
+    pub(in crate::drivers) fn hhg_mbedtls_aes_free(aes: *mut c_void);
+
+    pub(in crate::drivers) fn hhg_pico_sha256_start_blocking(state: *mut *mut c_void, use_dma: bool) -> c_int;
+    pub(in crate::drivers) fn hhg_pico_sha256_update_blocking(state: *mut c_void, data: *const c_uchar, data_size_bytes: usize);
+    pub(in crate::drivers) fn hhg_pico_sha256_finish(state: *mut c_void, out: *mut c_uchar);
+
+    pub(in crate::drivers) fn hhg_powman_timer_set_ms(time_ms: c_ulonglong);
+    pub(in crate::drivers) fn hhg_powman_timer_get_ms() -> c_ulonglong;
+
+    pub(in crate::drivers) fn hhg_add_repeating_timer_ms(delay_ms: c_int, callback: extern "C" fn(*mut c_void), user_data: *mut c_void, out: *mut *mut c_void) -> bool;
+    pub(in crate::drivers) fn hhg_cancel_repeating_timer(timer: *mut c_void) -> bool;
 }

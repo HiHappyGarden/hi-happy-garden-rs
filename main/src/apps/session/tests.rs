@@ -30,6 +30,7 @@ use alloc::string::String;
 
 use at_parser_rs::Args;
 use at_parser_rs::context::AtContext;
+use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Error, Result};
 
 use super::{Session, User, USER_LOGGED, USER_TMP};
@@ -44,7 +45,7 @@ use crate::traits::signal::Signal;
 const TAG: &str = "SessionTests";
 
 fn is_logged() -> bool {
-    StatusSignal::get() & u32::from(StatusFlag::UserLogged) != 0
+    StatusSignal::get() & EventBits::from(StatusFlag::UserLogged) != 0
 }
 
 fn login(email: &str, password: &str) -> Result<String> {
@@ -100,7 +101,7 @@ fn test_logout_clears_source_flags() -> Result<()> {
         Session::logout();
         let status = StatusSignal::get();
         for flag in [StatusFlag::UserLogged, StatusFlag::UartCmd, StatusFlag::MqttCmd, StatusFlag::SystemCmd] {
-            test_assert!(status & u32::from(flag) == 0, "{flag:?} survived logout");
+            test_assert!(status & EventBits::from(flag) == 0, "{flag:?} survived logout");
         }
         Ok(())
     }))

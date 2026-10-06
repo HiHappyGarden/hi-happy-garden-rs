@@ -79,7 +79,73 @@ fn parse_bool(s: &str) -> bool {
     matches!(cleaned.as_str(), "true" | "1" | "on" | "yes")
 }
 
+/// Locates the source tree of a C dependency of the emulator.
+///
+/// `env_var` wins when set; otherwise the copy CMake's FetchContent left in
+/// `build/_deps` (firmware build) or `build-emulator/_deps` (see
+/// `scripts/emulator-deps.sh`) is used, so no extra download is needed.
+fn emulator_dep_dir(env_var: &str, fetch_name: &str, probe: &str) -> PathBuf {
+    println!("cargo:rerun-if-env-changed={}", env_var);
+    if let Ok(dir) = env::var(env_var) {
+        return PathBuf::from(dir);
+    }
+
+    let root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("..");
+    ["build", "build-emulator"]
+        .iter()
+        .map(|build| root.join(build).join("_deps").join(format!("{}-src", fetch_name)))
+        .find(|dir| dir.join(probe).exists())
+        .unwrap_or_else(|| panic!(
+            "{} sources not found: set {} or run scripts/emulator-deps.sh",
+            fetch_name, env_var
+        ))
+}
+
+/// Builds the host side of the emulator: littlefs behind the `hhg_flash_*`
+/// wrapper of `src/emulator` and cJSON for `cjson-bindings`, both statically
+/// linked so the emulator does not depend on system libraries.
+fn build_emulator_c_layer() {
+    let root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("..");
+    let littlefs = emulator_dep_dir("LITTLEFS_DIR", "littlefs", "lfs.c");
+    let cjson = emulator_dep_dir("CJSON_SRC_DIR", "cjson", "cJSON.c");
+    let lfs_wrapper = root.join("src").join("emulator").join("hhg-lfs-wrapper.c");
+
+    println!("cargo:rerun-if-changed={}", lfs_wrapper.display());
+
+    cc::Build::new()
+        .file(littlefs.join("lfs.c"))
+        .file(littlefs.join("lfs_util.c"))
+        .file(&lfs_wrapper)
+        .include(&littlefs)
+        // littlefs debug/warn traces would interleave with the firmware log
+        .define("LFS_NO_DEBUG", None)
+        .define("LFS_NO_WARN", None)
+        .warnings(false)
+        .cargo_metadata(false)
+        .compile("hhg_emulator_lfs");
+
+    cc::Build::new()
+        .file(cjson.join("cJSON.c"))
+        .file(cjson.join("cJSON_Utils.c"))
+        .include(&cjson)
+        .warnings(false)
+        .cargo_metadata(false)
+        .compile("hhg_emulator_cjson");
+
+    // Whole archive: cJSON is referenced by `cjson-bindings`, which the linker
+    // meets after this crate, and a plain static archive would already have
+    // been skipped by then
+    let out_dir = env::var("OUT_DIR").unwrap();
+    println!("cargo:rustc-link-search=native={}", out_dir);
+    println!("cargo:rustc-link-lib=static:+whole-archive=hhg_emulator_lfs");
+    println!("cargo:rustc-link-lib=static:+whole-archive=hhg_emulator_cjson");
+}
+
 fn main() {
+    if env::var_os("CARGO_FEATURE_EMULATOR").is_some() {
+        build_emulator_c_layer();
+    }
+
     // Read configuration from environment variables set by CMake
     let default_wifi_ssid = env_string_literal("HHG_DEFAULT_WIFI_SSID", "");
     let default_wifi_password = env_string_literal("HHG_DEFAULT_WIFI_PASSWORD", "");

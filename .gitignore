@@ -15,6 +15,7 @@ Makefile
 
 # Build artifacts
 /build/
+/build-emulator/
 /_build/
 /out/
 

@@ -22,6 +22,18 @@
 use osal_rs::os::types::{EventBits, TickType};
 use osal_rs::utils::Result;
 
+#[cfg(target_pointer_width = "64")]
+pub type AtomicEventBits = core::sync::atomic::AtomicU64;
+
+#[cfg(not(target_pointer_width = "64"))]
+pub type AtomicEventBits = core::sync::atomic::AtomicU32;
+
+/// Same atomic, named for the tick counts it stores.
+pub type AtomicTickType = AtomicEventBits;
+
+const _: () = assert!(size_of::<EventBits>() == size_of::<AtomicEventBits>());
+const _: () = assert!(size_of::<TickType>() == size_of::<AtomicTickType>());
+
 
 #[allow(dead_code)]
 pub trait Signal {

@@ -339,6 +339,9 @@ add_custom_target(main ALL DEPENDS ${RUST_PATH})
 
 
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.c" "src/pico/*.cpp" "src/pico/*.c" "osal-rs/osal-rs-porting/freeretos/src/*.c")
+# src/emulator holds the host twins of the src/pico wrappers: cargo builds
+# them for the emulator, they must not end up in the firmware
+list(FILTER SOURCES EXCLUDE REGEX "/src/emulator/")
 
 add_executable(hi-happy-garden-rs 
         ${SOURCES}

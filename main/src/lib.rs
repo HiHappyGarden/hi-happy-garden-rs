@@ -21,7 +21,16 @@
 #![no_std]
 #![cfg_attr(feature = "tests", allow(dead_code))]
 
+#[cfg(not(any(feature = "pico", feature = "emulator")))]
+compile_error!("Select the platform: enable either the `pico` or the `emulator` feature.");
+
+#[cfg(all(feature = "pico", feature = "emulator"))]
+compile_error!("The `pico` and `emulator` features are mutually exclusive: build the emulator with `--no-default-features`.");
+
 extern crate alloc;
+// The emulator models live on the host and use its threads, clock and stdio
+#[cfg(feature = "emulator")]
+extern crate std;
 extern crate osal_rs;
 extern crate osal_rs_serde;
 extern crate cjson_binding;
@@ -33,12 +42,25 @@ mod traits;
 
 const APP_TAG: &str = "main";
 
+#[cfg(feature = "pico")]
 mod ffi {
     unsafe extern "C" {
         pub(crate) fn print_systick_status();
 
         pub(crate) fn get_g_setup_called() -> u32;
     }
+}
+
+#[cfg(feature = "emulator")]
+mod ffi {
+    #[allow(unused_imports)]
+    pub(crate) use crate::drivers::emulator::{get_g_setup_called, print_systick_status};
+}
+
+/// Host side controls of the emulated board, for the `hhg-emulator` binary.
+#[cfg(feature = "emulator")]
+pub mod emulator {
+    pub use crate::drivers::emulator::set_flash_image;
 }
 
 #[cfg(not(feature = "tests"))]
@@ -195,7 +217,7 @@ mod tests {
 
     use alloc::boxed::Box;
 
-    use osal_rs::os::types::{StackType, TickType};
+    use osal_rs::os::types::StackType;
     use osal_rs::os::{System, SystemFn, ThreadFn, ThreadParam};
     use osal_rs::utils::Result;
     use osal_rs::{log_error, log_fatal, log_info};
@@ -302,6 +324,9 @@ mod tests {
     }
 
     pub(super) fn test_thread(_thread: Box<dyn ThreadFn>, _: Option<ThreadParam>) -> Result<ThreadParam> {
+        // On the emulator osal-rs runs on its `posix` backend, whose suite is
+        // `cargo test -p osal-rs` in the osal-rs CI
+        #[cfg(feature = "pico")]
         match osal_rs_tests::freertos::run_all_tests() {
             Ok(_) => osal_rs::log_info!(APP_TAG, "All tests passed!"),
             Err(e) => panic!("Tests failed with error: {:?}", e),
@@ -334,9 +359,25 @@ mod tests {
         log_info!(APP_TAG, "   heap_free:{}", System::get_free_heap_size());
         log_info!(APP_TAG, "========================================");
 
+        finish(&stats)
+    }
+
+    /// The board idles once done, waiting for the serial log to be read.
+    #[cfg(feature = "pico")]
+    fn finish(_stats: &TestStats) -> ! {
+        use osal_rs::os::types::TickType;
+
         loop {
             System::delay(TickType::MAX);
         }
+    }
+
+    /// The emulator reports through its exit status, which is what CI checks.
+    #[cfg(feature = "emulator")]
+    fn finish(stats: &TestStats) -> ! {
+        use std::io::Write;
+        let _ = std::io::stdout().flush();
+        std::process::exit(if stats.failed == 0 { 0 } else { 1 })
     }
 
 }

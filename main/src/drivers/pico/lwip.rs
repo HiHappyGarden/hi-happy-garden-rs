@@ -18,6 +18,7 @@
  *
  ***************************************************************************/
 
+use osal_rs::os::types::TickType;
 use core::ffi::{c_char, c_void};
 use core::ptr::null_mut;
 use core::slice::{from_raw_parts, from_raw_parts_mut};
@@ -116,8 +117,8 @@ fn dns_resolve_addrress<'a>(hostname: &Bytes<64>) -> Result<&'a dyn IpAddress> {
         };
     } else if dns_result as i8 == -5 {
         // Query sent, waiting for response, callback will be called when response is received
-        const TIMEOUT_MS: u32 = 5000;
-        const POLL_INTERVAL_MS: u32 = 10;
+        const TIMEOUT_MS: TickType = 5000;
+        const POLL_INTERVAL_MS: TickType = 10;
         let max_attempts = TIMEOUT_MS / POLL_INTERVAL_MS;
         
         for _ in 0..max_attempts {
@@ -230,8 +231,8 @@ fn ntp_request(ipaddr_dest: &'static dyn IpAddress, port: u16, msg_len: u16) -> 
         hhg_udp_recv(pcb, ntp_recv, null_mut());
     }
 
-    const TIMEOUT_MS: u32 = 5000;
-    const POLL_INTERVAL_MS: u32 = 10;
+    const TIMEOUT_MS: TickType = 5000;
+    const POLL_INTERVAL_MS: TickType = 10;
     let max_attempts = TIMEOUT_MS / POLL_INTERVAL_MS;
     
     for _ in 0..max_attempts {

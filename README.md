@@ -13,6 +13,53 @@ sudo apt install python3 git tar build-essential cmake gcc-arm-none-eabi libusb-
 picocom --omap crcrlf --echo -b 115200 /dev/ttyACM0
 ```
 
+# Emulator
+
+The firmware also runs on a Linux (or macOS) host, on the Pico 2 W board
+emulated at the level of the `hhg_*` C wrappers of `src/pico`: the pico
+platform layer, the drivers and the apps are the same code that runs on the
+board, on osal-rs `posix` instead of FreeRTOS. The host models live in
+`main/src/drivers/emulator` and `src/emulator`.
+
+| Board | Emulator |
+|---|---|
+| UART0 (log, AT commands) | the terminal: stdout and stdin |
+| GPIO / PWM / ADC | in-memory pins, inputs idle at their pull, chip at 27 °C |
+| DS3231 on I2C0, SH1106 on I2C1 | register level models, the RTC starts at the host UTC time |
+| littlefs on flash | the same littlefs on a 256 KB RAM image, optionally kept in a file |
+| mbedtls AES, SHA-256 accelerator | RustCrypto `aes` and `sha2` |
+| CYW43 WiFi, lwIP | radio present, no network in range |
+
+The C sources it needs (littlefs, cJSON) are taken from `build/_deps` after a
+firmware CMake build, or fetched once with:
+
+```sh
+scripts/emulator-deps.sh
+```
+
+Run the firmware, with the flash kept in `hhg-flash.bin` across restarts
+(Ctrl+C to stop):
+
+```sh
+cd main
+cargo run --no-default-features --features emulator,encryption --bin hhg-emulator -- --flash hhg-flash.bin
+```
+
+Run the firmware test suite, the exit status is 0 only if every test passed
+(this is what the `Emulator` GitHub workflow does):
+
+```sh
+cd main
+cargo run --no-default-features --features emulator,encryption,tests --bin hhg-emulator < /dev/null
+```
+
+`secrets.cmake` is read as for the firmware; without it, set the
+`HHG_AES_KEY_SALT`, `HHG_AES_IV_SALT`, `HHG_SYSTEM_USER_EMAIL` and
+`HHG_SYSTEM_USER_PASSWORD` environment variables.
+
+Real-time behaviour, interrupt timing, the two RP2350 cores, heap and stack
+limits and the real peripherals still need the board.
+
 # Default Parameters Configuration via CMake
 
 ## Overview

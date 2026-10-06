@@ -35,6 +35,7 @@ use at_parser_rs::AtError;
 use at_parser_rs::context::AtContext;
 use at_parser_rs::parser::AtParser;
 use osal_rs::os::{Mutex, MutexFn, System};
+use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Error, Result};
 
 use super::Parser;
@@ -104,7 +105,7 @@ fn send(line: &str) -> Result<String> {
 }
 
 fn is_set(flag: StatusFlag) -> bool {
-    StatusSignal::get() & u32::from(flag) != 0
+    StatusSignal::get() & EventBits::from(flag) != 0
 }
 
 fn setup() -> Result<()> {

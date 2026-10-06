@@ -29,6 +29,7 @@
 use alloc::format;
 
 use osal_rs::log_debug;
+use osal_rs::os::types::EventBits;
 use osal_rs::utils::Result;
 
 use super::{HardwareErrorFlag, HardwareErrorSignal};
@@ -57,7 +58,7 @@ const ALL_FLAGS: [HardwareErrorFlag; 12] = [
 fn test_no_hardware_error() -> Result<()> {
     let errors = HardwareErrorSignal::get();
     for flag in ALL_FLAGS {
-        if errors & u32::from(flag) != 0 {
+        if errors & EventBits::from(flag) != 0 {
             log_debug!(TAG, "set: {flag}");
         }
     }
@@ -66,13 +67,13 @@ fn test_no_hardware_error() -> Result<()> {
 }
 
 fn test_flags_roundtrip() -> Result<()> {
-    let mut mask = 0u32;
+    let mut mask: EventBits = 0;
     for flag in ALL_FLAGS {
-        let bits = u32::from(flag);
+        let bits = EventBits::from(flag);
         test_assert_eq!(bits.count_ones(), 1);
         test_assert!(mask & bits == 0, "{flag} overlaps another flag");
         mask |= bits;
-        test_assert_eq!(u32::from(HardwareErrorFlag::from(bits)), bits);
+        test_assert_eq!(EventBits::from(HardwareErrorFlag::from(bits)), bits);
         test_assert!(!format!("{flag}").is_empty());
     }
     Ok(())
@@ -81,8 +82,8 @@ fn test_flags_roundtrip() -> Result<()> {
 fn test_flags_try_from_invalid() -> Result<()> {
     // Bit combinations come straight from HardwareErrorSignal::get(): they
     // must be rejected, not panic (open_bugs #10)
-    let all = ALL_FLAGS.iter().fold(0u32, |mask, &flag| mask | u32::from(flag));
-    for value in [0, 0x03, 0x21, all, 0x1000, all + 1, u32::MAX] {
+    let all = ALL_FLAGS.iter().fold(0 as EventBits, |mask, &flag| mask | EventBits::from(flag));
+    for value in [0, 0x03, 0x21, all, 0x1000, all + 1, EventBits::MAX] {
         test_assert_eq!(HardwareErrorFlag::from(value), HardwareErrorFlag::None, "0x{value:x} accepted");
     }
     Ok(())
@@ -90,7 +91,7 @@ fn test_flags_try_from_invalid() -> Result<()> {
 
 fn test_signal_set_clear() -> Result<()> {
     // Rtc is not set on a healthy board (checked above), so it can be borrowed
-    let flag = u32::from(HardwareErrorFlag::Rtc);
+    let flag = EventBits::from(HardwareErrorFlag::Rtc);
     let before = HardwareErrorSignal::get();
 
     HardwareErrorSignal::set(flag);
