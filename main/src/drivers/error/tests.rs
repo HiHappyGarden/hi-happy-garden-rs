@@ -78,6 +78,16 @@ fn test_flags_roundtrip() -> Result<()> {
     Ok(())
 }
 
+fn test_flags_try_from_invalid() -> Result<()> {
+    // Bit combinations come straight from HardwareErrorSignal::get(): they
+    // must be rejected, not panic (open_bugs #10)
+    let all = ALL_FLAGS.iter().fold(0u32, |mask, &flag| mask | u32::from(flag));
+    for value in [0, 0x03, 0x21, all, 0x1000, all + 1, u32::MAX] {
+        test_assert_eq!(HardwareErrorFlag::from(value), HardwareErrorFlag::None, "0x{value:x} accepted");
+    }
+    Ok(())
+}
+
 fn test_signal_set_clear() -> Result<()> {
     // Rtc is not set on a healthy board (checked above), so it can be borrowed
     let flag = u32::from(HardwareErrorFlag::Rtc);

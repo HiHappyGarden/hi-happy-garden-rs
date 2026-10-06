@@ -31,8 +31,9 @@ use crate::define_signal;
 
 define_signal!(HardwareErrorSignal, HARDWARE_ERROR_SIGNAL);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum HardwareErrorFlag {
+    None = 0x00,
     Filesystem = 0x01,
     Button = 0x02,
     Encoder = 0x04,
@@ -63,7 +64,7 @@ impl From<u32> for HardwareErrorFlag {
             0x200 => Rtc,
             0x400 => Uart,
             0x800 => Wifi,
-            _ => panic!("Invalid hardware flag value: {}", value),
+            0x00 | _ => None,
         }
     }
 }
@@ -78,6 +79,7 @@ impl Display for HardwareErrorFlag {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         use HardwareErrorFlag::*;
         let description = match self {
+            None => "No error",
             Filesystem => "Filesystem error",
             Button => "Button error",
             Encoder => "Encoder error",
