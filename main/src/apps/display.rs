@@ -34,7 +34,7 @@ pub(super) mod time;
 use alloc::sync::Arc;
 use osal_rs::log_info;
 use osal_rs::os::{EventGroup, Mutex, MutexFn, Thread, ThreadFn};
-use osal_rs::os::types::StackType;
+use osal_rs::os::types::{EventBits, StackType, TickType};
 use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::apps::display::header::Header;
@@ -111,7 +111,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
             loop {
                 //wait for display signal
-                let mut display_signal = DisplaySignal::wait(EventGroup::MAX_MASK, TICK_INTERVAL_MS as u32);
+                let mut display_signal = DisplaySignal::wait(EventGroup::MAX_MASK, TICK_INTERVAL_MS as TickType);
                 DisplaySignal::clear(display_signal);
 
                 //get status signal
@@ -134,7 +134,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
                 
                 //check if draw signal is set, if so, redraw the screen
-                if display_signal & Draw as u32 != 0 {
+                if display_signal & Draw as EventBits != 0 {
                     lcd.draw().unwrap_or_else(|e| {
                         ErrorSignal::set(ErrorFlag::Display.into());
                         log_info!(APP_TAG, "Error drawing on LCD: {:?}", e);

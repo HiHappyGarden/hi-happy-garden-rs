@@ -99,15 +99,15 @@ impl Screen<()> for Text
             
         }
 
-        if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        if *signal & DisplayFlag::EncoderButtonReleased as EventBits != 0 {
             return Ok(Answer::Confirmed(ScreenParam::default()));
         }
 
-        if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
+        if *signal & DisplayFlag::ButtonReleased as EventBits != 0 {
             return Ok(Answer::Cancelled);
         }
 
-        *signal |= DisplayFlag::Draw as u32;
+        *signal |= DisplayFlag::Draw as EventBits;
 
         Ok(Answer::Pending)
     }

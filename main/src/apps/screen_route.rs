@@ -57,10 +57,10 @@ use osal_rs::utils::Result;
 impl ScreenRoute {
     const CHECK_STATUS_THRESHOLD: u8 = 5;
 
-    const BUTTON_MASK: u32 = DisplayFlag::ButtonPressed as u32
-                | DisplayFlag::ButtonReleased as u32
-                | DisplayFlag::EncoderButtonPressed as u32
-                | DisplayFlag::EncoderButtonReleased as u32;
+    const BUTTON_MASK: EventBits = DisplayFlag::ButtonPressed as EventBits
+                | DisplayFlag::ButtonReleased as EventBits
+                | DisplayFlag::EncoderButtonPressed as EventBits
+                | DisplayFlag::EncoderButtonReleased as EventBits;
 
     pub(super) fn new() -> Self {
         Self {

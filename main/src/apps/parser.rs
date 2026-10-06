@@ -29,7 +29,7 @@ use at_parser_rs::context::AtContext;
 use at_parser_rs::parser::AtParser;
 use osal_rs::{access_static_option, log_error, log_info};
 use osal_rs::os::{Queue, QueueFn, Thread, ThreadFn};
-use osal_rs::os::types::{StackType, TickType, UBaseType};
+use osal_rs::os::types::{EventBits, StackType, TickType, UBaseType};
 use osal_rs::utils::{Error, Result};
 
 use crate::apps::config::{Config, DaylightSavingTime, WifiConfig, NtpConfig};
@@ -165,7 +165,7 @@ impl Initializable for Parser {
                         clear_buffer!(buffer, buffer_count);
                         continue;
                     };
-                    let source_flag: u32 = <StatusFlag as Into<u32>>::into(StatusFlag::from(&src));
+                    let source_flag: EventBits = <StatusFlag as Into<EventBits>>::into(StatusFlag::from(&src));
 
                     let channel = match src {
                         Source::Uart => unsafe { UART_CHANNEL },
@@ -179,7 +179,7 @@ impl Initializable for Parser {
 
 
                     let status = StatusSignal::get();
-                    let mut is_logged = status & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) != 0;
+                    let mut is_logged = status & <StatusFlag as Into<EventBits>>::into(StatusFlag::UserLogged) != 0;
                     
                     if is_logged && (status & source_flag == 0) {
                         channel.transmit(KO_RESPONSE.as_bytes());
@@ -195,7 +195,7 @@ impl Initializable for Parser {
                     match parser.execute(cmd) {
                         Ok((at_response, response)) => {
                             let status = StatusSignal::get();
-                            let new_is_logged = status & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) != 0;
+                            let new_is_logged = status & <StatusFlag as Into<EventBits>>::into(StatusFlag::UserLogged) != 0;
                             if !is_logged && new_is_logged {
                                 StatusSignal::set(source_flag);
                                 is_logged = true;

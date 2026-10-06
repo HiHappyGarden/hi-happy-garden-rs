@@ -44,8 +44,8 @@ pub(in crate::apps) enum DisplayFlag {
     Draw = 0x00_80_00_00, // Special flag to indicate that the display should be redrawn
 }
 
-impl From<u32> for DisplayFlag {
-    fn from(value: u32) -> Self {
+impl From<EventBits> for DisplayFlag {
+    fn from(value: EventBits) -> Self {
         use DisplayFlag::*;
         match value {
             0x01 => ButtonPressed,
@@ -66,9 +66,9 @@ impl From<u32> for DisplayFlag {
     }
 }
 
-impl From<DisplayFlag> for u32 {
+impl From<DisplayFlag> for EventBits {
     fn from(flag: DisplayFlag) -> Self {
-        flag as u32
+        flag as EventBits
     }
 }
 
@@ -81,6 +81,6 @@ define_signal!(DisplaySignal, DISPLAY_SIGNAL);
 /// so a screen that switched its internal state gets drawn right away.
 #[inline]
 pub(in crate::apps) fn request_redraw(display_signal: &mut EventBits) {
-    *display_signal |= DisplayFlag::Draw as u32;
-    DisplaySignal::set(DisplayFlag::Draw as u32);
+    *display_signal |= DisplayFlag::Draw as EventBits;
+    DisplaySignal::set(DisplayFlag::Draw as EventBits);
 }

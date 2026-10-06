@@ -31,6 +31,7 @@ use at_parser_rs::{Args, AtError, AtResult};
 use osal_rs::{access_static_option, log_info};
 use osal_rs::os::RawMutex;
 use osal_rs::os::RawMutexGuard;
+use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Bytes, Result};
 use osal_rs_serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -217,7 +218,7 @@ impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
     fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
-        if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
+        if StatusSignal::get() & <StatusFlag as Into<EventBits>>::into(StatusFlag::UserLogged) == 0 {
             return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
         }
 
@@ -241,7 +242,7 @@ impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
 
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
-        if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
+        if StatusSignal::get() & <StatusFlag as Into<EventBits>>::into(StatusFlag::UserLogged) == 0 {
             return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
         }
 
@@ -262,7 +263,7 @@ impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
     }
 
     fn set(&mut self, at_response: &'static str, args: Args) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
+        if StatusSignal::get() & <StatusFlag as Into<EventBits>>::into(StatusFlag::UserLogged) == 0 {
             return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
         }
 

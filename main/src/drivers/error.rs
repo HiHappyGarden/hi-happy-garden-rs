@@ -25,6 +25,7 @@ pub(super) mod tests;
 
 use core::fmt::Error;
 use core::fmt::{Display, Formatter};
+use osal_rs::os::types::EventBits;
 use osal_rs::utils::Result;
 
 use crate::define_signal;
@@ -48,8 +49,8 @@ pub enum HardwareErrorFlag {
     Wifi = 0x800,
 }
 
-impl From<u32> for HardwareErrorFlag {
-    fn from(value: u32) -> Self {
+impl From<EventBits> for HardwareErrorFlag {
+    fn from(value: EventBits) -> Self {
         use HardwareErrorFlag::*;
         match value {
             0x01 => Filesystem,
@@ -69,9 +70,9 @@ impl From<u32> for HardwareErrorFlag {
     }
 }
 
-impl From<HardwareErrorFlag> for u32 {
+impl From<HardwareErrorFlag> for EventBits {
     fn from(flag: HardwareErrorFlag) -> Self {
-        flag as u32
+        flag as EventBits
     }
 }
 

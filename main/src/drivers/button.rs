@@ -20,7 +20,7 @@
 
 
 use core::str;
-use core::sync::atomic::{AtomicU32, AtomicBool, Ordering};
+use core::sync::atomic::{AtomicBool, Ordering};
 
 use osal_rs::os::types::{StackType, TickType};
 use osal_rs::os::{EventGroup, EventGroupFn, System, SystemFn, Thread, ThreadFn};
@@ -31,6 +31,7 @@ use crate::drivers::gpio::{Gpio, InterruptType};
 use crate::drivers::platform::{GpioPeripheral, ThreadPriority};
 
 use crate::traits::button::{ButtonState, OnClickable, SetClickable};
+use crate::traits::signal::{AtomicEventBits, AtomicTickType};
 use crate::traits::state::Initializable;
 
 use button_events::*;
@@ -49,8 +50,8 @@ pub mod button_events {
     pub const BUTTON_RELEASED: EventBits = 0x00_02;
 }
 
-static BUTTON_STATE: AtomicU32 = AtomicU32::new(0);
-static LAST_INTERRUPT_TIME: AtomicU32 = AtomicU32::new(0);
+static BUTTON_STATE: AtomicEventBits = AtomicEventBits::new(0);
+static LAST_INTERRUPT_TIME: AtomicTickType = AtomicTickType::new(0);
 static mut EVENT_HANDLER: Option<EventGroup> = None;
 
 pub struct Button {

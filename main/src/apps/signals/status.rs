@@ -20,6 +20,7 @@
 
 
 
+use osal_rs::os::types::EventBits;
 use osal_rs::utils::Bytes;
 
 ///! FSM signal for status updates.
@@ -48,8 +49,8 @@ pub(in crate::apps) enum StatusFlag {
     UserLogged = 0x00_80_00_00,
 }
 
-impl From<u32> for StatusFlag {
-    fn from(value: u32) -> Self {
+impl From<EventBits> for StatusFlag {
+    fn from(value: EventBits) -> Self {
         use StatusFlag::*;
         match value {
             0x00 => None,
@@ -74,9 +75,9 @@ impl From<u32> for StatusFlag {
     }
 }
 
-impl From<StatusFlag> for u32 {
+impl From<StatusFlag> for EventBits {
     fn from(flag: StatusFlag) -> Self {
-        flag as u32
+        flag as EventBits
     }
 }
 
@@ -115,8 +116,8 @@ impl StatusFlag {
         }
     }
 
-    pub(in crate::apps) fn check_signal(&self, signal: u32) -> bool {
-        let flag_value: u32 = (*self).into();
+    pub(in crate::apps) fn check_signal(&self, signal: EventBits) -> bool {
+        let flag_value: EventBits = (*self).into();
         (signal & flag_value) == flag_value
     }
 }

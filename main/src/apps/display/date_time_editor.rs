@@ -105,9 +105,9 @@ impl FieldEditor {
             _ => return,
         };
 
-        let delta: i32 = if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
+        let delta: i32 = if *signal & DisplayFlag::EncoderRotatedClockwise as EventBits != 0 {
             1
-        } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+        } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as EventBits != 0 {
             -1
         } else {
             return;
@@ -127,7 +127,7 @@ impl FieldEditor {
             } else {
                 val + delta
             });
-            *signal |= DisplayFlag::Draw as u32;
+            *signal |= DisplayFlag::Draw as EventBits;
         }
     }
 
@@ -156,11 +156,11 @@ impl FieldEditor {
         if self.fields[Self::FIELD_HOUR].is_none() || self.fields[Self::FIELD_MINUTE].is_none() || self.fields[Self::FIELD_SECOND].is_none() {
             let (field_hour, field_minute, field_second) = (self.config.extractor)(&current_date_time);
             self.fields = [Some(field_hour), Some(field_minute), Some(field_second)];
-            *signal |= DisplayFlag::Draw as u32;
+            *signal |= DisplayFlag::Draw as EventBits;
             return Ok(Answer::Pending)
         }
 
-        if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        if *signal & DisplayFlag::EncoderButtonReleased as EventBits != 0 {
             self.step = match self.step {
                 Step::Exit   => Step::FieldHour,
                 Step::FieldHour => Step::FieldMinute,
@@ -168,10 +168,10 @@ impl FieldEditor {
                 Step::FieldSecond => Step::End,
                 Step::End    => Step::End,
             };
-            *signal |= DisplayFlag::Draw as u32;
+            *signal |= DisplayFlag::Draw as EventBits;
         }
 
-        if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
+        if *signal & DisplayFlag::ButtonReleased as EventBits != 0 {
             self.step = match self.step {
                 Step::Exit   => Step::Exit,
                 Step::FieldHour => Step::Exit,
@@ -179,12 +179,12 @@ impl FieldEditor {
                 Step::FieldSecond => Step::FieldMinute,
                 Step::End    => Step::FieldSecond,
             };
-            *signal |= DisplayFlag::Draw as u32;
+            *signal |= DisplayFlag::Draw as EventBits;
         }
 
         self.update_field(signal);
 
-        if *signal & DisplayFlag::Draw as u32 == 0 {
+        if *signal & DisplayFlag::Draw as EventBits == 0 {
             return Ok(Answer::Pending);
         }
 
@@ -229,7 +229,7 @@ impl FieldEditor {
             )?;
         }
 
-        if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        if *signal & DisplayFlag::EncoderButtonReleased as EventBits != 0 {
             if self.step == Step::End {
                 self.result = (self.config.builder)(f[0], f[1], f[2]).ok();
 
@@ -237,7 +237,7 @@ impl FieldEditor {
             }
         }
 
-        if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
+        if *signal & DisplayFlag::ButtonReleased as EventBits != 0 {
             if self.step == Step::Exit {
                 return Ok(Answer::Cancelled);
             }

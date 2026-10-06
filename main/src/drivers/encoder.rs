@@ -18,7 +18,7 @@
  *
  ***************************************************************************/
  
-use core::sync::atomic::{AtomicI32, AtomicU32, AtomicBool, Ordering};
+use core::sync::atomic::{AtomicI32, AtomicBool, Ordering};
 
 use osal_rs::{access_static_option, log_error, log_info, log_warning};
 use osal_rs::os::types::{StackType, TickType};
@@ -30,6 +30,7 @@ use crate::drivers::platform::{GpioPeripheral, ThreadPriority};
 use crate::drivers::gpio::Gpio;
 use crate::traits::button::ButtonState;
 use crate::traits::encoder::{EncoderDirection, OnRotatableAndClickable, SetRotatableAndClickable};
+use crate::traits::signal::{AtomicEventBits, AtomicTickType};
 use crate::traits::state::Initializable;
 use encoder_events::*;
 
@@ -52,12 +53,12 @@ pub mod encoder_events {
     pub const ENCODER_CW_FALL: EventBits = 0x00_20;
 }
 
-static ENCODER_STATE: AtomicU32 = AtomicU32::new(0);
+static ENCODER_STATE: AtomicEventBits = AtomicEventBits::new(0);
 static ENCODER_POSITION: AtomicI32 = AtomicI32::new(0);
 static BUTTON_IS_PRESSED: AtomicBool = AtomicBool::new(false);
-static LAST_BUTTON_INTERRUPT_TIME: AtomicU32 = AtomicU32::new(0);
-static LAST_CCW_INTERRUPT_TIME: AtomicU32 = AtomicU32::new(0);
-static LAST_CW_INTERRUPT_TIME: AtomicU32 = AtomicU32::new(0);
+static LAST_BUTTON_INTERRUPT_TIME: AtomicTickType = AtomicTickType::new(0);
+static LAST_CCW_INTERRUPT_TIME: AtomicTickType = AtomicTickType::new(0);
+static LAST_CW_INTERRUPT_TIME: AtomicTickType = AtomicTickType::new(0);
 static mut EVENT_HANDLER: Option<EventGroup> = None;
 
 #[allow(dead_code)]

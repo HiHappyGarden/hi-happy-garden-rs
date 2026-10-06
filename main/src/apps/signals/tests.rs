@@ -32,6 +32,7 @@ use alloc::format;
 
 use osal_rs::os::ToTick;
 use osal_rs::os::{System, SystemFn};
+use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Error, Result};
 
 use super::display::DisplayFlag;
@@ -74,9 +75,9 @@ const ERROR_FLAGS: [ErrorFlag; 5] = [
 
 fn test_status_flags() -> Result<()> {
     let mut names = BTreeSet::new();
-    let mut mask = 0u32;
+    let mut mask: EventBits = 0;
     for flag in STATUS_FLAGS {
-        let bits = u32::from(flag);
+        let bits = EventBits::from(flag);
         test_assert_eq!(StatusFlag::from(bits), flag);
         test_assert!(mask & bits == 0, "{flag:?} overlaps another flag");
         mask |= bits;
@@ -89,7 +90,7 @@ fn test_status_flags() -> Result<()> {
 }
 
 fn test_status_check_signal() -> Result<()> {
-    let signal = u32::from(StatusFlag::Ready) | u32::from(StatusFlag::UserLogged);
+    let signal = EventBits::from(StatusFlag::Ready) | EventBits::from(StatusFlag::UserLogged);
     test_assert!(StatusFlag::Ready.check_signal(signal));
     test_assert!(StatusFlag::UserLogged.check_signal(signal));
     test_assert!(!StatusFlag::WifiReady.check_signal(signal));
@@ -98,7 +99,7 @@ fn test_status_check_signal() -> Result<()> {
 
 fn test_error_flags() -> Result<()> {
     for flag in ERROR_FLAGS {
-        test_assert_eq!(ErrorFlag::from(u32::from(flag)), flag);
+        test_assert_eq!(ErrorFlag::from(EventBits::from(flag)), flag);
         test_assert!(!format!("{flag}").is_empty());
     }
     Ok(())
@@ -123,13 +124,13 @@ fn test_display_flags() -> Result<()> {
         DisplayFlag::Draw,
     ];
     for flag in flags {
-        test_assert_eq!(DisplayFlag::from(u32::from(flag)), flag);
+        test_assert_eq!(DisplayFlag::from(EventBits::from(flag)), flag);
     }
     Ok(())
 }
 
 fn test_status_signal_set_clear() -> Result<()> {
-    let bit = u32::from(StatusFlag::Reset);
+    let bit = EventBits::from(StatusFlag::Reset);
     let before = StatusSignal::get();
     test_assert!(before & bit == 0);
 
@@ -144,7 +145,7 @@ fn test_status_signal_set_clear() -> Result<()> {
 }
 
 fn test_status_signal_wait() -> Result<()> {
-    let bit = u32::from(StatusFlag::Reset);
+    let bit = EventBits::from(StatusFlag::Reset);
 
     StatusSignal::set(bit);
     let start = System::get_tick_count();
@@ -163,7 +164,7 @@ fn test_status_signal_wait() -> Result<()> {
 }
 
 fn test_set_app_error() -> Result<()> {
-    let bit = u32::from(ErrorFlag::DisplayHeader);
+    let bit = EventBits::from(ErrorFlag::DisplayHeader);
     let before = ErrorSignal::get();
 
     let ok: Result<()> = Ok(());

@@ -90,13 +90,13 @@ where
 
         lcd.draw_str(&to_show, x_position, SECOND_ROW_Y, &FONT_8X8)?;
 
-        if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        if *signal & DisplayFlag::EncoderButtonReleased as EventBits != 0 {
 
             self.result = self.number;
             return Ok(Answer::Confirmed(ScreenParam::Number(self.result.unwrap_or(self.min))));
         }
 
-        if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
+        if *signal & DisplayFlag::ButtonReleased as EventBits != 0 {
             return Ok(Answer::Cancelled);
         }
 
@@ -123,22 +123,22 @@ where
     }
 
     fn update_number(&mut self, signal: &mut EventBits) {
-        if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
+        if *signal & DisplayFlag::EncoderRotatedClockwise as EventBits != 0 {
             if let Some(current) = self.number {
                 let new_value = current + N::one();
                 self.number = Some(if new_value > self.max { self.min } else { new_value });
             } else {
                 self.number = Some(self.min);
             }  
-            *signal |= DisplayFlag::Draw as u32;
-        } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+            *signal |= DisplayFlag::Draw as EventBits;
+        } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as EventBits != 0 {
             if let Some(current) = self.number {
                 let new_value = current - N::one();
                 self.number = Some(if new_value < self.min { self.max } else { new_value });
             } else {
                 self.number = Some(self.max);
             }
-            *signal |= DisplayFlag::Draw as u32;
+            *signal |= DisplayFlag::Draw as EventBits;
         } 
     }
 }

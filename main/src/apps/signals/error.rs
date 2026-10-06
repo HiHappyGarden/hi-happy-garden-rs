@@ -22,6 +22,8 @@
 
 use core::fmt::Display;
 
+use osal_rs::os::types::EventBits;
+
 use crate::define_signal;
 
 
@@ -37,8 +39,8 @@ pub(in crate::apps) enum ErrorFlag {
     DisplayHeader = 0x08,
 }
 
-impl From<u32> for ErrorFlag {
-    fn from(value: u32) -> Self {
+impl From<EventBits> for ErrorFlag {
+    fn from(value: EventBits) -> Self {
         use ErrorFlag::*;
         match value {
             0x01 => NTP,
@@ -50,9 +52,9 @@ impl From<u32> for ErrorFlag {
     }
 }
 
-impl From<ErrorFlag> for u32 {
+impl From<ErrorFlag> for EventBits {
     fn from(flag: ErrorFlag) -> Self {
-        flag as u32
+        flag as EventBits
     }
 }
 

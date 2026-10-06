@@ -83,7 +83,7 @@ impl Screen<bool> for Check
 
         lcd.draw_bitmap_image((width  / 2 ) - (self.icon.0 / 2), SECOND_ROW_Y, self.icon.0, self.icon.1, &self.icon.2, LCDWriteMode::ADD)?;
 
-        if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        if *signal & DisplayFlag::EncoderButtonReleased as EventBits != 0 {
             if self.icon.2 == IC_CHECK_ON.2 {
                 self.checked = Some(true);
                 return Ok(Answer::Confirmed(ScreenParam::Check(true)))
@@ -94,7 +94,7 @@ impl Screen<bool> for Check
             };
         }
 
-        if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
+        if *signal & DisplayFlag::ButtonReleased as EventBits != 0 {
             return Ok(Answer::Cancelled);
         }
 
@@ -117,13 +117,13 @@ impl Check {
     }
 
     fn update_icon(&mut self, signal: &mut EventBits) {
-        if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 || *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+        if *signal & DisplayFlag::EncoderRotatedClockwise as EventBits != 0 || *signal & DisplayFlag::EncoderRotatedCounterClockwise as EventBits != 0 {
             self.icon = if self.icon.2 == IC_CHECK_OFF.2 {
                 IC_CHECK_ON
             } else {
                 IC_CHECK_OFF
             };
-            *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
+            *signal |= DisplayFlag::Draw as EventBits; // Set the flag to indicate that the display should be redrawn
         }
     }
 }

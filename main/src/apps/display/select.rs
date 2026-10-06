@@ -101,24 +101,24 @@ impl<const N: usize> Screen<ScreenSelections<N>, u16, N> for Select<N> {
         );
 
         lcd.draw_str(&display_text, x_position, SECOND_ROW_Y, &FONT_8X8)?;
-        if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        if *signal & DisplayFlag::EncoderButtonReleased as EventBits != 0 {
                 if let Some(selected) = self.selections.as_mut() {
                     // Mark the entry under the cursor as the only selected one.
                     for (i, entry) in selected.iter_mut().enumerate() {
                         entry.1 = i == self.index as usize;
                     }
 
-                    *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+                    *signal |= DisplayFlag::Draw as EventBits; // Set the flag to indicate that the display should be redrawn 
                     return Ok(Answer::Confirmed(ScreenParam::Selects(selected.clone().into())));
                     
             } else {
-                *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+                *signal |= DisplayFlag::Draw as EventBits; // Set the flag to indicate that the display should be redrawn 
                 return Ok(Answer::Cancelled);
             }
         }
 
-        if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
-            *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+        if *signal & DisplayFlag::ButtonReleased as EventBits != 0 {
+            *signal |= DisplayFlag::Draw as EventBits; // Set the flag to indicate that the display should be redrawn 
             return Ok(Answer::Cancelled);
         }
 
@@ -147,12 +147,12 @@ impl<const N: usize> Select<N> {
 
         let modulo = self.selections.as_ref().map_or(1, |s| s.len() as u8); // Get the length of selections or default to 1 to avoid division by zero
 
-        if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
+        if *signal & DisplayFlag::EncoderRotatedClockwise as EventBits != 0 {
             self.index = self.index.wrapping_add(1) % modulo; // Increment index and wrap around using modulo
-            *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
-        } else  if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+            *signal |= DisplayFlag::Draw as EventBits; // Set the flag to indicate that the display should be redrawn
+        } else  if *signal & DisplayFlag::EncoderRotatedCounterClockwise as EventBits != 0 {
             self.index = (self.index + modulo - 1) % modulo; // Decrement index and wrap around using modulo
-            *signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn
+            *signal |= DisplayFlag::Draw as EventBits; // Set the flag to indicate that the display should be redrawn
         }
     }
 

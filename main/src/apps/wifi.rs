@@ -20,6 +20,7 @@
 
 use alloc::sync::Arc;
 use osal_rs::os::{Mutex, MutexFn, System, SystemFn};
+use osal_rs::os::types::EventBits;
 use osal_rs::{log_info};
 use osal_rs::utils::{Bytes, Result};
 
@@ -138,7 +139,7 @@ impl OnWifiChangeStatus for Wifi {
     }
 
     fn on_rssi_change(&self, rssi: RSSIStatus) {
-        DisplaySignal::set((rssi.to_bites() as u32) << 6);
+        DisplaySignal::set((rssi.to_bites() as EventBits) << 6);
     }
 }
 

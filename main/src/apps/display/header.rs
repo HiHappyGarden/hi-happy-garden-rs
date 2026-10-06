@@ -100,7 +100,7 @@ impl Header {
             } else {
                 lcd.draw_rect(Self::SECOND_ICON_X, 0, IC_ADMINISTRATOR.0, IC_ADMINISTRATOR.1, LCDWriteMode::REMOVE)?;
             }
-            *display_signal |= DisplayFlag::Draw as u32;
+            *display_signal |= DisplayFlag::Draw as EventBits;
             redraw_needed = true;
         }
             
@@ -125,7 +125,7 @@ impl Header {
         }
 
         if !self.date_time.is_valid() {    
-            *display_signal |= DisplayFlag::Draw as u32;
+            *display_signal |= DisplayFlag::Draw as EventBits;
             return Ok(());
         }
 
@@ -148,7 +148,7 @@ impl Header {
             });
         }
 
-        *display_signal |= DisplayFlag::Draw as u32; // Set the flag to indicate that the display should be redrawn 
+        *display_signal |= DisplayFlag::Draw as EventBits; // Set the flag to indicate that the display should be redrawn 
         
         Ok(())
     }

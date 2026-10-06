@@ -20,7 +20,7 @@
 
 use alloc::sync::Arc;
 use osal_rs::os::{Mutex, System, SystemFn};
-use osal_rs::os::types::EventBits;
+use osal_rs::os::types::{EventBits, TickType};
 use osal_rs::utils::{AsSyncStr, Bytes, Error, Result};
 
 use super::commons::{FIRST_ROW_Y, SECOND_ROW_Y, MAX_SIZE, clean_context, scroll_text};
@@ -33,7 +33,7 @@ use crate::traits::screen::Answer::Pending;
 use crate::traits::screen::{Answer, Screen, ScreenParam};
 
 
-const LONG_PRESS_TICK: u32 = 300;
+const LONG_PRESS_TICK: TickType = 300;
 const SHIFT_CHAR: u8 = b'<';
 const SECRET_CHAR: u8 = b'*';
 const CHAR_TABLE: [u8; 95] = *b" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^`{|}~";
@@ -43,8 +43,8 @@ pub(in crate::apps) struct Input {
     input: Option<Bytes<MAX_SIZE>>,
     original_input: Option<Bytes<MAX_SIZE>>,
     idx: usize,
-    button_pressed_tick: u32,
-    encoder_button_pressed_tick: u32,
+    button_pressed_tick: TickType,
+    encoder_button_pressed_tick: TickType,
     secret_mode: bool,
     max_visible_chars: usize,
 }
@@ -186,7 +186,7 @@ impl Screen<Bytes<MAX_SIZE>> for Input
         }
 
         // Callback handling: encoder long press confirms the current input, while regular button long press restores the original input and short press cancels when the buffer becomes empty.
-        if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+        if *signal & DisplayFlag::EncoderButtonReleased as EventBits != 0 {
             let elapsed = System::get_tick_count().wrapping_sub(self.encoder_button_pressed_tick);
             if elapsed >= LONG_PRESS_TICK {
                 // Long press on encoder button: confirm the current input.
@@ -201,10 +201,10 @@ impl Screen<Bytes<MAX_SIZE>> for Input
                 }
             }
             self.encoder_button_pressed_tick = 0;
-            *signal &= !(DisplayFlag::EncoderButtonReleased as u32);
-            *signal |= DisplayFlag::Draw as u32;
+            *signal &= !(DisplayFlag::EncoderButtonReleased as EventBits);
+            *signal |= DisplayFlag::Draw as EventBits;
 
-        } else if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
+        } else if *signal & DisplayFlag::ButtonReleased as EventBits != 0 {
             let elapsed = System::get_tick_count().wrapping_sub(self.button_pressed_tick);
             self.button_pressed_tick = 0;
             
@@ -216,11 +216,11 @@ impl Screen<Bytes<MAX_SIZE>> for Input
                 return Ok(Answer::Cancelled);
             } else {
                 // Normal short press: stay in the widget
-                *signal |= DisplayFlag::Draw as u32;
+                *signal |= DisplayFlag::Draw as EventBits;
             }
 
             self.button_pressed_tick = 0;
-            *signal &= !(DisplayFlag::ButtonReleased as u32);
+            *signal &= !(DisplayFlag::ButtonReleased as EventBits);
 
         }
 
@@ -247,13 +247,13 @@ impl Input {
     }
 
     fn update_input(&mut self, signal: &mut EventBits) {
-        if *signal & DisplayFlag::ButtonPressed as u32 != 0 {
+        if *signal & DisplayFlag::ButtonPressed as EventBits != 0 {
             self.button_pressed_tick = System::get_tick_count();
-            *signal &= !(DisplayFlag::ButtonPressed as u32);
+            *signal &= !(DisplayFlag::ButtonPressed as EventBits);
         }
 
         //encoder rotattion
-        if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
+        if *signal & DisplayFlag::EncoderRotatedClockwise as EventBits != 0 {
             if self.seed_input_if_empty() {
             } else if let Some(current) = self.input.as_ref() {
                 let next_char = if self.idx >= CHAR_TABLE.len() {
@@ -263,9 +263,9 @@ impl Input {
                 };
                 self.input.as_mut().unwrap()[self.idx] = next_char;
             }
-            *signal |= DisplayFlag::Draw as u32;
+            *signal |= DisplayFlag::Draw as EventBits;
         
-        } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+        } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as EventBits != 0 {
             if self.seed_input_if_empty() {
             } else if let Some(current) = self.input.as_ref() {
                 let prev_char = if self.idx == 0 {
@@ -275,18 +275,18 @@ impl Input {
                 };
                 self.input.as_mut().unwrap()[self.idx] = prev_char;
             }
-            *signal |= DisplayFlag::Draw as u32;
+            *signal |= DisplayFlag::Draw as EventBits;
         }
          
-        if *signal & DisplayFlag::EncoderButtonPressed as u32 != 0 {
+        if *signal & DisplayFlag::EncoderButtonPressed as EventBits != 0 {
             //pressing the encoder button doesn't immediately trigger an action, we wait for the release to determine if it was a short or long press, but we still need to record the tick count at the moment of the press to measure the duration later
             self.encoder_button_pressed_tick = System::get_tick_count();
-            *signal &= !(DisplayFlag::EncoderButtonPressed as u32); 
-        } else if *signal & DisplayFlag::EncoderButtonReleased as u32 != 0 {
+            *signal &= !(DisplayFlag::EncoderButtonPressed as EventBits); 
+        } else if *signal & DisplayFlag::EncoderButtonReleased as EventBits != 0 {
             let elapsed = System::get_tick_count().wrapping_sub(self.encoder_button_pressed_tick);
             if elapsed >= LONG_PRESS_TICK {
                 // Long press: draw() will confirm the current input through the callback.
-                *signal |= DisplayFlag::Draw as u32;
+                *signal |= DisplayFlag::Draw as EventBits;
             } else {
                 if self.seed_input_if_empty() {
 
@@ -300,13 +300,13 @@ impl Input {
                     }
                     self.input = Some(input);
                 }
-                *signal |= DisplayFlag::Draw as u32;
+                *signal |= DisplayFlag::Draw as EventBits;
             }
-        } else if *signal & DisplayFlag::ButtonReleased as u32 != 0 {
+        } else if *signal & DisplayFlag::ButtonReleased as EventBits != 0 {
             let elapsed = System::get_tick_count().wrapping_sub(self.button_pressed_tick);
             if elapsed >= LONG_PRESS_TICK {
                 // Long press: draw() will restore the original input through the callback.
-                *signal |= DisplayFlag::Draw as u32;
+                *signal |= DisplayFlag::Draw as EventBits;
             } else {
                 if let Some(mut input) = self.input {
                     if !input.is_empty() {
@@ -316,7 +316,7 @@ impl Input {
                     }
                     self.input = Some(input);
                 }
-                *signal |= DisplayFlag::Draw as u32;
+                *signal |= DisplayFlag::Draw as EventBits;
             }
         } 
     }

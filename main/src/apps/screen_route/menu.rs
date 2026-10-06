@@ -145,14 +145,14 @@ impl ScreenMenu {
 
     #[inline]
     fn request_draw(display_signal: &mut EventBits) {
-        *display_signal |= DisplayFlag::Draw as u32;
+        *display_signal |= DisplayFlag::Draw as EventBits;
     }
 
     fn update_input(&mut self, signal: &mut EventBits) {
-        if *signal & DisplayFlag::EncoderRotatedClockwise as u32 != 0 {
+        if *signal & DisplayFlag::EncoderRotatedClockwise as EventBits != 0 {
             self.item = self.item.next();
             Self::request_draw(signal); // Set the flag to indicate that the display should be redrawn
-        } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as u32 != 0 {
+        } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as EventBits != 0 {
             self.item = self.item.previous();
             Self::request_draw(signal); // Set the flag to indicate that the display should be redrawn
         }

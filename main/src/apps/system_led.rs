@@ -83,7 +83,7 @@ const COLOR_OFF: Color = Color::new(0, 0, 0);
             
 
             loop {
-                let status: u32 = StatusSignal::get().into();
+                let status = StatusSignal::get();
             
                 let system_ready = Ready.check_signal(status);
                 let wifi_ready = Config::shared().get_wifi_config().is_enabled() 

@@ -23,6 +23,7 @@ pub(super) mod tests;
 
 use at_parser_rs::{AtError, AtResult};
 use at_parser_rs::context::AtContext;
+use osal_rs::os::types::EventBits;
 
 use crate::apps::parser::{Parser, at_cmd_response};
 use crate::apps::signals::error::ErrorSignal;
@@ -51,7 +52,7 @@ impl AtContext<{Parser::CMD_SIZE}> for SystemHandler {
     }
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { Parser::CMD_SIZE }> {
-        if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
+        if StatusSignal::get() & <StatusFlag as Into<EventBits>>::into(StatusFlag::UserLogged) == 0 {
             return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
         }
         let cmd = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;

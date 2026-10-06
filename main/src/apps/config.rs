@@ -24,6 +24,7 @@ pub(super) mod tests;
 
 use osal_rs::os::RawMutex;
 use osal_rs::os::RawMutexGuard;
+use osal_rs::os::types::EventBits;
 use osal_rs::utils::Bytes;
 use osal_rs::utils::Result;
 use osal_rs::{access_static_option, log_info};
@@ -143,7 +144,7 @@ impl AtContext<{ Parser::CMD_SIZE }> for DaylightSavingTime {
     }
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { Parser::CMD_SIZE }> {
-        if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
+        if StatusSignal::get() & <StatusFlag as Into<EventBits>>::into(StatusFlag::UserLogged) == 0 {
             return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
         }
         let cmd = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
@@ -310,7 +311,7 @@ impl AtContext<{ Parser::CMD_SIZE }> for WifiConfig {
     }
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { Parser::CMD_SIZE }> {
-        if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
+        if StatusSignal::get() & <StatusFlag as Into<EventBits>>::into(StatusFlag::UserLogged) == 0 {
             return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
         }
         let ssid = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
@@ -403,7 +404,7 @@ impl AtContext<{ Parser::CMD_SIZE }> for NtpConfig {
     }
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { Parser::CMD_SIZE }> {
-        if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
+        if StatusSignal::get() & <StatusFlag as Into<EventBits>>::into(StatusFlag::UserLogged) == 0 {
             return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
         }
         let server = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
@@ -492,7 +493,7 @@ impl AtContext<{ Parser::CMD_SIZE }> for Config {
     }
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { Parser::CMD_SIZE }> {
-        if StatusSignal::get() & <StatusFlag as Into<u32>>::into(StatusFlag::UserLogged) == 0 {
+        if StatusSignal::get() & <StatusFlag as Into<EventBits>>::into(StatusFlag::UserLogged) == 0 {
             return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
         }
         let cmd = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
