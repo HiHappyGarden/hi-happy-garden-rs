@@ -286,7 +286,7 @@ impl File {
 
         #[cfg(not(feature = "encryption"))]
         {
-            let ret = (FILE_FN.write)(self.0, buffer)?;
+            let ret = (FILE_FN.write)(self.handler, buffer)?;
 
             self.size = ret as u32;
 
