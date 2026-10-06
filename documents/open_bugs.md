@@ -39,14 +39,21 @@ la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da
 > La descrizione originale era imprecisa: vedi la voce in [Risolti](#risolti) e il bug 14.
 > Corretto nel codice anche il bug 9 (spostato in [Risolti](#risolti)), con il test
 > `ParserTests::test_uart_two_lines_in_one_buffer`, non ancora eseguito su HW.
+>
+> **Aggiornamento 2026-10-06:** i bug 10, 11 e 12 sono corretti nel codice e spostati in
+> [Risolti](#risolti).
+>
+> **Esecuzione su HW del 2026-10-06 (Pico 2 W, dopo `9aa219a`, `3f3c4c6` e la correzione del bug 12):**
+> 153 test passati, 1 fallito. Resta solo il fallimento del bug 17 (`ZoneTests::test_query`).
+> Confermati corretti su HW i bug 8 (`FilesystemTests::test_read_error`), 9
+> (`ParserTests::test_uart_two_lines_in_one_buffer`), 10
+> (`HardwareErrorTests::test_flags_try_from_invalid`, `test_flags_roundtrip`), 11
+> (`SignalsTests::test_error_flags`) e 12 (`DateTimeTests::test_negative_timestamp`).
 
 ## Riepilogo
 
 | #  | Gravità | Area | Titolo | Test |
 |----|---------|------|--------|------|
-| 10 | Bassa   | Drivers | `HardwareErrorFlag::from` va in panic su valore sconosciuto | *senza test* |
-| 11 | Bassa   | Signals | `ErrorFlag::from(0x08)` non restituisce `DisplayHeader` | `SignalsTests::test_error_flags` |
-| 12 | Bassa   | DateTime | `wday` errato per timestamp negativi | `DateTimeTests::test_negative_timestamp` |
 | 13 | Bassa   | Filesystem | Errore di scrittura littlefs ignorato | *senza test* |
 | 14 | Bassa   | Utils | Fallback di `deserialize_file` legge un file aperto in sola scrittura | *senza test* |
 | 15 | Bassa   | Config | `AT+DST` non valida i range | *senza test* |
@@ -54,43 +61,6 @@ la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da
 | 17 | Media   | Sprinkler | `AT+ZN?` restituisce solo l'ultima zona | `ZoneTests::test_query` |
 
 ---
-
-## 10. `HardwareErrorFlag::from` va in panic su valore sconosciuto
-
-**File:** [main/src/drivers/error.rs:66](../main/src/drivers/error.rs#L66)
-
-`From<u32>` chiama `panic!` per qualunque valore non mappato, anche per combinazioni di bit
-come quelle restituite da `HardwareErrorSignal::get()`.
-
-**Correzione proposta:** usare `TryFrom<u32>`, oppure una variante `None` come per `ErrorFlag`/`StatusFlag`.
-
-## 11. `ErrorFlag::from(0x08)` non restituisce `DisplayHeader`
-
-**File:** [main/src/apps/signals/error.rs:40](../main/src/apps/signals/error.rs#L40)
-
-Nel `match` manca il caso `0x08 => DisplayHeader`, quindi la conversione non fa il roundtrip.
-
-**Output su HW (2026-10-04):**
-```
-[SignalsTests] test_error_flags FAILED: Unhandled error owned: src/apps/signals/tests.rs:101: ErrorFlag::from(u32::from(flag)) != flag (None != DisplayHeader)
-```
-
-## 12. `wday` errato per timestamp negativi
-
-**File:** [main/src/drivers/date_time.rs:334](../main/src/drivers/date_time.rs#L334)
-
-`timestamp / SECONDS_PER_DAY` tronca verso zero: per `-1` (1969-12-31, mercoledì) restituisce
-giovedì. Su questo dispositivo è irrilevante (l'RTC parte dal 2020), ma `DateTime` dichiara
-di supportare date precedenti al 1970.
-
-**Correzione proposta:** `timestamp.div_euclid(Self::SECONDS_PER_DAY)`.
-
-**Output su HW (2026-10-04):**
-```
-[DateTimeTests] test_negative_timestamp FAILED: Unhandled error owned: src/drivers/date_time/tests.rs:129: dt.wday != 3 (4 != 3)
-```
-Fallisce l'assert sul `wday` (giovedì invece di mercoledì): la causa è quella indicata sopra.
-Nell'esecuzione del 2026-10-03 il messaggio era arrivato vuoto, probabilmente perso sulla seriale.
 
 ## 13. Errore di scrittura littlefs ignorato
 
@@ -213,7 +183,7 @@ eseguendo la suite su HW (`"0,0,\"\"\r\n"` invece di 4 righe).
   flag e restituisce `LFS_ERR_BADF`, come `read` POSIX su un descrittore in sola scrittura.
   `hhg_flash_write` ha lo stesso assert per i file aperti in sola lettura e non è ancora protetta.
   Test: `FilesystemTests::test_read_error`, che legge un file aperto in `WRONLY` sia da `FILE_FN.read`
-  sia da `File::read` e si aspetta `ReturnWithCode(LFS_ERR_BADF)`. Da eseguire su HW.
+  sia da `File::read` e si aspetta `ReturnWithCode(LFS_ERR_BADF)`. Passato su HW il 2026-10-06.
 - **#9 Panic con più righe in un solo `on_receive`** (Parser, media). Il protocollo prevede un
   comando per ogni `on_receive`, perché a ogni comando corrisponde una risposta: più righe nello
   stesso buffer non sono un caso d'uso valido. Il task del parser però andava in panic: `SOURCE`
@@ -227,9 +197,23 @@ eseguendo la suite su HW (`"0,0,\"\"\r\n"` invece di 4 righe).
     impostata e avrebbe bloccato per sempre l'altro canale;
   - una riga senza sorgente o senza canale viene scartata con un log di errore invece del panic.
   Test: `ParserTests::test_uart_two_lines_in_one_buffer` passa due righe in una sola chiamata con
-  `Source::Uart`, si aspetta una sola risposta e verifica che il comando successivo funzioni. Da
-  eseguire su HW. `MQTT_CHANNEL` va ancora impostato quando si collega MQTT: oggi i comandi MQTT
+  `Source::Uart`, si aspetta una sola risposta e verifica che il comando successivo funzioni.
+  Passato su HW il 2026-10-06. `MQTT_CHANNEL` va ancora impostato quando si collega MQTT: oggi i comandi MQTT
   verrebbero scartati con `Channel is not set`.
+- **#10 `HardwareErrorFlag::from` andava in panic su valore sconosciuto** (Drivers, bassa).
+  Aggiunta la variante `None = 0x00`, come per `ErrorFlag`/`StatusFlag`: `From<u32>` restituisce
+  `None` per 0, per le combinazioni di bit di `HardwareErrorSignal::get()` e per i valori fuori
+  range, invece di chiamare `panic!`. Test: `HardwareErrorTests::test_flags_try_from_invalid`
+  (nuovo) e `test_flags_roundtrip`, passati su HW il 2026-10-06.
+- **#11 `ErrorFlag::from(0x08)` non restituiva `DisplayHeader`** (Signals, bassa). Aggiunto il
+  caso `0x08 => DisplayHeader` nel `match`, quindi la conversione fa il roundtrip. Test:
+  `SignalsTests::test_error_flags`, fallito su HW il 2026-10-04 e il 2026-10-05, passato il
+  2026-10-06 dopo la correzione.
+- **#12 `wday` errato per timestamp negativi** (DateTime, bassa). In `from_timestamp_raw` il
+  giorno della settimana si calcola ora con `timestamp.div_euclid(SECONDS_PER_DAY)` invece di
+  `/`, che troncava verso zero: per `-1` (1969-12-31) usciva giovedì invece di mercoledì.
+  Test: `DateTimeTests::test_negative_timestamp`, fallito su HW il 2026-10-04 e il 2026-10-05,
+  passato il 2026-10-06 dopo la correzione.
 - **#18 `zones.json`/`schedules.json` salvati non si ricaricavano** (Serde, alta). Il derive di
   osal-rs-serde non era simmetrico per le tuple struct: `Serialize` scriveva un oggetto con i
   campi `"0"`, `"1"`, …, mentre `Deserialize` leggeva i campi direttamente dalla radice. Il JSON

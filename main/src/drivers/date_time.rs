@@ -331,7 +331,7 @@ impl DateTime {
         }
 
         let mday = (days + 1) as u8;
-        let wday = ((timestamp / Self::SECONDS_PER_DAY + 4).rem_euclid(7)) as u8;
+        let wday = ((timestamp.div_euclid(Self::SECONDS_PER_DAY) + 4).rem_euclid(7)) as u8;
 
         Ok(Self {
             year,
