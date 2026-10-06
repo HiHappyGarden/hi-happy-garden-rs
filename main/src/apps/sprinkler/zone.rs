@@ -23,7 +23,7 @@
 #[cfg(feature = "tests")]
 pub(super) mod tests;
 
-use core::fmt::{Display, Formatter};
+use core::fmt::{Display, Formatter, Write};
 
 use at_parser_rs::at_quoted as quoted;
 use at_parser_rs::context::AtContext;
@@ -245,10 +245,11 @@ impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
             return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
         }
 
+        // Bytes::format clears the buffer: append one line per zone through fmt::Write
         let mut response = Bytes::<{Parser::CMD_SIZE}>::new();
         for zone in self.zones.iter() {
-            response.format(format_args!("{},{},{}\r\n",
-                <ZoneRelay as Into<u8>>::into(zone.zone_relay), zone.weight, quoted!(zone.description.as_str())));
+            let _ = write!(response, "{},{},{}\r\n",
+                <ZoneRelay as Into<u8>>::into(zone.zone_relay), zone.weight, quoted!(zone.description.as_str()));
         }
 
         Ok((at_response, response))

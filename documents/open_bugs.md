@@ -56,32 +56,14 @@ la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da
 > Corretto nel codice anche il bug 15 (spostato in [Risolti](#risolti)), con i casi limite aggiunti a
 > `ConfigTests::test_dst`, non ancora eseguito su HW.
 > Corretto anche il bug 16 (solo documentazione, spostato in [Risolti](#risolti)).
+> Corretto nel codice anche il bug 17 (spostato in [Risolti](#risolti)), da verificare su HW con
+> `ZoneTests::test_query`.
 
 ## Riepilogo
 
-| #  | Gravità | Area | Titolo | Test |
-|----|---------|------|--------|------|
-| 17 | Media   | Sprinkler | `AT+ZN?` restituisce solo l'ultima zona | `ZoneTests::test_query` |
+Nessun bug aperto.
 
 ---
-
-## 17. `AT+ZN?` restituisce solo l'ultima zona
-
-**File:** [main/src/apps/sprinkler/zone.rs:261](../main/src/apps/sprinkler/zone.rs#L261)
-
-La query chiama `response.format(...)` per ogni zona dentro il ciclo, ma `Bytes::format`
-svuota il buffer prima di scrivere: della risposta resta solo l'ultima riga. Trovato
-eseguendo la suite su HW (`"0,0,\"\"\r\n"` invece di 4 righe).
-
-**Correzione proposta:** scrivere le righe in coda (`write!(response, ...)` tramite
-`core::fmt::Write`, oppure formattare ogni riga in un buffer temporaneo e usare
-`append_as_sync_str`). Attenzione alla dimensione: 4 righe con descrizioni di
-`DISPLAY_INPUT_MAX_SIZE` caratteri possono superare `Parser::CMD_SIZE` (96 byte).
-
-**Output su HW (2026-10-04):**
-```
-[ZoneTests] test_query FAILED: Unhandled error owned: src/apps/sprinkler/zone/tests.rs:122: body != expected ("3,3,\"Relay 3\"\r\n" != "0,0,\"Relay 0\"\r\n1,1,\"Relay 1\"\r\n2,2,\"Relay 2\"\r\n3,3,\"Relay 3\"\r\n")
-```
 
 ---
 
@@ -212,6 +194,15 @@ eseguendo la suite su HW (`"0,0,\"\"\r\n"` invece di 4 righe).
   in `CMakeLists.txt`, `secrets.cmake.example` e `README.md` riporta ora i valori di
   `drivers::wifi::Auth`: `0=Open,1=Web,2=WPA,3=WPA2,4=WPA2-Mixed,5=WPA3,6=WPA2-WPA3`. Il default
   resta `3` (WPA2), quindi il comportamento non cambia; chi voleva WPA2-Mixed deve impostare `4`.
+- **#17 `AT+ZN?` restituiva solo l'ultima zona** (Sprinkler, media). `Bytes::format` svuota il
+  buffer prima di scrivere, quindi nel ciclo restava solo l'ultima riga. Ora `query` accoda ogni
+  riga con `write!` (`core::fmt::Write`, che su `Bytes` fa `append_str`). Test:
+  `ZoneTests::test_query`, fallito su HW il 2026-10-04, il 2026-10-05 e il 2026-10-06, non ancora
+  rieseguito dopo la correzione.
+  **Limite noto:** `Parser::CMD_SIZE` resta 96 byte. Con le descrizioni di default ("Relay N")
+  la risposta è di 64 byte, ma una riga può arrivare a 42 byte (peso 255 e descrizione di 32
+  caratteri, `DISPLAY_INPUT_MAX_SIZE`): con descrizioni lunghe le 4 righe (fino a 168 byte)
+  non entrano e `Bytes` tronca la risposta senza segnalarlo.
 - **#18 `zones.json`/`schedules.json` salvati non si ricaricavano** (Serde, alta). Il derive di
   osal-rs-serde non era simmetrico per le tuple struct: `Serialize` scriveva un oggetto con i
   campi `"0"`, `"1"`, …, mentre `Deserialize` leggeva i campi direttamente dalla radice. Il JSON
