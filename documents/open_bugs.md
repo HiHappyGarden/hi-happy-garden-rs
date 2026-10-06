@@ -49,29 +49,20 @@ la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da
 > (`ParserTests::test_uart_two_lines_in_one_buffer`), 10
 > (`HardwareErrorTests::test_flags_try_from_invalid`, `test_flags_roundtrip`), 11
 > (`SignalsTests::test_error_flags`) e 12 (`DateTimeTests::test_negative_timestamp`).
+>
+> **Aggiornamento 2026-10-06 (2):** il bug 13 è corretto nel codice (il firmware compila) e spostato
+> in [Risolti](#risolti), con il nuovo test `FilesystemTests::test_write_error`, non ancora eseguito su HW.
 
 ## Riepilogo
 
 | #  | Gravità | Area | Titolo | Test |
 |----|---------|------|--------|------|
-| 13 | Bassa   | Filesystem | Errore di scrittura littlefs ignorato | *senza test* |
 | 14 | Bassa   | Utils | Fallback di `deserialize_file` legge un file aperto in sola scrittura | *senza test* |
 | 15 | Bassa   | Config | `AT+DST` non valida i range | *senza test* |
 | 16 | Bassa   | Build | Documentazione di `HHG_DEFAULT_WIFI_AUTH` non coerente con `Auth` | *senza test* |
 | 17 | Media   | Sprinkler | `AT+ZN?` restituisce solo l'ultima zona | `ZoneTests::test_query` |
 
 ---
-
-## 13. Errore di scrittura littlefs ignorato
-
-**File:** [main/src/drivers/pico/flash.rs:96](../main/src/drivers/pico/flash.rs#L96) e
-[filesystem.rs:272](../main/src/drivers/filesystem.rs#L272)
-
-`file_write` restituisce `Ok` anche quando `hhg_flash_write` è negativo (flash piena, I/O);
-`File::write` salva poi `ret as u32` in `size`. Un salvataggio di configurazione fallito
-viene quindi segnalato come riuscito.
-
-**Correzione proposta:** propagare `Err(Error::ReturnWithCode(written))` se `written < 0`.
 
 ## 14. Fallback di `deserialize_file` legge un file aperto in sola scrittura
 
@@ -214,6 +205,19 @@ eseguendo la suite su HW (`"0,0,\"\"\r\n"` invece di 4 righe).
   `/`, che troncava verso zero: per `-1` (1969-12-31) usciva giovedì invece di mercoledì.
   Test: `DateTimeTests::test_negative_timestamp`, fallito su HW il 2026-10-04 e il 2026-10-05,
   passato il 2026-10-06 dopo la correzione.
+- **#13 Errore di scrittura littlefs ignorato** (Filesystem, bassa). `file_write` in
+  [flash.rs](../main/src/drivers/pico/flash.rs) restituisce ora `Err(Error::ReturnWithCode(written))`
+  se `hhg_flash_write` è negativo; `File::write` lo propaga con `?` prima di aggiornare `size`,
+  quindi un salvataggio fallito non viene più segnalato come riuscito. In `4a6115b` è stato
+  corretto anche il ramo senza `encryption` di `File::write`, che usava `self.0` invece di
+  `self.handler`. Come per la lettura (#8), littlefs non restituisce `LFS_ERR_BADF` su una
+  scrittura in un file aperto in `RDONLY`: va in `LFS_ASSERT` (`lfs.c`, `lfs_file_write_`) e blocca
+  il firmware. `hhg_flash_write` in [hhg-lfs-wrapper.c](../src/pico/hhg-lfs-wrapper.c) controlla
+  ora `LFS_O_WRONLY` e restituisce `LFS_ERR_BADF`. Test: `FilesystemTests::test_write_error`
+  (nuovo) scrive su un file aperto in `RDONLY`, sia da `FILE_FN.write` sia da `File::write`, si
+  aspetta `ReturnWithCode(LFS_ERR_BADF)` e verifica che il contenuto non cambi. La prima
+  esecuzione su HW (2026-10-06, senza il controllo nel wrapper) si è fermata sull'assert:
+  `assertion "(file->flags & LFS_O_WRONLY) == LFS_O_WRONLY" failed`. Da rieseguire.
 - **#18 `zones.json`/`schedules.json` salvati non si ricaricavano** (Serde, alta). Il derive di
   osal-rs-serde non era simmetrico per le tuple struct: `Serialize` scriveva un oggetto con i
   campi `"0"`, `"1"`, …, mentre `Deserialize` leggeva i campi direttamente dalla radice. Il JSON

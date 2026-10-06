@@ -185,6 +185,20 @@ fn test_read_error() -> Result<()> {
     Ok(())
 }
 
+fn test_write_error() -> Result<()> {
+    let name = path("read_only.txt");
+    write_file(&name, b"keep me", false)?;
+
+    // A failed lfs write (negative length) must come back as an error, not as Ok
+    {
+        let mut file = Filesystem::open_with_as_sync_str(&name, RDONLY)?;
+        test_assert!(matches!((super::FILE_FN.write)(file.handler, b"x"), Err(Error::ReturnWithCode(LFS_ERR_BADF))));
+        test_assert!(matches!(file.write(b"overwritten", false), Err(Error::ReturnWithCode(LFS_ERR_BADF))));
+    }
+    test_assert_eq!(read_file(&name, false)?, b"keep me");
+    Ok(())
+}
+
 fn test_closed_file() -> Result<()> {
     let name = path("closed.txt");
     let mut file = Filesystem::open_with_as_sync_str(&name, WRONLY | CREAT | TRUNC)?;
@@ -270,6 +284,7 @@ pub(crate) fn run_all_tests(stats: &mut TestStats) {
         test_sha256_integrity,
         test_seek_tell_size,
         test_read_error,
+        test_write_error,
         test_closed_file,
         test_rename_remove,
         test_ls,

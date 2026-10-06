@@ -101,6 +101,11 @@ fn file_write(handler: *mut c_void, buffer: &[u8]) -> Result<isize> {
             buffer.len() as LfsSize,
         )
     };
+
+    if written < 0 {
+        return Err(Error::ReturnWithCode(written));
+    }
+
     Ok(written as isize)
 }
 
