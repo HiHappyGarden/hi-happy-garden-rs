@@ -20,6 +20,9 @@
 
 #![allow(dead_code)]
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 use core::any::Any;
 use core::ffi::c_void;
 
@@ -30,7 +33,7 @@ use crate::drivers::pico::hw_timer::TIMER_FN;
 
 
  pub(in crate::drivers) struct TimerFn {
-    pub(in crate::drivers) add_repeating_ms: fn (delay_ms: i32, user_data: &dyn Any, callback: extern "C" fn(*mut c_void)) -> Result<Timer>,
+    pub(in crate::drivers) add_repeating_ms: fn (delay_ms: i32, user_data: &'static dyn Any, callback: extern "C" fn(*mut c_void)) -> Result<Timer>,
     pub(in crate::drivers) cancel: fn (timer: Timer)
 }
 
@@ -49,7 +52,10 @@ impl Timer {
         self.instance
     }
 
-    pub fn add_repeating_ms(delay_ms: i32, user_data: &dyn Any, callback: extern "C" fn(*mut c_void)) -> Result<Self> {
+    /// Calls `callback` every `delay_ms` milliseconds (pico-sdk semantics: a
+    /// negative delay counts from the start of the previous call) with the
+    /// address of the value behind `user_data`, to be cast back to its type.
+    pub fn add_repeating_ms(delay_ms: i32, user_data: &'static dyn Any, callback: extern "C" fn(*mut c_void)) -> Result<Self> {
         (TIMER_FN.add_repeating_ms)(delay_ms, user_data, callback)
     }
 

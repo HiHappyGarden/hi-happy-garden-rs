@@ -54,5 +54,6 @@ pub(crate) fn run_all_tests(stats: &mut crate::tests::TestStats) {
     i2c::tests::run_all_tests(stats);
     rtc::tests::run_all_tests(stats);
     gpio::tests::run_all_tests(stats);
+    timer::tests::run_all_tests(stats);
     relays::tests::run_all_tests(stats);
 }

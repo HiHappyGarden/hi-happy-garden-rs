@@ -34,11 +34,16 @@ pub(in crate::drivers) const TIMER_FN: TimerFn = TimerFn {
 };
 
 
-fn add_repeating_ms (delay_ms: i32, user_data: &dyn Any, callback: extern "C" fn(*mut c_void)) -> Result<Timer> {
-    let mut timer = null_mut();
+fn add_repeating_ms (delay_ms: i32, user_data: &'static dyn Any, callback: extern "C" fn(*mut c_void)) -> Result<Timer> {
+    let mut timer: *mut c_void = null_mut();
+
+    // The address of the data itself (the thin part of the reference), what
+    // `callback` gets back on every tick; 'static keeps it valid for as long
+    // as the timer may run
+    let user_data = user_data as *const dyn Any as *const c_void as *mut c_void;
 
     let ret = unsafe {
-        hhg_add_repeating_timer_ms(delay_ms, callback, (&raw const user_data) as *mut c_void, &mut timer)
+        hhg_add_repeating_timer_ms(delay_ms, callback, user_data, &mut timer)
     };
     if !ret {
         Err(Error::OutOfMemory)

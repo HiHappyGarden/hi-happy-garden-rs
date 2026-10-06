@@ -134,10 +134,14 @@ pub(in crate::drivers) unsafe fn hhg_add_repeating_timer_ms(delay_ms: c_int, cal
         return false;
     }
 
-    // Same contract as the C wrapper: a handle already in `out` is released
+    // Same contract as the C wrapper: a timer still running in `out` is
+    // stopped before the handle is replaced
     let previous = unsafe { *out };
     if !previous.is_null() {
-        drop(unsafe { Box::from_raw(previous as *mut RepeatingTimer) });
+        unsafe {
+            hhg_cancel_repeating_timer(previous);
+            *out = core::ptr::null_mut();
+        }
     }
 
     let cancelled = Arc::new(AtomicBool::new(false));

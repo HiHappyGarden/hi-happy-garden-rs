@@ -294,7 +294,10 @@ int hhg_flash_dir_close(void* dir) {
 
 int hhg_flash_dir_read(void* dir, uint8_t* type, lfs_size_t* size, char* name) { 
 
-    struct lfs_info info;
+    // At the end of the directory lfs_dir_read returns 0 without filling
+    // info: zeroed, the caller gets type 0 (EntryType::Unknown, its end
+    // marker) and an empty name instead of stack garbage
+    struct lfs_info info = {0};
     int res = lfs_dir_read(&lfs, (lfs_dir_t*)dir, &info);
     if (res < LFS_ERR_OK) {
         return res;

@@ -25,21 +25,48 @@
 extern void * pvPortMalloc( size_t xWantedSize );
 extern void vPortFree( void * pv );
 
+// The pico-sdk calls back with the repeating_timer_t and wants a bool back
+// (true: keep repeating), Rust registers a plain void (*)(void*): the
+// trampoline adapts the two, the handle carries what it needs
+typedef struct {
+    repeating_timer_t timer;
+    void (*callback)(void *);
+    void *user_data;
+} hhg_repeating_timer_t;
+
+static bool hhg_repeating_timer_trampoline(repeating_timer_t *rt) {
+    hhg_repeating_timer_t *handle = (hhg_repeating_timer_t *)rt->user_data;
+    handle->callback(handle->user_data);
+    return true;
+}
+
+bool hhg_cancel_repeating_timer(void *timer);
 
 bool hhg_add_repeating_timer_ms(int32_t delay_ms, void (*callback)(void *), void *user_data, void **out) {
-    if (out == NULL) {
+    if (out == NULL || callback == NULL) {
         return false;
     }
 
+    // A timer still running in *out is stopped before its memory is reused
     if (*out) {
-        vPortFree(*out);
+        hhg_cancel_repeating_timer(*out);
+        *out = NULL;
     }
-    *out = pvPortMalloc(sizeof(repeating_timer_t));
-    if (*out == NULL) {
+
+    hhg_repeating_timer_t *handle = pvPortMalloc(sizeof(hhg_repeating_timer_t));
+    if (handle == NULL) {
+        return false;
+    }
+    handle->callback = callback;
+    handle->user_data = user_data;
+
+    if (!add_repeating_timer_ms(delay_ms, hhg_repeating_timer_trampoline, handle, &handle->timer)) {
+        vPortFree(handle);
         return false;
     }
 
-    return add_repeating_timer_ms(delay_ms, (repeating_timer_callback_t)callback, user_data, (repeating_timer_t *)*out);
+    *out = handle;
+    return true;
 }
 
 
@@ -47,9 +74,10 @@ bool hhg_cancel_repeating_timer(void *timer) {
     if (timer == NULL) {
         return false;
     }
-    bool rc = cancel_repeating_timer((repeating_timer_t *)timer);
+    hhg_repeating_timer_t *handle = (hhg_repeating_timer_t *)timer;
+    bool rc = cancel_repeating_timer(&handle->timer);
 
-    vPortFree((repeating_timer_t *)timer);
+    vPortFree(handle);
 
     return rc;
 }
