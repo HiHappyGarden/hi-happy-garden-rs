@@ -151,33 +151,77 @@ impl AtContext<{ Parser::CMD_SIZE }> for DaylightSavingTime {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
         match cmd.as_ref() {
-            "smo" => // start_month
-                self.start_month = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
-                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+            "smo" => { // start_month
+                let start_month = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+                
+                if start_month < 1 || start_month > 12 {
+                    return Err((at_response, AtError::InvalidArgs));
+                }
 
-            "sdy" => // start_day
-                self.start_day = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
-                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+                self.start_month = start_month;
+            }
+            "sdy" => {// start_day
+                let start_day = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
 
-            "shr" => // start_hour
-                self.start_hour = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
-                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+                if !matches!(start_day, 1..=31 | 0xFF) {
+                    return Err((at_response, AtError::InvalidArgs));
+                }
 
-            "emo" => // end_month
-                self.end_month = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
-                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+                self.start_day = start_day;
+            }
+            "shr" => { // start_hour
+                let start_hour = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
 
-            "edy" => // end_day
-                self.end_day = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
-                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+                if start_hour > 23 {
+                    return Err((at_response, AtError::InvalidArgs));
+                }
 
-            "ehr" => // end_hour
-                self.end_hour = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
-                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?,
+                self.start_hour = start_hour;
+            }
+            "emo" => { // end_month
+                let end_month = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+
+                if end_month < 1 || end_month > 12 {
+                    return Err((at_response, AtError::InvalidArgs));
+                }
+
+                self.end_month = end_month;
+            }
+
+            "edy" => { // end_day
+                let end_day = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+
+                if !matches!(end_day, 1..=31 | 0xFF) {
+                    return Err((at_response, AtError::InvalidArgs));
+                }
+
+                self.end_day = end_day;
+            }
+
+            "ehr" => { // end_hour
+                let end_hour = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
+                    .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+
+                if end_hour > 23 {
+                    return Err((at_response, AtError::InvalidArgs));
+                }
+
+                self.end_hour = end_hour;
+            }
 
             "en" => { // enabled
                 let value: u8 = args.get(1).ok_or((at_response, AtError::InvalidArgs))?
                     .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
+
+                if value > 1 {
+                    return Err((at_response, AtError::InvalidArgs));
+                }
+
                 self.enabled = value != 0;
             }
             _ => return Err((at_response, AtError::InvalidArgs)),

@@ -177,6 +177,19 @@ fn test_dst() -> Result<()> {
         for raw in ["xx,1", "smo", "smo,300", "en,x"] {
             test_assert_eq!(at_error(dst.set(DaylightSavingTime::AT_RESP, Args { raw }))?, "InvalidArgs");
         }
+
+        // Range bounds (open_bugs #15): 255 is "last Sunday of the month"
+        for raw in ["smo,1", "smo,12", "sdy,1", "sdy,31", "sdy,255", "shr,0", "shr,23",
+                    "emo,1", "emo,12", "edy,1", "edy,31", "edy,255", "ehr,0", "ehr,23"] {
+            test_assert!(at_body(dst.set(DaylightSavingTime::AT_RESP, Args { raw }))?.is_empty(), "{raw} rejected");
+        }
+        test_assert_eq!(at_body(dst.query(DaylightSavingTime::AT_RESP))?, "12,255,23,12,255,23,0");
+        for raw in ["smo,0", "smo,13", "sdy,0", "sdy,32", "sdy,254", "shr,24",
+                    "emo,0", "emo,13", "edy,0", "edy,32", "edy,254", "ehr,24"] {
+            test_assert_eq!(at_error(dst.set(DaylightSavingTime::AT_RESP, Args { raw }))?, "InvalidArgs", "{raw} accepted");
+        }
+        // Rejected values leave the configuration untouched
+        test_assert_eq!(at_body(dst.query(DaylightSavingTime::AT_RESP))?, "12,255,23,12,255,23,0");
         Ok(())
     }))
 }

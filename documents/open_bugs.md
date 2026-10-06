@@ -52,36 +52,18 @@ la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da
 >
 > **Aggiornamento 2026-10-06 (2):** il bug 13 è corretto nel codice (il firmware compila) e spostato
 > in [Risolti](#risolti), con il nuovo test `FilesystemTests::test_write_error`, non ancora eseguito su HW.
+> Corretto nel codice anche il bug 14 (spostato in [Risolti](#risolti)), senza test.
+> Corretto nel codice anche il bug 15 (spostato in [Risolti](#risolti)), con i casi limite aggiunti a
+> `ConfigTests::test_dst`, non ancora eseguito su HW.
 
 ## Riepilogo
 
 | #  | Gravità | Area | Titolo | Test |
 |----|---------|------|--------|------|
-| 14 | Bassa   | Utils | Fallback di `deserialize_file` legge un file aperto in sola scrittura | *senza test* |
-| 15 | Bassa   | Config | `AT+DST` non valida i range | *senza test* |
 | 16 | Bassa   | Build | Documentazione di `HHG_DEFAULT_WIFI_AUTH` non coerente con `Auth` | *senza test* |
 | 17 | Media   | Sprinkler | `AT+ZN?` restituisce solo l'ultima zona | `ZoneTests::test_query` |
 
 ---
-
-## 14. Fallback di `deserialize_file` legge un file aperto in sola scrittura
-
-**File:** [main/src/apps/utils.rs:56](../main/src/apps/utils.rs#L56)
-
-Su `-2` (NOENT) il file viene riaperto con `WRONLY | CREAT` e poi letto. littlefs non
-restituisce un errore ma esegue `LFS_ASSERT` (attivo in Debug), quindi il firmware si sarebbe
-fermato. Dal 2026-10-05 `hhg_flash_read` intercetta il caso e restituisce `LFS_ERR_BADF` (vedi #8
-tra i risolti): ora la lettura fallisce senza crash e si passa ai default. Il ramo è raro, perché
-`RDWR | CREAT` non dovrebbe mai dare NOENT, ma resta sbagliato.
-
-**Correzione proposta:** nel fallback restituire direttamente i default e salvarli, senza leggere.
-
-## 15. `AT+DST` non valida i range
-
-**File:** [main/src/apps/config.rs:154](../main/src/apps/config.rs#L154)
-
-Vengono accettati `smo,13`, `shr,30` e simili. Con un mese fuori range,
-`find_last_weekday_of_month` lavora su un mese di 0 giorni e il calcolo dell'ora legale diventa imprevedibile.
 
 ## 16. Documentazione di `HHG_DEFAULT_WIFI_AUTH` non coerente
 
@@ -218,6 +200,22 @@ eseguendo la suite su HW (`"0,0,\"\"\r\n"` invece di 4 righe).
   aspetta `ReturnWithCode(LFS_ERR_BADF)` e verifica che il contenuto non cambi. La prima
   esecuzione su HW (2026-10-06, senza il controllo nel wrapper) si è fermata sull'assert:
   `assertion "(file->flags & LFS_O_WRONLY) == LFS_O_WRONLY" failed`. Da rieseguire.
+- **#14 Fallback inutile in `deserialize_file`** (Utils, bassa). La descrizione originale era
+  imprecisa: la prima apertura usa già `RDWR | CREAT`, e con `CREAT` littlefs restituisce `NOENT`
+  solo se manca una directory del percorso (`lfs_file_opencfg_`, componente non finale), non il
+  file. Il fallback riapriva lo stesso percorso con `WRONLY | CREAT`, che falliva allo stesso modo
+  e usciva con `?`: il file non veniva creato e la lettura in sola scrittura non poteva
+  avvenire. Ora il ramo `-2` registra un warning e restituisce l'errore. Senza test: il caso
+  richiede che manchi una directory di sistema, che `Hardware::init_fs` crea all'avvio
+  (`FilesystemTests::test_system_dirs`).
+- **#15 `AT+DST` non validava i range** (Config, bassa). `set` ora rifiuta con `InvalidArgs`
+  `smo`/`emo` fuori da 1..12, `shr`/`ehr` oltre 23 e `sdy`/`edy` fuori da 1..31, tranne 255
+  (`0xFF`, "ultima domenica del mese", il default per la regola UE). Un giorno oltre la fine del
+  mese (es. 31 ad aprile) resta accettato: `is_daylight_saving_time` lo riduce all'ultimo giorno.
+  Test: `ConfigTests::test_dst` controlla i limiti accettati (1, 12, 31, 255, 0, 23), quelli
+  rifiutati (0, 13, 32, 254, 24) e che un valore rifiutato non modifichi la configurazione.
+  Non ancora eseguito su HW. Resta un caso non coperto dai controlli sui singoli campi: con
+  inizio e fine coincidenti `is_daylight_saving_time` considera l'ora legale sempre attiva.
 - **#18 `zones.json`/`schedules.json` salvati non si ricaricavano** (Serde, alta). Il derive di
   osal-rs-serde non era simmetrico per le tuple struct: `Serialize` scriveva un oggetto con i
   campi `"0"`, `"1"`, …, mentre `Deserialize` leggeva i campi direttamente dalla radice. Il JSON

@@ -54,11 +54,8 @@ where
     ) {
         Ok(file) => file,
         Err(e @ Error::ReturnWithCode(-2)) => {
-            log_warning!(app_tag, "Failed to open file:{file_name} - {e}, try to create it");
-            Filesystem::open_with_as_sync_str(
-                &file_name,
-                WRONLY | CREAT,
-            )?
+            log_warning!(app_tag, "Failed to open file:{file_name} - {e}, the directory might not exist");
+            return Err(e)
         }
         Err(e) => return Err(e),
     };
