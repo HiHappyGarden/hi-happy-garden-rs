@@ -56,4 +56,6 @@ pub(crate) fn run_all_tests(stats: &mut crate::tests::TestStats) {
     gpio::tests::run_all_tests(stats);
     timer::tests::run_all_tests(stats);
     relays::tests::run_all_tests(stats);
+    #[cfg(feature = "emulator")]
+    emulator::tests::run_all_tests(stats);
 }

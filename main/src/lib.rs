@@ -60,7 +60,7 @@ mod ffi {
 /// Host side controls of the emulated board, for the `hhg-emulator` binary.
 #[cfg(feature = "emulator")]
 pub mod emulator {
-    pub use crate::drivers::emulator::set_flash_image;
+    pub use crate::drivers::emulator::{set_flash_image, set_online, start_control};
 }
 
 #[cfg(not(feature = "tests"))]

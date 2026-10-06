@@ -34,26 +34,37 @@
 //! | littlefs on flash          | littlefs on a RAM image, `src/emulator/hhg-lfs-wrapper.c` |
 //! | mbedtls AES, SHA-256 accel | [`crypto`]: RustCrypto `aes` and `sha2`               |
 //! | POWMAN, unique id, reset, timers | [`system`]                                      |
-//! | CYW43 + lwIP               | [`cyw43`]: radio present, no network in range          |
+//! | CYW43 + lwIP               | [`cyw43`], [`lwip`]: an access point in range, traffic on the host network (`--offline`: none) |
 //!
 //! The pin map, the I2C addresses and the flash geometry are the board ones:
 //! the emulator is the same board, not a different platform.
+//!
+//! What a person would do with the board (press buttons, turn the encoder,
+//! look at the display and the relays) goes through the [`control`]
+//! channel, a Unix socket, so the terminal stays the board UART.
 
 // The whole `hhg_*` API is mirrored, including the functions the firmware
 // does not call (yet), so the two layers stay interchangeable
 #![allow(dead_code)]
 
+mod board;
+mod control;
 mod crypto;
 mod cyw43;
 mod ds3231;
 mod gpio;
 mod i2c;
+mod lwip;
 mod sh1106;
 mod system;
 mod uart;
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 use alloc::ffi::CString;
 use core::ffi::{c_char, c_int};
+use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
 
 use osal_rs::utils::{Error, Result};
@@ -64,6 +75,7 @@ pub(in crate::drivers) mod hal {
     pub(in crate::drivers) use super::cyw43::*;
     pub(in crate::drivers) use super::gpio::*;
     pub(in crate::drivers) use super::i2c::*;
+    pub(in crate::drivers) use super::lwip::*;
     pub(in crate::drivers) use super::system::*;
     pub(in crate::drivers) use super::uart::*;
 }
@@ -89,6 +101,21 @@ pub fn set_flash_image(path: &str) -> Result<()> {
         return Err(Error::ReturnWithCode(ret));
     }
     Ok(())
+}
+
+/// Serves the control channel on a Unix socket at `path`, see [`control`].
+///
+/// A stale socket file is replaced, one still served by another running
+/// emulator is an error.
+pub fn start_control(path: &Path) -> std::io::Result<()> {
+    control::start(path)
+}
+
+/// Online (the default) the emulated board joins an access point and its
+/// traffic goes out through the host network; offline no access point is
+/// in range.
+pub fn set_online(online: bool) {
+    cyw43::set_online(online);
 }
 
 /// Locks a model state, ignoring poisoning.

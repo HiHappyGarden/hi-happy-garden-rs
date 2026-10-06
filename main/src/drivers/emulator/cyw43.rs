@@ -18,29 +18,78 @@
  *
  ***************************************************************************/
 
-//! CYW43 radio and lwIP stack, with no access point in range.
+//! CYW43 WiFi radio.
 //!
-//! Twin of `src/pico/hhg-cyw43-wrapper.c` and `hhg-lwip.c`. The radio
-//! initialises and reports `CYW43_LINK_NONET`, a join attempt times out and
-//! lwIP never gets a link, the same as a board far from its WiFi: the
-//! firmware runs its offline paths.
+//! Twin of `src/pico/hhg-cyw43-wrapper.c`. Online (the default) the board
+//! sits next to an access point that accepts any credentials, and its
+//! traffic goes out through the host network ([`super::lwip`]). Offline
+//! (`--offline`), or after `wifi down` on the control channel, no access
+//! point is in range: a join times out and the link reports
+//! `CYW43_LINK_NONET`, the firmware runs its offline paths.
 
-use core::ffi::{c_char, c_int, c_uchar, c_uint, c_ushort, c_void};
-use core::ptr::null_mut;
+use core::ffi::{c_char, c_int, c_uint};
 use core::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use crate::drivers::pico::ffi::cyw43_status::{CYW43_LINK_DOWN, CYW43_LINK_NONET};
-use crate::drivers::pico::ffi::err_enum::ERR_ARG;
+use crate::drivers::pico::ffi::cyw43_status::{CYW43_LINK_DOWN, CYW43_LINK_JOIN, CYW43_LINK_NONET, CYW43_LINK_UP};
 use crate::drivers::pico::ffi::pico_error_codes::{PICO_ERROR_NO_DATA, PICO_ERROR_TIMEOUT};
-use crate::drivers::pico::ffi::{ip_addr, pbuf, udp_pcb, udp_recv_fn};
 
-/// How long a join attempt takes before giving up
-const CONNECT_TIMEOUT: Duration = Duration::from_millis(500);
+/// How long associating with the access point takes
+const JOIN_TIME: Duration = Duration::from_millis(300);
+
+/// How long a scan for an absent access point lasts before giving up
+const JOIN_TIMEOUT: Duration = Duration::from_millis(500);
+
+/// Signal of the emulated access point, a good one
+const RSSI_DBM: i32 = -55;
+
+/// The host network is used (`--offline` clears it)
+static ONLINE: AtomicBool = AtomicBool::new(true);
+
+/// The access point is in range (`wifi up` / `wifi down` on the control channel)
+static AP_IN_RANGE: AtomicBool = AtomicBool::new(true);
 
 static STA_MODE: AtomicBool = AtomicBool::new(false);
 
 static JOIN_ATTEMPTED: AtomicBool = AtomicBool::new(false);
+
+static JOINED: AtomicBool = AtomicBool::new(false);
+
+pub(super) fn set_online(online: bool) {
+    ONLINE.store(online, Ordering::Release);
+    if !online {
+        JOINED.store(false, Ordering::Release);
+    }
+}
+
+/// Brings the access point in or out of range; out of range drops the
+/// association, as walking away from it would.
+pub(super) fn set_ap_in_range(in_range: bool) {
+    AP_IN_RANGE.store(in_range, Ordering::Release);
+    if !in_range {
+        JOINED.store(false, Ordering::Release);
+    }
+}
+
+fn ap_reachable() -> bool {
+    ONLINE.load(Ordering::Acquire) && AP_IN_RANGE.load(Ordering::Acquire)
+}
+
+/// Associated with the access point, with an address: what lwIP needs to
+/// put traffic on the host network.
+pub(super) fn is_joined() -> bool {
+    JOINED.load(Ordering::Acquire) && STA_MODE.load(Ordering::Acquire)
+}
+
+/// One line for the control channel `status`.
+pub(super) fn describe() -> &'static str {
+    match (ONLINE.load(Ordering::Acquire), AP_IN_RANGE.load(Ordering::Acquire), is_joined()) {
+        (false, _, _) => "offline",
+        (true, false, _) => "access point out of range",
+        (true, true, true) => "connected",
+        (true, true, false) => "access point in range, not connected",
+    }
+}
 
 pub(in crate::drivers) unsafe fn hhg_cyw43_arch_init_with_country(_country_code: c_uint) -> c_int {
     0
@@ -49,6 +98,7 @@ pub(in crate::drivers) unsafe fn hhg_cyw43_arch_init_with_country(_country_code:
 pub(in crate::drivers) unsafe fn hhg_cyw43_arch_deinit() {
     STA_MODE.store(false, Ordering::Release);
     JOIN_ATTEMPTED.store(false, Ordering::Release);
+    JOINED.store(false, Ordering::Release);
 }
 
 pub(in crate::drivers) unsafe fn hhg_cyw43_arch_enable_sta_mode() {
@@ -58,22 +108,35 @@ pub(in crate::drivers) unsafe fn hhg_cyw43_arch_enable_sta_mode() {
 pub(in crate::drivers) unsafe fn hhg_cyw43_arch_disable_sta_mode() {
     STA_MODE.store(false, Ordering::Release);
     JOIN_ATTEMPTED.store(false, Ordering::Release);
+    JOINED.store(false, Ordering::Release);
 }
 
 pub(in crate::drivers) unsafe fn hhg_cyw43_wifi_link_status(_itf: c_int) -> c_int {
-    if STA_MODE.load(Ordering::Acquire) && JOIN_ATTEMPTED.load(Ordering::Acquire) {
-        CYW43_LINK_NONET
-    } else {
-        CYW43_LINK_DOWN
+    if !STA_MODE.load(Ordering::Acquire) {
+        return CYW43_LINK_DOWN;
     }
+    if is_joined() {
+        return CYW43_LINK_UP;
+    }
+    if !JOIN_ATTEMPTED.load(Ordering::Acquire) {
+        return CYW43_LINK_DOWN;
+    }
+    if ap_reachable() { CYW43_LINK_JOIN } else { CYW43_LINK_NONET }
 }
 
 pub(in crate::drivers) unsafe fn hhg_cyw43_arch_wifi_connect(_ssid: *const c_char, _pw: *const c_char, _auth: c_uint) -> c_int {
     JOIN_ATTEMPTED.store(true, Ordering::Release);
-    // The scan for the SSID takes time on the real radio: returning at once
-    // would make the WiFi state machine spin
-    std::thread::sleep(CONNECT_TIMEOUT);
-    PICO_ERROR_TIMEOUT as c_int
+
+    // Joining takes time on the real radio too: returning at once would make
+    // the WiFi state machine spin
+    if !ap_reachable() {
+        std::thread::sleep(JOIN_TIMEOUT);
+        return PICO_ERROR_TIMEOUT as c_int;
+    }
+
+    std::thread::sleep(JOIN_TIME);
+    JOINED.store(ap_reachable(), Ordering::Release);
+    if is_joined() { 0 } else { PICO_ERROR_TIMEOUT as c_int }
 }
 
 pub(in crate::drivers) unsafe fn hhg_cyw43_arch_poll() {}
@@ -82,66 +145,11 @@ pub(in crate::drivers) unsafe fn hhg_cyw43_arch_lwip_begin() {}
 
 pub(in crate::drivers) unsafe fn hhg_cyw43_arch_lwip_end() {}
 
-pub(in crate::drivers) unsafe fn hhg_cyw43_wifi_get_rssi(_rssi: *mut i32) -> i32 {
-    // Not associated: the driver has no RSSI to report
-    PICO_ERROR_NO_DATA as i32
-}
-
-pub(in crate::drivers) unsafe fn hhg_dhcp_get_ip_address() -> *const c_char {
-    core::ptr::null()
-}
-
-pub(in crate::drivers) unsafe fn hhg_dhcp_get_binary_ip_address() -> c_uint {
-    0
-}
-
-pub(in crate::drivers) unsafe fn hhg_dhcp_supplied_address() -> bool {
-    false
-}
-
-pub(in crate::drivers) unsafe fn hhg_netif_is_link_up() -> c_uchar {
-    0
-}
-
-pub(in crate::drivers) unsafe fn hhg_ip_addr_cmp(addr: *const ip_addr, addr2: *const ip_addr) -> i32 {
-    match unsafe { (addr.as_ref(), addr2.as_ref()) } {
-        (Some(a), Some(b)) => (a.addr == b.addr) as i32,
-        _ => 0,
+pub(in crate::drivers) unsafe fn hhg_cyw43_wifi_get_rssi(rssi: *mut i32) -> i32 {
+    if !is_joined() || rssi.is_null() {
+        // Not associated: the driver has no RSSI to report
+        return PICO_ERROR_NO_DATA as i32;
     }
-}
-
-pub(in crate::drivers) unsafe fn hhg_dns_gethostbyname(
-    _hostname: *const c_char,
-    _addr: *mut ip_addr,
-    _dns_found_callback: extern "C" fn(name: *const c_char, ipaddr: *const ip_addr, callback_arg: *mut c_void),
-    _callback_arg: *mut c_void,
-) -> c_char {
-    // No netif up: lwIP refuses the query without calling back
-    ERR_ARG as i8 as c_char
-}
-
-pub(in crate::drivers) unsafe fn hhg_udp_new_ip_type(_type: c_uchar) -> *mut udp_pcb {
-    null_mut()
-}
-
-pub(in crate::drivers) unsafe fn hhg_pbuf_alloc(_length: c_ushort) -> *mut pbuf {
-    null_mut()
-}
-
-pub(in crate::drivers) unsafe fn hhg_pbuf_free(_p: *mut pbuf) -> c_uchar {
+    unsafe { *rssi = RSSI_DBM };
     0
 }
-
-pub(in crate::drivers) unsafe fn hhg_pbuf_copy_partial(_buf: *mut pbuf, _dataptr: *mut c_void, _len: u16, _offset: u16) -> u16 {
-    0
-}
-
-pub(in crate::drivers) unsafe fn hhg_pbuf_get_at(_p: *const pbuf, _offset: u16) -> u8 {
-    0
-}
-
-pub(in crate::drivers) unsafe fn hhg_udp_sendto(_pcb: *mut udp_pcb, _p: *mut pbuf, _ipaddr: *const ip_addr, _port: u16) -> i8 {
-    ERR_ARG as i8
-}
-
-pub(in crate::drivers) unsafe fn hhg_udp_recv(_pcb: *mut udp_pcb, _recv: udp_recv_fn, _recv_arg: *mut c_void) {}

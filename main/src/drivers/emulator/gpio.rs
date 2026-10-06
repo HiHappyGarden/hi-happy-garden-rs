@@ -111,7 +111,6 @@ fn with_pin<R>(gpio: u32, f: impl FnOnce(&mut Pin) -> R) -> Option<R> {
 ///
 /// Edge and level interrupts enabled on the pin fire on the calling thread,
 /// which plays the role of the IO_IRQ_BANK0 handler.
-#[allow(dead_code)]
 pub(crate) fn drive_input(gpio: u32, level: Option<bool>) {
     let fire = with_pin(gpio, |pin| {
         let before = pin.level();
@@ -131,6 +130,26 @@ pub(crate) fn drive_input(gpio: u32, level: Option<bool>) {
     if let Some(Some(callback)) = fire {
         callback();
     }
+}
+
+/// Level on the pad of an output pin, `None` while the pin is an input.
+pub(super) fn output_level(gpio: u32) -> Option<bool> {
+    with_pin(gpio, |pin| pin.output.then_some(pin.out_level)).flatten()
+}
+
+/// Level on the pad of a pin, input or output.
+pub(super) fn level(gpio: u32) -> bool {
+    with_pin(gpio, |pin| pin.level()).unwrap_or(false)
+}
+
+/// PWM compare level last set on the pin (0-255 with the firmware wrap).
+pub(super) fn pwm_level(gpio: u32) -> u16 {
+    with_pin(gpio, |pin| pin.pwm_level).unwrap_or(0)
+}
+
+/// State of a CYW43 wireless GPIO.
+pub(super) fn wl_gpio(wl_gpio: u32) -> bool {
+    lock(&WL_GPIOS).get(wl_gpio as usize).copied().unwrap_or(false)
 }
 
 pub(in crate::drivers) unsafe fn hhg_gpio_init(gpio: u32) {
@@ -251,5 +270,5 @@ pub(in crate::drivers) unsafe fn hhg_cyw43_arch_gpio_put(wl_gpio: u32, value: bo
 }
 
 pub(in crate::drivers) unsafe fn hhg_cyw43_arch_gpio_get(wl_gpio: u32) -> bool {
-    lock(&WL_GPIOS).get(wl_gpio as usize).copied().unwrap_or(false)
+    self::wl_gpio(wl_gpio)
 }

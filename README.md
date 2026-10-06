@@ -24,11 +24,13 @@ board, on osal-rs `posix` instead of FreeRTOS. The host models live in
 | Board | Emulator |
 |---|---|
 | UART0 (log, AT commands) | the terminal: stdout and stdin |
+| Buttons, encoder, relays, RGB LED | the control socket (see below) |
 | GPIO / PWM / ADC | in-memory pins, inputs idle at their pull, chip at 27 °C |
-| DS3231 on I2C0, SH1106 on I2C1 | register level models, the RTC starts at the host UTC time |
+| DS3231 on I2C0 | register level model, starts at the host UTC time |
+| SH1106 display on I2C1 | register level model, shown by the control socket |
 | littlefs on flash | the same littlefs on a 256 KB RAM image, optionally kept in a file |
 | mbedtls AES, SHA-256 accelerator | RustCrypto `aes` and `sha2` |
-| CYW43 WiFi, lwIP | radio present, no network in range |
+| CYW43 WiFi, lwIP | an access point accepting any credentials, DNS and UDP (NTP) on the host network; `--offline`: no access point in range |
 
 The C sources it needs (littlefs, cJSON) are taken from `build/_deps` after a
 firmware CMake build, or fetched once with:
@@ -45,6 +47,23 @@ cd main
 cargo run --no-default-features --features emulator,encryption --bin hhg-emulator -- --flash hhg-flash.bin
 ```
 
+While it runs, the board is driven from another terminal through the
+control socket (`$XDG_RUNTIME_DIR/hhg-emulator.sock`, `--control <path>` to
+change it), with the emulator binary itself as the client:
+
+```sh
+cd main
+alias hhg='cargo run -q --no-default-features --features emulator,encryption --bin hhg-emulator --'
+hhg --send help             # the commands
+hhg --send display          # the screen, drawn in the terminal
+hhg --send "enc cw 3"       # turn the encoder 3 steps clockwise
+hhg --send "enc click"      # press the encoder button
+hhg --send "btn long"       # long press on the front panel button
+hhg --send status           # relays, RGB LED, CYW43 LED, WiFi
+hhg --send "wifi down"      # take the access point away
+watch -n 0.5 ./target/debug/hhg-emulator --send display   # live screen
+```
+
 Run the firmware test suite, the exit status is 0 only if every test passed
 (this is what the `Emulator` GitHub workflow does):
 
@@ -58,7 +77,7 @@ cargo run --no-default-features --features emulator,encryption,tests --bin hhg-e
 `HHG_SYSTEM_USER_PASSWORD` environment variables.
 
 Real-time behaviour, interrupt timing, the two RP2350 cores, heap and stack
-limits and the real peripherals still need the board.
+limits, the real radio and the real peripherals still need the board.
 
 # Default Parameters Configuration via CMake
 
