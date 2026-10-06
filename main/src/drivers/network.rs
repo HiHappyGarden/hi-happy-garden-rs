@@ -41,6 +41,9 @@ pub enum IpType {
     ANY = 46,
 }
 
+/// lwIP `ip4_addr_t`, passed to lwIP as it is: `addr` holds the four octets
+/// in network byte order in memory, so on the little endian RP2350
+/// 192.168.1.10 is `0x0A01A8C0` (`u32::from_ne_bytes([192, 168, 1, 10])`).
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct IP4Addr {
@@ -57,7 +60,8 @@ impl Default for IP4Addr {
 
 impl Display for IP4Addr {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let bytes = self.addr.to_be_bytes();
+        // Memory order is network order: the octets as they are stored
+        let bytes = self.addr.to_ne_bytes();
         write!(f, "{}.{}.{}.{}", bytes[0], bytes[1], bytes[2], bytes[3])
     }
 }

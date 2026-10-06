@@ -214,6 +214,7 @@ fn test_network_ntp() -> Result<()> {
         let ip = unsafe { &*(ip as *const dyn crate::traits::network::IpAddress as *const IP4Addr) };
         // lwIP layout: network byte order in memory
         test_assert_eq!(ip.addr, u32::from_ne_bytes([127, 0, 0, 1]));
+        test_assert_eq!(format!("{ip}"), "127.0.0.1");
 
         let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
         let port = fake_ntp_server(now)?;
