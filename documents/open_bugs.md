@@ -55,23 +55,15 @@ la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da
 > Corretto nel codice anche il bug 14 (spostato in [Risolti](#risolti)), senza test.
 > Corretto nel codice anche il bug 15 (spostato in [Risolti](#risolti)), con i casi limite aggiunti a
 > `ConfigTests::test_dst`, non ancora eseguito su HW.
+> Corretto anche il bug 16 (solo documentazione, spostato in [Risolti](#risolti)).
 
 ## Riepilogo
 
 | #  | Gravità | Area | Titolo | Test |
 |----|---------|------|--------|------|
-| 16 | Bassa   | Build | Documentazione di `HHG_DEFAULT_WIFI_AUTH` non coerente con `Auth` | *senza test* |
 | 17 | Media   | Sprinkler | `AT+ZN?` restituisce solo l'ultima zona | `ZoneTests::test_query` |
 
 ---
-
-## 16. Documentazione di `HHG_DEFAULT_WIFI_AUTH` non coerente
-
-**File:** [CMakeLists.txt:187](../CMakeLists.txt#L187)
-
-La descrizione dice `0=Open,1=WPA,2=WPA2,3=WPA2-Mixed`, ma `drivers::wifi::Auth` è
-`0=Open,1=Web,2=Wpa,3=Wpa2,4=Wpa2Mixed,5=Wpa3,6=Wpa2Wpa3`. Con il default `3` si ottiene
-WPA2, non WPA2-Mixed come dice la documentazione.
 
 ## 17. `AT+ZN?` restituisce solo l'ultima zona
 
@@ -216,6 +208,10 @@ eseguendo la suite su HW (`"0,0,\"\"\r\n"` invece di 4 righe).
   rifiutati (0, 13, 32, 254, 24) e che un valore rifiutato non modifichi la configurazione.
   Non ancora eseguito su HW. Resta un caso non coperto dai controlli sui singoli campi: con
   inizio e fine coincidenti `is_daylight_saving_time` considera l'ora legale sempre attiva.
+- **#16 Documentazione di `HHG_DEFAULT_WIFI_AUTH` non coerente** (Build, bassa). La descrizione
+  in `CMakeLists.txt`, `secrets.cmake.example` e `README.md` riporta ora i valori di
+  `drivers::wifi::Auth`: `0=Open,1=Web,2=WPA,3=WPA2,4=WPA2-Mixed,5=WPA3,6=WPA2-WPA3`. Il default
+  resta `3` (WPA2), quindi il comportamento non cambia; chi voleva WPA2-Mixed deve impostare `4`.
 - **#18 `zones.json`/`schedules.json` salvati non si ricaricavano** (Serde, alta). Il derive di
   osal-rs-serde non era simmetrico per le tuple struct: `Serialize` scriveva un oggetto con i
   campi `"0"`, `"1"`, …, mentre `Deserialize` leggeva i campi direttamente dalla radice. Il JSON

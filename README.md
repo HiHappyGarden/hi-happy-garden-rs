@@ -96,7 +96,7 @@ Sensitive values are not hardcoded in CMakeLists.txt: they are read from the `se
    # Optional
    set(HHG_DEFAULT_WIFI_SSID "YourSSID")
    set(HHG_DEFAULT_WIFI_PASSWORD "YourPassword")
-   set(HHG_DEFAULT_WIFI_AUTH "3")
+   set(HHG_DEFAULT_WIFI_AUTH "3")   # 0=Open,1=Web,2=WPA,3=WPA2,4=WPA2-Mixed,5=WPA3,6=WPA2-WPA3
    set(HHG_DEFAULT_WIFI_ENABLED ON)
    set(HHG_DEFAULT_DAYLIGHT_SAVING_ENABLED ON)
    ```

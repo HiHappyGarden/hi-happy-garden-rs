@@ -184,7 +184,7 @@ option(HHG_DEFAULT_DAYLIGHT_SAVING_ENABLED "Enable daylight saving time by defau
 option(HHG_TESTS                       "Enable tests"                           OFF)
 
 # --- Strings / numbers (set CACHE STRING) ---
-set(HHG_DEFAULT_WIFI_AUTH              "3"                       CACHE STRING "WiFi auth type (0=Open,1=WPA,2=WPA2,3=WPA2-Mixed)")
+set(HHG_DEFAULT_WIFI_AUTH              "3"                       CACHE STRING "WiFi auth type (0=Open,1=Web,2=WPA,3=WPA2,4=WPA2-Mixed,5=WPA3,6=WPA2-WPA3)")
 set(HHG_DEFAULT_TIMEZONE               "60"                      CACHE STRING "Timezone offset in minutes (e.g. 60=UTC+1, 120=UTC+2)")
 set(HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_MONTH "3"             CACHE STRING "DST start month (1-12)")
 set(HHG_DEFAULT_DAYLIGHT_SAVING_TIME_START_DAY   "255"           CACHE STRING "DST start day (1-31, 255=last Sunday)")
