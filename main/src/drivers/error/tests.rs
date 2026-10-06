@@ -116,6 +116,7 @@ pub(crate) fn run_all_tests(stats: &mut TestStats) {
     run_tests!(TAG, stats;
         test_no_hardware_error,
         test_flags_roundtrip,
+        test_flags_try_from_invalid,
         test_signal_set_clear,
         test_unique_id,
     );

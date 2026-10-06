@@ -44,7 +44,8 @@ impl From<u32> for ErrorFlag {
             0x01 => NTP,
             0x02 => DateTime,
             0x04 => Display,
-            _ => None, // Default case, can be adjusted as needed
+            0x08 => DisplayHeader,
+            0x00 | _ => None, // Default case, can be adjusted as needed
         }
     }
 }
