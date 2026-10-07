@@ -49,20 +49,25 @@ cargo run --no-default-features --features emulator,encryption --bin hhg-emulato
 
 While it runs, the board is driven from another terminal through the
 control socket (`$XDG_RUNTIME_DIR/hhg-emulator.sock`, `--control <path>` to
-change it), with the emulator binary itself as the client:
+change it) with `scripts/hhg-emulator-cli.sh`, which needs `socat` (or an
+`nc` with `-U -N`):
 
 ```sh
-cd main
-alias hhg='cargo run -q --no-default-features --features emulator,encryption --bin hhg-emulator --'
-hhg --send help             # the commands
-hhg --send display          # the screen, drawn in the terminal
-hhg --send "enc cw 3"       # turn the encoder 3 steps clockwise
-hhg --send "enc click"      # press the encoder button
-hhg --send "btn long"       # long press on the front panel button
-hhg --send status           # relays, RGB LED, CYW43 LED, WiFi
-hhg --send "wifi down"      # take the access point away
-watch -n 0.5 ./target/debug/hhg-emulator --send display   # live screen
+scripts/hhg-emulator-cli.sh help            # the commands
+scripts/hhg-emulator-cli.sh display         # the screen, drawn in the terminal
+scripts/hhg-emulator-cli.sh enc cw 3        # turn the encoder 3 steps clockwise
+scripts/hhg-emulator-cli.sh enc click       # press the encoder button
+scripts/hhg-emulator-cli.sh btn long        # long press on the front panel button
+scripts/hhg-emulator-cli.sh status          # relays, RGB LED, CYW43 LED, WiFi
+scripts/hhg-emulator-cli.sh wifi down       # take the access point away
+scripts/hhg-emulator-cli.sh monitor         # live screen, redrawn every 0.5 s
+scripts/hhg-emulator-cli.sh auto            # the keyboard drives the board
 ```
+
+In `auto` the arrows turn the encoder, enter is the encoder button and backspace
+the front panel button; a key held down is a long press. That is told by the
+keyboard repeat, so `--hold <ms>` (700 by default) has to stay above the
+repeat delay of the system.
 
 Run the firmware test suite, the exit status is 0 only if every test passed
 (this is what the `Emulator` GitHub workflow does):

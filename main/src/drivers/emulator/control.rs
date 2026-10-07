@@ -28,7 +28,7 @@
 //! are not mixed with these.
 //!
 //! ```text
-//! hhg-emulator --send "enc cw 3"
+//! scripts/hhg-emulator-cli.sh enc cw 3
 //! echo display | socat - UNIX-CONNECT:/tmp/hhg-emulator.sock
 //! ```
 
