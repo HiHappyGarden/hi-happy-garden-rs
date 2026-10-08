@@ -313,6 +313,7 @@ impl Input {
                         let _ = input.pop();
                         let new_len = input.len();
                         self.idx = new_len.saturating_sub(1);
+                        input[self.idx] = CHAR_TABLE[0];
                     }
                     self.input = Some(input);
                 }
