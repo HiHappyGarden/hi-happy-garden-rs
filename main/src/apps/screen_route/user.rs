@@ -110,7 +110,7 @@ impl ScreenUser {
         let mut user = User::default();
         user.set_email(email.as_str());
         user.set_empty_passwd(passwd.is_empty());
-        user.set_password(EncryptGeneric::get_sha256(passwd.to_bytes())?.as_str());
+        user.set_password(EncryptGeneric::get_sha256(passwd.as_raw_bytes())?.as_str());
         Config::shared().get_session().set_user(&user);
         Config::shared().apply_session();
         Config::save()?;

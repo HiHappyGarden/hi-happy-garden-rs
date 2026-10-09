@@ -299,7 +299,7 @@ impl ScreenWizard {
         let mut user = User::default();
         user.set_email(email.as_str());
         user.set_empty_passwd(email_passwd.is_empty());
-        user.set_password(EncryptGeneric::get_sha256(email_passwd.to_bytes())?.as_str());
+        user.set_password(EncryptGeneric::get_sha256(email_passwd.as_raw_bytes())?.as_str());
         self.config.get_session().set_user(&user);
 
         if wifi_enable {

@@ -30,6 +30,7 @@ use crate::apps::config::Config;
 use crate::apps::display::input::Input;
 use crate::apps::display::text::Text;
 use crate::apps::signals::display::request_redraw;
+use crate::drivers::encrypt::EncryptGeneric;
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -142,7 +143,6 @@ impl ScreenLogin {
             ScreenParam::default()
         )? {
             Answer::Pending => Ok(Nav::Stay),
-            // Any button: leave on success, retry from the email otherwise.
             Answer::Confirmed(_) | Answer::Cancelled => {
                 if self.logged {
                     Ok(Nav::Pop)
@@ -156,16 +156,14 @@ impl ScreenLogin {
 
     fn login(&mut self) -> Result<bool> {
         let email = self.email.get_value()?;
-        let email_passwd = self.email_passwd.get_value()?;
+        let email_passwd = EncryptGeneric::get_sha256(self.email_passwd.get_value()?.as_raw_bytes())?;
 
-        // Only the arguments, as the AT parser would pass them: the command
-        // prefix would end up in the first argument.
         let mut raw = String::from("i,");
         Self::push_quoted(&mut raw, email.as_str());
         raw.push(',');
         Self::push_quoted(&mut raw, email_passwd.as_str());
 
-        let args: Args = Args {
+        let args = Args {
             raw: raw.as_str()
         };
 
@@ -173,7 +171,6 @@ impl ScreenLogin {
         Ok(session.set("", args).is_ok() && session.exec("").is_ok())
     }
 
-    /// Quotes `value` so that commas and quotes typed by the user do not split the arguments.
     fn push_quoted(raw: &mut String, value: &str) {
         raw.push('"');
         for ch in value.chars() {
