@@ -144,9 +144,6 @@ impl ScreenRoute {
     /// user is back on the screen that was on top (usually the menu).
     fn push(&mut self, id: &'static str, screen: BoxedScreenRoute, status_signal: &EventBits) {
 
-        let user = self.config.get_session().get_user_local();
-
-
         if screen.requires_auth()
             && self.config.get_session().is_set_user_local()
             && !StatusFlag::UserLogged.check_signal(*status_signal)
