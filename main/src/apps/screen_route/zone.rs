@@ -18,10 +18,13 @@
  *
  ***************************************************************************/
 
-use osal_rs::utils::{Bytes, Result};
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::apps::display::select::Select;
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
+use crate::apps::screen_route::zone_detail::{self, ScreenZoneDetail};
 use crate::traits::screen::{Answer, Screen, ScreenParam};
 use crate::apps::sprinkler::zone::ZoneController;
 use crate::traits::screen::{Nav, ScreenRoute, ScreenRouteCtx};
@@ -44,16 +47,23 @@ impl ScreenRoute for ScreenZone {
                     ScreenParam::Selects(ZoneController::new_selections())
                 )? {
                     Answer::Pending => Ok(Nav::Stay),
-                    Answer::Confirmed(_param) => {
-                        // match param {
-                        //     ScreenParam::Selects(selected) => {
-
-                        //         Ok(Nav::Push{id:screen.0, screen:screen.1})
-                        //     }
-                        //     _ => Ok(Nav::Stay)
-                        // }
-
-                        todo!("Handle confirmed selection for ScreenZone")
+                    Answer::Confirmed(param) => {
+                        match param {
+                                let s = selected
+                                    .iter()
+                                    .enumerate()
+                                    .filter(|it| it.1.1)
+                                    .collect::<Vec<(usize, &(Bytes<_>, bool))>>()
+                                    .first()
+                                    .ok_or(Error::Empty)?;
+                            
+                                Ok(Nav::Push{
+                                    id: ScreenZoneDetail::id(), 
+                                    screen: Box::new(ScreenZoneDetail::new(s.0))
+                                })
+                            }
+                            _ => Ok(Nav::Pop)
+                        }
                     }
                     Answer::Cancelled => Ok(Nav::Pop),
                 }

@@ -18,6 +18,8 @@
  *
  ***************************************************************************/
 
+use core::ops::Range;
+
 use alloc::format;
 use alloc::sync::Arc;
 use osal_rs::os::Mutex;
@@ -32,9 +34,8 @@ use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
 use crate::traits::screen::{Answer, Screen, ScreenParam};
 
-#[allow(dead_code)]
 #[derive(Clone, PartialEq, Eq)]
-pub(super) struct Number<N>
+pub(in crate::apps) struct Number<N>
 where
     N: Integer,
 {
@@ -113,11 +114,20 @@ impl<N> Number<N>
 where
     N: Integer {
         
-    pub(super) const fn new(min: N, max: N) -> Self {
+    pub(in crate::apps) const fn new(min: N, max: N) -> Self {
         Self { 
             number: None,
             min,
             max,
+            result: None,
+        }
+    }
+
+    pub(in crate::apps) const fn new_with_range(range: Range<N>) -> Self {
+        Self { 
+            number: None,
+            min: range.start,
+            max: range.end,
             result: None,
         }
     }

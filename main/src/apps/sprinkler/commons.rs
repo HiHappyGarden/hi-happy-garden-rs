@@ -49,6 +49,17 @@ impl From<Status> for u8 {
     }
 }
 
+impl Status {
+    pub(in crate::apps) const fn as_str(self) -> &'static str {
+        match self {
+            Status::UNACTIVE => "Unactive",
+            Status::ACTIVE => "Active",
+            Status::RUN => "Run",
+        }
+    }
+}
+
+
 impl Serialize for Status {
     #[inline]
     fn serialize<S: Serializer>(&self, name: &str, serializer: &mut S) -> Result<(), S::Error> {

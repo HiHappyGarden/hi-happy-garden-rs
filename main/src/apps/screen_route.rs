@@ -29,6 +29,7 @@ mod schedule;
 mod sprinkler;
 mod user;
 mod wifi;
+mod zone_detail;
 mod zone;
 
 use alloc::boxed::Box;
