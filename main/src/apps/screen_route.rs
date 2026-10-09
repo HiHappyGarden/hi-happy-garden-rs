@@ -148,7 +148,6 @@ impl ScreenRoute {
 
 
         if screen.requires_auth()
-            && user.is_empty_passwd()
             && self.config.get_session().is_set_user_local()
             && !StatusFlag::UserLogged.check_signal(*status_signal)
         {
