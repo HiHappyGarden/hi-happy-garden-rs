@@ -230,6 +230,10 @@ impl Screen<Bytes<MAX_SIZE>> for Input
     fn get_value(&self) -> Result<Bytes<MAX_SIZE>> {
         self.input.clone().ok_or(Error::NullPtr)
     }
+
+    fn drop_value(&mut self) {
+        self.input = None;
+    }
 }
 
 

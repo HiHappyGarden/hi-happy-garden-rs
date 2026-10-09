@@ -79,7 +79,7 @@ impl Eq for FieldEditorConfig {}
 pub(super) struct FieldEditor {
     fields: [Option<i32>; 3],
     step: Step,
-    result: Option<DateTime>,
+    pub (in crate::apps::display) result: Option<DateTime>,
     config: FieldEditorConfig,
 }
 

@@ -105,6 +105,11 @@ impl Screen<bool> for Check
     fn get_value(&self) -> Result<bool> {
         self.checked.ok_or(Error::NullPtr)
     }
+
+    fn drop_value(&mut self) {
+        self.checked = None;
+    }
+
 }
 
 impl Check {

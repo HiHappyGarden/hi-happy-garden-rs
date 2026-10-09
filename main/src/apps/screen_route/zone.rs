@@ -49,20 +49,22 @@ impl ScreenRoute for ScreenZone {
                     Answer::Pending => Ok(Nav::Stay),
                     Answer::Confirmed(param) => {
                         match param {
+                            ScreenParam::Selects(selected) => {
                                 let s = selected
                                     .iter()
                                     .enumerate()
                                     .filter(|it| it.1.1)
-                                    .collect::<Vec<(usize, &(Bytes<_>, bool))>>()
-                                    .first()
-                                    .ok_or(Error::Empty)?;
+                                    .collect::<Vec<(usize, &(Bytes<_>, bool))>>();
                             
                                 Ok(Nav::Push{
                                     id: ScreenZoneDetail::id(), 
-                                    screen: Box::new(ScreenZoneDetail::new(s.0))
+                                    screen: Box::new(ScreenZoneDetail::new(
+                                        s.first().ok_or(Error::Empty)?.0
+                                    ))
                                 })
+                                
                             }
-                            _ => Ok(Nav::Pop)
+                            _ => Ok(Nav::Pop),
                         }
                     }
                     Answer::Cancelled => Ok(Nav::Pop),

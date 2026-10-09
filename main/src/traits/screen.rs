@@ -91,6 +91,8 @@ where N: Integer
     ) -> Result<Answer<N, N_SELECTS>>;
 
     fn get_value(&self) -> Result<T>;
+
+    fn drop_value(&mut self);
 }
 
 pub trait ScreenRoute {

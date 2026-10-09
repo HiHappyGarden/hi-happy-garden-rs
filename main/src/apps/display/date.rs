@@ -50,6 +50,10 @@ impl Screen<DateTime> for Date
     fn get_value(&self) -> Result<DateTime> {
         self.0.get_result().ok_or(Error::NullPtr)
     }
+
+    fn drop_value(&mut self) {
+        self.0.result = None;
+    }
 }
     
 impl Date

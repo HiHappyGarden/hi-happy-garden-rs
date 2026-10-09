@@ -132,6 +132,10 @@ impl<const N: usize> Screen<ScreenSelections<N>, u16, N> for Select<N> {
         self.selections.clone().ok_or(Error::NullPtr)
     }
 
+    fn drop_value(&mut self) {
+        self.selections = None;
+    }
+
 }
 
 impl<const N: usize> Select<N> {

@@ -115,6 +115,9 @@ impl Screen<()> for Text
     fn get_value(&self) -> Result<()> {
         Ok(())
     }
+    
+    fn drop_value(&mut self) {
+    }
 
 }
 
