@@ -129,7 +129,9 @@ impl ScreenLogin {
         let text = if self.logged {
             Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Login successful")
         } else {
-            Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Login failed")
+            self.email.drop_value();
+            self.email_passwd.drop_value();
+            Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Login failed")            
         };
 
         match self.status.draw(
