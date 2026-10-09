@@ -192,7 +192,7 @@ impl Screen<Bytes<MAX_SIZE>> for Input
                 // Long press on encoder button: confirm the current input.
                 if let Some(mut input) = self.input {
 
-                    if !input.is_empty() {
+                    if !input.is_empty() && (input[self.idx] == CHAR_TABLE[0]) {
                         input.pop();
                     }
                     self.input = Some(input);
