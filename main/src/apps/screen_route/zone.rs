@@ -74,6 +74,10 @@ impl ScreenRoute for ScreenZone {
         
     }
 
+    fn reinit(&mut self) {
+        self.0.drop_value();
+    }
+
 }
 
 impl ScreenZone {

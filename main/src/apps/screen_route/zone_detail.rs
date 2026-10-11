@@ -87,12 +87,14 @@ impl ScreenZoneDetail {
 
     fn draw_description_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
 
+        let current_description = ZoneController::shared()[self.zone_relay].description;
+
         let answer = self.description.draw(
                 *lcd,
                 display_signal,
                 rtc,
-                &ZoneController::shared()[self.zone_relay].description,
-                ScreenParam::Input { value: Bytes::new(), secret_mode: false }
+                &current_description,
+                ScreenParam::Input { value: current_description, secret_mode: false }
             )?;
 
         Ok(self.step(display_signal, answer, FSMState::Weight, FSMState::Description))
@@ -143,15 +145,15 @@ impl ScreenZoneDetail {
                             .0
                             .clone();
 
-                            let new_zone = Zone {
-                                description: self.description.get_value()?,
-                                weight: self.weight.get_value().unwrap_or(0),
-                                zone_relay: ZoneRelay::from(self.zone_relay as u8),
-                                status: Status::from(status.as_str()),
-                            };
-                            ZoneController::shared()[self.zone_relay] = new_zone;
+                        let new_zone = Zone {
+                            description: self.description.get_value()?,
+                            weight: self.weight.get_value().unwrap_or(0),
+                            zone_relay: ZoneRelay::from(self.zone_relay as u8),
+                            status: Status::from(status.as_str()),
+                        };
+                        ZoneController::shared()[self.zone_relay] = new_zone;
 
-                            ZoneController::shared().save()?;
+                        ZoneController::shared().save()?;
 
                         Ok(Nav::Pop(true))
                     }

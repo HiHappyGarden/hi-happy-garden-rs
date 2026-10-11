@@ -132,9 +132,13 @@ impl ScreenRoute {
             Nav::Push{ id, screen } => self.push(id, screen, status_signal),
             Nav::Pop(reinit) => {
                 match self.stack.pop() {
-                    Some((_, mut screen_route)) => {
+                    Some(_) => {
                         if reinit {
-                            screen_route.reinit();
+                            let Some((id, mut parent_screen_route)) =  self.stack.pop() else {
+                                return;
+                            };
+                            parent_screen_route.reinit();
+                            self.stack.push((id, parent_screen_route));
                         }
                     }
                     None => return,
