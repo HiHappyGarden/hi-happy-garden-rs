@@ -31,6 +31,7 @@ use osal_rs_serde::{Deserialize, Serialize};
 use crate::apps::config::Config;
 use crate::apps::parser::Parser;
 use crate::apps::session::User;
+use crate::apps::signals::display::DisplaySignal;
 use crate::apps::signals::error::ErrorSignal;
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::apps::sprinkler::Sprinkler;
@@ -43,10 +44,12 @@ pub(in crate::apps) const TEST_EMAIL: &str = "test@hhg.local";
 pub(in crate::apps) const TEST_PASSWORD: &str = "t3st-p4ss";
 
 /// Brings the application layer up the way `AppMain::init` does, without
-/// the tasks (display, wifi, system led) the tests do not need.
+/// the tasks (display, wifi, system led) the tests do not need. The display
+/// signal is created anyway: screens raise `Draw` on it.
 pub(in crate::apps) fn setup() -> Result<()> {
     StatusSignal::init()?;
     ErrorSignal::init()?;
+    DisplaySignal::init()?;
     Config::shared().init()?;
     Sprinkler::new().init()
 }

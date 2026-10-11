@@ -22,7 +22,8 @@
 //! Zone tests: relay mapping and the `AT+ZN` handler.
 //!
 //! Each AT test restores the shared zones and the staging area. `sv` is
-//! sent once, by `test_save_reload`, on the restored (unchanged) zones.
+//! sent once, by `test_save_reload`, on the restored (unchanged) zones;
+//! `test_save` writes modified zones and then saves the originals back.
 
 use alloc::format;
 use alloc::string::String;
@@ -193,6 +194,38 @@ fn test_save_reload() -> Result<()> {
     }))
 }
 
+fn test_deref() -> Result<()> {
+    with_zones_restored(|controller| {
+        test_assert_eq!(controller.len(), ZoneController::SIZE);
+        for (idx, zone) in zones().iter().enumerate() {
+            test_assert_eq!(controller[idx], *zone);
+        }
+
+        // Writes through the slice land in the shared zones
+        let weight = controller[1].weight.wrapping_add(1);
+        controller[1].weight = weight;
+        test_assert_eq!(zones()[1].weight, weight);
+        Ok(())
+    })
+}
+
+fn test_save() -> Result<()> {
+    let backup = *ZoneController::shared();
+    let ret = (|| {
+        let controller = ZoneController::shared();
+        controller[2].weight = controller[2].weight.wrapping_add(1);
+        let expected = zones();
+        controller.save()?;
+        let reloaded: ZoneController = deserialize_file(unsafe { &*&raw const MUTEX }, TAG, FS_CONFIG_DIR, ZoneController::FILE_NAME)?;
+        test_assert_eq!(reloaded.zones, expected);
+        Ok(())
+    })();
+    // Put the file back as well, not only the shared zones
+    *ZoneController::shared() = backup;
+    ZoneController::shared().save()?;
+    ret
+}
+
 fn test_screen_selections() -> Result<()> {
     let selections = ZoneController::new_selections();
     for (selection, zone) in selections.iter().zip(zones().iter()) {
@@ -215,6 +248,8 @@ pub(in crate::apps) fn run_all_tests(stats: &mut TestStats) {
         test_set_invalid,
         test_set_unknown_relay,
         test_save_reload,
+        test_deref,
+        test_save,
         test_screen_selections,
     );
 }

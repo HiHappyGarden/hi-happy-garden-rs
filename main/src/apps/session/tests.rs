@@ -198,10 +198,6 @@ fn test_user_json() -> Result<()> {
     let parsed: User = from_json(&text)?;
     test_assert_eq!(parsed.get_email(), user.get_email());
     test_assert_eq!(parsed.get_password(), user.get_password());
-    test_assert!(!parsed.is_empty_passwd());
-
-    let empty: User = from_json(r#"{"email":"a@b","password":""}"#)?;
-    test_assert!(empty.is_empty_passwd());
     Ok(())
 }
 

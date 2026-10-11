@@ -68,6 +68,17 @@ fn test_status_conversion() -> Result<()> {
     Ok(())
 }
 
+fn test_status_from_str() -> Result<()> {
+    // The display shows `as_str`, the zone detail screen parses it back
+    for status in [Status::UNACTIVE, Status::ACTIVE, Status::RUN] {
+        test_assert_eq!(Status::from(status.as_str()), status);
+    }
+    for text in ["", "active", "ACTIVE", "Active ", "Running"] {
+        test_assert_eq!(Status::from(text), Status::UNACTIVE, "{text:?}");
+    }
+    Ok(())
+}
+
 fn test_every_minute() -> Result<()> {
     // All fields NOT_SET: runs at any time
     let schedule = active();
@@ -199,6 +210,7 @@ fn test_check_idle() -> Result<()> {
 pub(in crate::apps) fn run_all_tests(stats: &mut TestStats) {
     run_tests!(TAG, stats;
         test_status_conversion,
+        test_status_from_str,
         test_every_minute,
         test_time_of_day,
         test_days_of_week,
