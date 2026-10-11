@@ -2,9 +2,11 @@
 
 cmake_minimum_required(VERSION 3.16...3.24)
 
-if(NOT DEFINED PICO_SDK_PATH)
-    set(PICO_SDK_PATH "${CMAKE_SOURCE_DIR}/pico-sdk" CACHE STRING "Path to the PICO SDK")
-endif()
+# Pico SDK: the pico-sdk submodule, another one only with -DHHG_PICO_SDK_PATH.
+# PICO_SDK_PATH is not used to choose: the Pico VS Code extension sets it (and
+# the SDK caches it) to ~/.pico-sdk, the build must not depend on what is
+# installed there.
+set(HHG_PICO_SDK_PATH "${CMAKE_SOURCE_DIR}/pico-sdk" CACHE PATH "Path to the Pico SDK")
 set(PICO_BOARD pico2_w)
 
 set(CMAKE_C_STANDARD 17)
@@ -31,21 +33,43 @@ if (EXISTS ${picoVscode})
 endif()
 # ====================================================================================
 
-# Reuse the already-installed picotool instead of rebuilding it from source each time
-# (SDK 2.3.1 requires picotool 2.3.0, not picotoolVersion above)
-if(NOT DEFINED ENV{PICOTOOL_FETCH_FROM_GIT_PATH})
-    set(ENV{PICOTOOL_FETCH_FROM_GIT_PATH} "${USERHOME}/.pico-sdk/picotool/2.3.0")
+# The extension include above points PICO_SDK_PATH to ~/.pico-sdk: keep the
+# project one. Only its toolchain and picotool are used, when installed;
+# without the extension arm-none-eabi-gcc is taken from PATH.
+set(PICO_SDK_PATH "${HHG_PICO_SDK_PATH}" CACHE PATH "Path to the Pico SDK" FORCE)
+set(PICO_SDK_PATH "${HHG_PICO_SDK_PATH}")
+
+# When no installed picotool is found the SDK builds it from source: do it once
+# in the project tree (.deps/, ignored by git) instead of in every build directory
+if(NOT DEFINED PICOTOOL_FETCH_FROM_GIT_PATH AND NOT DEFINED ENV{PICOTOOL_FETCH_FROM_GIT_PATH})
+    set(PICOTOOL_FETCH_FROM_GIT_PATH "${CMAKE_SOURCE_DIR}/.deps/picotool")
+endif()
+
+# Set the FreeRTOS kernel path and config directory BEFORE adding the port
+set(FREERTOS_KERNEL_PATH ${CMAKE_SOURCE_DIR}/FreeRTOS-Kernel)
+set(FREERTOS_CONFIG_FILE_DIRECTORY ${CMAKE_SOURCE_DIR}/inc/hhg-config)
+set(FREERTOS_PORT_PATH ${FREERTOS_KERNEL_PATH}/portable/ThirdParty/Community-Supported-Ports/GCC/RP2350_ARM_NTZ)
+
+if(NOT EXISTS "${PICO_SDK_PATH}/external/pico_sdk_import.cmake" OR NOT EXISTS "${FREERTOS_PORT_PATH}/CMakeLists.txt")
+    message(FATAL_ERROR "pico-sdk or FreeRTOS-Kernel not found, initialise the submodules with:\n"
+                        "  git submodule update --init --recursive")
+endif()
+
+# A build directory configured with another SDK keeps that SDK's toolchain file
+# in the cache, mixing the two
+if(CMAKE_TOOLCHAIN_FILE MATCHES "/cmake/preload/toolchains/")
+    string(FIND "${CMAKE_TOOLCHAIN_FILE}" "${PICO_SDK_PATH}/" toolchain_in_sdk)
+    if(NOT toolchain_in_sdk EQUAL 0)
+        message(FATAL_ERROR "${CMAKE_BINARY_DIR} was configured with another Pico SDK "
+                            "(${CMAKE_TOOLCHAIN_FILE}): delete it and configure again")
+    endif()
 endif()
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(${PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
-# Set the FreeRTOS kernel path and config directory BEFORE adding the port
-set(FREERTOS_KERNEL_PATH ${CMAKE_SOURCE_DIR}/FreeRTOS-Kernel)
-set(FREERTOS_CONFIG_FILE_DIRECTORY ${CMAKE_SOURCE_DIR}/inc/hhg-config)
-
 # Include the RP2350_ARM_NTZ port BEFORE pico_sdk_init()
-add_subdirectory(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/Community-Supported-Ports/GCC/RP2350_ARM_NTZ/)
+add_subdirectory(${FREERTOS_PORT_PATH})
 
 project(hi-happy-garden-rs VERSION "0.1.0" LANGUAGES CXX C ASM)
 

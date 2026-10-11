@@ -8,6 +8,28 @@ sudo apt install python3 git tar build-essential cmake gcc-arm-none-eabi libusb-
 
 ```
 
+# Build
+
+The firmware builds from the repository alone: the Pico SDK and FreeRTOS are
+the `pico-sdk` and `FreeRTOS-Kernel` submodules, never an SDK installed in
+`~/.pico-sdk` (use `-DHHG_PICO_SDK_PATH=...` to build against another one).
+Needed on the host: CMake, the Arm GNU toolchain (`arm-none-eabi-gcc`,
+14.2.Rel1 is the tested one) in `PATH`, Rust with the
+`thumbv8m.main-none-eabi` target and `libusb-1.0-0-dev`. With the Raspberry Pi
+Pico VS Code extension installed its toolchain and picotool are used instead;
+without it picotool is built from source once into `.deps/picotool`.
+
+```sh
+git clone --recurse-submodules https://github.com/HiHappyGarden/hi-happy-garden-rs.git
+rustup target add thumbv8m.main-none-eabi
+cp secrets.cmake.example secrets.cmake   # then edit it
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+```
+
+A build directory configured before with the `~/.pico-sdk` SDK must be
+deleted and configured again.
+
 # Picocom
 ```sh
 picocom --omap crcrlf --echo -b 115200 /dev/ttyACM0
