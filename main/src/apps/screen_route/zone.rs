@@ -66,10 +66,10 @@ impl ScreenRoute for ScreenZone {
                                 })
                                 
                             }
-                            _ => Ok(Nav::Pop),
+                            _ => Ok(Nav::Pop(false)),
                         }
                     }
-                    Answer::Cancelled => Ok(Nav::Pop),
+                    Answer::Cancelled => Ok(Nav::Pop(false)),
                 }
         
     }

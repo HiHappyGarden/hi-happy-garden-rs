@@ -54,9 +54,9 @@ impl ScreenRoute for ScreenDaylightSavingTime {
                     _ => {}
                 }
                 
-                Ok(Nav::Pop)
+                Ok(Nav::Pop(false))
             }
-            Answer::Cancelled => Ok(Nav::Pop),
+            Answer::Cancelled => Ok(Nav::Pop(false)),
         }
     }
 }

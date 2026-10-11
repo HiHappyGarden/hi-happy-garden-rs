@@ -80,7 +80,7 @@ impl ScreenRoute for ScreenSprinkler {
                         }
                         
                     }
-                    Answer::Cancelled => Ok(Nav::Pop),
+                    Answer::Cancelled => Ok(Nav::Pop(false)),
                 }
     }
 

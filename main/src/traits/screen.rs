@@ -46,7 +46,7 @@ pub enum Nav {
     Stay,
     #[allow(unused)]
     Push{ id: &'static str, screen: BoxedScreenRoute },
-    Pop,
+    Pop(bool),
     Replace{ id: &'static str, screen: BoxedScreenRoute},
 }
 
@@ -102,6 +102,8 @@ pub trait ScreenRoute {
     fn renderize(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav>;
 
     fn requires_auth(&self) -> bool { true }
+
+    fn reinit(&mut self) { }
 }
 
 pub const fn new_screen_selections<const N_SELECTS: usize>() -> ScreenSelections<N_SELECTS> {

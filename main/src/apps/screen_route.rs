@@ -130,8 +130,15 @@ impl ScreenRoute {
         match nav {
             Nav::Stay => return,
             Nav::Push{ id, screen } => self.push(id, screen, status_signal),
-            Nav::Pop => {
-                self.stack.pop();
+            Nav::Pop(reinit) => {
+                match self.stack.pop() {
+                    Some((_, mut screen_route)) => {
+                        if reinit {
+                            screen_route.reinit();
+                        }
+                    }
+                    None => return,
+                }
             }
             Nav::Replace{ id, screen } => {
                 self.stack.pop();

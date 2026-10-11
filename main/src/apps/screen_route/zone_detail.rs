@@ -153,7 +153,7 @@ impl ScreenZoneDetail {
 
                             ZoneController::shared().save()?;
 
-                        Ok(Nav::Stay)
+                        Ok(Nav::Pop(true))
                     }
                     _ => Err(Error::InvalidType),
                 }

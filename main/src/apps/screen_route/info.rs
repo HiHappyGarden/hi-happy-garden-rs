@@ -55,7 +55,7 @@ impl ScreenRoute for ScreenInfo {
         )? {
             Answer::Pending => Ok(Nav::Stay),
             // Any button goes back to the menu.
-            Answer::Confirmed(_) | Answer::Cancelled => Ok(Nav::Pop),
+            Answer::Confirmed(_) | Answer::Cancelled => Ok(Nav::Pop(false)),
         }
     }
 

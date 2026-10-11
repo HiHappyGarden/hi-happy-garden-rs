@@ -81,7 +81,7 @@ impl ScreenDateTime {
                 self.set_state(display_signal, FSMState::Time);
                 Ok(Nav::Stay)
             }
-            Answer::Cancelled => Ok(Nav::Pop),
+            Answer::Cancelled => Ok(Nav::Pop(false)),
         }
     }
 
@@ -98,7 +98,7 @@ impl ScreenDateTime {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(_) => {
                 self.save(rtc)?;
-                Ok(Nav::Pop)
+                Ok(Nav::Pop(false))
             }
             Answer::Cancelled => {
                 self.set_state(display_signal, FSMState::Date);
