@@ -1,0 +1,92 @@
+name: Firmware
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Firmware build (pico2_w, tests ${{ matrix.tests }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        tests: [OFF, ON]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # CMakeLists.txt always builds against the pico-sdk submodule; the
+      # RP2350 port lives in the nested
+      # Community-Supported-Ports submodule of FreeRTOS-Kernel.
+      - name: Checkout submodules
+        run: |
+          git submodule update --init --depth 1 osal-rs at-parser-rs cjson-bindings
+          git submodule update --init --depth 1 FreeRTOS-Kernel
+          git -C FreeRTOS-Kernel submodule update --init --depth 1 portable/ThirdParty/Community-Supported-Ports
+          git submodule update --init --depth 1 pico-sdk
+          git -C pico-sdk submodule update --init --depth 1
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build libusb-1.0-0-dev
+
+      # Same release the Pico VS Code extension uses (toolchainVersion in CMakeLists.txt)
+      - name: Install Arm GNU toolchain
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: '14.2.Rel1'
+
+      - name: Install latest Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv8m.main-none-eabi
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: main
+
+      # Without the Pico VS Code extension the SDK builds picotool from
+      # source into .deps/picotool (see CMakeLists.txt)
+      - name: Cache picotool
+        uses: actions/cache@v4
+        with:
+          path: .deps/picotool
+          key: picotool-${{ runner.os }}-sdk-2.3.1
+
+      # secrets.cmake is mandatory: placeholders only, the CI firmware is
+      # never flashed on a real device
+      - name: Create secrets.cmake
+        run: |
+          cat > secrets.cmake <<'EOF'
+          set(HHG_AES_KEY_SALT "ci-placeholder")
+          set(HHG_AES_IV_SALT "ci-placeholder")
+          set(HHG_SYSTEM_USER_EMAIL "ci@hhg.local")
+          set(HHG_SYSTEM_USER_PASSWORD "ci-placeholder")
+          EOF
+
+      - name: Configure
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DHHG_TESTS=${{ matrix.tests }}
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Upload firmware
+        if: matrix.tests == 'OFF'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hi-happy-garden-rs-firmware
+          path: |
+            build/hi-happy-garden-rs.elf
+            build/hi-happy-garden-rs.uf2
+          if-no-files-found: error
