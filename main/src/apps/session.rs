@@ -105,11 +105,6 @@ impl User {
     }
 
     #[inline]
-    pub fn is_empty_passwd(&self) -> bool {
-        self.empty_passwd
-    }
-    
-    #[inline]
     pub fn set_email(&mut self, email: &str) {
         self.email = Bytes::from_str(email);
     }

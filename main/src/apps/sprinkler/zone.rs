@@ -24,6 +24,7 @@
 pub(super) mod tests;
 
 use core::fmt::{Display, Formatter, Write};
+use core::ops::{Deref, DerefMut};
 
 use at_parser_rs::at_quoted as quoted;
 use at_parser_rs::context::AtContext;
@@ -306,7 +307,7 @@ impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
                 }
             }
             "sv" => {
-                serialize_file(unsafe {&*&raw const MUTEX},  APP_TAG, FS_CONFIG_DIR, ZoneController::FILE_NAME, unsafe {&*&raw const SHARED}).map_err(|_| (at_response, AtError::Unhandled("Impossible save")))?;
+                self.save().map_err(|_| (at_response, AtError::Unhandled("Impossible save")))?;
             }
             _ => return Err((at_response, AtError::InvalidArgs)),
         }
@@ -322,6 +323,19 @@ impl Default for ZoneController {
     }
 }
 
+impl Deref for ZoneController {
+    type Target = [Zone];
+
+    fn deref(&self) -> &Self::Target {
+        &self.zones
+    }
+}
+
+impl DerefMut for ZoneController {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.zones
+    }
+}
 
 impl ZoneController {
     pub(in crate::apps) const SIZE: usize = 4;
@@ -368,7 +382,16 @@ impl ZoneController {
         ];
 
         ScreenSelections::<{ZoneController::SIZE}>::from(selects)
+    }
 
+    pub(in crate::apps) fn save<'a>(&'a self) -> Result<&'a Self> {
+        serialize_file(
+            unsafe {&*&raw const MUTEX},  
+            APP_TAG, 
+            FS_CONFIG_DIR, 
+            ZoneController::FILE_NAME, 
+            unsafe {&*&raw const SHARED}
+        )
     }
 
 }

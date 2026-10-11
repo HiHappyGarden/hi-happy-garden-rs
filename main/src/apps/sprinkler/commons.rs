@@ -49,6 +49,17 @@ impl From<Status> for u8 {
     }
 }
 
+impl From<&str> for Status {
+    fn from(value: &str) -> Self {
+        match value {
+            "Unactive" => Status::UNACTIVE,
+            "Active" => Status::ACTIVE,
+            "Run" => Status::RUN,
+            _ => Status::UNACTIVE,
+        }
+    }
+}
+
 impl Status {
     pub(in crate::apps) const fn as_str(self) -> &'static str {
         match self {

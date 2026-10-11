@@ -18,21 +18,36 @@
  *
  ***************************************************************************/
 
-use osal_rs::utils::{Bytes, Result};
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
+use alloc::vec::Vec;
+use osal_rs::os::types::EventBits;
+use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::display::input::Input;
 use crate::apps::display::number::Number;
 use crate::apps::display::select::Select;
+use crate::apps::signals::display::request_redraw;
+use crate::apps::sprinkler::commons::Status;
+use crate::traits::integer::Integer;
 use crate::traits::screen::{Answer, Screen, ScreenParam};
-use crate::apps::sprinkler::zone::ZoneController;
+use crate::apps::sprinkler::zone::{Zone, ZoneController, ZoneRelay};
 use crate::traits::screen::{Nav, ScreenRoute, ScreenRouteCtx};
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum FSMState {
+    Description,
+    Weight,
+    Status
+}
 
 #[derive(Clone, PartialEq, Eq)]
 pub(super) struct ScreenZoneDetail {
-    zone_index: usize,
+    zone_relay: usize,
+    fsm_state: FSMState,
     description: Input,
-    zone_relay: Select<{ZoneController::SIZE}>,
     weight: Number<u8>, 
     status: Select<2>
 }
@@ -42,45 +57,131 @@ impl ScreenRoute for ScreenZoneDetail {
         "ScreenZoneDetail"
     }
 
-    fn renderize(&mut self, ScreenRouteCtx{lcd, display_signal, rtc, ..}: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
+    fn renderize(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
 
-            // match self.0.draw(
-            //         *lcd,
-            //         display_signal,
-            //         rtc,
-            //         &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Select an option"),
-            //         ScreenParam::Selects(ZoneController::new_selections())
-            //     )? {
-            //         Answer::Pending => Ok(Nav::Stay),
-            //         Answer::Confirmed(_param) => {
-            //             // match param {
-            //             //     ScreenParam::Selects(selected) => {
 
-            //             //         Ok(Nav::Push{id:screen.0, screen:screen.1})
-            //             //     }
-            //             //     _ => Ok(Nav::Stay)
-            //             // }
-
-            //             todo!("Handle confirmed selection for ScreenZone")
-            //         }
-            //         Answer::Cancelled => Ok(Nav::Pop),
-            //     }
-
-            todo!("Renderize ScreenZoneDetail")
+        match self.fsm_state {
+            FSMState::Description => self.draw_description_state(screen_route_ctx),
+            FSMState::Weight      => self.draw_weight_state(screen_route_ctx),
+            FSMState::Status      => self.draw_status_state(screen_route_ctx),
+        }
         
     }
 
 }
 
 impl ScreenZoneDetail {
-    pub(super) fn new(zone_index: usize) -> Self {
-        Self {
-            zone_index,
+    pub(super) fn new(zone_relay: usize) -> Result<Self> {
+        if zone_relay >= ZoneController::SIZE {
+            return Err(Error::OutOfIndex)
+        }
+        Ok(Self {
+            zone_relay,
+            fsm_state: FSMState::Description,
             description: Input::new(),
-            zone_relay: Select::new(),
             weight: Number::new_with_range(0..9),
             status: Select::new(),
+        })
+    }
+
+
+    fn draw_description_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
+
+        let answer = self.description.draw(
+                *lcd,
+                display_signal,
+                rtc,
+                &ZoneController::shared()[self.zone_relay].description,
+                ScreenParam::Input { value: Bytes::new(), secret_mode: false }
+            )?;
+
+        Ok(self.step(display_signal, answer, FSMState::Weight, FSMState::Description))
+    }
+
+    fn draw_weight_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
+        
+        let answer = self.weight.draw(
+                *lcd,
+                display_signal,
+                rtc,
+                &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Weight"),
+                ScreenParam::Number(0)
+            )?;
+
+        Ok(self.step(display_signal, answer, FSMState::Status, FSMState::Description))
+    }
+
+    fn draw_status_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
+        
+        let selects: [(Bytes<{DISPLAY_INPUT_MAX_SIZE}>, bool); 2] = [
+            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str(Status::ACTIVE.as_str()), true),
+            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str(Status::UNACTIVE.as_str()), false),
+        ];
+        
+        let answer = self.status.draw(
+                *lcd,
+                display_signal,
+                rtc,
+                &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Status"),
+                ScreenParam::Selects(selects)
+            )?;
+
+        match answer {
+            Answer::Pending => Ok(Nav::Stay),
+            Answer::Confirmed(answer) => {
+                match answer {
+                    ScreenParam::Selects(selected) => {
+
+                        let status  = selected
+                            .iter()
+                            .enumerate()
+                            .filter(|(_, (_, selected))| *selected)
+                            .collect::<Vec<(usize, &(Bytes<{DISPLAY_INPUT_MAX_SIZE}>, bool))>>()
+                            .first()
+                            .ok_or(Error::OutOfIndex)?
+                            .1
+                            .0
+                            .clone();
+
+                            let new_zone = Zone {
+                                description: self.description.get_value()?,
+                                weight: self.weight.get_value().unwrap_or(0),
+                                zone_relay: ZoneRelay::from(self.zone_relay as u8),
+                                status: Status::from(status.as_str()),
+                            };
+                            ZoneController::shared()[self.zone_relay] = new_zone;
+
+                            ZoneController::shared().save()?;
+
+                        Ok(Nav::Stay)
+                    }
+                    _ => Err(Error::InvalidType),
+                }
+            }
+            Answer::Cancelled => {
+                self.set_state(display_signal, FSMState::Weight);
+                Ok(Nav::Stay)
+            }
         }
     }
+
+    #[inline]
+    fn set_state(&mut self, display_signal: &mut EventBits, next: FSMState) {
+        self.fsm_state = next;
+        request_redraw(display_signal);
+    }
+
+
+    fn step<N, const N_SELECTS: usize>(&mut self, display_signal: &mut EventBits, answer: Answer<N, N_SELECTS>, confirmed: FSMState, cancelled: FSMState) -> Nav
+    where N: Integer
+    {
+        match answer {
+            Answer::Pending => {}
+            Answer::Confirmed(_) => self.set_state(display_signal, confirmed),
+            Answer::Cancelled => self.set_state(display_signal, cancelled),
+        }
+        Nav::Stay
+    }
+
 
 }

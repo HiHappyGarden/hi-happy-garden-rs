@@ -58,6 +58,7 @@ pub(crate) fn run_all_tests(stats: &mut crate::tests::TestStats) {
     session::tests::run_all_tests(stats);
     system_handler::tests::run_all_tests(stats);
     sprinkler::tests::run_all_tests(stats);
+    screen_route::tests::run_all_tests(stats);
     main::tests::run_all_tests(stats);
     // Last: it starts the parser task, which then keeps running
     parser::tests::run_all_tests(stats);

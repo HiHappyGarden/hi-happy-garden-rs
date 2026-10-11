@@ -24,7 +24,7 @@ use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::apps::display::select::Select;
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
-use crate::apps::screen_route::zone_detail::{self, ScreenZoneDetail};
+use crate::apps::screen_route::zone_detail::ScreenZoneDetail;
 use crate::traits::screen::{Answer, Screen, ScreenParam};
 use crate::apps::sprinkler::zone::ZoneController;
 use crate::traits::screen::{Nav, ScreenRoute, ScreenRouteCtx};
@@ -56,11 +56,13 @@ impl ScreenRoute for ScreenZone {
                                     .filter(|it| it.1.1)
                                     .collect::<Vec<(usize, &(Bytes<_>, bool))>>();
                             
+                                let screen = Box::new(ScreenZoneDetail::new(
+                                        s.first().ok_or(Error::Empty)?.0
+                                    )?);
+
                                 Ok(Nav::Push{
                                     id: ScreenZoneDetail::id(), 
-                                    screen: Box::new(ScreenZoneDetail::new(
-                                        s.first().ok_or(Error::Empty)?.0
-                                    ))
+                                    screen
                                 })
                                 
                             }

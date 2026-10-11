@@ -23,6 +23,10 @@
 #[cfg(feature = "tests")]
 pub(super) mod tests;
 
+pub(in crate::apps) mod commons;
+pub(in crate::apps) mod zone;
+pub(in crate::apps) mod schedule;
+
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use osal_rs::log_info;
@@ -34,9 +38,6 @@ use crate::apps::sprinkler::zone::ZoneController;
 use crate::drivers::date_time::DateTime;
 use crate::traits::state::Initializable;
 
-mod commons;
-pub(in crate::apps) mod zone;
-pub(in crate::apps) mod schedule;
 
 const APP_TAG: &str = "AppSprinkler";
 
