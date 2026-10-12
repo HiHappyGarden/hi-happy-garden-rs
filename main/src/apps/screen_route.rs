@@ -28,6 +28,7 @@ mod info;
 mod login;
 mod menu;
 mod wizard;
+mod schedule_detail;
 mod schedule;
 mod sprinkler;
 mod user;
