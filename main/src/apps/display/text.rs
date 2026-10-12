@@ -67,7 +67,7 @@ impl Screen<()> for Text
                     SCROLL_DELAY_MS
                 );
 
-                lcd.draw_str(&display_text, x_position, ONLY_ONE_ROW_Y, &FONT_8X8)?;
+                lcd.draw_str(display_text.as_str(), x_position, ONLY_ONE_ROW_Y, &FONT_8X8)?;
             },
             2 => {
                 let mut iter = splitted_text.into_iter();
@@ -83,7 +83,7 @@ impl Screen<()> for Text
                 );
 
 
-                lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
+                lcd.draw_str(display_text.as_str(), x_position, FIRST_ROW_Y, &FONT_8X8)?;
 
                 let (display_text, x_position) = scroll_text(
                     second_line,
@@ -93,7 +93,7 @@ impl Screen<()> for Text
                     SCROLL_DELAY_MS
                 );
 
-                lcd.draw_str(&display_text, x_position, SECOND_ROW_Y, &FONT_8X8)?;
+                lcd.draw_str(display_text.as_str(), x_position, SECOND_ROW_Y, &FONT_8X8)?;
             },
             _ => return Err(Error::Unhandled("Text must contain at most one '|' character")),
             

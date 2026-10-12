@@ -18,13 +18,13 @@
  *
  ***************************************************************************/
 
-use alloc::format;
+use core::fmt::Write;
 
 use alloc::sync::Arc;
 use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 use osal_rs::log_error;
-use osal_rs::utils::Result;
+use osal_rs::utils::{Bytes, Result};
 
 use crate::apps::signals::display::DisplayFlag;
 use crate::apps::signals::error::{ErrorFlag, ErrorSignal};
@@ -141,8 +141,9 @@ impl Header {
 
 
         if date_time.is_valid() {
-            let now = format!("{:04}-{:02}-{:02}  {:02}:{:02}", date_time.year, date_time.month, date_time.mday, date_time.hour, date_time.minute);
-            lcd.draw_str(&now, display_width - (now.len() as u8 * 5) - 5, 1, &FONT_5X8).unwrap_or_else(|e| {
+            let mut now = Bytes::<24>::new();
+            let _ = write!(now, "{:04}-{:02}-{:02}  {:02}:{:02}", date_time.year, date_time.month, date_time.mday, date_time.hour, date_time.minute);
+            lcd.draw_str(now.as_str(), display_width - (now.len() as u8 * 5) - 5, 1, &FONT_5X8).unwrap_or_else(|e| {
                 log_error!("Header", "Failed to draw time on LCD: {}", e);
                 ErrorSignal::set(ErrorFlag::Display.into());
             });

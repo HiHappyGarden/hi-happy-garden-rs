@@ -53,6 +53,7 @@ const APP_TAG: &str = "Filesystem";
 
 const KEY_SIZE: usize = 32;
 const IV_SIZE: usize = 16;
+const UNIQUE_ID_SIZE: usize = 8;
 
 
 static mut ENCRYPT: Option<Encrypt<KEY_SIZE, IV_SIZE>> = None;
@@ -524,12 +525,12 @@ impl Filesystem {
 
             // Derive AES key and IV securely using SHA256 as KDF
             // Salt values are configurable from CMake (HHG_AES_KEY_SALT and HHG_AES_IV_SALT)
-            let unique_id = Hardware::get_unique_id();
+            let unique_id: [u8; UNIQUE_ID_SIZE] = Hardware::get_unique_id();
 
             // Generate key: SHA256(unique_id || salt)
-            let mut key_material = Vec::new();
-            key_material.extend_from_slice(&unique_id);
-            key_material.extend_from_slice(defaults::AES_KEY_SALT.as_bytes());
+            let mut key_material = [0u8; UNIQUE_ID_SIZE + defaults::AES_KEY_SALT.len()];
+            key_material[..UNIQUE_ID_SIZE].copy_from_slice(&unique_id);
+            key_material[UNIQUE_ID_SIZE..].copy_from_slice(defaults::AES_KEY_SALT.as_bytes());
             let key_hash = EncryptGeneric::get_sha256(&key_material)?;
             
             // Copy 32 bytes from hex string (convert hex to bytes)
@@ -540,9 +541,9 @@ impl Filesystem {
             }
 
             // Generate IV: first 16 bytes of SHA256(unique_id || salt)
-            let mut iv_material = Vec::new();
-            iv_material.extend_from_slice(&unique_id);
-            iv_material.extend_from_slice(defaults::AES_IV_SALT.as_bytes());
+            let mut iv_material = [0u8; UNIQUE_ID_SIZE + defaults::AES_IV_SALT.len()];
+            iv_material[..UNIQUE_ID_SIZE].copy_from_slice(&unique_id);
+            iv_material[UNIQUE_ID_SIZE..].copy_from_slice(defaults::AES_IV_SALT.as_bytes());
             let iv_hash = EncryptGeneric::get_sha256(&iv_material)?;
             
             // Copy 16 bytes from hex string (convert hex to bytes)

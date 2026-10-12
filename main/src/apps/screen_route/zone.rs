@@ -19,7 +19,6 @@
  ***************************************************************************/
 
 use alloc::boxed::Box;
-use alloc::vec::Vec;
 use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::apps::display::select::Select;
@@ -50,15 +49,12 @@ impl ScreenRoute for ScreenZone {
                     Answer::Confirmed(param) => {
                         match param {
                             ScreenParam::Selects(selected) => {
-                                let s = selected
+                                let index = selected
                                     .iter()
-                                    .enumerate()
-                                    .filter(|it| it.1.1)
-                                    .collect::<Vec<(usize, &(Bytes<_>, bool))>>();
+                                    .position(|(_, selected)| *selected)
+                                    .ok_or(Error::Empty)?;
                             
-                                let screen = Box::new(ScreenZoneDetail::new(
-                                        s.first().ok_or(Error::Empty)?.0
-                                    )?);
+                                let screen = Box::new(ScreenZoneDetail::new(index)?);
 
                                 Ok(Nav::Push{
                                     id: ScreenZoneDetail::id(), 

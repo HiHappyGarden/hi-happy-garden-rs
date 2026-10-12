@@ -19,13 +19,14 @@
  ***************************************************************************/
 
 
-use alloc::format;
+use core::fmt::Write;
+
 use alloc::sync::Arc;
 use osal_rs::os::types::EventBits;
 use osal_rs::os::Mutex;
 use osal_rs::utils::{AsSyncStr, Error, Result};
 
-use crate::apps::display::date_time_editor::{FieldEditor, FieldEditorConfig};
+use crate::apps::display::date_time_editor::{FieldEditor, FieldEditorConfig, FieldText};
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
@@ -67,7 +68,11 @@ impl Time {
                 |_, _, _| 59,
             ],
             field_wrap:   [true, true, true],
-            formatter:    |h, m, s| format!("{:02}:{:02}:{:02}", h, m, s),
+            formatter:    |h, m, s| {
+                let mut ret = FieldText::new();
+                let _ = write!(ret, "{:02}:{:02}:{:02}", h, m, s);
+                ret
+            },
             underlines:   [(0, 16), (24, 16), (48, 16)],
             extractor:    |dt| (dt.hour as i32, dt.minute as i32, dt.second as i32),
             builder:      |h, m, s| DateTime::new_time(h as u8, m as u8, s as u8),

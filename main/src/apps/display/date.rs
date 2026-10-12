@@ -19,13 +19,14 @@
  ***************************************************************************/
 
 
-use alloc::format;
+use core::fmt::Write;
+
 use alloc::sync::Arc;
 use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{AsSyncStr, Error, Result};
 
-use crate::apps::display::date_time_editor::{FieldEditor, FieldEditorConfig};
+use crate::apps::display::date_time_editor::{FieldEditor, FieldEditorConfig, FieldText};
 use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
@@ -68,7 +69,11 @@ impl Date
                 |year, month, _| DateTime::days_in_month(month as u8, year) as i32,
             ],
             field_wrap:   [false, true, true],
-            formatter:    |y, m, d| format!("{:04}-{:02}-{:02}", y, m, d),
+            formatter:    |y, m, d| {
+                let mut ret = FieldText::new();
+                let _ = write!(ret, "{:04}-{:02}-{:02}", y, m, d);
+                ret
+            },
             underlines:   [(0, 32), (40, 16), (64, 16)],
             extractor:    |dt| (dt.year, dt.month as i32, dt.mday as i32),
             builder:      |y, m, d| DateTime::new_date(y, m as u8, d as u8),

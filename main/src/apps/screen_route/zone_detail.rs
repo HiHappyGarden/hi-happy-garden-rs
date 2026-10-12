@@ -21,7 +21,6 @@
 #[cfg(feature = "tests")]
 pub(super) mod tests;
 
-use alloc::vec::Vec;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Bytes, Error, Result};
 
@@ -136,12 +135,8 @@ impl ScreenZoneDetail {
 
                         let status  = selected
                             .iter()
-                            .enumerate()
-                            .filter(|(_, (_, selected))| *selected)
-                            .collect::<Vec<(usize, &(Bytes<{DISPLAY_INPUT_MAX_SIZE}>, bool))>>()
-                            .first()
+                            .find(|(_, selected)| *selected)
                             .ok_or(Error::OutOfIndex)?
-                            .1
                             .0
                             .clone();
 

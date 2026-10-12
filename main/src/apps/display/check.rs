@@ -79,7 +79,7 @@ impl Screen<bool> for Check
             SCROLL_DELAY_MS
         );
 
-        lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
+        lcd.draw_str(display_text.as_str(), x_position, FIRST_ROW_Y, &FONT_8X8)?;
 
         lcd.draw_bitmap_image((width  / 2 ) - (self.icon.0 / 2), SECOND_ROW_Y, self.icon.0, self.icon.1, &self.icon.2, LCDWriteMode::ADD)?;
 

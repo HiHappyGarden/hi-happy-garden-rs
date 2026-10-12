@@ -78,7 +78,7 @@ impl<const N: usize> Screen<ScreenSelections<N>, u16, N> for Select<N> {
             SCROLL_DELAY_MS
         );
 
-        lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
+        lcd.draw_str(display_text.as_str(), x_position, FIRST_ROW_Y, &FONT_8X8)?;
 
 
         let text = if let Some(selections) = &self.selections {
@@ -100,7 +100,7 @@ impl<const N: usize> Screen<ScreenSelections<N>, u16, N> for Select<N> {
             SCROLL_DELAY_MS
         );
 
-        lcd.draw_str(&display_text, x_position, SECOND_ROW_Y, &FONT_8X8)?;
+        lcd.draw_str(display_text.as_str(), x_position, SECOND_ROW_Y, &FONT_8X8)?;
         if *signal & DisplayFlag::EncoderButtonReleased as EventBits != 0 {
                 if let Some(selected) = self.selections.as_mut() {
                     // Mark the entry under the cursor as the only selected one.

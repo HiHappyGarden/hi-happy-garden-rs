@@ -18,13 +18,13 @@
  *
  ***************************************************************************/
 
+use core::fmt::Write;
 use core::ops::Range;
 
-use alloc::format;
 use alloc::sync::Arc;
 use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
-use osal_rs::utils::{AsSyncStr, Error, Result};
+use osal_rs::utils::{AsSyncStr, Bytes, Error, Result};
 
 use crate::apps::display::commons::{FIRST_ROW_Y, SCROLL_DELAY_MS, SECOND_ROW_Y, clean_context, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
@@ -83,13 +83,14 @@ where
             SCROLL_DELAY_MS
         );
 
-        lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
+        lcd.draw_str(display_text.as_str(), x_position, FIRST_ROW_Y, &FONT_8X8)?;
 
-        let to_show = format!("{}", self.number.unwrap_or(self.min));
+        let mut to_show = Bytes::<24>::new();
+        let _ = write!(to_show, "{}", self.number.unwrap_or(self.min));
 
-        let x_position = width - visible_width + (visible_width - (to_show.chars().count() as u8 * FONT_8X8[0])) / 2;
+        let x_position = width - visible_width + (visible_width - (to_show.as_str().chars().count() as u8 * FONT_8X8[0])) / 2;
 
-        lcd.draw_str(&to_show, x_position, SECOND_ROW_Y, &FONT_8X8)?;
+        lcd.draw_str(to_show.as_str(), x_position, SECOND_ROW_Y, &FONT_8X8)?;
 
         if *signal & DisplayFlag::EncoderButtonReleased as EventBits != 0 {
 

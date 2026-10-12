@@ -31,6 +31,8 @@ pub(super) mod text;
 pub(super) mod time;
 
 
+use core::sync::atomic::{AtomicBool, Ordering};
+
 use alloc::sync::Arc;
 use osal_rs::log_info;
 use osal_rs::os::{EventGroup, Mutex, MutexFn, Thread, ThreadFn};
@@ -64,6 +66,8 @@ const TICK_INTERVAL_MS: u16 = 100;
 
 pub(crate) const DISPLAY_INPUT_MAX_SIZE: usize = MAX_SIZE;
 
+static WIFI_ENABLED: AtomicBool = AtomicBool::new(true);
+
 static mut ON_RECEIVE: Option<&'static dyn OnReceive> = Option::None;
 
 pub(super) struct Display<T>
@@ -71,7 +75,6 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 {
     rtc: Arc<Mutex<dyn RTC>>,
     lcd: Arc<Mutex<T>>,
-    wifi_enabled: Arc<bool>,
     thread: Thread
 }
 
@@ -85,7 +88,6 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         DisplaySignal::init()?;
         let lcd = Arc::clone(&self.lcd);
         let rtc = Arc::clone(&self.rtc);
-        let wifi_enabled = Arc::clone(&self.wifi_enabled);
 
         self.thread = self.thread.spawn_simple(move || {
 
@@ -118,7 +120,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 let mut status_signal = StatusSignal::get();
 
                 //build header
-                if let Err(e) =  header.draw(lcd, &mut display_signal, &status_signal, &rtc, *wifi_enabled) {
+                if let Err(e) =  header.draw(lcd, &mut display_signal, &status_signal, &rtc, WIFI_ENABLED.load(Ordering::Relaxed)) {
                     if let Error::ReturnWithCode(_) = e {} else {
                         log_info!(APP_TAG, "Error drawing header: {:?}", e);
                         ErrorSignal::set(ErrorFlag::Display.into());
@@ -220,16 +222,12 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         Self {
             rtc,
             lcd: Mutex::new_arc(lcd),
-            wifi_enabled: Arc::new(true),
             thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::BelowHigh)
         }
     }
 
     pub(super) fn set_enabled_wifi(&mut self, enabled: bool) {
-        match Arc::get_mut(&mut self.wifi_enabled) {
-            Some(wifi_enabled) => *wifi_enabled = enabled,
-            Option::None => Arc::make_mut(&mut self.wifi_enabled).clone_from(&Arc::new(enabled)),    
-        }
+        WIFI_ENABLED.store(enabled, Ordering::Relaxed);
     }
 
 }

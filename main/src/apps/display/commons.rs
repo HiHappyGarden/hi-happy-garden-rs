@@ -19,10 +19,9 @@
  ***************************************************************************/
 use core::sync::atomic::{AtomicU32, Ordering};
 
-use alloc::string::String;
 use osal_rs::os::{System, SystemFn};
 use osal_rs::os::types::EventBits;
-use osal_rs::utils::Result;
+use osal_rs::utils::{Bytes, Result};
 
 use crate::apps::signals::display::DisplayFlag;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
@@ -33,6 +32,10 @@ pub(super) const ONLY_ONE_ROW_Y: u8 = 27;
 pub(super) const FIRST_ROW_Y: u8 = 25;
 pub(super) const SECOND_ROW_Y: u8 = 45;
 pub(super) const MAX_SIZE: usize = 32;
+
+/// Stack buffer size for scrolled text: worst case 25 chars (5px font) * 4 bytes UTF-8.
+pub(super) const SCROLL_TEXT_SIZE: usize = 100;
+pub(super) type ScrollText = Bytes<SCROLL_TEXT_SIZE>;
 
 static LAST_SCROLL_SLOT: AtomicU32 = AtomicU32::new(u32::MAX);
 pub(super) const SCROLL_DELAY_MS: u64 = 200;
@@ -78,7 +81,7 @@ pub(super) fn scroll_text(
     visible_width: u8, 
     char_width: u8, 
     scroll_delay_ms: u64
-) -> (String, u8) {
+) -> (ScrollText, u8) {
     let text_len = text.chars().count();
 
     let max_chars: usize = (visible_width / char_width) as usize; 
@@ -86,7 +89,7 @@ pub(super) fn scroll_text(
     if text_len <= max_chars {
         let text_width = (text_len as u8) * char_width;
         let x_pos = margin_left + (visible_width - text_width) / 2;
-        (String::from(text), x_pos)
+        (collect_chars(text.chars()), x_pos)
     } else {
         // Use OS monotonic ticks to keep scroll cadence independent from RTC precision.
         let total_millis = System::get_tick_count() as u64;
@@ -96,12 +99,27 @@ pub(super) fn scroll_text(
             *signal |= DisplayFlag::Draw as EventBits;
         }
 
-        let loop_text = ::alloc::format!("{}{}", text, "  "); // Add spaces for separation
-        let loop_len = loop_text.chars().count();
+        const SEPARATOR: &str = "  "; // Add spaces for separation
+        let loop_len = text_len + SEPARATOR.len();
 
         let scroll_index = ((total_millis / scroll_delay_ms) % (loop_len as u64)) as usize;
 
-        let scrolled: String = loop_text.chars().cycle().skip(scroll_index).take(max_chars).collect();
+        let scrolled = collect_chars(text.chars().chain(SEPARATOR.chars()).cycle().skip(scroll_index).take(max_chars));
         (scrolled, margin_left)
     }
+}
+
+/// Copies chars into a stack buffer, stopping before a char that would not fit whole.
+fn collect_chars(chars: impl Iterator<Item = char>) -> ScrollText {
+    let mut ret = ScrollText::new();
+    let mut len = 0;
+    for ch in chars {
+        let ch_len = ch.len_utf8();
+        if len + ch_len > SCROLL_TEXT_SIZE {
+            break;
+        }
+        ch.encode_utf8(&mut ret.0[len..len + ch_len]);
+        len += ch_len;
+    }
+    ret
 }

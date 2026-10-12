@@ -102,7 +102,7 @@ impl Screen<Bytes<MAX_SIZE>> for Input
             SCROLL_DELAY_MS
         );
 
-        if let Err(e) = lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8) {
+        if let Err(e) = lcd.draw_str(display_text.as_str(), x_position, FIRST_ROW_Y, &FONT_8X8) {
             if e != Error::OutOfIndex {
                 return Err(e);
             }

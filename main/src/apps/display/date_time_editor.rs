@@ -18,11 +18,10 @@
  *
  ***************************************************************************/
 
-use alloc::string::String;
 use alloc::sync::Arc;
 use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
-use osal_rs::utils::{AsSyncStr, Result};
+use osal_rs::utils::{AsSyncStr, Bytes, Result};
 
 use crate::apps::display::commons::{FIRST_ROW_Y, SCROLL_DELAY_MS, SECOND_ROW_Y, clean_context, scroll_text};
 use crate::apps::signals::display::DisplayFlag;
@@ -32,6 +31,9 @@ use crate::drivers::date_time::DateTime;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use crate::traits::rtc::RTC;
 use crate::traits::screen::{Answer, ScreenParam};
+
+/// Formatted editor value, e.g. "2026-10-12" or "12:30:00".
+pub(super) type FieldText = Bytes<16>;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Step {
@@ -56,7 +58,7 @@ pub(super) struct FieldEditorConfig {
     /// Whether each field wraps around at its min/max boundaries.
     pub(super) field_wrap: [bool; 3],
     /// Formats the three field values into the display string.
-    pub(super) formatter: fn(i32, i32, i32) -> String,
+    pub(super) formatter: fn(i32, i32, i32) -> FieldText,
     /// `(x_offset, width)` of the underline for Field1, Field2, Field3.
     pub(super) underlines: [(u8, u8); 3],
     /// Extracts `(field1, field2, field3)` from a `DateTime`.
@@ -199,7 +201,7 @@ impl FieldEditor {
             FONT_8X8[0],
             SCROLL_DELAY_MS,
         );
-        lcd.draw_str(&display_text, x_position, FIRST_ROW_Y, &FONT_8X8)?;
+        lcd.draw_str(display_text.as_str(), x_position, FIRST_ROW_Y, &FONT_8X8)?;
 
         let (c0, c1, c2) = (self.config.extractor)(&current_date_time);
         let f = [
@@ -209,9 +211,9 @@ impl FieldEditor {
         ];
 
         let value_str = (self.config.formatter)(f[0], f[1], f[2]);
-        let str_width = value_str.chars().count() as u8 * FONT_8X8[0];
+        let str_width = value_str.as_str().chars().count() as u8 * FONT_8X8[0];
         let x_pos = (width - str_width) / 2;
-        lcd.draw_str(&value_str, x_pos, SECOND_ROW_Y, &FONT_8X8)?;
+        lcd.draw_str(value_str.as_str(), x_pos, SECOND_ROW_Y, &FONT_8X8)?;
 
         let (field_offset, field_width) = match self.step {
             Step::FieldHour => self.config.underlines[0],
