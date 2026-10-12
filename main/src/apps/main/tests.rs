@@ -39,7 +39,7 @@ const TAG: &str = "AppMainTests";
 fn check_config_with(serial: &str) -> Result<(StatusFlag, StatusFlag, EventBits)> {
     let config = Config::shared();
     let backup = config.get_serial();
-    config.set_serial(&Bytes::from_str(serial));
+    config.set_serial(&Bytes::from(serial));
 
     let mut current = StatusFlag::CheckConfig;
     let mut old = StatusFlag::EnableDisplay;

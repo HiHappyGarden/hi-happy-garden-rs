@@ -577,7 +577,7 @@ impl Filesystem {
         let handler = (FILESYSTEM_FN.open)(path, flags)?;
         Ok(File {
             handler,
-            name: FileBytes::from_str(path),
+            name: FileBytes::from(path),
             size: 0,
         })
     }
@@ -684,7 +684,7 @@ impl Filesystem {
         let handler = (FILESYSTEM_FN.open_dir)(path)?;
         Ok(Dir {
             handler,
-            name: FileBytes::from_str(path),
+            name: FileBytes::from(path),
             type_: EntryType::Dir,
         })
     }

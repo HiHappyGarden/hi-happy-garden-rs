@@ -193,7 +193,7 @@ fn test_network_offline() -> Result<()> {
     cyw43::set_online(false);
     let joined = join();
     let link = Network::is_link_up();
-    let dns = Network::dns_resolve_addrress(&Bytes::from_str("localhost")).is_ok();
+    let dns = Network::dns_resolve_addrress(&Bytes::from("localhost")).is_ok();
     leave();
     cyw43::set_online(true);
 
@@ -210,7 +210,7 @@ fn test_network_ntp() -> Result<()> {
         test_assert!(Network::dhcp_supplied_address());
         test_assert!(Network::dhcp_get_binary_ip_address() != 0);
 
-        let ip = Network::dns_resolve_addrress(&Bytes::from_str("localhost"))?;
+        let ip = Network::dns_resolve_addrress(&Bytes::from("localhost"))?;
         let ip = unsafe { &*(ip as *const dyn crate::traits::network::IpAddress as *const IP4Addr) };
         // lwIP layout: network byte order in memory
         test_assert_eq!(ip.addr, u32::from_ne_bytes([127, 0, 0, 1]));
@@ -218,7 +218,7 @@ fn test_network_ntp() -> Result<()> {
 
         let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
         let port = fake_ntp_server(now)?;
-        let ip = Network::dns_resolve_addrress(&Bytes::from_str("localhost"))?;
+        let ip = Network::dns_resolve_addrress(&Bytes::from("localhost"))?;
         let timestamp = Network::ntp_request(ip, port, 48)?;
         log_debug!(TAG, "NTP from localhost:{port}: {timestamp}");
         test_assert_eq!(timestamp, now as i64);

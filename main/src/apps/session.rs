@@ -75,8 +75,8 @@ impl Deserialize for User {
         deserializer.deserialize_struct_end()?;
 
         Ok(Self {
-            email: Bytes::from_str(&email),
-            password: Bytes::from_str(&password),
+            email: Bytes::from(email.as_str()),
+            password: Bytes::from(password.as_str()),
             empty_passwd: password.is_empty(),
         })
     }
@@ -106,7 +106,7 @@ impl User {
 
     #[inline]
     pub fn set_email(&mut self, email: &str) {
-        self.email = Bytes::from_str(email);
+        self.email = Bytes::from(email);
     }
 
     #[inline]
@@ -116,7 +116,7 @@ impl User {
 
     #[inline]
     pub fn set_password(&mut self, password: &str) {
-        self.password = Bytes::from_str(password);
+        self.password = Bytes::from(password);
     }
 }
 
@@ -170,7 +170,7 @@ impl AtContext<{Parser::CMD_SIZE}> for User {
             return Err((at_response, AtError::Unhandled("password max len 32")));
         }
 
-        self.email = Bytes::from_str(arg0.as_ref());
+        self.email = Bytes::from(arg0.as_ref());
         self.password = EncryptGeneric::get_sha256(arg1.as_bytes()).map_err(|_| (at_response, AtError::InvalidArgs))?;
         self.empty_passwd = arg1.is_empty();
 
@@ -258,7 +258,7 @@ impl AtContext<{Parser::CMD_SIZE}> for Session {
             let arg1 = args.get(1).ok_or((at_response, AtError::InvalidArgs))?;
             let arg2 = args.get(2).ok_or((at_response, AtError::InvalidArgs))?;
             unsafe {
-                USER_TMP.email = Bytes::from_str(arg1.as_ref());
+                USER_TMP.email = Bytes::from(arg1.as_ref());
                 USER_TMP.password = EncryptGeneric::get_sha256(arg2.as_bytes()).map_err(|_| (at_response, AtError::InvalidArgs))?;
                 USER_TMP.empty_passwd = arg2.is_empty();
             }
@@ -392,8 +392,8 @@ impl Session {
             return Err(Error::Empty);
         }
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
-        self.users[0].email = Bytes::from_str(email);
-        self.users[0].password = Bytes::from_str(password);
+        self.users[0].email = Bytes::from(email);
+        self.users[0].password = Bytes::from(password);
         Ok(())
     }
 

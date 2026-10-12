@@ -76,7 +76,7 @@ impl ScreenWifi {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Enable WiFi?"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Enable WiFi?"),
             ScreenParam::Check(Config::shared().get_wifi_config().is_enabled()),
         )? {
             Answer::Pending => Ok(Nav::Stay),
@@ -103,7 +103,7 @@ impl ScreenWifi {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi SSID"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("WiFi SSID"),
             ScreenParam::Input { value: Bytes::from_as_sync_str(&Config::shared().get_wifi_config().get_ssid()), secret_mode: false }
         )? {
             Answer::Pending => Ok(Nav::Stay),
@@ -124,7 +124,7 @@ impl ScreenWifi {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi Password"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("WiFi Password"),
             ScreenParam::Input { value: Bytes::from_as_sync_str(&Config::shared().get_wifi_config().get_password()), secret_mode: true },
         )? {
             Answer::Pending => Ok(Nav::Stay),
@@ -145,7 +145,7 @@ impl ScreenWifi {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi Auth"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("WiFi Auth"),
             ScreenParam::Selects(fill_auth_selections(Config::shared().get_wifi_config().get_auth())),
         )? {
             Answer::Pending => Ok(Nav::Stay),

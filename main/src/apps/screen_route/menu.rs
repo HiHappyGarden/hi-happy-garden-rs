@@ -118,7 +118,7 @@ impl ScreenRoute for ScreenMenu {
             screen_route_ctx.lcd,
             screen_route_ctx.display_signal,
             screen_route_ctx.rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str(self.item.label()),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from(self.item.label()),
             ScreenParam::default()
         )? {
             Answer::Confirmed(_) => Ok(Nav::Push{ id: self.item.label(), screen: self.item.new_screen_route() }),

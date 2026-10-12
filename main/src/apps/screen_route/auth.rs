@@ -26,12 +26,12 @@ use crate::traits::screen::{ScreenSelections, new_screen_selections};
 
 pub(super) fn auth_as_bytes(auth: Auth) -> Bytes<DISPLAY_INPUT_MAX_SIZE> {
     match auth {
-        Auth::Open => Bytes::from_str("OPEN"),
-        Auth::Wpa => Bytes::from_str("WPA"),
-        Auth::Wpa2 => Bytes::from_str("WPA2"),
-        Auth::Wpa2Mixed => Bytes::from_str("WPA2 MIXED"),
-        Auth::Wpa3 => Bytes::from_str("WPA3"),
-        Auth::Wpa2Wpa3 => Bytes::from_str("WPA3/WPA2"),
+        Auth::Open => Bytes::from("OPEN"),
+        Auth::Wpa => Bytes::from("WPA"),
+        Auth::Wpa2 => Bytes::from("WPA2"),
+        Auth::Wpa2Mixed => Bytes::from("WPA2 MIXED"),
+        Auth::Wpa3 => Bytes::from("WPA3"),
+        Auth::Wpa2Wpa3 => Bytes::from("WPA3/WPA2"),
         _ => Bytes::default(),
     }
 }

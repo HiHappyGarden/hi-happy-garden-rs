@@ -129,7 +129,7 @@ impl ScreenWizard {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Serial Number"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Insert Serial Number"),
             ScreenParam::Input { value: unique_id, secret_mode: false }
         )?;
 
@@ -143,7 +143,7 @@ impl ScreenWizard {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Email"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Insert Email"),
             ScreenParam::Input { value: Bytes::from_as_sync_str(self.config.get_session().get_user_local().get_email()), secret_mode: false },
         )?;
 
@@ -156,7 +156,7 @@ impl ScreenWizard {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Insert Password"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Insert Password"),
             ScreenParam::Input { value: Bytes::default(), secret_mode: true },
         )?;
 
@@ -169,7 +169,7 @@ impl ScreenWizard {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Enable WiFi?"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Enable WiFi?"),
             ScreenParam::Check (self.config.get_wifi_config().is_enabled()),
         )? {
             Answer::Pending => {}
@@ -198,7 +198,7 @@ impl ScreenWizard {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi SSID"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("WiFi SSID"),
             ScreenParam::Input { value: self.config.get_wifi_config().get_ssid(), secret_mode: false },
         )?;
 
@@ -211,7 +211,7 @@ impl ScreenWizard {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi Password"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("WiFi Password"),
             ScreenParam::Input { value: Bytes::from_as_sync_str(&self.config.get_wifi_config().get_password()), secret_mode: true },
         )?;
 
@@ -224,7 +224,7 @@ impl ScreenWizard {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("WiFi Auth"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("WiFi Auth"),
             ScreenParam::Selects(fill_auth_selections(self.config.get_wifi_config().get_auth())),
         )?;
 
@@ -237,7 +237,7 @@ impl ScreenWizard {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Set Date"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Set Date"),
             ScreenParam::DateTime(get_datetime_from_rtc!(rtc, ErrorFlag::DateTime)),
         )?;
 
@@ -250,7 +250,7 @@ impl ScreenWizard {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Set Time"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Set Time"),
             ScreenParam::DateTime(get_datetime_from_rtc!(rtc, ErrorFlag::DateTime)),
         )?;
 
@@ -263,7 +263,7 @@ impl ScreenWizard {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Enable DST?"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Enable DST?"),
             ScreenParam::Check(self.config.get_daylight_saving_time().is_enabled()),
         )? {
             Answer::Pending => Ok(Nav::Stay),

@@ -43,7 +43,7 @@ impl ScreenRoute for ScreenZone {
                     *lcd,
                     display_signal,
                     rtc,
-                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Select an option"),
+                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Select an option"),
                     ScreenParam::Selects(ZoneController::new_selections())
                 )? {
                     Answer::Pending => Ok(Nav::Stay),

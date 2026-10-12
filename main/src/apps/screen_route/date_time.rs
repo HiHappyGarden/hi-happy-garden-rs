@@ -73,7 +73,7 @@ impl ScreenDateTime {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Set Date"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Set Date"),
             ScreenParam::DateTime(get_datetime_from_rtc!(rtc, ErrorFlag::DateTime)),
         )? {
             Answer::Pending => Ok(Nav::Stay),
@@ -92,7 +92,7 @@ impl ScreenDateTime {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Set Time"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Set Time"),
             ScreenParam::DateTime(get_datetime_from_rtc!(rtc, ErrorFlag::DateTime)),
         )? {
             Answer::Pending => Ok(Nav::Stay),

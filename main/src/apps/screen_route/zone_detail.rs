@@ -106,7 +106,7 @@ impl ScreenZoneDetail {
                 *lcd,
                 display_signal,
                 rtc,
-                &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Weight"),
+                &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Weight"),
                 ScreenParam::Number(0)
             )?;
 
@@ -116,15 +116,15 @@ impl ScreenZoneDetail {
     fn draw_status_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
         
         let selects: [(Bytes<{DISPLAY_INPUT_MAX_SIZE}>, bool); 2] = [
-            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str(Status::ACTIVE.as_str()), true),
-            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str(Status::UNACTIVE.as_str()), false),
+            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from(Status::ACTIVE.as_str()), true),
+            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from(Status::UNACTIVE.as_str()), false),
         ];
         
         let answer = self.status.draw(
                 *lcd,
                 display_signal,
                 rtc,
-                &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Status"),
+                &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Status"),
                 ScreenParam::Selects(selects)
             )?;
 

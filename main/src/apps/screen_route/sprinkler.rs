@@ -60,7 +60,7 @@ impl ScreenRoute for ScreenSprinkler {
                     *lcd,
                     display_signal,
                     rtc,
-                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Select an option"),
+                    &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Select an option"),
                     ScreenParam::Selects(self.new_selections())
                 )? {
                     Answer::Pending => Ok(Nav::Stay),
@@ -97,8 +97,8 @@ impl ScreenSprinkler {
     #[inline]
     fn new_selections(&self) -> ScreenSelections<2> {
         let selects: [(Bytes<_>, bool); 2] = [
-            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Zone"), false),
-            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Schedule"), false),
+            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Zone"), false),
+            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Schedule"), false),
         ];
 
         ScreenSelections::from(selects)

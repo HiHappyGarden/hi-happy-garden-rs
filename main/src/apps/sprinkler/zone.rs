@@ -303,7 +303,7 @@ impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
                     return Err((at_response, AtError::Unhandled("description max len exceeded")));
                 }
                 unsafe {
-                    ZONE_TMP.description = Bytes::from_str(value.as_ref());
+                    ZONE_TMP.description = Bytes::from(value.as_ref());
                 }
             }
             "sv" => {

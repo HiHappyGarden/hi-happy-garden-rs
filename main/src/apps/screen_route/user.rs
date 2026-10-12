@@ -69,7 +69,7 @@ impl ScreenUser {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("User Email"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("User Email"),
             ScreenParam::Input { value: Config::shared().get_session().get_user_local().get_email().clone(), secret_mode: false }
         )? {
             Answer::Pending => Ok(Nav::Stay),
@@ -88,7 +88,7 @@ impl ScreenUser {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("User Password"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("User Password"),
             ScreenParam::Input { value: Bytes::default(), secret_mode: true }
         )? {
             Answer::Pending => Ok(Nav::Stay),

@@ -41,7 +41,7 @@ impl ScreenRoute for ScreenDaylightSavingTime {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Enable DST?"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Enable DST?"),
             ScreenParam::Check(Config::shared().get_daylight_saving_time().is_enabled()),
         )? {
             Answer::Pending => Ok(Nav::Stay),

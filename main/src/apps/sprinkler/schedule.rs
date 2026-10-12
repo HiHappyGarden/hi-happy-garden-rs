@@ -458,7 +458,7 @@ impl AtContext<{Parser::CMD_SIZE}> for ScheduleController {
                 if value.len() > DISPLAY_INPUT_MAX_SIZE {
                     return Err((at_response, AtError::Unhandled("description max len exceeded")));
                 }
-                schedule.1.description = Bytes::from_str(value.as_ref());
+                schedule.1.description = Bytes::from(value.as_ref());
             }
             "zn" => { // zone relay + watering time in minutes (0 = zone disabled)
                 let zone_relay: u8 = args.get(2).ok_or((at_response, AtError::InvalidArgs))?

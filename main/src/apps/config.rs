@@ -245,8 +245,8 @@ pub(in crate::apps) struct WifiConfig {
 impl Default for WifiConfig {
     fn default() -> Self {
         Self {
-            ssid: Bytes::from_str(DEFAULT_WIFI_SSID),
-            password: Bytes::from_str(DEFAULT_WIFI_PASSWORD),
+            ssid: Bytes::from(DEFAULT_WIFI_SSID),
+            password: Bytes::from(DEFAULT_WIFI_PASSWORD),
             auth: DEFAULT_WIFI_AUTH.into(),
             enabled: DEFAULT_WIFI_ENABLED,
         }
@@ -279,12 +279,12 @@ impl WifiConfig {
 
     pub(in crate::apps) fn set_ssid(&mut self, ssid: &str) {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
-        self.ssid = Bytes::from_str(ssid);
+        self.ssid = Bytes::from(ssid);
     }
 
     pub(in crate::apps) fn set_password(&mut self, password: &str) {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
-        self.password = Bytes::from_str(password);
+        self.password = Bytes::from(password);
     }
 
     pub(in crate::apps) fn set_enabled(&mut self, enabled: bool) {
@@ -329,8 +329,8 @@ impl AtContext<{ Parser::CMD_SIZE }> for WifiConfig {
 
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
-        self.ssid = Bytes::from_str(ssid.as_ref());
-        self.password = Bytes::from_str(password.as_ref());
+        self.ssid = Bytes::from(ssid.as_ref());
+        self.password = Bytes::from(password.as_ref());
         self.auth = Auth::from(auth);
         self.enabled = enabled != 0;
 
@@ -350,7 +350,7 @@ pub(in crate::apps) struct NtpConfig {
 impl Default for NtpConfig {
     fn default() -> Self {
         Self {
-            server: Bytes::from_str(DEFAULT_NTP_SERVER),
+            server: Bytes::from(DEFAULT_NTP_SERVER),
             port: DEFAULT_NTP_PORT,
             msg_len: DEFAULT_NTP_MSG_LEN,
         }
@@ -378,7 +378,7 @@ impl NtpConfig {
 
     pub(in crate::apps) fn set_server(&mut self, server: &str) {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
-        self.server = Bytes::from_str(server);
+        self.server = Bytes::from(server);
     }
 
     pub(in crate::apps) fn set_port(&mut self, port: u16) {
@@ -418,7 +418,7 @@ impl AtContext<{ Parser::CMD_SIZE }> for NtpConfig {
 
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
-        self.server = Bytes::from_str(server.as_ref());
+        self.server = Bytes::from(server.as_ref());
         self.port = port;
         self.msg_len = msg_len;
 
@@ -506,7 +506,7 @@ impl AtContext<{ Parser::CMD_SIZE }> for Config {
                 if value.len() > 16 {
                     return Err((at_response, AtError::Unhandled("serial max len 16")));
                 }
-                self.serial = Bytes::from_str(value.as_ref());
+                self.serial = Bytes::from(value.as_ref());
             }
             "tz" => { // timezone
                 let value: i16 = args.get(1).ok_or((at_response, AtError::InvalidArgs))?

@@ -44,7 +44,7 @@ where
 {
     let _lock = RawMutexGuard::acquire(access_static_option!(mutex));
 
-    let mut file_name = FileBytes::from_str(dir);
+    let mut file_name = FileBytes::from(dir);
     file_name.append_str(FS_SEPARATOR_DIR);
     file_name.append_str(name);
 
@@ -114,7 +114,7 @@ where
 {
     let _lock = RawMutexGuard::acquire(access_static_option!(mutex));
 
-    let mut file_name = FileBytes::from_str(dir);
+    let mut file_name = FileBytes::from(dir);
     file_name.append_str(FS_SEPARATOR_DIR);
     file_name.append_str(name);
 

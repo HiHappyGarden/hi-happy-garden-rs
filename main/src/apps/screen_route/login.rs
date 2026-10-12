@@ -91,7 +91,7 @@ impl ScreenLogin {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Login Email"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Login Email"),
             ScreenParam::default(),
         )? {
             Answer::Pending => Ok(Nav::Stay),
@@ -109,7 +109,7 @@ impl ScreenLogin {
             *lcd,
             display_signal,
             rtc,
-            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Login Password"),
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Login Password"),
             ScreenParam::default(),
         )? {
             Answer::Pending => Ok(Nav::Stay),
@@ -128,11 +128,11 @@ impl ScreenLogin {
     fn handle_status(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
 
         let text = if self.logged {
-            Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Login successful")
+            Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Login successful")
         } else {
             self.email.drop_value();
             self.email_passwd.drop_value();
-            Bytes::<DISPLAY_INPUT_MAX_SIZE>::from_str("Login failed")            
+            Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Login failed")            
         };
 
         match self.status.draw(

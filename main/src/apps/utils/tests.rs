@@ -54,7 +54,7 @@ struct Doc {
 
 impl Default for Doc {
     fn default() -> Self {
-        Self { count: 7, offset: -60, port: 123, enabled: true, name: Bytes::from_str("default") }
+        Self { count: 7, offset: -60, port: 123, enabled: true, name: Bytes::from("default") }
     }
 }
 
@@ -63,7 +63,7 @@ fn mutex() -> &'static Option<RawMutex> {
 }
 
 fn file_path(suffix: &str) -> FileBytes {
-    let mut path = FileBytes::from_str(FS_DATA_DIR);
+    let mut path = FileBytes::from(FS_DATA_DIR);
     path.append_str(FS_SEPARATOR_DIR);
     path.append_str(TEST_FILE);
     path.append_str(suffix);
@@ -133,7 +133,7 @@ fn test_luhn32_detects_typos() -> Result<()> {
 }
 
 fn test_roundtrip() -> Result<()> {
-    let doc = Doc { count: 42, offset: -330, port: 8_883, enabled: false, name: Bytes::from_str("garden") };
+    let doc = Doc { count: 42, offset: -330, port: 8_883, enabled: false, name: Bytes::from("garden") };
     serialize_file(mutex(), TAG, FS_DATA_DIR, TEST_FILE, &doc)?;
     let read: Doc = deserialize_file(mutex(), TAG, FS_DATA_DIR, TEST_FILE)?;
     test_assert_eq!(read, doc);
@@ -162,7 +162,7 @@ fn test_invalid_json_gives_default() -> Result<()> {
 }
 
 fn test_tampered_file_gives_default() -> Result<()> {
-    let doc = Doc { count: 1, offset: 1, port: 1, enabled: true, name: Bytes::from_str("tampered") };
+    let doc = Doc { count: 1, offset: 1, port: 1, enabled: true, name: Bytes::from("tampered") };
     serialize_file(mutex(), TAG, FS_DATA_DIR, TEST_FILE, &doc)?;
 
     let mut sha = Filesystem::open_with_as_sync_str(&file_path(".sha256"), WRONLY | TRUNC)?;

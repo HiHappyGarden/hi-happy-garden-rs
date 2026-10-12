@@ -41,7 +41,7 @@ const TAG: &str = "FilesystemTests";
 const TEST_DIR: &str = "/var/hhg_test";
 
 fn path(name: &str) -> FileBytes {
-    let mut path = FileBytes::from_str(TEST_DIR);
+    let mut path = FileBytes::from(TEST_DIR);
     path.append_str("/");
     path.append_str(name);
     path
@@ -228,7 +228,7 @@ fn test_rename_remove() -> Result<()> {
 }
 
 fn test_ls() -> Result<()> {
-    let mut dir = FileBytes::from_str(TEST_DIR);
+    let mut dir = FileBytes::from(TEST_DIR);
     dir.append_str("/ls");
     Filesystem::mkdir_attr_with_as_sync_str(&dir)?;
 
@@ -253,7 +253,7 @@ fn test_ls() -> Result<()> {
 }
 
 fn test_remove_recursive() -> Result<()> {
-    let mut nested = FileBytes::from_str(TEST_DIR);
+    let mut nested = FileBytes::from(TEST_DIR);
     nested.append_str("/r");
     Filesystem::mkdir_attr_with_as_sync_str(&nested)?;
     nested.append_str("/deep");
