@@ -31,6 +31,8 @@ use crate::drivers::pico::ffi::{aes_mode, hhg_mbedtls_aes_crypt_cbc, hhg_mbedtls
 use crate::drivers::encrypt::{EncryptFn, SHA256_RESULT_BYTES};
 use crate::drivers::plt::ffi::{hhg_pico_sha256_finish, hhg_pico_sha256_start_blocking, hhg_pico_sha256_update_blocking};
 
+const AES_BLOCK_SIZE: usize = 16;
+
 pub(in crate::drivers) const ENCRYPT_FN: EncryptFn = EncryptFn {
     init,
     aes_encrypt,
@@ -62,7 +64,11 @@ fn enc_dec(handler: *mut c_void, mode: aes_mode, key: &[u8], iv: &[u8], buffer: 
     output.resize(padded_len, 0u8);
 
     // Copy of IV because it is modified during CBC operation
-    let mut iv_copy = iv.to_vec();
+    let mut iv_copy = [0u8; AES_BLOCK_SIZE];
+    if iv.len() != AES_BLOCK_SIZE {
+        return Err(Error::Unhandled("Invalid IV size. Must be 16 bytes."));
+    }
+    iv_copy.copy_from_slice(iv);
 
     unsafe { 
         let ret = if mode == aes_mode::AES_ENCRYPT {

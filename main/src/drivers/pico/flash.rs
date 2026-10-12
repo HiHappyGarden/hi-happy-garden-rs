@@ -135,7 +135,8 @@ fn file_read(handler: *mut c_void) -> Result<Vec<u8>> {
         return Err(Error::ReturnWithCode(len)) 
     }
 
-    Ok(buffer[..len as usize].to_vec())
+    buffer.truncate(len as usize);
+    Ok(buffer)
 }
 
 fn file_rewind(handler: *mut c_void) -> Result<()> {

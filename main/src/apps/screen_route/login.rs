@@ -18,8 +18,6 @@
  *
  ***************************************************************************/
 
-use alloc::string::String;
-
 use at_parser_rs::Args;
 use at_parser_rs::context::AtContext;
 use osal_rs::os::types::EventBits;
@@ -30,8 +28,11 @@ use crate::apps::config::Config;
 use crate::apps::display::input::Input;
 use crate::apps::display::text::Text;
 use crate::apps::signals::display::request_redraw;
-use crate::drivers::encrypt::EncryptGeneric;
+use crate::drivers::encrypt::{EncryptGeneric, SHA256_RESULT_BYTES};
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
+
+/// Worst case of `i,"<email>","<sha256 hex>"` with every email byte escaped.
+const LOGIN_RAW_SIZE: usize = 2 + (2 * DISPLAY_INPUT_MAX_SIZE + 2) + 1 + (SHA256_RESULT_BYTES * 2 + 2);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum FSMState {
@@ -158,10 +159,10 @@ impl ScreenLogin {
         let email = self.email.get_value()?;
         let email_passwd = EncryptGeneric::get_sha256(self.email_passwd.get_value()?.as_raw_bytes())?;
 
-        let mut raw = String::from("i,");
-        Self::push_quoted(&mut raw, email.as_str());
-        raw.push(',');
-        Self::push_quoted(&mut raw, email_passwd.as_str());
+        let mut raw = Bytes::<LOGIN_RAW_SIZE>::from("i,");
+        Self::push_quoted(&mut raw, email.as_str())?;
+        raw.push(b',')?;
+        Self::push_quoted(&mut raw, email_passwd.as_str())?;
 
         let args = Args {
             raw: raw.as_str()
@@ -171,15 +172,16 @@ impl ScreenLogin {
         Ok(session.set("", args).is_ok() && session.exec("").is_ok())
     }
 
-    fn push_quoted(raw: &mut String, value: &str) {
-        raw.push('"');
-        for ch in value.chars() {
-            if ch == '"' || ch == '\\' {
-                raw.push('\\');
+    fn push_quoted(raw: &mut Bytes<LOGIN_RAW_SIZE>, value: &str) -> Result<()> {
+        raw.push(b'"')?;
+        // '"' and '\\' are ASCII, so they never match a byte inside a multi-byte UTF-8 char
+        for &byte in value.as_bytes() {
+            if byte == b'"' || byte == b'\\' {
+                raw.push(b'\\')?;
             }
-            raw.push(ch);
+            raw.push(byte)?;
         }
-        raw.push('"');
+        raw.push(b'"')
     }
 
 }
