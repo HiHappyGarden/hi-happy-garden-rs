@@ -151,6 +151,44 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
     }
 }
 
+impl<T> SetOnReceive<'static> for Display<T>
+where T: LCDDisplayFn + Sync + Send + Clone + 'static {
+
+    #[inline]
+    fn set_on_receive(&mut self, on_receive: &'static dyn OnReceive) {
+        unsafe {
+            ON_RECEIVE = Some(on_receive);
+        }
+    }
+}
+
+impl<T> SetTransmit for Display<T>
+where T: LCDDisplayFn + Sync + Send + Clone + 'static {
+
+    #[inline]
+    fn transmit(&self, _data: &[u8]) -> usize {
+        // This is a display, it doesn't transmit data, so we can ignore this
+        0
+    }
+}
+
+impl<T> Display<T>
+where T: LCDDisplayFn + Sync + Send + Clone + 'static
+{
+    pub(super) fn new(lcd: T, rtc: Arc<Mutex<dyn RTC>>) -> Self {
+        Self {
+            rtc,
+            lcd: Mutex::new_arc(lcd),
+            thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::BelowHigh)
+        }
+    }
+
+    pub(super) fn set_enabled_wifi(&mut self, enabled: bool) {
+        WIFI_ENABLED.store(enabled, Ordering::Relaxed);
+    }
+
+}
+
 /// Button and encoder input for the display, as seen by the drivers.
 ///
 /// The drivers keep this callback for ever. Holding a `&Display` instead
@@ -197,42 +235,4 @@ impl OnRotatableAndClickable for DisplayInput {
             ButtonState::None => {}
         }
     }
-}
-
-impl<T> SetOnReceive<'static> for Display<T>
-where T: LCDDisplayFn + Sync + Send + Clone + 'static {
-
-    #[inline]
-    fn set_on_receive(&mut self, on_receive: &'static dyn OnReceive) {
-        unsafe {
-            ON_RECEIVE = Some(on_receive);
-        }
-    }
-}
-
-impl<T> SetTransmit for Display<T>
-where T: LCDDisplayFn + Sync + Send + Clone + 'static {
-
-    #[inline]
-    fn transmit(&self, _data: &[u8]) -> usize {
-        // This is a display, it doesn't transmit data, so we can ignore this
-        0
-    }
-}
-
-impl<T> Display<T>
-where T: LCDDisplayFn + Sync + Send + Clone + 'static
-{
-    pub(super) fn new(lcd: T, rtc: Arc<Mutex<dyn RTC>>) -> Self {
-        Self {
-            rtc,
-            lcd: Mutex::new_arc(lcd),
-            thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::BelowHigh)
-        }
-    }
-
-    pub(super) fn set_enabled_wifi(&mut self, enabled: bool) {
-        WIFI_ENABLED.store(enabled, Ordering::Relaxed);
-    }
-
 }

@@ -52,9 +52,6 @@ const THREAD_NAME: &str = "app_main_thr";
 const STACK_SIZE: StackType = 1_024 * 2; // 2KB stack size for the main thread
 const TICK_INTERVAL_MS: u16 = 100;
 
-// static TIMER: AtomicU32 = AtomicU32::new(0);
-// static NOW: AtomicU32 = AtomicU32::new(0);
-
 macro_rules! set_current_status {
     ($status_old:expr, $status_current:expr, $status:expr) => {
         log_debug!(APP_TAG, "Status change: {:?} -> {:?}", $status_current, $status);
