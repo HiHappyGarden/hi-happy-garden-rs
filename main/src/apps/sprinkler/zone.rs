@@ -70,10 +70,10 @@ pub(in crate::apps) enum ZoneRelay {
 impl ZoneRelay {
     pub(in crate::apps) const fn as_str(self) -> &'static str {
         match self {
-            Relay0 => "Relay 0",
-            Relay1 => "Relay 1",
-            Relay2 => "Relay 2",
-            Relay3 => "Relay 3",
+            Relay0 => "Zone 1",
+            Relay1 => "Zone 2",
+            Relay2 => "Zone 3",
+            Relay3 => "Zone 4",
         }
     }
 }
@@ -375,10 +375,10 @@ impl ZoneController {
 
 
         let selects: [(Bytes<_>, bool); ZoneController::SIZE] = [
-            (Bytes::from_bytes(zone_controller.zones[0].description.as_ref()), false),
-            (Bytes::from_bytes(zone_controller.zones[1].description.as_ref()), false),
-            (Bytes::from_bytes(zone_controller.zones[2].description.as_ref()), false),
-            (Bytes::from_bytes(zone_controller.zones[3].description.as_ref()), false),
+            (Bytes::from_bytes(zone_controller[0].description.as_ref()), false),
+            (Bytes::from_bytes(zone_controller[1].description.as_ref()), false),
+            (Bytes::from_bytes(zone_controller[2].description.as_ref()), false),
+            (Bytes::from_bytes(zone_controller[3].description.as_ref()), false),
         ];
 
         ScreenSelections::<{ZoneController::SIZE}>::from(selects)

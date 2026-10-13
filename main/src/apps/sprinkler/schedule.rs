@@ -21,6 +21,8 @@
 #[cfg(feature = "tests")]
 pub(super) mod tests;
 
+use core::ops::{Deref, DerefMut};
+
 use at_parser_rs::{Args, AtError, AtResult};
 use at_parser_rs::context::AtContext;
 use osal_rs::os::types::EventBits;
@@ -36,6 +38,7 @@ use crate::apps::sprinkler::zone::{ZoneController, ZoneRelay};
 use crate::apps::utils::{deserialize_file, serialize_file};
 use crate::drivers::date_time::DateTime;
 use crate::drivers::platform::FS_CONFIG_DIR;
+use crate::traits::screen::ScreenSelections;
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
 use super::commons::Status;
@@ -497,6 +500,23 @@ impl AtContext<{Parser::CMD_SIZE}> for ScheduleController {
     }
 }
 
+
+
+impl Deref for ScheduleController {
+    type Target = [Schedule];
+
+    fn deref(&self) -> &Self::Target {
+        &self.schedules
+    }
+}
+
+impl DerefMut for ScheduleController {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.schedules
+    }
+}
+
+
 impl ScheduleController {
     pub(in crate::apps) const SIZE: usize = 4;
     pub(in crate::apps) const AT_CMD: &'static str = "AT+SCH";
@@ -505,13 +525,12 @@ impl ScheduleController {
 
     const DEFAULT: Self = Self { 
         schedules: [
-            Schedule::new_with_description("Schedule 0"),
             Schedule::new_with_description("Schedule 1"),
             Schedule::new_with_description("Schedule 2"),
-            Schedule::new_with_description("Schedule 3")
+            Schedule::new_with_description("Schedule 3"),
+            Schedule::new_with_description("Schedule 4")
         ]
     };
-
 
     pub(in crate::apps) fn shared() -> &'static mut Self {
         unsafe {
@@ -526,5 +545,26 @@ impl ScheduleController {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         unsafe { &mut *&raw mut SHARED }
     }
+
+
+
+    pub(in crate::apps) fn new_selections() -> ScreenSelections<{ScheduleController::SIZE}> {
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+
+        let schedule_controller = unsafe {
+            &mut *&raw mut SHARED
+        };
+ 
+
+        let selects: [(Bytes<_>, bool); ScheduleController::SIZE] = [
+            (Bytes::from_bytes(schedule_controller[0].description.as_ref()), false),
+            (Bytes::from_bytes(schedule_controller[1].description.as_ref()), false),
+            (Bytes::from_bytes(schedule_controller[2].description.as_ref()), false),
+            (Bytes::from_bytes(schedule_controller[3].description.as_ref()), false),
+        ];
+
+        ScreenSelections::<{ScheduleController::SIZE}>::from(selects)
+    }
+
 
 }

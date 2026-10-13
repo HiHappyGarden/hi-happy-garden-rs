@@ -86,14 +86,18 @@ impl ScreenZoneDetail {
 
     fn draw_description_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
 
-        let current_description = ZoneController::shared()[self.zone_relay].description;
+        
+        let zone_relay = ZoneRelay::from(self.zone_relay as u8);
 
         let answer = self.description.draw(
                 *lcd,
                 display_signal,
                 rtc,
-                &current_description,
-                ScreenParam::Input { value: current_description, secret_mode: false }
+                &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from(zone_relay.as_str()),
+                ScreenParam::Input { 
+                    value: ZoneController::shared()[self.zone_relay].description,
+                    secret_mode: false 
+                }
             )?;
 
         Ok(self.step(display_signal, answer, FSMState::Weight, FSMState::Description))

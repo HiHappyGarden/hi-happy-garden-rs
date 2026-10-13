@@ -18,3 +18,29 @@
  *
  ***************************************************************************/
 
+use osal_rs::utils::Result;
+
+use crate::traits::screen::{ScreenRoute, ScreenRouteCtx, Nav}; 
+
+
+pub(super) struct ScreenScheduleDetail {
+    _index: usize,
+}
+
+impl ScreenRoute for ScreenScheduleDetail {
+    fn id() -> &'static str {
+        "ScreenScheduleDetail"
+    }
+
+    fn renderize(&mut self, _screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
+
+        Ok(Nav::Stay)
+    }
+}
+
+impl ScreenScheduleDetail {
+    pub(super)const fn new(index: usize) -> Result<Self> {
+        Ok(Self { _index: index })
+    }
+
+}
