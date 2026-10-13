@@ -31,7 +31,7 @@ use osal_rs::os::{MutexFn as _, System, Thread, ThreadFn, ThreadParam};
 use osal_rs::utils::{Error, Result};
 
 use crate::apps::config::Config;
-use crate::apps::display::Display;
+use crate::apps::display::{DISPLAY_INPUT, Display};
 use crate::apps::parser::Parser;
 use crate::apps::signals::error::ErrorSignal;
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
@@ -177,16 +177,16 @@ impl AppMain {
                     }
                     StatusFlag::EnableParser => {
                         // Set transmit function pointer on parser 
-                        Parser::set_uart_transmit(*hardware_ptr);
+                        Parser::set_uart_transmit(Hardware::uart_transmitter());
 
                         (*hardware_ptr).set_on_receive(&me.parser);
 
                         set_current_status!(status_old, status_current, StatusFlag::EnableDisplay);
                     }
                     StatusFlag::EnableDisplay => {
-                        // Set hardware callbacks - convert raw pointers to 'static references
-                        (*hardware_ptr).set_button_handler(&*display_ptr);
-                        (*hardware_ptr).set_encoder_handler(&*display_ptr);
+                        // The board keeps these for ever: a ZST forwarder, not `&me.display`
+                        (*hardware_ptr).set_button_handler(&DISPLAY_INPUT);
+                        (*hardware_ptr).set_encoder_handler(&DISPLAY_INPUT);
                         
                         (&mut *display_ptr).set_on_receive(&me.parser);
                         set_current_status!(status_old, status_current, StatusFlag::CheckConfig);

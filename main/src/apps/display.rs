@@ -151,9 +151,16 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
     }
 }
 
-impl<T> OnClickable for Display<T>
-where T: LCDDisplayFn + Sync + Send + Clone + 'static
-{
+/// Button and encoder input for the display, as seen by the drivers.
+///
+/// The drivers keep this callback for ever. Holding a `&Display` instead
+/// would forbid any later `&mut Display`, so the board gets a zero sized
+/// forwarder that only raises a [`DisplaySignal`], which is all it did anyway.
+pub(super) struct DisplayInput;
+
+pub(super) static DISPLAY_INPUT: DisplayInput = DisplayInput;
+
+impl OnClickable for DisplayInput {
     fn on_click(&self, state: ButtonState) {
         match state {
             Pressed => {
@@ -167,9 +174,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
     }
 }
 
-impl<T> OnRotatableAndClickable for Display<T>
-where T: LCDDisplayFn + Sync + Send + Clone + 'static
-{
+impl OnRotatableAndClickable for DisplayInput {
     fn on_rotable(&self, direction: EncoderDirection, _: i32) {
         match direction {
             Clockwise => {

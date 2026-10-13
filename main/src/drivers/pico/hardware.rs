@@ -191,6 +191,20 @@ impl SetTransmit for Hardware {
     }
 }
 
+/// Stateless UART transmitter for the parser, see [`Hardware::uart_transmitter`].
+struct UartTransmitter;
+
+static UART_TRANSMITTER: UartTransmitter = UartTransmitter;
+
+impl SetTransmit for UartTransmitter {
+
+    #[inline]
+    fn transmit(&self, data: &[u8]) -> usize {
+        // `Uart` is only a handle to the driver statics: nothing here points into `Hardware`
+        Uart::shared().transmit(data)
+    }
+}
+
 impl HardwareFn<'static> for Hardware {
 
     #[inline]
@@ -248,6 +262,15 @@ impl Hardware {
             rtc: Mutex::new_arc(RTC::shared()),
             
         }
+    }
+
+    /// UART transmitter the parser can keep for ever.
+    ///
+    /// Handing it `&Hardware` instead would freeze the board as shared while
+    /// `AppMain` keeps using it as `&mut`.
+    #[inline]
+    pub fn uart_transmitter() -> &'static dyn SetTransmit {
+        &UART_TRANSMITTER
     }
 
     #[inline]
