@@ -129,8 +129,28 @@ impl FieldEditor {
             } else {
                 val + delta
             });
+            self.clamp_fields();
             *signal |= DisplayFlag::Draw as EventBits;
         }
+    }
+
+    /// Caps every field at the maximum allowed by the others, e.g. the day
+    /// after moving from January 31 to February: the builder would reject it.
+    fn clamp_fields(&mut self) {
+        for i in 0..self.fields.len() {
+            let f = self.fields.map(|v| v.unwrap_or(0));
+            let max = (self.config.field_max_fn[i])(f[Self::FIELD_HOUR], f[Self::FIELD_MINUTE], f[Self::FIELD_SECOND]);
+            if let Some(v) = self.fields[i].as_mut() {
+                *v = (*v).min(max);
+            }
+        }
+    }
+
+    /// Back to the state of a new editor: the next draw takes the parameter again.
+    pub(super) fn reset(&mut self) {
+        self.fields = [None, None, None];
+        self.step = Step::FieldHour;
+        self.result = None;
     }
 
     pub(super) fn draw(
@@ -145,7 +165,7 @@ impl FieldEditor {
 
         let current_date_time = get_datetime_from_rtc!(rtc, ErrorFlag::DateTime);
 
-        if self.result.is_none() {
+        if self.fields.iter().any(Option::is_none) {
             match param {
                 ScreenParam::DateTime(dt) => {
                     let (field_hour, field_minute, field_second) = (self.config.extractor)(&dt);

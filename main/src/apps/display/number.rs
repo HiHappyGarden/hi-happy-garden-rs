@@ -19,7 +19,7 @@
  ***************************************************************************/
 
 use core::fmt::Write;
-use core::ops::Range;
+use core::ops::RangeInclusive;
 
 use alloc::sync::Arc;
 use osal_rs::os::Mutex;
@@ -128,31 +128,32 @@ where
         }
     }
 
-    pub(in crate::apps) const fn new_with_range(range: Range<N>) -> Self {
+    /// Both ends of `range` can be selected, e.g. `0..=59` for minutes.
+    pub(in crate::apps) const fn new_with_range(range: RangeInclusive<N>) -> Self {
         Self { 
             number: None,
-            min: range.start,
-            max: range.end,
+            min: *range.start(),
+            max: *range.end(),
             result: None,
         }
     }
 
     fn update_number(&mut self, signal: &mut EventBits) {
+        // Compared before stepping: `min - 1` / `max + 1` overflow on the
+        // type bounds (e.g. `0u8 - 1`), panicking in Debug.
         if *signal & DisplayFlag::EncoderRotatedClockwise as EventBits != 0 {
-            if let Some(current) = self.number {
-                let new_value = current + N::one();
-                self.number = Some(if new_value > self.max { self.min } else { new_value });
-            } else {
-                self.number = Some(self.min);
-            }  
+            self.number = Some(match self.number {
+                Some(current) if current < self.max => current + N::one(),
+                Some(_) => self.min,
+                None => self.min,
+            });
             *signal |= DisplayFlag::Draw as EventBits;
         } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as EventBits != 0 {
-            if let Some(current) = self.number {
-                let new_value = current - N::one();
-                self.number = Some(if new_value < self.min { self.max } else { new_value });
-            } else {
-                self.number = Some(self.max);
-            }
+            self.number = Some(match self.number {
+                Some(current) if current > self.min => current - N::one(),
+                Some(_) => self.max,
+                None => self.max,
+            });
             *signal |= DisplayFlag::Draw as EventBits;
         } 
     }

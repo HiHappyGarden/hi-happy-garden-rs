@@ -96,14 +96,14 @@ impl ScreenScheduleDetail {
             index,
             fsm_state: FSMState::Minute,
             description: Input::new(),
-            minute: Number::new_with_range(0..60),
-            hour: Number::new_with_range(0..24),
+            minute: Number::new_with_range(0..=59),
+            hour: Number::new_with_range(0..=23),
             days: Schedule::NOT_SET,
             fsm_days: Day::Monday,
             month: Schedule::NOT_SET as u16,
             fsm_month: Month::January,
             check: Check::new(),
-            zones: Number::new_with_range(0..3),
+            zones: Number::new_with_range(0..=3),
             status: Select::new(),
         })
     }

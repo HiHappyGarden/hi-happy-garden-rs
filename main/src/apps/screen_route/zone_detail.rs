@@ -78,7 +78,7 @@ impl ScreenZoneDetail {
             zone_relay,
             fsm_state: FSMState::Description,
             description: Input::new(),
-            weight: Number::new_with_range(0..9),
+            weight: Number::new_with_range(0..=9),
             status: Select::new(),
         })
     }

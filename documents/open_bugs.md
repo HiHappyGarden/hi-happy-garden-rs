@@ -58,6 +58,13 @@ la suite (con `panic = "abort"` si fermerebbe tutto), quindi non sono coperti da
 > Corretto anche il bug 16 (solo documentazione, spostato in [Risolti](#risolti)).
 > Corretto nel codice anche il bug 17 (spostato in [Risolti](#risolti)), da verificare su HW con
 > `ZoneTests::test_query`.
+>
+> **Aggiornamento 2026-10-14:** aggiunte le suite `DisplayTests` (widget del display su un LCD
+> finto) e `ScreenRouteTests` (stack di navigazione, login davanti alle schermate protette, menu).
+> La prima esecuzione sull'emulatore ha dato 219 test passati e 3 falliti, che hanno portato ai
+> bug 19, 21 e 22; la lettura del codice ha portato ai bug 20 e 23, non testabili prima della correzione perché un panic avrebbe fermato la suite.
+> Tutti e cinque sono corretti nel codice e spostati in [Risolti](#risolti), con i relativi test.
+> Sull'emulatore: 226 test passati, 0 falliti. Non ancora eseguiti su HW.
 
 ## Riepilogo
 
@@ -214,6 +221,31 @@ Nessun bug aperto.
   **Da fare:** `test_save_reload` (zone e schedule) resta poco significativo: salva i dati
   ripristinati, cioè i default, quindi passerebbe anche con una lettura fallita. Andrebbe
   modificato un valore prima del salvataggio, confrontato dopo il ricaricamento e poi ripristinato.
+- **#19 `Number::new_with_range` includeva la fine di un `Range`** (Display, media). Il massimo
+  era `range.end`, mentre un `Range` la esclude: `0..60` dei minuti arrivava a 60, `0..24` delle
+  ore a 24. Ma i call site non erano coerenti: `0..3` delle zone (4 relè) e `0..9` del peso
+  presupponevano la fine inclusa. Ora `new_with_range` prende un `RangeInclusive` e ogni call
+  site dichiara il massimo: `0..=59`, `0..=23`, `0..=3`, `0..=9`.
+  Test: `DisplayTests::test_number_range_inclusive`.
+- **#20 `Number` andava in underflow sotto il minimo** (Display, alta). Il passo calcolava
+  `current - 1` / `current + 1` prima del confronto con i limiti: con `u8` e `min = 0` era un
+  panic in Debug e `255` in Release. Ora il confronto avviene prima del passo.
+  Test: `DisplayTests::test_number_type_bounds` (`u8` sotto 0 e sopra `MAX`, `i8` sotto `MIN`).
+- **#21 `Input`: rotazione antioraria sul primo carattere** (Display, bassa). Il ramo antiorario
+  confrontava `self.idx == 0` (posizione nel testo) e dava sempre `~`; il ramo orario aveva lo
+  stesso confronto con `CHAR_TABLE.len()`. Ora entrambi ruotano solo sulla posizione in
+  `CHAR_TABLE`. Test: `DisplayTests::test_input_rotate_back_first_char`, `test_input_char_wrap`.
+- **#22 Editor data/ora: la modifica si perdeva al frame successivo** (Display, alta).
+  `FieldEditor::draw` ricaricava i campi dal parametro (l'ora dell'RTC) a ogni frame fino alla
+  conferma. Ora il parametro è letto solo a campi vuoti; `drop_value` di `Date`/`Time` chiama il
+  nuovo `FieldEditor::reset`, che svuota i campi. A ogni modifica i campi sono limitati al massimo
+  consentito dagli altri (`clamp_fields`): da 31 gennaio a febbraio il giorno diventa 28/29 e la
+  data confermata è sempre valida. Test: `DisplayTests::test_time_edit_kept`,
+  `test_time_drop_reloads`, `test_date_day_capped`.
+- **#23 `Input` andava in panic su caratteri fuori tabella** (Display, media).
+  `CHAR_TABLE.iter().position(..).unwrap()` falliva su un byte non ASCII stampabile (es. una
+  descrizione accentata impostata via `AT+ZN`). Ora un byte fuori tabella vale come la prima voce
+  (`' '`) e la rotazione lo sostituisce. Test: `DisplayTests::test_input_char_outside_table`.
 - **osal-rs: `TaskStatus` non allineata a `TaskStatus_t`.** La struttura Rust era di
   36 byte, quella C di 48 (`pxTopOfStack`/`pxEndOfStack` con
   `configRECORD_STACK_HIGH_ADDRESS=1`, `uxCoreAffinityMask` in SMP). Di conseguenza
@@ -232,6 +264,8 @@ Nessun bug aperto.
 
 ## Note non classificate come bug
 
+- `ScreenScheduleDetail` (in sviluppo) non è coperto dai test: `new` accetta `index == ScheduleController::SIZE`
+  (`>` invece di `>=`) e il primo frame fallisce con `NullPtr` su `self.minute.get_value()?`.
 - `RTC::is_to_synch()` ([rtc.rs:141](../main/src/drivers/rtc.rs#L141)) restituisce `true` quando il
   DS3231 ha un'ora **valida**: il nome suggerisce il contrario. Il comportamento è corretto
   (sincronizza POWMAN dal DS3231), ma il nome trae in inganno.

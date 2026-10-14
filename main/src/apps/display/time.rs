@@ -53,7 +53,7 @@ impl Screen<DateTime> for Time
     }
 
     fn drop_value(&mut self) {
-        self.0.result = None;
+        self.0.reset();
     }
 }
   

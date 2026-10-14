@@ -259,25 +259,17 @@ impl Input {
         //encoder rotattion
         if *signal & DisplayFlag::EncoderRotatedClockwise as EventBits != 0 {
             if self.seed_input_if_empty() {
-            } else if let Some(current) = self.input.as_ref() {
-                let next_char = if self.idx >= CHAR_TABLE.len() {
-                    CHAR_TABLE[0] // wrap from the end back to the first character (space)
-                } else {
-                    CHAR_TABLE[(CHAR_TABLE.iter().position(|&c| c == current[self.idx]).unwrap() + 1) % CHAR_TABLE.len()]
-                };
-                self.input.as_mut().unwrap()[self.idx] = next_char;
+            } else if let Some(input) = self.input.as_mut() {
+                let pos = Self::char_position(input[self.idx]);
+                input[self.idx] = CHAR_TABLE[(pos + 1) % CHAR_TABLE.len()];
             }
             *signal |= DisplayFlag::Draw as EventBits;
         
         } else if *signal & DisplayFlag::EncoderRotatedCounterClockwise as EventBits != 0 {
             if self.seed_input_if_empty() {
-            } else if let Some(current) = self.input.as_ref() {
-                let prev_char = if self.idx == 0 {
-                    CHAR_TABLE[CHAR_TABLE.len() - 1] // wrap from the first character back to the last character
-                } else {
-                    CHAR_TABLE[(CHAR_TABLE.iter().position(|&c| c == current[self.idx]).unwrap() + CHAR_TABLE.len() - 1) % CHAR_TABLE.len()]
-                };
-                self.input.as_mut().unwrap()[self.idx] = prev_char;
+            } else if let Some(input) = self.input.as_mut() {
+                let pos = Self::char_position(input[self.idx]);
+                input[self.idx] = CHAR_TABLE[(pos + CHAR_TABLE.len() - 1) % CHAR_TABLE.len()];
             }
             *signal |= DisplayFlag::Draw as EventBits;
         }
@@ -324,6 +316,13 @@ impl Input {
                 *signal |= DisplayFlag::Draw as EventBits;
             }
         } 
+    }
+
+    /// Position of `byte` in [`CHAR_TABLE`]. A byte outside the table (e.g.
+    /// part of an accented letter set via `AT+ZN`) counts as the first entry,
+    /// so the encoder replaces it instead of panicking.
+    fn char_position(byte: u8) -> usize {
+        CHAR_TABLE.iter().position(|&c| c == byte).unwrap_or(0)
     }
 
     fn seed_input_if_empty(&mut self) -> bool {
