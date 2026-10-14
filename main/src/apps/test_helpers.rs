@@ -21,15 +21,13 @@
 
 //! Shared helpers of the on-target application tests.
 
-use core::sync::atomic::{AtomicI64, Ordering};
-
 use alloc::format;
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
 use at_parser_rs::{AtError, AtResult};
-use osal_rs::os::Mutex;
+use osal_rs::os::{Mutex, MutexFn};
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Error, Result};
 use osal_rs_serde::{Deserialize, Serialize};
@@ -232,16 +230,18 @@ impl LCDDisplayFn for MockLcd {
 }
 
 /// RTC frozen at a timestamp, for the widgets that read the time.
-pub(in crate::apps) struct MockRtc(pub(in crate::apps) AtomicI64);
+///
+/// A mutex rather than an `AtomicI64`: the Cortex-M33 has no 64-bit atomics.
+pub(in crate::apps) struct MockRtc(pub(in crate::apps) Mutex<i64>);
 
 impl RTC for MockRtc {
     fn set_timestamp(&self, timestamp: i64) -> Result<()> {
-        self.0.store(timestamp, Ordering::Relaxed);
+        *self.0.lock()? = timestamp;
         Ok(())
     }
 
     fn get_timestamp(&self) -> Result<i64> {
-        Ok(self.0.load(Ordering::Relaxed))
+        Ok(*self.0.lock()?)
     }
 
     fn is_to_synch(&self) -> bool {
@@ -251,7 +251,7 @@ impl RTC for MockRtc {
 
 /// A [`MockRtc`] shared the way the display task receives the real one.
 pub(in crate::apps) fn mock_rtc(timestamp: i64) -> Arc<Mutex<dyn RTC + 'static>> {
-    Mutex::new_arc(MockRtc(AtomicI64::new(timestamp)))
+    Mutex::new_arc(MockRtc(Mutex::new(timestamp)))
 }
 
 /// `cjson_binding::to_json` with the error converted for `?` in tests.
