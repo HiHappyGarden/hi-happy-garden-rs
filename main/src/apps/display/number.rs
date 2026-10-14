@@ -128,7 +128,6 @@ where
         }
     }
 
-    /// Both ends of `range` can be selected, e.g. `0..=59` for minutes.
     pub(in crate::apps) const fn new_with_range(range: RangeInclusive<N>) -> Self {
         Self { 
             number: None,
@@ -139,8 +138,6 @@ where
     }
 
     fn update_number(&mut self, signal: &mut EventBits) {
-        // Compared before stepping: `min - 1` / `max + 1` overflow on the
-        // type bounds (e.g. `0u8 - 1`), panicking in Debug.
         if *signal & DisplayFlag::EncoderRotatedClockwise as EventBits != 0 {
             self.number = Some(match self.number {
                 Some(current) if current < self.max => current + N::one(),

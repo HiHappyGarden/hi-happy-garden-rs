@@ -26,26 +26,14 @@ use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Error, Result};
 
 use super::{FSMState, ScreenZoneDetail};
-use crate::apps::signals::display::{DisplayFlag, DisplaySignal};
+use crate::apps::signals::display::DisplaySignal;
 use crate::apps::sprinkler::zone::ZoneController;
+use crate::apps::test_helpers::{DRAW, with_draw_restored};
 use crate::tests::{TestStats, run_tests, test_assert, test_assert_eq};
 use crate::traits::screen::{Answer, Nav, ScreenParam};
 use crate::traits::signal::Signal;
 
 const TAG: &str = "ZoneDetailTests";
-
-const DRAW: EventBits = DisplayFlag::Draw as EventBits;
-
-/// Runs `test`, then clears the `Draw` bit of the display signal if it
-/// was not set before: `step` raises it on every transition.
-fn with_draw_restored(test: impl FnOnce() -> Result<()>) -> Result<()> {
-    let was_set = DisplaySignal::get() & DRAW != 0;
-    let ret = test();
-    if !was_set {
-        DisplaySignal::clear(DRAW);
-    }
-    ret
-}
 
 fn test_new() -> Result<()> {
     for relay in 0..ZoneController::SIZE {

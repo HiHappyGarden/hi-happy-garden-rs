@@ -18,6 +18,9 @@
  *
  ***************************************************************************/
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 #[macro_use]
 pub(super) mod commons;
 pub(super) mod check;

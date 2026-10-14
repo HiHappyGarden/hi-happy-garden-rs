@@ -56,6 +56,7 @@ pub(crate) fn run_all_tests(stats: &mut crate::tests::TestStats) {
     utils::tests::run_all_tests(stats);
     config::tests::run_all_tests(stats);
     session::tests::run_all_tests(stats);
+    display::tests::run_all_tests(stats);
     system_handler::tests::run_all_tests(stats);
     sprinkler::tests::run_all_tests(stats);
     screen_route::tests::run_all_tests(stats);

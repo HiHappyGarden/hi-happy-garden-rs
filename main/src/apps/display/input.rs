@@ -318,9 +318,6 @@ impl Input {
         } 
     }
 
-    /// Position of `byte` in [`CHAR_TABLE`]. A byte outside the table (e.g.
-    /// part of an accented letter set via `AT+ZN`) counts as the first entry,
-    /// so the encoder replaces it instead of panicking.
     fn char_position(byte: u8) -> usize {
         CHAR_TABLE.iter().position(|&c| c == byte).unwrap_or(0)
     }
