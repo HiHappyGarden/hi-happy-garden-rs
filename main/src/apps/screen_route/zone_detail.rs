@@ -45,6 +45,7 @@ enum FSMState {
 #[derive(Clone, PartialEq, Eq)]
 pub(super) struct ScreenZoneDetail {
     zone_relay: usize,
+    zone: &'static Zone,
     fsm_state: FSMState,
     description: Input,
     weight: Number<u8>, 
@@ -74,8 +75,10 @@ impl ScreenZoneDetail {
         if zone_relay >= ZoneController::SIZE {
             return Err(Error::OutOfIndex)
         }
+
         Ok(Self {
             zone_relay,
+            zone: &ZoneController::shared()[zone_relay],
             fsm_state: FSMState::Description,
             description: Input::new(),
             weight: Number::new_with_range(0..=9),
@@ -95,7 +98,7 @@ impl ScreenZoneDetail {
                 rtc,
                 &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from(zone_relay.as_str()),
                 ScreenParam::Input { 
-                    value: ZoneController::shared()[self.zone_relay].description,
+                    value: self.zone.description,
                     secret_mode: false 
                 }
             )?;
@@ -110,7 +113,7 @@ impl ScreenZoneDetail {
                 display_signal,
                 rtc,
                 &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Weight"),
-                ScreenParam::Number(0)
+                ScreenParam::Number(self.zone.weight)
             )?;
 
         Ok(self.step(display_signal, answer, FSMState::Status, FSMState::Description))
@@ -118,10 +121,14 @@ impl ScreenZoneDetail {
 
     fn draw_status_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
         
-        let selects: [(Bytes<{DISPLAY_INPUT_MAX_SIZE}>, bool); 2] = [
-            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from(Status::ACTIVE.as_str()), true),
+        let mut selects: [(Bytes<{DISPLAY_INPUT_MAX_SIZE}>, bool); 2] = [
+            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from(Status::ACTIVE.as_str()), false),
             (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from(Status::UNACTIVE.as_str()), false),
         ];
+
+        selects[0].1 = self.zone.status == Status::ACTIVE;
+        selects[1].1 = self.zone.status == Status::UNACTIVE;
+
         
         let answer = self.status.draw(
                 *lcd,
@@ -150,6 +157,7 @@ impl ScreenZoneDetail {
                             zone_relay: ZoneRelay::from(self.zone_relay as u8),
                             status: Status::from(status.as_str()),
                         };
+                        
                         ZoneController::shared()[self.zone_relay] = new_zone;
 
                         ZoneController::shared().save()?;
