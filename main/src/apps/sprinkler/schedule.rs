@@ -106,6 +106,32 @@ impl From<Day> for u8 {
     }
 }
 
+impl From<Day> for &str {
+    fn from(value: Day) -> Self {
+        match value {
+            Day::Sunday => "Sunday",
+            Day::Monday => "Monday",
+            Day::Tuesday => "Tuesday",
+            Day::Wednesday => "Wednesday",
+            Day::Thursday => "Thursday",
+            Day::Friday => "Friday",
+            Day::Saturday => "Saturday",
+        }
+    }
+}
+
+impl Day {
+    
+    #[inline]
+    pub fn check(self, value: u8) -> bool {
+        if value & (self as u8) > 0 {
+            true
+        } else {
+            false
+        }
+    }
+}
+
  #[allow(dead_code)]
  #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(in crate::apps) enum Month {
@@ -138,6 +164,25 @@ impl From<Month> for u8 {
             Month::October => 10,
             Month::November => 11,
             Month::December => 12
+        }
+    }
+}
+
+impl From<Month> for &str {
+    fn from(value: Month) -> Self {
+        match value {
+            Month::January => "January",
+            Month::February => "February",
+            Month::March => "March",
+            Month::April => "April",
+            Month::May => "May",
+            Month::June => "June",
+            Month::July => "July",
+            Month::August => "August",
+            Month::September => "September",
+            Month::October => "October",
+            Month::November => "November",
+            Month::December => "December",
         }
     }
 }
@@ -202,14 +247,14 @@ pub(in crate::apps) struct Schedule {
 }
 
 impl Schedule {
-    pub(super) const NOT_SET: u8 = 0x00;
+    pub(in crate::apps) const NOT_SET: u8 = 0x00;
 
     pub(super) const fn new() -> Self {
         Self {
             minute: 0,
             hour: 0,
-            days: Schedule::NOT_SET,
-            month: Schedule::NOT_SET as u16,
+            days: Self::NOT_SET,
+            month: Self::NOT_SET as u16,
             description: Bytes::new(),
             zones: [
                 None,
@@ -248,7 +293,7 @@ impl Schedule {
 
         let mut check = [true; 4];
 
-        if self.month != Schedule::NOT_SET as u16 {
+        if self.month != Self::NOT_SET as u16 {
             let months = Month::map(self.month);
             for month in months.iter() {
                 check[0] = false;
@@ -263,7 +308,7 @@ impl Schedule {
             check[0] = true;
         }
 
-        if self.days != Schedule::NOT_SET {
+        if self.days != Self::NOT_SET {
             let days = Day::map(self.days);
             for day in days.iter() {
                 check[1] = false;
@@ -278,13 +323,13 @@ impl Schedule {
             check[1] = true;
         }
 
-        if self.hour != Schedule::NOT_SET {
+        if self.hour != Self::NOT_SET {
             check[2] = self.hour - 1 == now.hour;
         } else {
             check[2] = true;
         }
 
-        if self.minute != Schedule::NOT_SET {
+        if self.minute != Self::NOT_SET {
             check[3] = self.minute - 1 == now.minute;
         } else {
             check[3] = true;
