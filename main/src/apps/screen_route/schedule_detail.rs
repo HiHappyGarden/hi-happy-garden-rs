@@ -57,10 +57,10 @@ pub(super) struct ScreenScheduleDetail {
 
     /// day of week from 0x01 to 0x40 or NOT_SET (0) for every day, otherwise bitmask of Day
     days: u8,
-    fsm_days: Day,
+    fsm_day: Day,
 
     /// month, values allowed 0x01 to 0x0800 or NOT_SET (0) for every month
-    month: u16,
+    months: u16,
     fsm_month: Month,
 
     check: Check,
@@ -99,8 +99,8 @@ impl ScreenScheduleDetail {
             minute: Number::new_with_range(0..=59),
             hour: Number::new_with_range(0..=23),
             days: Schedule::NOT_SET,
-            fsm_days: Day::Monday,
-            month: Schedule::NOT_SET as u16,
+            fsm_day: Day::Monday,
+            months: Schedule::NOT_SET as u16,
             fsm_month: Month::January,
             check: Check::new(),
             zones: Number::new_with_range(0..=3),
@@ -152,15 +152,17 @@ impl ScreenScheduleDetail {
     fn draw_days_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
         
         let mut title = Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Day - ");
-        title.append_str(self.fsm_days.into());
+        title.append_str(self.fsm_day.into());
 
+
+        self.check.drop_value();
 
         let answer = self.check.draw(
                 *lcd,
                 display_signal,
                 rtc,
                 &title,
-                ScreenParam::Check(self.fsm_days.check(self.days))
+                ScreenParam::Check(self.fsm_day.check(self.days))
             )?;
 
         
@@ -168,7 +170,11 @@ impl ScreenScheduleDetail {
         let back;
         if let Answer::Confirmed(ScreenParam::Check(check)) = answer {
 
-            match self.fsm_days {
+            if check {
+                self.days |= self.fsm_day as u8;
+            }
+
+            match self.fsm_day {
                 Day::Sunday => {
                     next = FSMState::Days;
                     back = FSMState::Hour;
@@ -193,8 +199,52 @@ impl ScreenScheduleDetail {
     }
 
     fn draw_month_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
-        // Implement the rendering logic for the month state here
-        Ok(Nav::Stay)
+ 
+        let mut title = Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Month - ");
+        title.append_str(self.fsm_month.into());
+
+
+        self.check.drop_value();
+
+        let answer = self.check.draw(
+                *lcd,
+                display_signal,
+                rtc,
+                &title,
+                ScreenParam::Check(self.fsm_month.check(self.months))
+            )?;
+
+        
+        let next;
+        let back;
+        if let Answer::Confirmed(ScreenParam::Check(check)) = answer {
+
+            if check {
+                self.months |= self.fsm_month as u16;
+            }
+
+            match self.fsm_month {
+                Month::January => {
+                    next = FSMState::Month;
+                    back = FSMState::Days;
+                }
+                Month::February | Month::March | Month::April | Month::May | Month::June | Month::July | Month::August | Month::September | Month::October | Month::November => {
+                    next = FSMState::Month;
+                    back = FSMState::Month;
+                }
+                Month::December => {
+                    next = FSMState::Zones;
+                    back = FSMState::Month;
+                }
+            }
+
+            
+        } else {
+            next = FSMState::Month;
+            back = FSMState::Days;
+        }
+
+        Ok(self.step(display_signal, answer, next, back))
     }
 
     fn draw_zones_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {

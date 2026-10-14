@@ -53,6 +53,7 @@ static mut SCHEDULE_TMP: (usize, Schedule) = (0, Schedule::new());
 
 const APP_TAG: &str = "SchedulerController";
 
+
  #[allow(dead_code)]
  #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(in crate::apps) enum Day {
@@ -121,14 +122,9 @@ impl From<Day> for &str {
 }
 
 impl Day {
-    
     #[inline]
-    pub fn check(self, value: u8) -> bool {
-        if value & (self as u8) > 0 {
-            true
-        } else {
-            false
-        }
+    pub (in crate::apps) const fn check(self, value: u8) -> bool {
+        value & (self as u8) > 0
     }
 }
 
@@ -217,6 +213,12 @@ impl Month {
 
         ret
     }
+
+    #[inline]
+    pub (in crate::apps) const fn check(self, value: u16) -> bool {
+        value & (self as u16) > 0
+    }
+
 }
 
 
