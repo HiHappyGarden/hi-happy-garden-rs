@@ -153,7 +153,10 @@ pub(in crate::drivers) unsafe fn hhg_add_repeating_timer_ms(delay_ms: c_int, cal
         .name("emu_hw_timer".into())
         .spawn(move || {
             // pico-sdk: a negative delay counts from the start of the
-            // previous callback, a positive one from its end
+            // previous callback, a positive one from its end. Both count
+            // from the deadline, not from when the host woke the thread:
+            // the board alarm fires on time, the sleep overshoot of the
+            // host must not pile up period after period
             let mut next = Instant::now() + period;
             loop {
                 let now = Instant::now();
@@ -165,7 +168,14 @@ pub(in crate::drivers) unsafe fn hhg_add_repeating_timer_ms(delay_ms: c_int, cal
                 }
                 let started = Instant::now();
                 callback(user_data.0 as *mut c_void);
-                next = if delay_ms < 0 { started + period } else { Instant::now() + period };
+                let elapsed = if delay_ms < 0 { Duration::ZERO } else { started.elapsed() };
+                next += period + elapsed;
+                // Late by more than a period (host stalled, debugger break):
+                // start over from now instead of firing a burst to catch up
+                let now = Instant::now();
+                if next + period < now {
+                    next = now;
+                }
             }
         });
 

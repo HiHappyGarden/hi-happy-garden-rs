@@ -49,3 +49,4 @@ build-host/cJSON
 .claude
 *old
 .~lock.*
+main/hhg-flash.bin

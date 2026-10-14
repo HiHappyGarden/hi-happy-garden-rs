@@ -120,7 +120,7 @@ fn test_set_query_exec() -> Result<()> {
         // query shows the staged schedule
         test_assert_eq!(
             at_body(controller.query(ScheduleController::AT_RESP))?,
-            "1,31,9,10,224,Morning,[Relay 1=15, Relay 2=5, None, None]"
+            "1,31,9,10,224,Morning,[Zone 2=15, Zone 3=5, None, None]"
         );
         test_assert!(schedule(1) != unsafe { (*&raw const SCHEDULE_TMP).1 }, "set applied before exec");
 

@@ -74,7 +74,7 @@ fn test_relay_conversions() -> Result<()> {
         test_assert_eq!(u8::from(relay), idx as u8);
         test_assert_eq!(ZoneRelay::from(idx as u8), relay);
         test_assert_eq!(GpioPeripheral::from(relay), gpio[idx]);
-        test_assert_eq!(format!("{relay}"), format!("Relay {idx}"));
+        test_assert_eq!(format!("{relay}"), format!("Zone {idx}", idx = idx + 1));
     }
     Ok(())
 }
