@@ -236,7 +236,7 @@ pub(in crate::apps) struct Schedule {
     pub days: u8,
 
     /// month, values allowed 0x01 to 0x0800 or NOT_SET (0) for every month
-    pub month: u16,
+    pub months: u16,
 
     /// description 
     pub description: Bytes<DISPLAY_INPUT_MAX_SIZE>,
@@ -256,7 +256,7 @@ impl Schedule {
             minute: 0,
             hour: 0,
             days: Self::NOT_SET,
-            month: Self::NOT_SET as u16,
+            months: Self::NOT_SET as u16,
             description: Bytes::new(),
             zones: [
                 None,
@@ -295,8 +295,8 @@ impl Schedule {
 
         let mut check = [true; 4];
 
-        if self.month != Self::NOT_SET as u16 {
-            let months = Month::map(self.month);
+        if self.months != Self::NOT_SET as u16 {
+            let months = Month::map(self.months);
             for month in months.iter() {
                 check[0] = false;
                 if let Some(m) = month {
@@ -429,7 +429,7 @@ impl AtContext<{Parser::CMD_SIZE}> for ScheduleController {
             schedule.minute,
             schedule.hour,
             schedule.days,
-            schedule.month,
+            schedule.months,
             schedule.description,
             zones_descr,
         ));
@@ -500,7 +500,7 @@ impl AtContext<{Parser::CMD_SIZE}> for ScheduleController {
                 if month > 0x0FFF {
                     return Err((at_response, AtError::InvalidArgs));
                 }
-                schedule.1.month = month;
+                schedule.1.months = month;
             }
 
             "ds" => { // description

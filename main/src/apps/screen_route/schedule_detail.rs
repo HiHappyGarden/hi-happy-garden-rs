@@ -18,11 +18,11 @@
  *
  ***************************************************************************/
 
-use core::clone;
 
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Bytes, Error, Result};
 
+use crate::apps::sprinkler::zone::{ZoneController, ZoneRelay};
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 use crate::traits::integer::Integer;
 
@@ -48,6 +48,8 @@ enum FSMState {
 
 pub(super) struct ScreenScheduleDetail {
     index: usize,
+    schedule: &'static Schedule,
+
     fsm_state: FSMState,
 
     description: Input,
@@ -64,7 +66,9 @@ pub(super) struct ScreenScheduleDetail {
     fsm_month: Month,
 
     check: Check,
-    zones: Number<u8>, 
+    zones: Select<{ZoneController::SIZE}>, 
+    fsm_zones: Option<ZoneRelay>,
+    
     status: Select<2>
 }
 
@@ -88,36 +92,40 @@ impl ScreenRoute for ScreenScheduleDetail {
 }
 
 impl ScreenScheduleDetail {
-    pub(super)const fn new(index: usize) -> Result<Self> {
-        if index > ScheduleController::SIZE {
+    pub(super) fn new(index: usize) -> Result<Self> {
+        if index >= ScheduleController::SIZE {
             return Err(Error::OutOfIndex)
         }
+
+        let schedule = &ScheduleController::shared()[index];
+
         Ok(Self { 
             index,
+            schedule,
             fsm_state: FSMState::Minute,
             description: Input::new(),
             minute: Number::new_with_range(0..=59),
             hour: Number::new_with_range(0..=23),
-            days: Schedule::NOT_SET,
+            days: schedule.days,
             fsm_day: Day::Monday,
-            months: Schedule::NOT_SET as u16,
+            months: schedule.months,
             fsm_month: Month::January,
             check: Check::new(),
-            zones: Number::new_with_range(0..=3),
+            zones: Select::new(),
+            fsm_zones: None,
             status: Select::new(),
         })
     }
 
     fn draw_description_state(&mut self, ScreenRouteCtx{lcd, display_signal, rtc, .. } : &mut ScreenRouteCtx<'_>) -> Result<Nav> {
-        let des = ScheduleController::default()[self.index];
 
         let answer = self.description.draw(
                 *lcd,
                 display_signal,
                 rtc,
-                &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from(des.description),
+                &ScheduleController::default()[self.index].description,
                 ScreenParam::Input { 
-                    value: ScheduleController::shared()[self.index].description,
+                    value: self.schedule.description,
                     secret_mode: false 
                 }
             )?;
@@ -126,12 +134,14 @@ impl ScreenScheduleDetail {
     }
 
     fn draw_minute_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
+        
+
         let answer = self.minute.draw(
                 *lcd,
                 display_signal,
                 rtc,
                 &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Minutes"),
-                ScreenParam::Number(self.minute.get_value()?)
+                ScreenParam::Number(self.schedule.minute)
             )?;
 
         Ok(self.step(display_signal, answer, FSMState::Hour, FSMState::Description))
@@ -143,7 +153,7 @@ impl ScreenScheduleDetail {
                 display_signal,
                 rtc,
                 &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Hours"),
-                ScreenParam::Number(self.hour.get_value()?)
+                ScreenParam::Number(self.schedule.hour)
             )?;
 
         Ok(self.step(display_signal, answer, FSMState::Days, FSMState::Minute))
@@ -248,7 +258,56 @@ impl ScreenScheduleDetail {
     }
 
     fn draw_zones_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
-        // Implement the rendering logic for the zones state here
+
+        let mut selects = [
+            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("None"), false),
+            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from(ZoneRelay::Relay0.as_str()), false),
+            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from(ZoneRelay::Relay1.as_str()), false),
+            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from(ZoneRelay::Relay2.as_str()), false),
+            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from(ZoneRelay::Relay3.as_str()), false),
+        ];
+
+        let zones_title;
+        if let Some(fsm_zones) = self.fsm_zones {
+            match fsm_zones {
+                ZoneRelay::Relay0 => {
+                    zones_title = ZoneController::default()[0].description;
+                }
+                ZoneRelay::Relay1 => {
+                    zones_title = ZoneController::default()[1].description;
+                }
+                ZoneRelay::Relay2 => {
+                    zones_title = ZoneController::default()[2].description;
+                }
+                ZoneRelay::Relay3 => {
+                    zones_title = ZoneController::default()[3].description;
+                }
+            }
+        } else {
+            zones_title = Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Zones");
+        }
+
+        // selects[0].1 = self.schedule.fsm_zones == ZoneRelay::None;
+        // selects[1].1 = self.schedule.fsm_zones == ZoneRelay::Relay0;
+        // selects[2].1 = self.schedule.fsm_zones == ZoneRelay::Relay1;
+        // selects[3].1 = self.schedule.fsm_zones == ZoneRelay::Relay2;
+        // selects[4].1 = self.schedule.fsm_zones == ZoneRelay::Relay3;
+        
+        let selects = ZoneController::shared();
+
+        let answer = self.zones.draw(
+                *lcd,
+                display_signal,
+                rtc,
+                &zones_title,
+                ScreenParam::Selects([
+                    (selects[0].description, false),
+                    (selects[1].description, false),
+                    (selects[2].description, false),
+                    (selects[3].description, false),
+                ])
+            )?;
+
         Ok(Nav::Stay)
     }
 
