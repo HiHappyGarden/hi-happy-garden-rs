@@ -452,7 +452,7 @@ impl ScreenScheduleDetail {
                         // ZoneController::shared().save()?;
 
 
-                        todo!("Handle schedule status update")
+                        todo!("Handle schedule status update");
 
                         Ok(Nav::Pop(true))
                     }
