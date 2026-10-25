@@ -349,8 +349,7 @@ impl ScreenScheduleDetail {
                     ZoneRelay::Relay0 => idx == 1,
                     ZoneRelay::Relay1 => idx == 2,
                     ZoneRelay::Relay2 => idx == 3,
-                    ZoneRelay::Relay3 => idx == 4,
-                    _ => false,
+                    ZoneRelay::Relay3 => idx == 4
                 },
             };
         }

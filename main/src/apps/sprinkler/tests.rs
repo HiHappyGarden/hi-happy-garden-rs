@@ -129,14 +129,14 @@ fn test_days_of_week() -> Result<()> {
 
 fn test_months() -> Result<()> {
     let mut schedule = active();
-    schedule.month = 0x0001; // January
+    schedule.months = 0x0001; // January
     test_assert!(schedule.executable(&at(2024, 1, 15, 10, 0)?), "January schedule skipped in January");
     test_assert!(!schedule.executable(&at(2024, 2, 15, 10, 0)?), "January schedule ran in February");
 
-    schedule.month = 0x0800; // December
+    schedule.months = 0x0800; // December
     test_assert!(schedule.executable(&at(2024, 12, 1, 10, 0)?), "December schedule skipped in December");
 
-    schedule.month = 0x0020 | 0x0040 | 0x0080; // June..August
+    schedule.months = 0x0020 | 0x0040 | 0x0080; // June..August
     test_assert!(schedule.executable(&at(2024, 7, 1, 10, 0)?), "summer schedule skipped in July");
     test_assert!(!schedule.executable(&at(2024, 9, 1, 10, 0)?), "summer schedule ran in September");
     Ok(())

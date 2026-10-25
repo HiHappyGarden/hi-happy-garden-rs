@@ -126,7 +126,7 @@ fn test_set_query_exec() -> Result<()> {
 
         test_assert!(at_body(controller.exec(ScheduleController::AT_RESP))?.is_empty());
         let applied = schedule(1);
-        test_assert_eq!((applied.minute, applied.hour, applied.days, applied.month), (31, 9, 10, 224));
+        test_assert_eq!((applied.minute, applied.hour, applied.days, applied.months), (31, 9, 10, 224));
         test_assert_eq!(applied.description.as_str(), "Morning");
         test_assert_eq!(applied.zones, [Some((ZoneRelay::Relay1, 15)), Some((ZoneRelay::Relay2, 5)), None, None]);
         test_assert_eq!(applied.status, Status::ACTIVE);
