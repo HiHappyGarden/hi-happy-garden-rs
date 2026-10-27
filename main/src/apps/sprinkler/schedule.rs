@@ -221,9 +221,23 @@ impl Month {
 
 }
 
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub(in crate::apps) struct ScheduleZone {
+    pub relay: ZoneRelay,
+    pub minutes: u8,   // 0 = disabilitata
+}
+
+impl ScheduleZone {
+    const fn new(relay: ZoneRelay) -> Self {
+        Self {
+            relay,
+            minutes: 0,
+        }
+    }
+}
 
 
-#[derive(Debug, Default, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub(in crate::apps) struct Schedule {
 
     ///  minute, values allowed 1 - 60 or NOT_SET (0) for every minute real value is minute - 1
@@ -242,7 +256,7 @@ pub(in crate::apps) struct Schedule {
     pub description: Bytes<DISPLAY_INPUT_MAX_SIZE>,
 
     /// zones associated to the schedule and watering time in minutes, 0 minutes = zone disabled
-    pub zones: [Option<(ZoneRelay, u8)>; ZoneController::SIZE],
+    pub zones: [ScheduleZone; ZoneController::SIZE],
 
     /// status of the schedule
     pub status: Status
@@ -259,10 +273,10 @@ impl Schedule {
             months: Self::NOT_SET as u16,
             description: Bytes::new(),
             zones: [
-                None,
-                None,
-                None,
-                None
+                ScheduleZone::new(ZoneRelay::Relay0),
+                ScheduleZone::new(ZoneRelay::Relay1),
+                ScheduleZone::new(ZoneRelay::Relay2),
+                ScheduleZone::new(ZoneRelay::Relay3),
             ],
             status: Status::UNACTIVE
         }
@@ -411,15 +425,10 @@ impl AtContext<{Parser::CMD_SIZE}> for ScheduleController {
 
         let mut zones_descr = Bytes::<100>::new();
         zones_descr.append_str("[");
-        for zone in schedule.zones {
-            match zone {
-                Some((zone_relay, watering_time)) => {
-                    let mut format = Bytes::<16>::new();
-                    format.format(format_args!("{zone_relay}={watering_time}, "));
-                    zones_descr.append_as_sync_str(&format);
-                }
-                None => zones_descr.append_str("None, "),
-            };
+        for ScheduleZone { relay: zone_relay, minutes } in schedule.zones {
+            let mut format = Bytes::<16>::new();
+            format.format(format_args!("{zone_relay}={minutes}, "));
+            zones_descr.append_as_sync_str(&format);
         }
         zones_descr.pop_char();
         zones_descr.pop_char();
@@ -518,16 +527,19 @@ impl AtContext<{Parser::CMD_SIZE}> for ScheduleController {
                 if zone_relay >= ZoneController::SIZE as u8{
                     return Err((at_response, AtError::InvalidArgs));
                 }
-                let zone_relay = ZoneRelay::from(zone_relay);
+                let relay = ZoneRelay::from(zone_relay);
                 let minutes: u8 = args.get(3).ok_or((at_response, AtError::InvalidArgs))?
                     .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
 
-                let position = schedule.1.zones.iter().position(|z| matches!(z, Some((relay, _)) if *relay == zone_relay))
-                    .or_else(|| schedule.1.zones.iter().position(|z| z.is_none()))
+                let position = schedule.1.zones.iter().position(|z| matches!(z, ScheduleZone { relay: r, minutes: _ } if *r == relay))
+                    .or_else(|| schedule.1.zones.iter().position(|z| matches!(z, ScheduleZone { relay: _, minutes: 0 })))
                     .ok_or((at_response, AtError::InvalidArgs))?;
 
 
-                schedule.1.zones[position] = Some((zone_relay, minutes));
+                schedule.1.zones[position] = ScheduleZone{
+                    relay, 
+                    minutes 
+                };
             }
             "st" => { // status
                 let value: u8 = args.get(2).ok_or((at_response, AtError::InvalidArgs))?

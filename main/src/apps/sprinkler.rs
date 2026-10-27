@@ -56,10 +56,8 @@ impl Initializable for Sprinkler {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init app sprinkler");
         
-        self.schedule_controller.init()?;
         self.zone_comntroller.init()?;
-
-
+        self.schedule_controller.init()?;
 
         Ok(())
     }
