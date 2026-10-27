@@ -47,14 +47,42 @@ use crate::apps::signals::status::StatusFlag;
 use crate::apps::screen_route::login::ScreenLogin;
 use crate::apps::screen_route::wizard::ScreenWizard;
 use crate::apps::screen_route::menu::ScreenMenu;
-use crate::traits::screen::{BoxedScreenRoute, Nav, ScreenRoute as ScreenRouteFn, ScreenRouteCtx};
+use crate::traits::integer::Integer;
+use crate::traits::screen::{Answer, BoxedScreenRoute, Nav, ScreenRoute as ScreenRouteFn, ScreenRouteCtx};
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
 use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::Result;
 
- pub(in crate::apps) struct ScreenRoute {
+
+trait StateMachine<S> {
+    fn next_state(&mut self, next: S);
+}
+
+
+pub (in crate::apps::screen_route) fn step<S, FSMS, N, const N_SELECTS: usize>(s: &mut S, display_signal: &mut EventBits, answer: Answer<N, N_SELECTS>, confirmed: FSMS, cancelled: FSMS) -> Nav
+where N: Integer,
+    S: StateMachine<FSMS>
+{
+    match answer {
+        Answer::Pending => {}
+        Answer::Confirmed(_) => set_state(s, display_signal, confirmed),
+        Answer::Cancelled => set_state(s, display_signal, cancelled),
+    }
+    Nav::Stay
+}
+
+#[inline]
+pub (in crate::apps::screen_route) fn set_state<S, FSMS>(s: &mut S, display_signal: &mut EventBits, next: FSMS) 
+where S: StateMachine<FSMS>
+{
+    s.next_state(next);
+    request_redraw(display_signal);
+}
+
+
+pub(in crate::apps) struct ScreenRoute {
     config: &'static mut Config,
     stack: Vec<(&'static str, BoxedScreenRoute)>,
     check_staus_counter: u8,

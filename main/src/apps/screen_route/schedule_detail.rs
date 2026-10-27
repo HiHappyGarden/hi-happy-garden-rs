@@ -19,19 +19,17 @@
  ***************************************************************************/
 
 
-use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::apps::display::text::Text;
+use crate::apps::screen_route::{StateMachine, set_state, step};
 use crate::apps::sprinkler::commons::Status;
 use crate::apps::sprinkler::zone::ZoneRelay::Relay0;
 use crate::apps::sprinkler::schedule::ScheduleZone;
 use crate::apps::sprinkler::zone::{ZoneController, ZoneRelay};
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
-use crate::traits::integer::Integer;
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
-use crate::apps::{signals::display::request_redraw};
 use crate::apps::sprinkler::schedule::{Day, Month, Schedule, ScheduleController};
 use crate::apps::display::select::Select;
 use crate::apps::display::number::Number;
@@ -103,6 +101,12 @@ impl ScreenRoute for ScreenScheduleDetail {
     }
 }
 
+impl StateMachine<FSMState> for ScreenScheduleDetail {
+    fn next_state(&mut self, next: FSMState) {
+        self.fsm_state = next;
+    }
+}
+
 impl ScreenScheduleDetail {
     pub(super) fn new(index: usize) -> Result<Self> {
         if index >= ScheduleController::SIZE {
@@ -146,7 +150,7 @@ impl ScreenScheduleDetail {
                 }
             )?;
 
-        Ok(self.step(display_signal, answer, FSMState::Minute, FSMState::Description))
+        Ok(step(self, display_signal, answer, FSMState::Minute, FSMState::Description))
     }
 
     fn draw_minute_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
@@ -160,7 +164,7 @@ impl ScreenScheduleDetail {
                 ScreenParam::Number(self.schedule.minute)
             )?;
 
-        Ok(self.step(display_signal, answer, FSMState::Hour, FSMState::Description))
+        Ok(step(self, display_signal, answer, FSMState::Hour, FSMState::Description))
     }
 
     fn draw_hour_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
@@ -174,7 +178,7 @@ impl ScreenScheduleDetail {
 
         self.fsm_day = Day::Monday;
 
-        Ok(self.step(display_signal, answer, FSMState::DaysLabel, FSMState::Minute))
+        Ok(step(self, display_signal, answer, FSMState::DaysLabel, FSMState::Minute))
     }
 
     fn draw_label_state(&mut self, ScreenRouteCtx{lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>, text: &str, confirmed: FSMState, cancelled: FSMState) -> Result<Nav> {
@@ -194,7 +198,7 @@ impl ScreenScheduleDetail {
         }
         
 
-        Ok(self.step(display_signal, answer, confirmed, cancelled))
+        Ok(step(self, display_signal, answer, confirmed, cancelled))
     }
 
     fn draw_days_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
@@ -275,7 +279,7 @@ impl ScreenScheduleDetail {
 
         self.fsm_month = Month::January;
 
-        Ok(self.step(display_signal, answer, next, back))
+        Ok(step(self, display_signal, answer, next, back))
     }
 
     fn draw_month_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
@@ -382,7 +386,7 @@ impl ScreenScheduleDetail {
 
         self.fsm_zone = Relay0;
 
-        Ok(self.step(display_signal, answer, next, back))
+        Ok(step(self, display_signal, answer, next, back))
     }
 
     fn draw_zones_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
@@ -438,7 +442,7 @@ impl ScreenScheduleDetail {
             back = FSMState::ZoneLabel;
         }
 
-        Ok(self.step(display_signal, answer, next, back))
+        Ok(step(self, display_signal, answer, next, back))
     }
 
     fn draw_status_state(&mut self, ScreenRouteCtx{lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
@@ -492,28 +496,10 @@ impl ScreenScheduleDetail {
                 }
             }
             Answer::Cancelled => {
-                self.set_state(display_signal, FSMState::Zone);
+                set_state(self, display_signal, FSMState::Zone);
                 Ok(Nav::Stay)
             }
         }
-    }
-
-    #[inline]
-    fn set_state(&mut self, display_signal: &mut EventBits, next: FSMState) {
-        self.fsm_state = next;
-        request_redraw(display_signal);
-    }
-
-
-    fn step<N, const N_SELECTS: usize>(&mut self, display_signal: &mut EventBits, answer: Answer<N, N_SELECTS>, confirmed: FSMState, cancelled: FSMState) -> Nav
-    where N: Integer
-    {
-        match answer {
-            Answer::Pending => {}
-            Answer::Confirmed(_) => self.set_state(display_signal, confirmed),
-            Answer::Cancelled => self.set_state(display_signal, cancelled),
-        }
-        Nav::Stay
     }
 
 

@@ -228,7 +228,7 @@ pub(in crate::apps) struct ScheduleZone {
 }
 
 impl ScheduleZone {
-    const fn new(relay: ZoneRelay) -> Self {
+    pub(in crate::apps) const fn new(relay: ZoneRelay) -> Self {
         Self {
             relay,
             minutes: 0,

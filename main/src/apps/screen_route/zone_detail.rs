@@ -21,16 +21,14 @@
 #[cfg(feature = "tests")]
 pub(super) mod tests;
 
-use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::display::input::Input;
 use crate::apps::display::number::Number;
 use crate::apps::display::select::Select;
-use crate::apps::signals::display::request_redraw;
+use crate::apps::screen_route::{StateMachine, set_state, step};
 use crate::apps::sprinkler::commons::Status;
-use crate::traits::integer::Integer;
 use crate::traits::screen::{Answer, Screen, ScreenParam};
 use crate::apps::sprinkler::zone::{Zone, ZoneController, ZoneRelay};
 use crate::traits::screen::{Nav, ScreenRoute, ScreenRouteCtx};
@@ -70,6 +68,12 @@ impl ScreenRoute for ScreenZoneDetail {
 
 }
 
+impl StateMachine<FSMState> for ScreenZoneDetail {
+    fn next_state(&mut self, next: FSMState) {
+        self.fsm_state = next;
+    }
+}
+
 impl ScreenZoneDetail {
     pub(super) fn new(zone_relay: usize) -> Result<Self> {
         if zone_relay >= ZoneController::SIZE {
@@ -103,7 +107,7 @@ impl ScreenZoneDetail {
                 }
             )?;
 
-        Ok(self.step(display_signal, answer, FSMState::Weight, FSMState::Description))
+        Ok(step(self, display_signal, answer, FSMState::Weight, FSMState::Description))
     }
 
     fn draw_weight_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
@@ -116,7 +120,7 @@ impl ScreenZoneDetail {
                 ScreenParam::Number(self.zone.weight)
             )?;
 
-        Ok(self.step(display_signal, answer, FSMState::Status, FSMState::Description))
+        Ok(step(self, display_signal, answer, FSMState::Status, FSMState::Description))
     }
 
     fn draw_status_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
@@ -168,29 +172,10 @@ impl ScreenZoneDetail {
                 }
             }
             Answer::Cancelled => {
-                self.set_state(display_signal, FSMState::Weight);
+                set_state(self, display_signal, FSMState::Weight);
                 Ok(Nav::Stay)
             }
         }
     }
-
-    #[inline]
-    fn set_state(&mut self, display_signal: &mut EventBits, next: FSMState) {
-        self.fsm_state = next;
-        request_redraw(display_signal);
-    }
-
-
-    fn step<N, const N_SELECTS: usize>(&mut self, display_signal: &mut EventBits, answer: Answer<N, N_SELECTS>, confirmed: FSMState, cancelled: FSMState) -> Nav
-    where N: Integer
-    {
-        match answer {
-            Answer::Pending => {}
-            Answer::Confirmed(_) => self.set_state(display_signal, confirmed),
-            Answer::Cancelled => self.set_state(display_signal, cancelled),
-        }
-        Nav::Stay
-    }
-
 
 }
