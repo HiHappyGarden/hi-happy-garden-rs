@@ -31,7 +31,7 @@ use core::sync::atomic::Ordering;
 use osal_rs::utils::Result;
 
 use super::commons::Status;
-use super::schedule::{Schedule, ScheduleController};
+use super::schedule::{Schedule, ScheduleController, ScheduleZone};
 use super::zone::ZoneRelay;
 use super::{DISBURSEMENT_IN_PROGRESS, Sprinkler};
 use crate::drivers::date_time::DateTime;
@@ -55,7 +55,7 @@ fn statuses() -> [Status; ScheduleController::SIZE] {
 fn active() -> Schedule {
     let mut schedule = Schedule::new();
     schedule.status = Status::ACTIVE;
-    schedule.zones[0] = Some((ZoneRelay::Relay0, 10));
+    schedule.zones[0] = ScheduleZone { relay: ZoneRelay::Relay0, minutes: 10 };
     schedule
 }
 

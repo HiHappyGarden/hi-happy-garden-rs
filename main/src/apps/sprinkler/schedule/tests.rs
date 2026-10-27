@@ -32,7 +32,7 @@ use at_parser_rs::Args;
 use at_parser_rs::context::AtContext;
 use osal_rs::utils::Result;
 
-use super::{Day, MUTEX, Month, SCHEDULE_TMP, SHARED, Schedule, ScheduleController};
+use super::{Day, MUTEX, Month, SCHEDULE_TMP, SHARED, Schedule, ScheduleController, ScheduleZone};
 use crate::apps::parser::Parser;
 use crate::apps::sprinkler::commons::Status;
 use crate::apps::sprinkler::zone::{ZoneController, ZoneRelay};
@@ -120,7 +120,7 @@ fn test_set_query_exec() -> Result<()> {
         // query shows the staged schedule
         test_assert_eq!(
             at_body(controller.query(ScheduleController::AT_RESP))?,
-            "1,31,9,10,224,Morning,[Zone 2=15, Zone 3=5, None, None]"
+            "1,31,9,10,224,Morning,[Zone 1=0, Zone 2=15, Zone 3=5, Zone 4=0]"
         );
         test_assert!(schedule(1) != unsafe { (*&raw const SCHEDULE_TMP).1 }, "set applied before exec");
 
@@ -128,7 +128,12 @@ fn test_set_query_exec() -> Result<()> {
         let applied = schedule(1);
         test_assert_eq!((applied.minute, applied.hour, applied.days, applied.months), (31, 9, 10, 224));
         test_assert_eq!(applied.description.as_str(), "Morning");
-        test_assert_eq!(applied.zones, [Some((ZoneRelay::Relay1, 15)), Some((ZoneRelay::Relay2, 5)), None, None]);
+        test_assert_eq!(applied.zones, [
+            ScheduleZone::new(ZoneRelay::Relay0),
+            ScheduleZone { relay: ZoneRelay::Relay1, minutes: 15 },
+            ScheduleZone { relay: ZoneRelay::Relay2, minutes: 5 },
+            ScheduleZone::new(ZoneRelay::Relay3),
+        ]);
         test_assert_eq!(applied.status, Status::ACTIVE);
 
         test_assert_eq!(at_error(controller.exec(ScheduleController::AT_RESP))?, "No modify applied");
