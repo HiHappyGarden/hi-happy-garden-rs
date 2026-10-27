@@ -27,6 +27,7 @@ use crate::apps::display::text::Text;
 use crate::apps::screen_route::date_time::ScreenDateTime;
 use crate::apps::screen_route::daylight_saving_time::ScreenDaylightSavingTime;
 use crate::apps::screen_route::info::ScreenInfo;
+use crate::apps::screen_route::manual::ScreenManual;
 use crate::apps::screen_route::sprinkler::ScreenSprinkler;
 use crate::apps::screen_route::user::ScreenUser;
 use crate::apps::screen_route::wifi::ScreenWifi;
@@ -42,16 +43,18 @@ pub(super) enum MenuItem {
     Wifi,
     User,
     Sprinkler,
+    Manual,
 }
 
 impl MenuItem {
-    const ORDER: [MenuItem; 6] = [
+    const ORDER: [MenuItem; 7] = [
         MenuItem::Info,
         MenuItem::DateTime,
         MenuItem::DaylightSavingTime,
         MenuItem::Wifi,
         MenuItem::User,
         MenuItem::Sprinkler,
+        MenuItem::Manual,
     ];
 
 
@@ -63,6 +66,7 @@ impl MenuItem {
             MenuItem::Wifi               => Box::new(ScreenWifi::new()),
             MenuItem::User               => Box::new(ScreenUser::new()),
             MenuItem::Sprinkler          => Box::new(ScreenSprinkler::new()),
+            MenuItem::Manual             => Box::new(ScreenManual::new()),
         }
         
     }
@@ -75,6 +79,7 @@ impl MenuItem {
             MenuItem::Wifi               => "Wifi",
             MenuItem::User               => "User",
             MenuItem::Sprinkler          => "Sprinkler",
+            MenuItem::Manual             => "Manual",
         }
     }
 
@@ -88,6 +93,7 @@ impl MenuItem {
             MenuItem::Wifi               => 3,
             MenuItem::User               => 4,
             MenuItem::Sprinkler          => 5,
+            MenuItem::Manual             => 6,
         }
     }
 

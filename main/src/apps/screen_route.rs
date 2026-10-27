@@ -27,6 +27,7 @@ mod daylight_saving_time;
 mod info;
 mod login;
 mod menu;
+mod manual;
 mod wizard;
 mod schedule_detail;
 mod schedule;
