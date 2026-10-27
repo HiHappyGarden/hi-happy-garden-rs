@@ -116,16 +116,16 @@ pub(in crate::drivers) unsafe fn hhg_dns_gethostbyname(
     addr: *mut ip_addr,
     _dns_found_callback: extern "C" fn(name: *const c_char, ipaddr: *const ip_addr, callback_arg: *mut c_void),
     _callback_arg: *mut c_void,
-) -> c_char {
+) -> i8 {
     if hostname.is_null() || addr.is_null() {
-        return ERR_ARG as i8 as c_char;
+        return ERR_ARG as i8;
     }
     if !is_joined() {
-        return ERR_RTE as i8 as c_char;
+        return ERR_RTE as i8;
     }
 
     let Ok(hostname) = unsafe { CStr::from_ptr(hostname) }.to_str() else {
-        return ERR_ARG as i8 as c_char;
+        return ERR_ARG as i8;
     };
     let resolved = (hostname, 0)
         .to_socket_addrs()
@@ -138,9 +138,9 @@ pub(in crate::drivers) unsafe fn hhg_dns_gethostbyname(
     match resolved {
         Some(ip) => {
             unsafe { *addr = to_ip_addr(ip) };
-            ERR_OK as i8 as c_char
+            ERR_OK as i8
         }
-        None => ERR_VAL as i8 as c_char,
+        None => ERR_VAL as i8,
     }
 }
 

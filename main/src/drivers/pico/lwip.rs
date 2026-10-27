@@ -23,10 +23,13 @@ use core::ffi::{c_char, c_void};
 use core::ptr::null_mut;
 use core::slice::{from_raw_parts, from_raw_parts_mut};
 use osal_rs::os::{System, SystemFn};
+use osal_rs::log_error;
 use osal_rs::utils::{Bytes, Error, Result};
 use crate::drivers::network::{IP4Addr, NetworkFn};
 use crate::drivers::pico::ffi::{lwip_ip_addr_type::IPADDR_TYPE_V4, hhg_cyw43_arch_lwip_begin, hhg_cyw43_arch_lwip_end, hhg_cyw43_arch_poll, hhg_dns_gethostbyname, hhg_pbuf_alloc, hhg_pbuf_copy_partial, hhg_pbuf_free, hhg_pbuf_get_at, hhg_udp_new_ip_type, hhg_udp_recv, hhg_udp_sendto, ip_addr, pbuf, udp_pcb, hhg_dhcp_get_binary_ip_address, hhg_dhcp_get_ip_address, hhg_dhcp_supplied_address, hhg_netif_is_link_up};
 use crate::traits::network::{IPV6_ADDR_LEN, IpAddress};
+
+const APP_TAG: &str = "LWIP";
 
 static mut IP_ADDRES_FOUND: Option<IP4Addr> = None;
 static mut TIMESTAMP: i64 = 0;
@@ -66,9 +69,13 @@ fn dhcp_supplied_address() -> bool {
 
 
 extern "C" fn dns_found_callback(_name: *const c_char, ipaddr: *const IP4Addr, _: *mut c_void) {
-    // SAFETY: The callback is called by the C code, so we can assume that the pointers are valid
-    
-    
+    // lwIP passes a NULL ipaddr when the lookup fails (NXDOMAIN, no answer from the server, ...)
+    if ipaddr.is_null() {
+        log_error!(APP_TAG, "DNS lookup failed: no address returned");
+        return;
+    }
+
+    // SAFETY: The callback is called by the C code, ipaddr was checked for NULL above
     let ipaddr = unsafe { &*(ipaddr as *const IP4Addr) };
 
 
@@ -102,7 +109,7 @@ fn dns_resolve_addrress<'a>(hostname: &Bytes<64>) -> Result<&'a dyn IpAddress> {
     }
 
     // 0 (ERR_OK): Address already in cache, callback won't be called
-    // 251/0xFB (ERR_INPROGRESS as u8): query sent, waiting for response, callback will be called when response is received
+    // -5 (ERR_INPROGRESS): query sent, waiting for response, callback will be called when response is received
     // anthings else: error, callback won't be called
     
     if dns_result == 0 {
@@ -115,7 +122,7 @@ fn dns_resolve_addrress<'a>(hostname: &Bytes<64>) -> Result<&'a dyn IpAddress> {
         } else {
             Err(Error::Empty)
         };
-    } else if dns_result as i8 == -5 {
+    } else if dns_result == -5 {
         // Query sent, waiting for response, callback will be called when response is received
         const TIMEOUT_MS: TickType = 5000;
         const POLL_INTERVAL_MS: TickType = 10;
@@ -133,10 +140,13 @@ fn dns_resolve_addrress<'a>(hostname: &Bytes<64>) -> Result<&'a dyn IpAddress> {
 
         if let Some(ipaddr) = unsafe { &*&raw const IP_ADDRES_FOUND } {
             Ok(ipaddr)
-        } else {  
+        } else {
+            log_error!(APP_TAG, "DNS lookup for {} got no answer within {}ms", hostname, TIMEOUT_MS);
             Err(Error::Empty)
         }
     } else {
+        // -6 (ERR_VAL): no DNS server configured, -16 (ERR_ARG): bad hostname or DNS not initialized, -1 (ERR_MEM): DNS table full
+        log_error!(APP_TAG, "dns_gethostbyname({}) failed with err={}", hostname, dns_result);
         Err(Error::Empty)
     }
 }
