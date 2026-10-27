@@ -108,6 +108,7 @@ impl Screen<bool> for Check
 
 
     fn drop_value(&mut self) {
+        self.value = false;
         self.checked = None;
     }
 

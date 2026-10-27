@@ -133,6 +133,7 @@ impl<const N: usize> Screen<ScreenSelections<N>, u16, N> for Select<N> {
     }
 
     fn drop_value(&mut self) {
+        self.index = 0;
         self.selections = None;
     }
 

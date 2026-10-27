@@ -233,6 +233,11 @@ impl Screen<Bytes<MAX_SIZE>> for Input
 
     fn drop_value(&mut self) {
         self.input = None;
+        self.original_input = None;
+        self.idx = 0;
+        self.button_pressed_tick = 0;
+        self.encoder_button_pressed_tick = 0;
+        self.secret_mode = false;
     }
 }
 

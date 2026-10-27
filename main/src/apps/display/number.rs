@@ -110,6 +110,7 @@ where
     }
     
     fn drop_value(&mut self) {
+        self.number = None;
         self.result = None;
     }
 }
