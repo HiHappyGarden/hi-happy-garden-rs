@@ -244,7 +244,7 @@ fn test_check_cancel_and_drop() -> Result<()> {
     let (answer, _) = frame(&mut check, &mut lcd, bits(ButtonReleased), ScreenParam::Check(true))?;
     test_assert!(is_cancelled(&answer));
 
-    check.drop_value();
+    check.clear();
     test_assert!(matches!(check.get_value(), Err(Error::NullPtr)), "value kept after drop");
     // After a drop the parameter is read again
     frame(&mut check, &mut lcd, 0, ScreenParam::Check(false))?;
@@ -304,7 +304,7 @@ fn test_number_confirm_and_cancel() -> Result<()> {
     test_assert!(matches!(answer, Answer::Confirmed(ScreenParam::Number(5))));
     test_assert_eq!(number.get_value()?, 5);
 
-    number.drop_value();
+    number.clear();
     test_assert!(matches!(number.get_value(), Err(Error::NullPtr)), "value kept after drop");
 
     let (answer, _) = frame(&mut number, &mut lcd, bits(ButtonReleased), ScreenParam::Number(4))?;
@@ -407,7 +407,7 @@ fn test_select_cancel_and_drop() -> Result<()> {
     let (answer, _) = frame(&mut select, &mut lcd, bits(ButtonReleased), ScreenParam::Selects(selections(Some(2))))?;
     test_assert!(is_cancelled(&answer));
 
-    select.drop_value();
+    select.clear();
     test_assert!(matches!(select.get_value(), Err(Error::NullPtr)), "value kept after drop");
     Ok(())
 }
@@ -566,14 +566,14 @@ fn test_input_overflow_marker() -> Result<()> {
     Ok(())
 }
 
-fn test_input_drop_value() -> Result<()> {
+fn test_input_clear() -> Result<()> {
     let mut lcd = MockLcd::new();
     let mut input = Input::new();
     test_assert!(matches!(input.get_value(), Err(Error::NullPtr)), "value before the first draw");
     frame(&mut input, &mut lcd, 0, input_param("ab", false))?;
     test_assert!(input.get_value().is_ok());
-    input.drop_value();
-    test_assert!(matches!(input.get_value(), Err(Error::NullPtr)), "value kept after drop");
+    input.clear();
+    test_assert!(matches!(input.get_value(), Err(Error::NullPtr)), "value kept after clear");
     Ok(())
 }
 
@@ -638,7 +638,7 @@ fn test_time_confirm() -> Result<()> {
     let value = editor.get_value()?;
     test_assert_eq!((value.hour, value.minute, value.second), (12, 30, 15));
 
-    editor.drop_value();
+    editor.clear();
     test_assert!(matches!(editor.get_value(), Err(Error::NullPtr)), "value kept after drop");
     Ok(())
 }
@@ -664,7 +664,7 @@ fn test_time_drop_reloads() -> Result<()> {
     frame(&mut editor, &mut lcd, 0, time(12, 30, 0)?)?;
     frame(&mut editor, &mut lcd, bits(EncoderRotatedClockwise), time(12, 30, 0)?)?;
 
-    editor.drop_value();
+    editor.clear();
     frame(&mut editor, &mut lcd, 0, time(8, 15, 0)?)?;
     frame(&mut editor, &mut lcd, DRAW, time(8, 15, 0)?)?;
     test_assert_eq!(lcd.last_text_at(SECOND_ROW_Y), "08:15:00", "old edit kept after drop");
@@ -782,7 +782,7 @@ pub(in crate::apps) fn run_all_tests(stats: &mut TestStats) {
         test_input_char_outside_table,
         test_input_secret_mode,
         test_input_overflow_marker,
-        test_input_drop_value,
+        test_input_clear,
         test_time_fields,
         test_time_wrap,
         test_time_confirm,
