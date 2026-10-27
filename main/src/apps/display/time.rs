@@ -53,7 +53,7 @@ impl Screen<DateTime> for Time
     }
 
     fn clear(&mut self) {
-        self.0.reset();
+        self.0.clear();
     }
 }
   

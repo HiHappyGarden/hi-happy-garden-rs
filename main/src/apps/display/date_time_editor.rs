@@ -147,7 +147,7 @@ impl FieldEditor {
     }
 
     /// Back to the state of a new editor: the next draw takes the parameter again.
-    pub(super) fn reset(&mut self) {
+    pub(super) fn clear(&mut self) {
         self.fields = [None, None, None];
         self.step = Step::FieldHour;
         self.result = None;
