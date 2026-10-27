@@ -224,7 +224,7 @@ impl Month {
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub(in crate::apps) struct ScheduleZone {
     pub relay: ZoneRelay,
-    pub minutes: u8,   // 0 = disabilitata
+    pub minutes: u8,   // 0 = not enabled
 }
 
 impl ScheduleZone {

@@ -20,7 +20,6 @@
 
 
 use osal_rs::os::types::EventBits;
-use osal_rs::println;
 use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::apps::display::text::Text;
@@ -209,8 +208,6 @@ impl ScreenScheduleDetail {
 
 
         let value = self.fsm_day.check(self.days);
-
-        println!("Current day value: {} self.days: {}", value, self.days);
 
         let answer = self.check.draw(
                 *lcd,
@@ -410,7 +407,6 @@ impl ScreenScheduleDetail {
         let back;
         if let Answer::Confirmed(ScreenParam::Number(number)) = answer {
 
-            // if number > 0 {
             self.zones[self.fsm_zone as usize] = ScheduleZone { relay: self.fsm_zone, minutes: number };
             self.number.drop_value();
 
@@ -437,7 +433,6 @@ impl ScreenScheduleDetail {
                 }
             }
 
-            
         } else {
             next = FSMState::Zone;
             back = FSMState::ZoneLabel;
