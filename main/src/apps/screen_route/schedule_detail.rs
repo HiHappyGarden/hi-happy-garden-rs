@@ -44,6 +44,7 @@ enum FSMState {
     Days,
     MonthLabel,
     Month,
+    ZonesLabel,
     Zones,
     Status,
 }
@@ -62,6 +63,7 @@ pub(super) struct ScreenScheduleDetail {
     hour: Number<u8>,
 
     text: Text,
+    check: Check,
 
     /// day of week from 0x01 to 0x40 or NOT_SET (0) for every day, otherwise bitmask of Day
     days: u8,
@@ -71,9 +73,10 @@ pub(super) struct ScreenScheduleDetail {
     months: u16,
     fsm_month: Month,
 
-    check: Check,
-    zones: Select<{ZoneController::SIZE + 1}>,
-    
+    number: Number<u8>,
+    zones: [Option<(ZoneRelay, u8)>; ZoneController::SIZE],
+    fsm_zone: ZoneRelay,
+
     status: Select<2>
 }
 
@@ -83,15 +86,15 @@ impl ScreenRoute for ScreenScheduleDetail {
     }
 
     fn renderize(&mut self, screen_route_ctx: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
-
         match self.fsm_state {
             FSMState::Description => self.draw_description_state(screen_route_ctx),
             FSMState::Minute    => self.draw_minute_state(screen_route_ctx),
             FSMState::Hour      => self.draw_hour_state(screen_route_ctx),
-            FSMState::DaysLabel => self.draw_days_label_state(screen_route_ctx),
+            FSMState::DaysLabel => self.draw_label_state(screen_route_ctx, "Select watering|days", FSMState::Days, FSMState::Hour),
             FSMState::Days      => self.draw_days_state(screen_route_ctx),
-            FSMState::MonthLabel => self.draw_month_label_state(screen_route_ctx),
+            FSMState::MonthLabel => self.draw_label_state(screen_route_ctx, "Select watering|months", FSMState::Month, FSMState::Days),
             FSMState::Month     => self.draw_month_state(screen_route_ctx),
+            FSMState::ZonesLabel => self.draw_label_state(screen_route_ctx, "Select watering|zones", FSMState::Zones, FSMState::Month),
             FSMState::Zones     => self.draw_zones_state(screen_route_ctx),
             FSMState::Status    => self.draw_status_state(screen_route_ctx),
         }
@@ -115,11 +118,15 @@ impl ScreenScheduleDetail {
             hour: Number::new_with_range(0..=23),
             days: schedule.days,    
             text: Text::new(),
+            check: Check::new(),
             fsm_day: Day::Monday,
             months: schedule.months,
             fsm_month: Month::January,
-            check: Check::new(),
-            zones: Select::new(),
+            
+            number: Number::new_with_range(0..=255),
+            zones: schedule.zones,
+            fsm_zone: ZoneRelay::Relay1,
+
             status: Select::new(),
         })
     }
@@ -168,18 +175,18 @@ impl ScreenScheduleDetail {
         Ok(self.step(display_signal, answer, FSMState::DaysLabel, FSMState::Minute))
     }
 
-    fn draw_days_label_state(&mut self, ScreenRouteCtx{lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
+    fn draw_label_state(&mut self, ScreenRouteCtx{lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>, text: &str, confirmed: FSMState, cancelled: FSMState) -> Result<Nav> {
         let answer = self.text.draw(
                 *lcd,
                 display_signal,
                 rtc,
-                &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Select watering|days"),
+                &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from(text),
                 ScreenParam::None
             )?;
 
         self.fsm_day = Day::Monday;
 
-        Ok(self.step(display_signal, answer, FSMState::Days, FSMState::Minute))
+        Ok(self.step(display_signal, answer, confirmed, cancelled))
     }
 
     fn draw_days_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
@@ -209,12 +216,15 @@ impl ScreenScheduleDetail {
 
             if check {
                 self.days |= self.fsm_day as u8;
+            } else {
+                self.days &= !(self.fsm_day as u8);
             }
+            self.check.drop_value();
 
             match self.fsm_day {
                 Day::Monday => {
                     next = FSMState::Days;
-                    back = FSMState::Hour;
+                    back = FSMState::DaysLabel;
                     self.fsm_day = Day::Tuesday;
                 }
                 Day::Tuesday => {
@@ -252,26 +262,12 @@ impl ScreenScheduleDetail {
             
         } else {
             next = FSMState::Days;
-            back = FSMState::Hour;
+            back = FSMState::DaysLabel;
         }
 
         self.fsm_month = Month::January;
 
         Ok(self.step(display_signal, answer, next, back))
-    }
-
-    fn draw_month_label_state(&mut self, ScreenRouteCtx{lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
-        let answer = self.text.draw(
-                *lcd,
-                display_signal,
-                rtc,
-                &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Select watering|months"),
-                ScreenParam::None
-            )?;
-
-        self.fsm_month = Month::January;
-
-        Ok(self.step(display_signal, answer, FSMState::Month, FSMState::Days))
     }
 
     fn draw_month_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
@@ -300,12 +296,15 @@ impl ScreenScheduleDetail {
 
             if check {
                 self.months |= self.fsm_month as u16;
+            } else {
+                self.months &= !(self.fsm_month as u16);
             }
+            self.check.drop_value();
 
             match self.fsm_month {
                 Month::January => {
                     next = FSMState::Month;
-                    back = FSMState::Days;
+                    back = FSMState::MonthLabel;
                     self.fsm_month = Month::February;
                 }
                 Month::February => {
@@ -359,7 +358,7 @@ impl ScreenScheduleDetail {
                     self.fsm_month = Month::December;
                 }
                 Month::December => {
-                    next = FSMState::Zones;
+                    next = FSMState::ZonesLabel;
                     back = FSMState::Month;
                     self.fsm_month = Month::January;
                 }
@@ -368,7 +367,7 @@ impl ScreenScheduleDetail {
             
         } else {
             next = FSMState::Month;
-            back = FSMState::Days;
+            back = FSMState::MonthLabel;
         }
 
         Ok(self.step(display_signal, answer, next, back))
@@ -376,37 +375,62 @@ impl ScreenScheduleDetail {
 
     fn draw_zones_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
 
+        let mut title = Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Set ");
+        title.append(&ZoneController::shared()[self.fsm_zone as usize].description);
+        title.append_str(" watering time");
 
-         let mut zones = [
-            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("None"), false),
-            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from(ZoneRelay::Relay0.as_str()), false),
-            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from(ZoneRelay::Relay1.as_str()), false),
-            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from(ZoneRelay::Relay2.as_str()), false),
-            (Bytes::<DISPLAY_INPUT_MAX_SIZE>::from(ZoneRelay::Relay3.as_str()), false),
-        ];
+        self.check.drop_value();
 
-
-        for (idx, zone) in self.schedule.zones.iter().enumerate() {
-            zones[idx + 1].1 = match zone {
-                None => idx == 0,
-                Some((relay, _)) => match relay {
-                    ZoneRelay::Relay0 => idx == 1,
-                    ZoneRelay::Relay1 => idx == 2,
-                    ZoneRelay::Relay2 => idx == 3,
-                    ZoneRelay::Relay3 => idx == 4
-                },
-            };
-        }
-
-        let answer = self.zones.draw(
+        let answer = self.number.draw(
                 *lcd,
                 display_signal,
                 rtc,
-                &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Select zone"),
-                ScreenParam::Selects(zones)
+                &title,
+                ScreenParam::Number(0)
             )?;
 
-        Ok(self.step(display_signal, answer, FSMState::Status, FSMState::Zones))
+        
+        let next;
+        let back;
+        if let Answer::Confirmed(ScreenParam::Number(number)) = answer {
+
+            if number > 0 {
+                self.zones[self.fsm_zone as usize] = Some((self.fsm_zone, number));
+            } else {
+                self.zones[self.fsm_zone as usize] = None;
+            }
+            self.number.drop_value();
+
+            match self.fsm_zone {
+                ZoneRelay::Relay0 => {
+                    next = FSMState::Zones;
+                    back = FSMState::ZonesLabel;
+                    self.fsm_zone = ZoneRelay::Relay1;
+                }
+                ZoneRelay::Relay1 => {
+                    next = FSMState::Zones;
+                    back = FSMState::Zones;
+                    self.fsm_zone = ZoneRelay::Relay2;
+                }
+                ZoneRelay::Relay2 => {
+                    next = FSMState::Zones;
+                    back = FSMState::Zones;
+                    self.fsm_zone = ZoneRelay::Relay3;
+                }
+                ZoneRelay::Relay3 => {
+                    next = FSMState::Status;
+                    back = FSMState::Zones;
+                    self.fsm_zone = ZoneRelay::Relay0;
+                }
+            }
+
+            
+        } else {
+            next = FSMState::Zones;
+            back = FSMState::ZonesLabel;
+        }
+
+        Ok(self.step(display_signal, answer, next, back))
     }
 
     fn draw_status_state(&mut self, ScreenRouteCtx{lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
@@ -431,28 +455,28 @@ impl ScreenScheduleDetail {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(answer) => {
                 match answer {
-                    ScreenParam::Selects(_selected) => {
+                    ScreenParam::Selects(selected) => {
 
-                        // let status  = selected
-                        //     .iter()
-                        //     .find(|(_, selected)| *selected)
-                        //     .ok_or(Error::OutOfIndex)?
-                        //     .0
-                        //     .clone();
+                        let status  = selected
+                            .iter()
+                            .find(|(_, selected)| *selected)
+                            .ok_or(Error::OutOfIndex)?
+                            .0
+                            .clone();
 
-                        // let new_zone = Zone {
-                        //     description: self.description.get_value()?,
-                        //     weight: self.weight.get_value().unwrap_or(0),
-                        //     zone_relay: ZoneRelay::from(self.zone_relay as u8),
-                        //     status: Status::from(status.as_str()),
-                        // };
+                        let new_schedule = Schedule {
+                            minute: self.minute.get_value()?,
+                            hour: self.hour.get_value()?,
+                            days: self.days,
+                            months: self.months,
+                            description: self.description.get_value()?,
+                            zones: self.zones,
+                            status: Status::from(status.as_str()),
+                        };
+
+                        ScheduleController::shared()[self.index] = new_schedule;
                         
-                        // ZoneController::shared()[self.zone_relay] = new_zone;
-
-                        // ZoneController::shared().save()?;
-
-
-                        todo!("Handle schedule status update");
+                        ScheduleController::shared().save()?;
 
                         Ok(Nav::Pop(true))
                     }

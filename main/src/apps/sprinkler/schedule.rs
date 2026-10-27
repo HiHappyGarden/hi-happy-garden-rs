@@ -339,6 +339,8 @@ impl Schedule {
 
         check.iter().all(|&x| x)
     }
+
+
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
@@ -613,5 +615,13 @@ impl ScheduleController {
         ScreenSelections::<{ScheduleController::SIZE}>::from(selects)
     }
 
-
+    pub(in crate::apps) fn save<'a>(&'a self) -> Result<&'a Self> {
+        serialize_file(
+            unsafe {&*&raw const MUTEX},  
+            APP_TAG, 
+            FS_CONFIG_DIR, 
+            ScheduleController::FILE_NAME, 
+            unsafe {&*&raw const SHARED}
+        )
+    }
 }
