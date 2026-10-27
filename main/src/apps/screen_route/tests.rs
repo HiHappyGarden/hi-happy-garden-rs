@@ -305,7 +305,7 @@ fn menu_frame(menu: &mut ScreenMenu, flags: EventBits) -> Result<(Nav, String)> 
 }
 
 fn test_menu_rotation() -> Result<()> {
-    const LABELS: [&str; 6] = ["Info", "Date Time", "Daylight Saving Time", "Wifi", "User", "Sprinkler"];
+    const LABELS: [&str; 7] = ["Info", "Date Time", "Daylight Saving Time", "Wifi", "User", "Sprinkler", "Manual"];
     let mut menu = ScreenMenu::new();
     let (nav, label) = menu_frame(&mut menu, 0)?;
     test_assert!(matches!(nav, Nav::Stay));
@@ -322,7 +322,7 @@ fn test_menu_rotation() -> Result<()> {
     }
 
     let (_, label) = menu_frame(&mut menu, DisplayFlag::EncoderRotatedCounterClockwise as EventBits)?;
-    test_assert_eq!(label, "Sprinkler", "counter-clockwise from the first entry");
+    test_assert_eq!(label, "Manual", "counter-clockwise from the first entry");
     Ok(())
 }
 

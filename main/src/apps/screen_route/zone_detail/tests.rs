@@ -26,6 +26,7 @@ use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Error, Result};
 
 use super::{FSMState, ScreenZoneDetail};
+use crate::apps::screen_route::step;
 use crate::apps::signals::display::DisplaySignal;
 use crate::apps::sprinkler::zone::ZoneController;
 use crate::apps::test_helpers::{DRAW, with_draw_restored};
@@ -55,7 +56,7 @@ fn test_step_pending() -> Result<()> {
     with_draw_restored(|| {
         let mut screen = ScreenZoneDetail::new(0)?;
         let mut display_signal: EventBits = 0;
-        let nav = screen.step(&mut display_signal, Answer::<u8, 2>::Pending, FSMState::Weight, FSMState::Status);
+        let nav = step(&mut screen, &mut display_signal, Answer::<u8, 2>::Pending, FSMState::Weight, FSMState::Status);
         test_assert!(matches!(nav, Nav::Stay));
         test_assert!(screen.fsm_state == FSMState::Description, "pending answer changed state");
         test_assert_eq!(display_signal, 0, "pending answer requested a redraw");
@@ -67,7 +68,7 @@ fn test_step_confirmed() -> Result<()> {
     with_draw_restored(|| {
         let mut screen = ScreenZoneDetail::new(0)?;
         let mut display_signal: EventBits = 0;
-        let nav = screen.step(&mut display_signal, Answer::<u8, 2>::Confirmed(ScreenParam::Number(3)), FSMState::Weight, FSMState::Status);
+        let nav = step(&mut screen, &mut display_signal, Answer::<u8, 2>::Confirmed(ScreenParam::Number(3)), FSMState::Weight, FSMState::Status);
         test_assert!(matches!(nav, Nav::Stay));
         test_assert!(screen.fsm_state == FSMState::Weight, "confirm did not move to the next state");
         test_assert!(display_signal & DRAW != 0, "no redraw after confirm");
@@ -81,7 +82,7 @@ fn test_step_cancelled() -> Result<()> {
         let mut screen = ScreenZoneDetail::new(0)?;
         screen.fsm_state = FSMState::Weight;
         let mut display_signal: EventBits = 0;
-        let nav = screen.step(&mut display_signal, Answer::<u8, 2>::Cancelled, FSMState::Status, FSMState::Description);
+        let nav = step(&mut screen, &mut display_signal, Answer::<u8, 2>::Cancelled, FSMState::Status, FSMState::Description);
         test_assert!(matches!(nav, Nav::Stay));
         test_assert!(screen.fsm_state == FSMState::Description, "cancel did not move to the previous state");
         test_assert!(display_signal & DRAW != 0, "no redraw after cancel");
