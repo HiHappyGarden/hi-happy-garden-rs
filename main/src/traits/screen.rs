@@ -92,7 +92,7 @@ where N: Integer
 
     fn get_value(&self) -> Result<T>;
 
-    fn drop_value(&mut self);
+    fn clear(&mut self);
 }
 
 pub trait ScreenRoute {

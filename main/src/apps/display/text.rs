@@ -116,7 +116,7 @@ impl Screen<()> for Text
         Ok(())
     }
     
-    fn drop_value(&mut self) {
+    fn clear(&mut self) {
     }
 
 }

@@ -132,7 +132,7 @@ impl<const N: usize> Screen<ScreenSelections<N>, u16, N> for Select<N> {
         self.selections.clone().ok_or(Error::NullPtr)
     }
 
-    fn drop_value(&mut self) {
+    fn clear(&mut self) {
         self.index = 0;
         self.selections = None;
     }

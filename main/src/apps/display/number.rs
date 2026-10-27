@@ -109,7 +109,7 @@ where
         self.result.ok_or(Error::NullPtr)
     }
     
-    fn drop_value(&mut self) {
+    fn clear(&mut self) {
         self.number = None;
         self.result = None;
     }

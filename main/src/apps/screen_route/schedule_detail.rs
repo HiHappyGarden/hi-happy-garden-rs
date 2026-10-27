@@ -227,7 +227,7 @@ impl ScreenScheduleDetail {
             } else {
                 self.days &= !(self.fsm_day as u8);
             }
-            self.check.drop_value();
+            self.check.clear();
 
             match self.fsm_day {
                 Day::Monday => {
@@ -308,7 +308,7 @@ impl ScreenScheduleDetail {
             } else {
                 self.months &= !(self.fsm_month as u16);
             }
-            self.check.drop_value();
+            self.check.clear();
 
             match self.fsm_month {
                 Month::January => {
@@ -408,7 +408,7 @@ impl ScreenScheduleDetail {
         if let Answer::Confirmed(ScreenParam::Number(number)) = answer {
 
             self.zones[self.fsm_zone as usize] = ScheduleZone { relay: self.fsm_zone, minutes: number };
-            self.number.drop_value();
+            self.number.clear();
 
             match self.fsm_zone {
                 ZoneRelay::Relay0 => {

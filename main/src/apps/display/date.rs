@@ -52,7 +52,7 @@ impl Screen<DateTime> for Date
         self.0.get_result().ok_or(Error::NullPtr)
     }
 
-    fn drop_value(&mut self) {
+    fn clear(&mut self) {
         self.0.reset();
     }
 }

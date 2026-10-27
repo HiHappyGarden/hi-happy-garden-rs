@@ -231,7 +231,7 @@ impl Screen<Bytes<MAX_SIZE>> for Input
         self.input.clone().ok_or(Error::NullPtr)
     }
 
-    fn drop_value(&mut self) {
+    fn clear(&mut self) {
         self.input = None;
         self.original_input = None;
         self.idx = 0;
