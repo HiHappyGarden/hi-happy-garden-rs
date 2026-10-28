@@ -327,12 +327,14 @@ impl Deref for ZoneController {
     type Target = [Zone];
 
     fn deref(&self) -> &Self::Target {
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         &self.zones
     }
 }
 
 impl DerefMut for ZoneController {
     fn deref_mut(&mut self) -> &mut Self::Target {
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         &mut self.zones
     }
 }

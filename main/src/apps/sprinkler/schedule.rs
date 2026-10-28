@@ -567,12 +567,14 @@ impl Deref for ScheduleController {
     type Target = [Schedule];
 
     fn deref(&self) -> &Self::Target {
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         &self.schedules
     }
 }
 
 impl DerefMut for ScheduleController {
     fn deref_mut(&mut self) -> &mut Self::Target {
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         &mut self.schedules
     }
 }
@@ -618,10 +620,10 @@ impl ScheduleController {
  
 
         let selects: [(Bytes<_>, bool); ScheduleController::SIZE] = [
-            (Bytes::from_bytes(schedule_controller[0].description.as_ref()), false),
-            (Bytes::from_bytes(schedule_controller[1].description.as_ref()), false),
-            (Bytes::from_bytes(schedule_controller[2].description.as_ref()), false),
-            (Bytes::from_bytes(schedule_controller[3].description.as_ref()), false),
+            (schedule_controller[0].description, false),
+            (schedule_controller[1].description, false),
+            (schedule_controller[2].description, false),
+            (schedule_controller[3].description, false),
         ];
 
         ScreenSelections::<{ScheduleController::SIZE}>::from(selects)

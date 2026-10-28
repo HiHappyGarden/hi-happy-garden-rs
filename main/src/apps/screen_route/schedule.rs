@@ -67,6 +67,11 @@ impl ScreenRoute for ScreenSchedule {
                     Answer::Cancelled => Ok(Nav::Pop(false)),
                 }
     }
+    
+    #[inline]
+    fn reinit(&mut self) { 
+        self.0.clear();
+    }
 
 }
 
