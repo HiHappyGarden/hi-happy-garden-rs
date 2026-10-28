@@ -18,14 +18,14 @@
  *
  ***************************************************************************/
 
-use osal_rs::{log_info, println};
+use osal_rs::println;
 use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 
 use crate::apps::display::number::Number;
 use crate::apps::display::select::Select;
-use crate::apps::screen_route::{StateMachine, set_state, step};
+use crate::apps::screen_route::{StateMachine, step};
 use crate::apps::sprinkler::zone::{ZoneController, ZoneRelay};
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx, ScreenSelections};
 
