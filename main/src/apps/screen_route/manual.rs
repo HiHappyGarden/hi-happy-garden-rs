@@ -18,14 +18,16 @@
  *
  ***************************************************************************/
 
-use osal_rs::utils::{Bytes, Result};
+use osal_rs::{log_info, println};
+use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 
 use crate::apps::display::number::Number;
 use crate::apps::display::select::Select;
-use crate::apps::sprinkler::zone::ZoneController;
-use crate::traits::screen::{Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
+use crate::apps::screen_route::{StateMachine, set_state, step};
+use crate::apps::sprinkler::zone::{ZoneController, ZoneRelay};
+use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx, ScreenSelections};
 
 enum FSMState {
     Zone,
@@ -37,16 +39,6 @@ pub(super) struct ScreenManual{
     fsm_state: FSMState,
     zone: Select::<{ZoneController::SIZE}>,
     minutes: Number<u8>,
-}
-
-impl ScreenManual {
-    pub(super) fn new() -> Self {
-        Self {
-            fsm_state: FSMState::Zone,
-            zone: Select::<{ZoneController::SIZE}>::new(),
-            minutes: Number::new_with_range(0..=255)
-        }
-    }
 }
 
 impl ScreenRoute for ScreenManual {
@@ -69,31 +61,68 @@ impl ScreenRoute for ScreenManual {
     }
 }
 
+impl StateMachine<FSMState> for ScreenManual {
+    fn next_state(&mut self, next: FSMState) {
+        self.fsm_state = next;
+    }
+}
+
 impl ScreenManual {
+    pub(super) fn new() -> Self {
+
+        Self {
+            fsm_state: FSMState::Zone,
+            zone: Select::<{ZoneController::SIZE}>::new(),
+            minutes: Number::new_with_range(0..=255)
+        }
+    }
 
     fn draw_zone_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
+        
+        let selects: ScreenSelections<{ZoneController::SIZE}> = [
+            (ZoneController::shared()[0].description, false),
+            (ZoneController::shared()[1].description, false),
+            (ZoneController::shared()[2].description, false),
+            (ZoneController::shared()[3].description, false),
+        ];
+        
+
+        
         let answer = self.zone.draw(
             *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Zone"),
-            ScreenParam::Selects(ZoneController::new_selections()),
+            ScreenParam::Selects(selects),
         )?;
 
-        //Ok(self.step(display_signal, answer, FSMState::Minutes, FSMState::Zone))
-        Ok(Nav::Stay)
+        Ok(step(self, display_signal, answer, FSMState::Minutes, FSMState::Zone))   
     }
 
     fn draw_minutes_state(&mut self, ScreenRouteCtx{ lcd, display_signal, rtc, ..} :&mut ScreenRouteCtx<'_>) -> Result<Nav> {
-        // let answer = self.minutes.draw(
-        //     *lcd,
-        //     display_signal,
-        //     rtc,
-        //     &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Minutes"),
-        //     ScreenParam::Input { value: self.minutes.get(), secret_mode: false },
-        // )?;
+        let answer = self.minutes.draw(
+            *lcd,
+            display_signal,
+            rtc,
+            &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Minutes"),
+            ScreenParam::Number(0),
+        )?;
 
-        // Ok(self.step(display_signal, answer, FSMState::Zone, FSMState::Minutes))
-        Ok(Nav::Stay)
+        if let Answer::Confirmed(ScreenParam::Number(value)) = answer {
+            let zone = self.zone.get_value()?;
+            let zone = zone.iter()
+            .enumerate()
+            .find(|(_, selected)| selected.1) 
+            .map(|(index, _)| index)
+            .ok_or(Error::NotFound)?;
+            
+            let zone = ZoneRelay::from(zone as u8);
+            
+            println!("No implemented action for selected zone: {:?} minutes: {:?}", zone, value);
+
+            Ok(Nav::Pop(false))
+        } else {
+            Ok(step(self, display_signal, answer, FSMState::Zone, FSMState::Minutes))
+        }
     }
 }

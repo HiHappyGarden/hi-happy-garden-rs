@@ -46,7 +46,7 @@ pub enum Nav {
     Stay,
     #[allow(unused)]
     Push{ id: &'static str, screen: BoxedScreenRoute },
-    Pop(bool),
+    Pop(bool), //true rebuilds the previous screen, false just pops it
     Replace{ id: &'static str, screen: BoxedScreenRoute},
 }
 
