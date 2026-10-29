@@ -32,7 +32,7 @@ use crate::traits::screen::{Answer, Screen, ScreenParam};
 
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::apps) struct Text;
+pub(in crate::apps) struct Text(bool);
 
 
 impl Screen<()> for Text
@@ -107,7 +107,11 @@ impl Screen<()> for Text
             return Ok(Answer::Cancelled);
         }
 
-        *signal |= DisplayFlag::Draw as EventBits;
+        if !self.0 {
+            *signal |= DisplayFlag::Draw as EventBits;
+            self.0 = true;
+        }
+        
 
         Ok(Answer::Pending)
     }
@@ -125,7 +129,7 @@ impl Screen<()> for Text
 impl Text {
 
     pub(in crate::apps) const fn new() -> Self {
-        Self
+        Self(false)
     }
 
 }
