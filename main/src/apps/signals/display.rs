@@ -41,7 +41,9 @@ pub(in crate::apps) enum DisplayFlag {
     WifiStatusFair = 0x01_00,
     WifiStatusWeak = 0x01_40,
     WifiStatusNoSignal = 0x01_80,
-    Draw = 0x00_80_00_00, // Special flag to indicate that the display should be redrawn
+    Sleep = 0x02_00,
+    DrawInternal = 0x00_40_00_00, // Special flag to indicate that the display should be redrawn by internal logic
+    Draw = 0x00_80_00_00, // Special flag to indicate that the display should be redrawn by user command
 }
 
 impl From<EventBits> for DisplayFlag {
@@ -60,6 +62,8 @@ impl From<EventBits> for DisplayFlag {
             0x01_00 => WifiStatusFair,
             0x01_40 => WifiStatusWeak,
             0x01_80 => WifiStatusNoSignal,
+            0x02_00 => Sleep,
+            0x00_40_00_00 => DrawInternal,
             0x00_80_00_00 => Draw,
             _ => None, // Default case, can be adjusted as needed
         }
@@ -69,6 +73,13 @@ impl From<EventBits> for DisplayFlag {
 impl From<DisplayFlag> for EventBits {
     fn from(flag: DisplayFlag) -> Self {
         flag as EventBits
+    }
+}
+
+impl DisplayFlag {
+    pub(in crate::apps) fn check_signal(&self, signal: EventBits) -> bool {
+        let flag_value: EventBits = (*self).into();
+        (signal & flag_value) == flag_value
     }
 }
 

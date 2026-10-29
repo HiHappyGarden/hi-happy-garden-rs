@@ -108,7 +108,7 @@ impl Screen<()> for Text
         }
 
         if !self.0 {
-            *signal |= DisplayFlag::Draw as EventBits;
+            *signal |= DisplayFlag::DrawInternal as EventBits;
             self.0 = true;
         }
         

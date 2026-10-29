@@ -178,7 +178,7 @@ impl FieldEditor {
         if self.fields[Self::FIELD_HOUR].is_none() || self.fields[Self::FIELD_MINUTE].is_none() || self.fields[Self::FIELD_SECOND].is_none() {
             let (field_hour, field_minute, field_second) = (self.config.extractor)(&current_date_time);
             self.fields = [Some(field_hour), Some(field_minute), Some(field_second)];
-            *signal |= DisplayFlag::Draw as EventBits;
+            *signal |= DisplayFlag::DrawInternal as EventBits;
             return Ok(Answer::Pending)
         }
 

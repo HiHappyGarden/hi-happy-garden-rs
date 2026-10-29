@@ -96,7 +96,7 @@ pub(super) fn scroll_text(
         let scroll_slot = (total_millis / scroll_delay_ms) as u32;
 
         if LAST_SCROLL_SLOT.swap(scroll_slot, Ordering::Relaxed) != scroll_slot {
-            *signal |= DisplayFlag::Draw as EventBits;
+            *signal |= DisplayFlag::DrawInternal as EventBits;
         }
 
         const SEPARATOR: &str = "  "; // Add spaces for separation

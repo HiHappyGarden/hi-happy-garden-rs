@@ -35,18 +35,20 @@ pub(super) mod time;
 
 
 use core::sync::atomic::{AtomicBool, Ordering};
+use core::time::Duration;
 
 use alloc::sync::Arc;
 use osal_rs::log_info;
-use osal_rs::os::{EventGroup, Mutex, MutexFn, Thread, ThreadFn};
+use osal_rs::os::{EventGroup, Mutex, MutexFn, System, SystemFn, Thread, ThreadFn};
 use osal_rs::os::types::{EventBits, StackType, TickType};
-use osal_rs::utils::{Bytes, Error, Result};
+use osal_rs::utils::{Bytes, Error, OsalRsBool, Result};
 
 use crate::apps::display::header::Header;
 use crate::apps::display::commons::MAX_SIZE;
 
 use crate::apps::display::text::Text;
 use crate::apps::screen_route::ScreenRoute;
+use crate::apps::signals::display::DisplayFlag;
 use crate::apps::signals::display::{DisplayFlag::{*}, DisplaySignal};
 use crate::apps::signals::error::{ErrorSignal, ErrorFlag};
 use crate::apps::signals::status::StatusSignal;
@@ -66,6 +68,13 @@ const APP_TAG: &str = "AppDisplay";
 const THREAD_NAME: &str = "app_display_thr";
 const STACK_SIZE: StackType = 1_024 * 7;
 const TICK_INTERVAL_MS: u16 = 100;
+const SLEEP_PERIOD: Duration = Duration::from_secs(60);
+
+/// Input events that bring the display out of sleep.
+const WAKE_MASK: EventBits = ButtonReleased as EventBits
+                | EncoderButtonReleased as EventBits
+                | EncoderRotatedClockwise as EventBits
+                | EncoderRotatedCounterClockwise as EventBits;
 
 pub(crate) const DISPLAY_INPUT_MAX_SIZE: usize = MAX_SIZE;
 
@@ -114,10 +123,35 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                 log_info!(APP_TAG, "Error drawing on LCD: {:?}", e);
             });
 
+            let mut sleep_mode = false;
+            let mut sleep_timer = System::get_current_time();
+
+
             loop {
                 //wait for display signal
                 let mut display_signal = DisplaySignal::wait(EventGroup::MAX_MASK, TICK_INTERVAL_MS as TickType);
                 DisplaySignal::clear(display_signal);
+
+                if !sleep_mode && DisplayFlag::Sleep.check_signal(display_signal) {
+                    lcd.turn_off()?;
+                    sleep_mode = true;
+                }
+
+                if sleep_mode {
+                    //stay off until the user completes a gesture; presses are ignored so the
+                    //matching release doesn't reach the screen as an action
+                    if display_signal & WAKE_MASK == 0 {
+                        continue;
+                    }
+
+                    lcd.turn_on()?;
+                    sleep_mode = false;
+                    sleep_timer = System::get_current_time();
+
+                    //swallow the waking event and force a full redraw
+                    display_signal = Draw as EventBits;
+                }
+
 
                 //get status signal
                 let mut status_signal = StatusSignal::get();
@@ -139,11 +173,19 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
 
                 
                 //check if draw signal is set, if so, redraw the screen
-                if display_signal & Draw as EventBits != 0 {
+                if display_signal & (Draw as EventBits | DrawInternal as EventBits) != 0 {
                     lcd.draw().unwrap_or_else(|e| {
                         ErrorSignal::set(ErrorFlag::Display.into());
                         log_info!(APP_TAG, "Error drawing on LCD: {:?}", e);
                     });
+
+                    if display_signal & Draw as EventBits != 0 {
+                        sleep_timer = System::get_current_time();
+                    }
+                }
+
+                if System::check_timer(&sleep_timer, &SLEEP_PERIOD) == OsalRsBool::True {
+                    DisplaySignal::set(Sleep as EventBits);
                 }
                 
             }
