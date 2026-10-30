@@ -116,6 +116,8 @@ pub(in crate::apps) fn with_draw_restored<R>(test: impl FnOnce() -> Result<R>) -
 
 pub(in crate::apps) const DRAW: EventBits = DisplayFlag::Draw as EventBits;
 
+pub(in crate::apps) const DRAW_INTERNAL: EventBits = DisplayFlag::DrawInternal as EventBits;
+
 /// One text drawn by a widget: `draw_str` and `draw_bytes` both end up here.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(in crate::apps) struct DrawnText {

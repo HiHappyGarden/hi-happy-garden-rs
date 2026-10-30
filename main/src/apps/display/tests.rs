@@ -41,7 +41,7 @@ use crate::apps::signals::display::DisplayFlag::{
     self, ButtonPressed, ButtonReleased, EncoderButtonPressed, EncoderButtonReleased, EncoderRotatedClockwise,
     EncoderRotatedCounterClockwise,
 };
-use crate::apps::test_helpers::{DRAW, MockLcd, mock_rtc};
+use crate::apps::test_helpers::{DRAW, DRAW_INTERNAL, MockLcd, mock_rtc};
 use crate::assets::ic_check_off::IC_CHECK_OFF;
 use crate::assets::ic_check_on::IC_CHECK_ON;
 use crate::drivers::date_time::DateTime;
@@ -163,7 +163,18 @@ fn test_text_one_row() -> Result<()> {
     let answer = Text::new().draw(&mut lcd, &mut signal, &rtc, &Bytes::<MAX_SIZE>::from("Hello"), ScreenParam::default())?;
     test_assert!(is_pending(&answer));
     test_assert!(lcd.texts_at(ONLY_ONE_ROW_Y) == ["Hello"], "{:?}", lcd.texts_at(ONLY_ONE_ROW_Y));
-    test_assert!(signal & DRAW != 0, "text does not request its draw");
+    test_assert!(signal & DRAW_INTERNAL != 0, "text does not request its draw");
+    test_assert!(signal & DRAW == 0, "text draw must not count as user activity");
+    Ok(())
+}
+
+fn test_text_draw_requested_once() -> Result<()> {
+    let mut lcd = MockLcd::new();
+    let mut text = Text::new();
+    let (_, signal) = frame(&mut text, &mut lcd, 0, ScreenParam::default())?;
+    test_assert!(signal & DRAW_INTERNAL != 0, "first frame does not request its draw");
+    let (_, signal) = frame(&mut text, &mut lcd, 0, ScreenParam::default())?;
+    test_assert!(signal & DRAW_INTERNAL == 0, "draw requested again on an unchanged text");
     Ok(())
 }
 
@@ -604,6 +615,35 @@ fn test_time_fields() -> Result<()> {
     Ok(())
 }
 
+fn test_time_from_rtc() -> Result<()> {
+    let mut lcd = MockLcd::new();
+    let mut editor = Time::new();
+
+    // Without a value the fields come from the RTC, and the editor asks for an internal draw
+    let (answer, signal) = frame(&mut editor, &mut lcd, 0, ScreenParam::None)?;
+    test_assert!(is_pending(&answer));
+    test_assert!(signal & DRAW_INTERNAL != 0, "loading the fields does not request a draw");
+    test_assert!(signal & DRAW == 0, "loading the fields must not count as user activity");
+
+    // NOW is midnight UTC: only the hour depends on the local timezone
+    frame(&mut editor, &mut lcd, DRAW, ScreenParam::None)?;
+    let shown = lcd.last_text_at(SECOND_ROW_Y);
+    test_assert!(shown.len() == 8 && shown.ends_with(":00:00"), "{shown:?} is not the RTC time");
+    Ok(())
+}
+
+fn test_time_internal_redraw() -> Result<()> {
+    let mut lcd = MockLcd::new();
+    let mut editor = Time::new();
+    frame(&mut editor, &mut lcd, DRAW, time(12, 30, 0)?)?;
+    lcd.reset();
+
+    // The header raises DrawInternal on its own: the editor must not leave its area blank
+    frame(&mut editor, &mut lcd, DRAW_INTERNAL, time(12, 30, 0)?)?;
+    test_assert_eq!(lcd.last_text_at(SECOND_ROW_Y), "12:30:00", "fields wiped by an internal redraw");
+    Ok(())
+}
+
 fn test_time_wrap() -> Result<()> {
     let mut lcd = MockLcd::new();
     let mut editor = Time::new();
@@ -758,6 +798,7 @@ pub(in crate::apps) fn run_all_tests(stats: &mut TestStats) {
         test_scroll_text_multibyte,
         test_clean_context,
         test_text_one_row,
+        test_text_draw_requested_once,
         test_text_two_rows,
         test_text_too_many_rows,
         test_text_answers,
@@ -784,6 +825,8 @@ pub(in crate::apps) fn run_all_tests(stats: &mut TestStats) {
         test_input_overflow_marker,
         test_input_clear,
         test_time_fields,
+        test_time_from_rtc,
+        test_time_internal_redraw,
         test_time_wrap,
         test_time_confirm,
         test_time_edit_kept,

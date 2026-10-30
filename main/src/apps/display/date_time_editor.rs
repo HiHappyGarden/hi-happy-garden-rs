@@ -206,7 +206,7 @@ impl FieldEditor {
 
         self.update_field(signal);
 
-        if *signal & DisplayFlag::Draw as EventBits == 0 {
+        if *signal & (DisplayFlag::Draw as EventBits | DisplayFlag::DrawInternal as EventBits) == 0 {
             return Ok(Answer::Pending);
         }
 

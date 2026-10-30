@@ -121,11 +121,30 @@ fn test_display_flags() -> Result<()> {
         DisplayFlag::WifiStatusFair,
         DisplayFlag::WifiStatusWeak,
         DisplayFlag::WifiStatusNoSignal,
+        DisplayFlag::Sleep,
+        DisplayFlag::DrawInternal,
         DisplayFlag::Draw,
     ];
     for flag in flags {
         test_assert_eq!(DisplayFlag::from(EventBits::from(flag)), flag);
     }
+    Ok(())
+}
+
+fn test_display_flag_check_signal() -> Result<()> {
+    let sleep = EventBits::from(DisplayFlag::Sleep);
+    let draw = EventBits::from(DisplayFlag::Draw);
+    let draw_internal = EventBits::from(DisplayFlag::DrawInternal);
+
+    test_assert!(DisplayFlag::Sleep.check_signal(sleep));
+    test_assert!(DisplayFlag::Sleep.check_signal(sleep | draw));
+    test_assert!(!DisplayFlag::Sleep.check_signal(0));
+    test_assert!(!DisplayFlag::Sleep.check_signal(draw | draw_internal));
+
+    // Draw and DrawInternal are distinct bits: one never implies the other
+    test_assert!(draw & draw_internal == 0);
+    test_assert!(!DisplayFlag::Draw.check_signal(draw_internal));
+    test_assert!(!DisplayFlag::DrawInternal.check_signal(draw));
     Ok(())
 }
 
@@ -187,6 +206,7 @@ pub(in crate::apps) fn run_all_tests(stats: &mut TestStats) {
         test_status_check_signal,
         test_error_flags,
         test_display_flags,
+        test_display_flag_check_signal,
         test_status_signal_set_clear,
         test_status_signal_wait,
         test_set_app_error,
