@@ -22,6 +22,9 @@
 #[cfg(feature = "tests")]
 pub(super) mod tests;
 
+use core::ops::Deref;
+use core::ops::DerefMut;
+
 use osal_rs::os::RawMutex;
 use osal_rs::os::RawMutexGuard;
 use osal_rs::os::types::EventBits;
@@ -684,5 +687,29 @@ where T: AtContext<{ Parser::CMD_SIZE }> + 'static {
     #[inline]
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { Parser::CMD_SIZE }> {
         self.with(|ctx| ctx.set(at_response, args))
+    }
+}
+
+
+//TODO: Consider implementing a more ergonomic way to access the shared `Config` under the mutex,
+// potentially with RAII guards or higher-level abstractions to avoid repetitive unsafe blocks.
+#[allow(dead_code)]
+pub(in crate::apps) struct ConfigGuard(RawMutexGuard<RawMutex>);
+
+
+impl Deref for ConfigGuard {
+    type Target = Config;
+    fn deref(&self) -> &Config { unsafe { &*&raw const SHARED } }
+}
+
+impl DerefMut for ConfigGuard {
+    fn deref_mut(&mut self) -> &mut Config { unsafe { &mut *&raw mut SHARED } }
+}
+
+impl Config {
+    
+    #[allow(dead_code)]
+    pub(in crate::apps) fn lock() -> ConfigGuard {
+        ConfigGuard(RawMutexGuard::acquire(access_static_option!(MUTEX)))
     }
 }
