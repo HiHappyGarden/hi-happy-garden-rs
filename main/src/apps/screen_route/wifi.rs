@@ -179,7 +179,7 @@ impl ScreenWifi {
             wifi_config.set_enabled(false);
         }
 
-        Config::shared().apply_wifi();
+        wifi_config.apply();
         Config::save()?;
         Ok(())
     }

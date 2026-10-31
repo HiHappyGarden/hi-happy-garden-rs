@@ -124,6 +124,19 @@ impl DaylightSavingTime {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.enabled = enabled;
     }
+
+    pub(in crate::apps) fn apply(&self) {
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        DateTime::set_daylight_saving_time_whit_param(
+            self.enabled,
+            self.start_month,
+            self.start_day,
+            self.start_hour,
+            self.end_month,
+            self.end_day,
+            self.end_hour,
+        );
+    }
 }
 
 impl AtContext<{ Parser::CMD_SIZE }> for DaylightSavingTime {
@@ -228,7 +241,7 @@ impl AtContext<{ Parser::CMD_SIZE }> for DaylightSavingTime {
             _ => return Err((at_response, AtError::InvalidArgs)),
         }
 
-        Config::shared().apply_daylight_saving_time();
+        self.apply();
 
         Ok(at_cmd_response!(at_response; ""))
     }
@@ -296,6 +309,12 @@ impl WifiConfig {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.auth = auth;
     }
+
+    pub(in crate::apps) fn apply(&self) {
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        Wifi::set_config(self.ssid, self.password, self.auth, self.enabled);
+    }
+
 }
 
 impl AtContext<{ Parser::CMD_SIZE }> for WifiConfig {
@@ -334,7 +353,7 @@ impl AtContext<{ Parser::CMD_SIZE }> for WifiConfig {
         self.auth = Auth::from(auth);
         self.enabled = enabled != 0;
 
-        Config::shared().apply_wifi();
+        self.apply();
 
         Ok(at_cmd_response!(at_response; ""))
     }
@@ -390,6 +409,11 @@ impl NtpConfig {
         let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
         self.msg_len = msg_len;
     }
+
+    pub(in crate::apps) fn apply(&self) {
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        Network::set_ntp(self.server, self.port, self.msg_len);
+    }
 }
 
 impl AtContext<{ Parser::CMD_SIZE }> for NtpConfig {
@@ -422,7 +446,7 @@ impl AtContext<{ Parser::CMD_SIZE }> for NtpConfig {
         self.port = port;
         self.msg_len = msg_len;
 
-        Config::shared().apply_ntp();
+        self.apply();
 
         Ok(at_cmd_response!(at_response; ""))
     }
@@ -534,35 +558,15 @@ impl Config {
     }
 
     pub(in crate::apps) fn apply_daylight_saving_time(&self) {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
-        DateTime::set_daylight_saving_time_whit_param(
-            self.daylight_saving_time.enabled,
-            self.daylight_saving_time.start_month,
-            self.daylight_saving_time.start_day,
-            self.daylight_saving_time.start_hour,
-            self.daylight_saving_time.end_month,
-            self.daylight_saving_time.end_day,
-            self.daylight_saving_time.end_hour,
-        );
+        self.daylight_saving_time.apply();
     }
 
     pub(in crate::apps) fn apply_ntp(&self) {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
-        Network::set_ntp(
-            self.ntp.server,
-            self.ntp.port,
-            self.ntp.msg_len,
-        );
+        self.ntp.apply();
     }
 
     pub(in crate::apps) fn apply_wifi(&self) {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
-        Wifi::set_config(
-            self.wifi.ssid,
-            self.wifi.password,
-            self.wifi.auth,
-            self.wifi.enabled,
-        );
+        self.wifi.apply();
     }
 
     pub(in crate::apps) fn apply_session(&self) {
