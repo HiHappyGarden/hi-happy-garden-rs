@@ -73,7 +73,7 @@ pub(crate) struct AppMain {
     parser: Parser,
     system_led: SystemLed,
     sprinkler: Sprinkler,
-    thread: Option<Thread>
+    //thread: Option<Thread>
 }
 
 unsafe impl Sync for AppMain {}
@@ -103,8 +103,7 @@ impl Initializable for AppMain{
         let app_param = AppMainPtr(self as *mut Self as usize); // Pass AppMain pointer as usize to thread
         let mut thread = Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::BelowHigh);
 
-        self.thread = Some(thread.spawn(Some(Arc::new(app_param)), Self::thread_handler)?);
-
+        thread.spawn(Some(Arc::new(app_param)), Self::thread_handler)?;
 
         Ok(())
     }
@@ -121,7 +120,7 @@ impl AppMain {
             parser: Parser::shared(),
             system_led: SystemLed::new(),
             sprinkler: Sprinkler::new(),
-            thread: None,
+            //thread: None,
         }
     }
 
