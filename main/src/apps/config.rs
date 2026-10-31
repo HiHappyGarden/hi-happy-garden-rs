@@ -637,3 +637,48 @@ impl Config {
 
 
 }
+
+/// AT command handler of one part of the shared [`Config`], as kept by the parser.
+///
+/// The parser keeps its handlers for ever. Holding `&mut Config` and `&mut`
+/// to its fields at the same time would alias, so it gets stateless forwarders
+/// that reach `SHARED` only under `MUTEX`, for the length of one command.
+pub(in crate::apps) struct ConfigAt<T: 'static>(pub(in crate::apps) fn(&'static mut Config) -> &'static mut T);
+
+impl<T> ConfigAt<T>
+where T: AtContext<{ Parser::CMD_SIZE }> + 'static {
+
+    #[inline]
+    fn with<R>(&self, f: impl FnOnce(&'static mut T) -> R) -> R {
+        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        // SAFETY: the only `&mut` into `SHARED` the parser has, made under `MUTEX`
+        // and dropped before it is released. The `'static` is the one the parser
+        // handed its contexts before: an `AtError::Unhandled` borrowed from the
+        // context would outlive the lock, but all of them are string literals.
+        f((self.0)(unsafe { &mut *&raw mut SHARED }))
+    }
+}
+
+impl<T> AtContext<{ Parser::CMD_SIZE }> for ConfigAt<T>
+where T: AtContext<{ Parser::CMD_SIZE }> + 'static {
+
+    #[inline]
+    fn exec(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
+        self.with(|ctx| ctx.exec(at_response))
+    }
+
+    #[inline]
+    fn query(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
+        self.with(|ctx| ctx.query(at_response))
+    }
+
+    #[inline]
+    fn test(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
+        self.with(|ctx| ctx.test(at_response))
+    }
+
+    #[inline]
+    fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { Parser::CMD_SIZE }> {
+        self.with(|ctx| ctx.set(at_response, args))
+    }
+}
