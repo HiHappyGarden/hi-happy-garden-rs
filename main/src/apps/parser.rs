@@ -22,6 +22,7 @@
 pub(super) mod tests;
 
 use core::str::from_utf8;
+use core::sync::atomic::{AtomicU8, Ordering};
 use core::time::Duration;
 
 use at_parser_rs::AtError;
@@ -56,10 +57,31 @@ const BUFFER_SIZE: usize = 256;
 const QUEUE_SIZE: UBaseType = BUFFER_SIZE as UBaseType;
 
 static QUEUE: OnceBox<Queue> = OnceBox::new();
-static mut SOURCE: Option<Source> = None;
+/// Source of the line being received, written from the UART interrupt:
+/// `SOURCE_NONE` or a [`source_to_u8`] value
+static SOURCE: AtomicU8 = AtomicU8::new(SOURCE_NONE);
+const SOURCE_NONE: u8 = 0;
 
-static mut UART_CHANNEL: Option<&'static dyn SetTransmit> = None;
-static mut MQTT_CHANNEL: Option<&'static dyn SetTransmit> = None;
+// Set once at startup, read by the parser thread
+static UART_CHANNEL: OnceBox<&'static dyn SetTransmit> = OnceBox::new();
+static MQTT_CHANNEL: OnceBox<&'static dyn SetTransmit> = OnceBox::new();
+
+#[inline]
+const fn source_to_u8(source: Source) -> u8 {
+    match source {
+        Source::Uart => 1,
+        Source::Mqtt => 2,
+    }
+}
+
+#[inline]
+const fn source_from_u8(value: u8) -> Option<Source> {
+    match value {
+        1 => Some(Source::Uart),
+        2 => Some(Source::Mqtt),
+        _ => None,
+    }
+}
 
 macro_rules! at_cmd_response {
     ($at_resp:expr; $($args:expr),+) => {
@@ -81,14 +103,13 @@ impl OnReceive for Parser {
 
     fn on_receive(&self, source: Source, data: &[u8]) -> Result<()> {
         
-        unsafe {
-            let local_source = Some(source);
+        let local_source = source_to_u8(source);
 
-            if (*(&raw const SOURCE)).is_some() && SOURCE != local_source {
-                return Err(Error::InvalidType);
-            }    
-
-            SOURCE = local_source;
+        // A line already started from the other source keeps it
+        match SOURCE.compare_exchange(SOURCE_NONE, local_source, Ordering::AcqRel, Ordering::Acquire) {
+            Ok(_) => {}
+            Err(current) if current == local_source => {}
+            Err(_) => return Err(Error::InvalidType),
         }
 
         let queue = QUEUE.get().ok_or(Error::Unhandled("Queue not initialized"))?;
@@ -162,7 +183,7 @@ impl Initializable for Parser {
                         buffer_count -= 1; 
                     }
 
-                    let Some(src) = (unsafe { (*&raw mut SOURCE).take() }) else {
+                    let Some(src) = source_from_u8(SOURCE.swap(SOURCE_NONE, Ordering::AcqRel)) else {
                         log_error!(APP_TAG, "Source is not set");
                         clear_buffer!(buffer, buffer_count);
                         continue;
@@ -170,8 +191,8 @@ impl Initializable for Parser {
                     let source_flag: EventBits = <StatusFlag as Into<EventBits>>::into(StatusFlag::from(&src));
 
                     let channel = match src {
-                        Source::Uart => unsafe { UART_CHANNEL },
-                        Source::Mqtt => unsafe { MQTT_CHANNEL },
+                        Source::Uart => UART_CHANNEL.get().copied(),
+                        Source::Mqtt => MQTT_CHANNEL.get().copied(),
                     };
                     let Some(channel) = channel else {
                         log_error!(APP_TAG, "Channel is not set");
@@ -275,17 +296,16 @@ impl Parser {
 
 
     #[inline]
+    /// Only the first channel set is kept
     pub(super) fn set_uart_transmit(transmit: &'static dyn SetTransmit) {
-        unsafe {
-            UART_CHANNEL = Some(transmit);
-        }
+        let _ = UART_CHANNEL.get_or_try_init(|| Ok::<_, Error>(transmit));
     }
 
 
     #[allow(unused)]
     #[inline]
     pub(super) fn get_source() -> Option<Source> {
-        unsafe { SOURCE }
+        source_from_u8(SOURCE.load(Ordering::Acquire))
     }
 
     #[inline]

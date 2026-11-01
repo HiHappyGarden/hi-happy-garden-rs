@@ -35,7 +35,8 @@ use alloc::vec;
 use core::ffi::{CStr, c_char, c_uchar, c_uint, c_ushort, c_void};
 use core::ptr::null_mut;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, ToSocketAddrs, UdpSocket};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
 use crate::drivers::network::IP4Addr;
@@ -46,8 +47,8 @@ use crate::traits::network::IPV6_ADDR_LEN;
 use super::cyw43::is_joined;
 use super::lock;
 
-/// A receive thread with nothing to read for this long ends: the firmware
-/// never removes its PCBs, and each NTP request creates one
+/// A receive thread with nothing to read for this long ends, even if the
+/// firmware never removes its PCB
 const RECV_IDLE_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Largest datagram on the board (Ethernet MTU)
@@ -56,6 +57,24 @@ const MAX_DATAGRAM: usize = 1_500;
 /// `ip4addr_ntoa` text of the board address. Like lwIP's own buffer it is
 /// static and rewritten by every call: callers copy it right away.
 static IP_TEXT: Mutex<[u8; IPV6_ADDR_LEN]> = Mutex::new([0u8; IPV6_ADDR_LEN]);
+
+/// lwIP core lock (`cyw43_arch_lwip_begin`/`_end`): held by the receive
+/// threads while they run a callback, as the lwIP thread holds it on the board
+static CORE_LOCKED: Mutex<bool> = Mutex::new(false);
+static CORE_UNLOCKED: Condvar = Condvar::new();
+
+pub(super) fn core_lock() {
+    let mut locked = lock(&CORE_LOCKED);
+    while *locked {
+        locked = CORE_UNLOCKED.wait(locked).unwrap_or_else(|poisoned| poisoned.into_inner());
+    }
+    *locked = true;
+}
+
+pub(super) fn core_unlock() {
+    *lock(&CORE_LOCKED) = false;
+    CORE_UNLOCKED.notify_one();
+}
 
 /// The address the host uses to reach the network, the one the emulated
 /// board gets by DHCP.
@@ -150,6 +169,8 @@ pub(in crate::drivers) unsafe fn hhg_dns_gethostbyname(
 struct EmulatedPcb {
     pcb: udp_pcb,
     socket: UdpSocket,
+    /// Set by `hhg_udp_remove`: the receive thread stops calling back
+    removed: Arc<AtomicBool>,
 }
 
 pub(in crate::drivers) unsafe fn hhg_udp_new_ip_type(_type: c_uchar) -> *mut udp_pcb {
@@ -171,7 +192,16 @@ pub(in crate::drivers) unsafe fn hhg_udp_new_ip_type(_type: c_uchar) -> *mut udp
         recv: None,
         recv_arg: null_mut(),
     };
-    Box::into_raw(Box::new(EmulatedPcb { pcb, socket })) as *mut udp_pcb
+    Box::into_raw(Box::new(EmulatedPcb { pcb, socket, removed: Arc::new(AtomicBool::new(false)) })) as *mut udp_pcb
+}
+
+/// Called under the core lock, so no callback of `pcb` is running
+pub(in crate::drivers) unsafe fn hhg_udp_remove(pcb: *mut udp_pcb) {
+    if pcb.is_null() {
+        return;
+    }
+    let emulated = unsafe { Box::from_raw(pcb as *mut EmulatedPcb) };
+    emulated.removed.store(true, Ordering::Release);
 }
 
 pub(in crate::drivers) unsafe fn hhg_udp_sendto(pcb: *mut udp_pcb, p: *mut pbuf, ipaddr: *const ip_addr, port: u16) -> i8 {
@@ -212,6 +242,7 @@ pub(in crate::drivers) unsafe fn hhg_udp_recv(pcb: *mut udp_pcb, recv: udp_recv_
         return;
     }
 
+    let removed = Arc::clone(&emulated.removed);
     let context = RecvContext { pcb: pcb as usize, recv, recv_arg: recv_arg as usize };
     let spawned = std::thread::Builder::new()
         .name("emu_lwip_udp".into())
@@ -225,8 +256,15 @@ pub(in crate::drivers) unsafe fn hhg_udp_recv(pcb: *mut udp_pcb, recv: udp_recv_
                 datagram.data.copy_from_slice(&buffer[..len]);
 
                 let addr = to_ip_addr(*from.ip());
+                core_lock();
+                if removed.load(Ordering::Acquire) {
+                    core_unlock();
+                    unsafe { hhg_pbuf_free(p) };
+                    break;
+                }
                 // The callback owns the pbuf from here, as with lwIP
                 unsafe { (context.recv)(context.recv_arg as *mut c_void, context.pcb as *mut udp_pcb, p, &addr, from.port()) };
+                core_unlock();
             }
         });
     if let Err(e) = spawned {

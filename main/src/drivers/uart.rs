@@ -19,13 +19,16 @@
  ***************************************************************************/
 
 use osal_rs::log_info;
-use osal_rs::utils::{Ptr, Result};
+use osal_rs::utils::{Error, OnceBox, Ptr, Result};
 
 use crate::traits::rx_tx::{OnReceive, SetTransmit}; 
 use crate::traits::state::Initializable;
 use crate::drivers::platform::{UART_FN, UART_CONFIG}; 
 
 const APP_TAG: &str = "Uart";
+
+/// Receiver of the RX interrupt: set once, then read lock-free from the ISR
+pub(in crate::drivers) static UART_LISTENER: OnceBox<&'static dyn OnReceive> = OnceBox::new();
 
 #[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -85,7 +88,6 @@ unsafe impl Send for UartConfig {}
 pub(in crate::drivers) struct UartFn {
     pub(in crate::drivers) init: fn(&UartConfig) -> Result<()>,
     pub(in crate::drivers) transmit: fn(data: &[u8]) -> usize,
-    pub(in crate::drivers) add_listener: Option<&'static dyn OnReceive>,
     pub(in crate::drivers) deinit: fn(&UartConfig) -> Result<()>,
 }
 
@@ -125,10 +127,9 @@ impl Uart {
         }
     }
 
+    /// Only the first listener is kept: the RX interrupt reads it with no lock
     #[inline]
     pub fn add_listener(&mut self, listener: &'static dyn OnReceive) {
-        unsafe {
-             UART_FN.add_listener = Some(listener);
-        };
+        let _ = UART_LISTENER.get_or_try_init(|| Ok::<_, Error>(listener));
     }
 }

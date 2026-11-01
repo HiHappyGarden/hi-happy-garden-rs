@@ -387,6 +387,7 @@ unsafe extern "C" {
     pub(in crate::drivers) fn hhg_dns_gethostbyname(hostname: *const c_char, addr: *mut ip_addr, dns_found_callback: extern "C" fn(name: *const c_char, ipaddr: *const ip_addr, callback_arg: *mut c_void), callback_arg: *mut c_void) -> i8;
     pub(in crate::drivers) fn hhg_udp_sendto(buf: *mut udp_pcb, p: *mut pbuf, ipaddr: *const ip_addr, port: u16) -> i8;
     pub(in crate::drivers) fn hhg_udp_recv(pcb: *mut udp_pcb, recv: udp_recv_fn ,  recv_arg: *mut c_void);
+    pub(in crate::drivers) fn hhg_udp_remove(pcb: *mut udp_pcb);
 
     pub(in crate::drivers) fn hhg_i2c_instance(i2c_num: u8) -> *mut c_void;
     pub(in crate::drivers) fn hhg_i2c_init(i2c: *mut c_void, baudrate: c_uint) -> c_uint;

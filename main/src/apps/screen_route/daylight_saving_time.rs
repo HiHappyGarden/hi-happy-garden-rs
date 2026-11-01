@@ -67,7 +67,7 @@ impl ScreenDaylightSavingTime {
         DateTime::set_daylight_saving_time(enabled);
         Config::shared().get_daylight_saving_time().set_enabled(enabled);
         Config::shared().apply_daylight_saving_time();
-        Config::save()?;
+        Config::shared().save()?;
         Ok(())
     }
 

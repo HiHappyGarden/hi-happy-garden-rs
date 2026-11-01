@@ -23,7 +23,7 @@ use core::ptr::null_mut;
 
 use osal_rs::utils::{Error, Result};
 
-use crate::drivers::uart::{UartConfig, UartDataBits, UartFlowControl, UartFn, UartParity, UartStopBits};
+use crate::drivers::uart::{UART_LISTENER, UartConfig, UartDataBits, UartFlowControl, UartFn, UartParity, UartStopBits};
 use crate::drivers::pico::ffi::{gpio_function_type, hhg_gpio_set_function, hhg_uart_clear_irq, hhg_uart_deinit, hhg_uart_getc, hhg_uart_init, hhg_uart_irq_set_enabled, hhg_uart_irq_set_exclusive_handler, hhg_uart_irq_set_high_priority, hhg_uart_putc, hhg_uart_set_format, hhg_uart_set_hw_flow, hhg_uart_set_irq_enables, uart_parity};
 use crate::traits::rx_tx::Source;
 
@@ -33,7 +33,6 @@ const RX_PIN: u32 = 1;
 pub(in crate::drivers) static mut UART_FN: UartFn = UartFn {
     init,
     transmit,
-    add_listener: None,
     deinit,
 };
 
@@ -50,8 +49,8 @@ pub(in crate::drivers) static mut UART_CONFIG: UartConfig = UartConfig {
 
 #[allow(unsafe_op_in_unsafe_fn)]
 unsafe extern "C" fn uart_isr() {
-    if let Some(listener) = unsafe { *&raw const UART_FN.add_listener } {
-        let _= (*listener).on_receive(Source::Uart,&[hhg_uart_getc()]);
+    if let Some(listener) = UART_LISTENER.get() {
+        let _= listener.on_receive(Source::Uart,&[hhg_uart_getc()]);
     }
     hhg_uart_clear_irq();
 }

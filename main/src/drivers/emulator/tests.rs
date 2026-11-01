@@ -35,7 +35,7 @@ use osal_rs::utils::{Bytes, Error, OsalRsBool, Result};
 
 use super::{board, control, cyw43, gpio, sh1106};
 use crate::drivers::gpio::Gpio;
-use crate::drivers::network::{IP4Addr, Network};
+use crate::drivers::network::Network;
 use crate::drivers::platform::GpioPeripheral;
 use crate::drivers::relays::Relays;
 use crate::tests::{TestStats, hardware, run_tests, test_assert, test_assert_eq};
@@ -211,7 +211,6 @@ fn test_network_ntp() -> Result<()> {
         test_assert!(Network::dhcp_get_binary_ip_address() != 0);
 
         let ip = Network::dns_resolve_addrress(&Bytes::from("localhost"))?;
-        let ip = unsafe { &*(ip as *const dyn crate::traits::network::IpAddress as *const IP4Addr) };
         // lwIP layout: network byte order in memory
         test_assert_eq!(ip.addr, u32::from_ne_bytes([127, 0, 0, 1]));
         test_assert_eq!(format!("{ip}"), "127.0.0.1");

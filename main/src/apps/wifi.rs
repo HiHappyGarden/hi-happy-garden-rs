@@ -19,10 +19,11 @@
  ***************************************************************************/
 
 use alloc::sync::Arc;
-use osal_rs::os::{Mutex, MutexFn, System, SystemFn};
+use core::sync::atomic::{AtomicU8, Ordering};
+use osal_rs::os::{Mutex, MutexFn, RawMutex, RawMutexGuard, System, SystemFn};
 use osal_rs::os::types::EventBits;
 use osal_rs::{log_info};
-use osal_rs::utils::{Bytes, Result};
+use osal_rs::utils::{Bytes, OnceBox, Result};
 
 use crate::apps::config::Config;
 use crate::apps::signals::display::DisplaySignal;
@@ -39,8 +40,16 @@ use crate::traits::network::IPV6_ADDR_LEN;
 
 const APP_TAG: &str = "AppWifi";
 
-static mut STATUS: WifiStatus = Disabled;
+/// `WifiStatus` as `u8`, set by the WiFi thread
+static STATUS: AtomicU8 = AtomicU8::new(Disabled as u8);
+/// Written by the WiFi thread, read by the display: only under `MUTEX`
 static mut IP_ADDR: Bytes<IPV6_ADDR_LEN> = Bytes::new();
+static MUTEX: OnceBox<RawMutex> = OnceBox::new();
+
+#[inline]
+fn ip_addr_lock() -> RawMutexGuard<RawMutex> {
+    RawMutexGuard::acquire(MUTEX.get_or_try_init(RawMutex::new).expect("Failed to create app wifi mutex"))
+}
 
 macro_rules! ntp_sync {
     ($tag:expr, $config:expr) => {
@@ -87,9 +96,7 @@ impl Initializable for Wifi {
 impl OnWifiChangeStatus for Wifi {
     fn on_status_change(&self, _: WifiStatus, status: WifiStatus) -> Result<()>  {
 
-        unsafe {
-            STATUS = status;
-        }
+        STATUS.store(status as u8, Ordering::Release);
 
         let config = Config::shared();
 
@@ -99,10 +106,12 @@ impl OnWifiChangeStatus for Wifi {
                 log_info!(APP_TAG, "Waiting for IP status: {status:?}")
             }
             Connected => {
-                unsafe {
-                    IP_ADDR = Network::dhcp_get_ip_address();
-                    log_info!(APP_TAG, "Connected ip: {}", (*&raw const IP_ADDR));
+                let ip_addr = Network::dhcp_get_ip_address();
+                {
+                    let _lock = ip_addr_lock();
+                    unsafe { IP_ADDR = ip_addr; }
                 }
+                log_info!(APP_TAG, "Connected ip: {}", ip_addr);
                 
                 StatusSignal::set(StatusFlag::WifiReady.into());
                 StatusSignal::clear(StatusFlag::NtpError.into());
@@ -150,8 +159,8 @@ impl Wifi {
 
     #[allow(dead_code)]
     #[inline]
-    pub(in crate::apps) const fn get_status(&self) -> WifiStatus {
-        unsafe { STATUS }
+    pub(in crate::apps) fn get_status(&self) -> WifiStatus {
+        WifiStatus::from(STATUS.load(Ordering::Acquire))
     }
 
     pub(in crate::apps) fn set_rtc(&mut self, rtc: Arc<Mutex<dyn RTC + 'static>>) {
@@ -159,6 +168,7 @@ impl Wifi {
     }
 
     pub(in crate::apps) fn get_ip_address() -> Bytes<IPV6_ADDR_LEN> {
-        unsafe { (*&raw const IP_ADDR).clone() }
+        let _lock = ip_addr_lock();
+        unsafe { *&raw const IP_ADDR }
     }
 }

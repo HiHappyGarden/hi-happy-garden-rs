@@ -24,20 +24,22 @@
 pub(super) mod tests;
 
 use core::fmt::{Debug, Display};
+use core::sync::atomic::{AtomicBool, AtomicI16, AtomicU8, Ordering};
 
 use alloc::string::String;
 use osal_rs::utils::{Error, Result};
 
 use crate::drivers::rtc::RTC;
 
-static mut TIMEZONE: i16 = 0; // in minutes, e.g. +120 for UTC+2, -60 for UTC-1
-static mut DAYLIGHT_SAVING_TIME_ENABLED: bool = false; // true if daylight saving time is in effect
-static mut START_MONTH: u8 = 0;
-static mut START_DAY: u8 = 0;
-static mut START_HOUR: u8 = 0;
-static mut END_MONTH: u8 = 0;
-static mut END_DAY: u8 = 0;
-static mut END_HOUR: u8 = 0;
+// Set from the config (parser, display), read by every thread converting a time
+static TIMEZONE: AtomicI16 = AtomicI16::new(0); // in minutes, e.g. +120 for UTC+2, -60 for UTC-1
+static DAYLIGHT_SAVING_TIME_ENABLED: AtomicBool = AtomicBool::new(false); // true if daylight saving time is in effect
+static START_MONTH: AtomicU8 = AtomicU8::new(0);
+static START_DAY: AtomicU8 = AtomicU8::new(0);
+static START_HOUR: AtomicU8 = AtomicU8::new(0);
+static END_MONTH: AtomicU8 = AtomicU8::new(0);
+static END_DAY: AtomicU8 = AtomicU8::new(0);
+static END_HOUR: AtomicU8 = AtomicU8::new(0);
 
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -65,28 +67,23 @@ impl DateTime {
     pub const MILLIS_PER_SECOND: i64 = 1_000;
 
     pub fn set_daylight_saving_time(enabled: bool) {
-        unsafe {
-            DAYLIGHT_SAVING_TIME_ENABLED = enabled;
-        }
+        DAYLIGHT_SAVING_TIME_ENABLED.store(enabled, Ordering::Release);
     }
 
 
     pub fn set_daylight_saving_time_whit_param(enabled: bool, start_month: u8, start_day: u8, start_hour: u8, end_month: u8, end_day: u8, end_hour: u8) {
-        unsafe {
-            DAYLIGHT_SAVING_TIME_ENABLED = enabled;
-            START_MONTH = start_month;
-            START_DAY = start_day;
-            START_HOUR = start_hour;
-            END_MONTH = end_month;
-            END_DAY = end_day;
-            END_HOUR = end_hour;
-        }
+        START_MONTH.store(start_month, Ordering::Relaxed);
+        START_DAY.store(start_day, Ordering::Relaxed);
+        START_HOUR.store(start_hour, Ordering::Relaxed);
+        END_MONTH.store(end_month, Ordering::Relaxed);
+        END_DAY.store(end_day, Ordering::Relaxed);
+        END_HOUR.store(end_hour, Ordering::Relaxed);
+        // Release: a reader that sees `enabled` sees the dates above
+        DAYLIGHT_SAVING_TIME_ENABLED.store(enabled, Ordering::Release);
     }
 
     pub fn set_timezone(offset_minutes: i16) {
-        unsafe {
-            TIMEZONE = offset_minutes;
-        }
+        TIMEZONE.store(offset_minutes, Ordering::Relaxed);
     }
 
     /// New Input: year, month (1-12), wday (0-6), mday (1-31), hour (0-23), minute (0-59), second (0-59)
@@ -233,16 +230,16 @@ impl DateTime {
     /// Special value: 0xFF means "last Sunday of the month" (for EU DST rules)
     /// If START_DAY or END_DAY is greater than the number of days in the month, it will use the last day of that month
     fn is_daylight_saving_time(&self) -> bool {
-        if !unsafe {DAYLIGHT_SAVING_TIME_ENABLED} {
+        if !DAYLIGHT_SAVING_TIME_ENABLED.load(Ordering::Acquire) {
             return false;
         }
 
-        let start_month = unsafe {START_MONTH};
-        let start_day = unsafe {START_DAY};
-        let start_hour = unsafe {START_HOUR};
-        let end_month = unsafe {END_MONTH};
-        let end_day = unsafe {END_DAY};
-        let end_hour = unsafe {END_HOUR};
+        let start_month = START_MONTH.load(Ordering::Relaxed);
+        let start_day = START_DAY.load(Ordering::Relaxed);
+        let start_hour = START_HOUR.load(Ordering::Relaxed);
+        let end_month = END_MONTH.load(Ordering::Relaxed);
+        let end_day = END_DAY.load(Ordering::Relaxed);
+        let end_hour = END_HOUR.load(Ordering::Relaxed);
 
         // Calculate DST start date for current year
         let start_mday = if start_day == 0xFF {
@@ -357,8 +354,8 @@ impl DateTime {
 
         if locale {
             // First apply timezone offset (convert from UTC to local time)
-            if unsafe { TIMEZONE != 0 } {
-                let tz_offset_seconds = unsafe { TIMEZONE as i64 } * Self::SECONDS_PER_MINUTE;
+            if TIMEZONE.load(Ordering::Relaxed) != 0 {
+                let tz_offset_seconds = (TIMEZONE.load(Ordering::Relaxed) as i64) * Self::SECONDS_PER_MINUTE;
                 adjusted_timestamp += tz_offset_seconds;
                 is_apply_timezone = true;
             }
@@ -391,7 +388,7 @@ impl DateTime {
         }
 
         if self.is_apply_timezone {
-            let tz_offset_seconds = unsafe { TIMEZONE as i64 } * Self::SECONDS_PER_MINUTE;
+            let tz_offset_seconds = (TIMEZONE.load(Ordering::Relaxed) as i64) * Self::SECONDS_PER_MINUTE;
             sum -= tz_offset_seconds;
         }
         
@@ -469,7 +466,7 @@ impl Default for DateTime {
 impl Display for DateTime {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if self.is_apply_timezone || self.is_apply_daylight_saving_time {
-            let tz_offset = unsafe { TIMEZONE };
+            let tz_offset = TIMEZONE.load(Ordering::Relaxed);
             let tz_hours = tz_offset / 60;
             let tz_minutes = (tz_offset % 60).abs(); // abs() to handle negative timezones correctly
             

@@ -550,7 +550,7 @@ impl AtContext<{ Parser::CMD_SIZE }> for Config {
                 self.apply_locale();
             }
             "sv" => { // save
-                Config::save().map_err(|_| (at_response, AtError::Unhandled("Save error")))?;
+                self.save().map_err(|_| (at_response, AtError::Unhandled("Save error")))?;
             }
             _ => return Err((at_response, AtError::InvalidArgs)),
         }
@@ -589,16 +589,13 @@ impl Config {
         unsafe { &mut *&raw mut SHARED }
     }
 
-    pub(in crate::apps) fn save() -> Result<&'static mut Self> {
-        unsafe {
-            serialize_file::<Config>(MUTEX.get().ok_or(Error::Unhandled("Mutex not initialized"))?, 
-            APP_TAG, 
-            FS_CONFIG_DIR, 
-            Config::FILE_NAME, &*&raw const SHARED
-        )?;
-
-            Ok(&mut *&raw mut SHARED)
-        }
+    /// Through `self`: reaching `SHARED` anew would invalidate a caller's `&mut` to it
+    pub(in crate::apps) fn save<'a>(&'a self) -> Result<&'a Self> {
+        serialize_file::<Config>(MUTEX.get().ok_or(Error::Unhandled("Mutex not initialized"))?,
+            APP_TAG,
+            FS_CONFIG_DIR,
+            Config::FILE_NAME, self
+        )
     }
 
     #[allow(dead_code)]

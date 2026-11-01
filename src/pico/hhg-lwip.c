@@ -80,3 +80,7 @@ err_t hhg_udp_sendto(struct udp_pcb *buf, struct pbuf *p, const ip_addr_t *ipadd
 void hhg_udp_recv(struct udp_pcb *pcb, udp_recv_fn recv, void *recv_arg) {
     udp_recv(pcb, recv, recv_arg);
 }
+
+void hhg_udp_remove(struct udp_pcb *pcb) {
+    udp_remove(pcb);
+}

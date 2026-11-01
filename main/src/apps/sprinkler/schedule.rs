@@ -563,7 +563,7 @@ impl AtContext<{Parser::CMD_SIZE}> for ScheduleController {
                 serialize_file(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?,  
                 APP_TAG,
                 FS_CONFIG_DIR, 
-                ScheduleController::FILE_NAME, unsafe {&*&raw const SHARED}).map_err(|_| (at_response, AtError::Unhandled("Impossible save")))?;
+                ScheduleController::FILE_NAME, &*self).map_err(|_| (at_response, AtError::Unhandled("Impossible save")))?;
             }
             _ => return Err((at_response, AtError::InvalidArgs)),
         }
@@ -639,7 +639,7 @@ impl ScheduleController {
             APP_TAG, 
             FS_CONFIG_DIR, 
             ScheduleController::FILE_NAME, 
-            unsafe {&*&raw const SHARED}
+            self
         )
     }
 }

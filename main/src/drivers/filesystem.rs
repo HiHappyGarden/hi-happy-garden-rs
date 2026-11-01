@@ -26,14 +26,16 @@ pub(super) mod tests;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
+use osal_rs::os::{RawMutex, RawMutexGuard};
 use osal_rs::{log_error, log_info};
-use osal_rs::utils::{AsSyncStr, Bytes, Error, Result};
+use osal_rs::utils::{AsSyncStr, Bytes, Error, OnceBox, Result};
 
 use core::ffi::c_int;
 use core::ffi::c_void;
 use core::fmt::Display;
 use core::ptr::null_mut;
 use core::str::from_utf8;
+use core::sync::atomic::{AtomicBool, Ordering};
 
 use crate::drivers::encrypt::{Encrypt, EncryptGeneric};
 use crate::drivers::pico::flash::{FILESYSTEM_FN, FILE_FN, DIR_FN, FS_SEPARATOR_DIR};
@@ -59,6 +61,29 @@ const UNIQUE_ID_SIZE: usize = 8;
 static mut ENCRYPT: Option<Encrypt<KEY_SIZE, IV_SIZE>> = None;
 static mut KEY: [u8; KEY_SIZE] = [0u8; KEY_SIZE];
 static mut IV: [u8; IV_SIZE] = [0u8; IV_SIZE];
+
+/// Serialises every littlefs call and `ENCRYPT`/`KEY`/`IV`: littlefs is built
+/// without `LFS_THREADSAFE` and the AES context is re-keyed on each call.
+/// Recursive, so `write`/`read` can open the `.sha256` side file under it.
+static MUTEX: OnceBox<RawMutex> = OnceBox::new();
+
+/// Written only under `MUTEX`: littlefs must not be reached once `umount()` freed its buffers
+static MOUNTED: AtomicBool = AtomicBool::new(false);
+
+#[inline]
+fn lock() -> RawMutexGuard<RawMutex> {
+    RawMutexGuard::acquire(MUTEX.get_or_try_init(RawMutex::new).expect("Failed to create filesystem mutex"))
+}
+
+#[inline]
+fn lock_mounted() -> Result<RawMutexGuard<RawMutex>> {
+    let lock = lock();
+    if MOUNTED.load(Ordering::Acquire) {
+        Ok(lock)
+    } else {
+        Err(Error::Unhandled("Filesystem not mounted"))
+    }
+}
 
 /// Seek position enum
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -238,6 +263,11 @@ impl Drop for File {
         if self.handler.is_null() {
             return;
         }
+        let _lock = lock();
+        // After `umount()` littlefs has freed its buffers: leak the handle instead
+        if !MOUNTED.load(Ordering::Acquire) {
+            return;
+        }
         let _ = (FILE_FN.close)(self.handler);
     }
 }
@@ -264,9 +294,12 @@ impl File {
             return Err(Error::NullPtr);
         }
 
+        let _lock = lock_mounted()?;
+
         #[cfg(feature = "encryption")]
         {
-            let encrypted_buffer = unsafe { (*&raw const ENCRYPT).unwrap().aes_encrypt(buffer)? };
+            let encrypt = unsafe { *&raw const ENCRYPT }.ok_or(Error::Unhandled("Filesystem not mounted"))?;
+            let encrypted_buffer = encrypt.aes_encrypt(buffer)?;
 
             let ret = (FILE_FN.write)(self.handler, &encrypted_buffer)?;
 
@@ -316,8 +349,11 @@ impl File {
             return Err(Error::NullPtr);
         }
 
+        let _lock = lock_mounted()?;
+
         #[cfg(feature = "encryption")]
         {
+            let encrypt = unsafe { *&raw const ENCRYPT }.ok_or(Error::Unhandled("Filesystem not mounted"))?;
             let encrypted_buffer = (FILE_FN.read)(self.handler)?;
             self.size = encrypted_buffer.len() as u32;
 
@@ -325,7 +361,7 @@ impl File {
                 return Ok(encrypted_buffer);
             }
 
-            let mut decrypted_buffer = unsafe { (*&raw const ENCRYPT).unwrap().aes_decrypt(&encrypted_buffer)? };
+            let mut decrypted_buffer = encrypt.aes_decrypt(&encrypted_buffer)?;
 
             while decrypted_buffer.last() == Some(&0) {
                 decrypted_buffer.pop();
@@ -379,6 +415,7 @@ impl File {
         if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
+        let _lock = lock_mounted()?;
         (FILE_FN.rewind)(self.handler)
     }
 
@@ -387,6 +424,7 @@ impl File {
         if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
+        let _lock = lock_mounted()?;
         (FILE_FN.seek)(self.handler, offset, whence.to_int())
     }
 
@@ -395,6 +433,7 @@ impl File {
         if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
+        let _lock = lock_mounted()?;
         (FILE_FN.tell)(self.handler)
     }
 
@@ -403,6 +442,7 @@ impl File {
         if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
+        let _lock = lock_mounted()?;
         (FILE_FN.truncate)(self.handler, size)
     }
 
@@ -411,6 +451,7 @@ impl File {
         if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
+        let _lock = lock_mounted()?;
         (FILE_FN.flush)(self.handler)
     }
 
@@ -419,6 +460,7 @@ impl File {
         if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
+        let _lock = lock_mounted()?;
         (FILE_FN.size)(self.handler)
     }
 
@@ -426,6 +468,7 @@ impl File {
         if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
+        let _lock = lock_mounted()?;
         (FILE_FN.close)(self.handler)?;
         self.handler = null_mut();
         Ok(())
@@ -444,6 +487,10 @@ pub struct Dir {
 impl Drop for Dir {
     fn drop(&mut self) {
         if self.handler.is_null() {
+            return;
+        }
+        let _lock = lock();
+        if !MOUNTED.load(Ordering::Acquire) {
             return;
         }
         let _ = (DIR_FN.close)(self.handler);
@@ -470,6 +517,7 @@ impl Dir {
         let mut name = FileBytes::new();
 
 
+        let _lock = lock_mounted()?;
         let ret = (DIR_FN.read)(self.handler, &mut type_, &mut size, name.as_mut_slice());
 
         if ret < 0 {
@@ -484,6 +532,7 @@ impl Dir {
             return Err(Error::NullPtr);
         }
 
+        let _lock = lock_mounted()?;
         (DIR_FN.seek)(self.handler, offset)
     }
 
@@ -492,6 +541,7 @@ impl Dir {
             return Err(Error::NullPtr);
         }
 
+        let _lock = lock_mounted()?;
         (DIR_FN.tell)(self.handler)
     }
 
@@ -500,6 +550,7 @@ impl Dir {
             return Err(Error::NullPtr);
         }
 
+        let _lock = lock_mounted()?;
         (DIR_FN.rewind)(self.handler)
     }
 
@@ -507,6 +558,7 @@ impl Dir {
         if self.handler.is_null() {
             return Err(Error::NullPtr);
         }
+        let _lock = lock_mounted()?;
         (DIR_FN.close)(self.handler)?;
         self.handler = null_mut();
         Ok(())
@@ -520,8 +572,14 @@ pub struct Filesystem;
 impl Filesystem {
     
     pub fn mount(format: bool) -> Result<()> {
+        let _lock = lock();
 
         unsafe {
+            // A context still alive from an earlier mount borrows `KEY`/`IV`, rewritten below
+            if let Some(mut encrypt) = (*&raw mut ENCRYPT).take() {
+                encrypt.drop();
+            }
+
 
             // Derive AES key and IV securely using SHA256 as KDF
             // Salt values are configurable from CMake (HHG_AES_KEY_SALT and HHG_AES_IV_SALT)
@@ -559,6 +617,7 @@ impl Filesystem {
         }
 
         if (FILESYSTEM_FN.mount)(format).is_ok() {
+            MOUNTED.store(true, Ordering::Release);
             log_info!(APP_TAG, "Filesystem mounted");
             Ok(())
         } else {
@@ -568,13 +627,18 @@ impl Filesystem {
     }
 
     pub fn umount() -> Result<()> {
-        unsafe {
-            let _ = &ENCRYPT.unwrap().drop();
+        let _lock = lock_mounted()?;
+
+        // `take()`: no copy of the freed context may stay reachable
+        if let Some(mut encrypt) = unsafe { (*&raw mut ENCRYPT).take() } {
+            encrypt.drop();
         }
+        MOUNTED.store(false, Ordering::Release);
         (FILESYSTEM_FN.umount)()
     }
 
     pub fn open(path: &str, flags: i32) -> Result<File> {
+        let _lock = lock_mounted()?;
         let handler = (FILESYSTEM_FN.open)(path, flags)?;
         Ok(File {
             handler,
@@ -590,6 +654,7 @@ impl Filesystem {
 
     #[inline]
     pub fn remove(path: &str) -> Result<()> {
+        let _lock = lock_mounted()?;
         (FILESYSTEM_FN.remove)(path)
     }
 
@@ -600,6 +665,7 @@ impl Filesystem {
 
     #[inline]
     pub fn rename(old_path: &str, new_path: &str) -> Result<()> {
+        let _lock = lock_mounted()?;
         (FILESYSTEM_FN.rename)(old_path, new_path)
     }
 
@@ -613,6 +679,7 @@ impl Filesystem {
         let mut block_count = 0u32;
         let mut blocks_used = 0u32;
 
+        let _lock = lock_mounted()?;
         (FILESYSTEM_FN.stat_fs)(&mut block_size, &mut block_count, &mut blocks_used)?;
 
         Ok(FsStat {
@@ -627,6 +694,7 @@ impl Filesystem {
         let mut size = 0u32;
         let mut name = FileBytes::new();
 
+        let _lock = lock_mounted()?;
         let ret = (FILESYSTEM_FN.stat)(path, &mut type_, &mut size, name.as_mut_slice())?;
 
         if ret < 0 {
@@ -643,45 +711,54 @@ impl Filesystem {
 
     #[inline]
     pub fn get_attr(path: &str, type_: u8, buffer: &mut [u8]) -> Result<i32> {
+        let _lock = lock_mounted()?;
         (FILESYSTEM_FN.get_attr)(path, type_, buffer)
     }
 
     #[inline]
     pub fn get_attr_with_as_sync_str(path: &impl AsSyncStr, type_: u8, buffer: &mut [u8]) -> Result<i32> {
+        let _lock = lock_mounted()?;
         (FILESYSTEM_FN.get_attr)(path.as_str(), type_, buffer)
     }
 
     #[inline]
     pub fn set_attr(path: &str, type_: u8, buffer: &[u8]) -> Result<()> {
+        let _lock = lock_mounted()?;
         (FILESYSTEM_FN.set_attr)(path, type_, buffer)
     }
 
     #[inline]
     pub fn set_attr_with_as_sync_str(path: &impl AsSyncStr, type_: u8, buffer: &[u8]) -> Result<()> {
+        let _lock = lock_mounted()?;
         (FILESYSTEM_FN.set_attr)(path.as_str(), type_, buffer)
     }
 
     #[inline]
     pub fn remove_attr(path: &str, type_: u8) -> Result<()> {
+        let _lock = lock_mounted()?;
         (FILESYSTEM_FN.remove_attr)(path, type_)
     }
 
     #[inline]
     pub fn remove_attr_with_as_sync_str(path: &impl AsSyncStr, type_: u8) -> Result<()> {
+        let _lock = lock_mounted()?;
         (FILESYSTEM_FN.remove_attr)(path.as_str(), type_)
     }
 
     #[inline]
     pub fn mkdir(path: &str) -> Result<()> {
+        let _lock = lock_mounted()?;
         (FILESYSTEM_FN.mkdir)(path)
     }
 
     #[inline]
     pub fn mkdir_attr_with_as_sync_str(path: &impl AsSyncStr) -> Result<()> {
+        let _lock = lock_mounted()?;
         (FILESYSTEM_FN.mkdir)(path.as_str())
     }
 
     pub fn open_dir(path: &str) -> Result<Dir> {
+        let _lock = lock_mounted()?;
         let handler = (FILESYSTEM_FN.open_dir)(path)?;
         Ok(Dir {
             handler,
@@ -717,6 +794,7 @@ impl Filesystem {
     }
 
     pub fn remove_recursive(path: &str) -> Result<()> {
+        let _lock = lock_mounted()?;
         let entries = Self::ls(path)?;
 
         let is_root =  if path == "/" { true } else { false } ;

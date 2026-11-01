@@ -141,9 +141,13 @@ pub(in crate::drivers) unsafe fn hhg_cyw43_arch_wifi_connect(_ssid: *const c_cha
 
 pub(in crate::drivers) unsafe fn hhg_cyw43_arch_poll() {}
 
-pub(in crate::drivers) unsafe fn hhg_cyw43_arch_lwip_begin() {}
+pub(in crate::drivers) unsafe fn hhg_cyw43_arch_lwip_begin() {
+    super::lwip::core_lock();
+}
 
-pub(in crate::drivers) unsafe fn hhg_cyw43_arch_lwip_end() {}
+pub(in crate::drivers) unsafe fn hhg_cyw43_arch_lwip_end() {
+    super::lwip::core_unlock();
+}
 
 pub(in crate::drivers) unsafe fn hhg_cyw43_wifi_get_rssi(rssi: *mut i32) -> i32 {
     if !is_joined() || rssi.is_null() {

@@ -137,12 +137,12 @@ impl IP6Addr {
 pub struct Udp(pub *mut c_void);
 
 #[allow(dead_code)]
-pub(in crate::drivers) struct NetworkFn<'a> {
+pub(in crate::drivers) struct NetworkFn {
     pub(in crate::drivers) dhcp_get_ip_address: fn() -> Bytes<IPV6_ADDR_LEN>,
     pub(in crate::drivers) dhcp_get_binary_ip_address: fn() -> u32,
     pub(in crate::drivers) dhcp_supplied_address: fn() -> bool,
-    pub(in crate::drivers) dns_resolve_addrress: fn(hostname: &Bytes<64>) -> Result<&'a dyn IpAddress>,
-    pub(in crate::drivers) ntp_request: fn(ipaddr_dest: &'a dyn IpAddress, port: u16, msg_len: u16) -> Result<i64>,
+    pub(in crate::drivers) dns_resolve_addrress: fn(hostname: &Bytes<64>) -> Result<IP4Addr>,
+    pub(in crate::drivers) ntp_request: fn(ipaddr_dest: IP4Addr, port: u16, msg_len: u16) -> Result<i64>,
     pub(in crate::drivers) is_link_up: fn() -> bool,
 }
 
@@ -175,12 +175,13 @@ impl Network {
     }
 
     #[inline]
-    pub fn dns_resolve_addrress<'a>(hostname: &Bytes<64>) -> Result<&'a dyn IpAddress> {
+    pub fn dns_resolve_addrress(hostname: &Bytes<64>) -> Result<IP4Addr> {
         (NETWORK_FN.dns_resolve_addrress)(hostname)
     }
 
     #[inline]
-    pub fn ntp_request(ipaddr_dest: &'static dyn IpAddress, port: u16, msg_len: u16) -> Result<i64> {
+    /// lwIP is built without IPv6, so only an IPv4 destination exists
+    pub fn ntp_request(ipaddr_dest: IP4Addr, port: u16, msg_len: u16) -> Result<i64> {
         (NETWORK_FN.ntp_request)(ipaddr_dest, port, msg_len)
     }
 

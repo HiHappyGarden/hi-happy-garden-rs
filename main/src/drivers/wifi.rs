@@ -21,12 +21,12 @@
 use alloc::sync::Arc;
 use core::ffi::c_void;
 use core::ptr::null_mut;
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use core::time::Duration;
 use osal_rs::{log_debug, log_error, log_info, log_warning};
-use osal_rs::os::{System, Thread, ThreadFn};
+use osal_rs::os::{RawMutex, RawMutexGuard, System, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
-use osal_rs::utils::{Bytes, Result};
+use osal_rs::utils::{Bytes, OnceBox, Result};
 use osal_rs_serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::drivers::gpio::Gpio;
 use crate::drivers::pico::ffi::pico_error_codes::PICO_OK;
@@ -48,21 +48,40 @@ enum WifiFsmControl {
     Break,
 }
 
+// Written by `set_config` (parser, display), read by the WiFi thread: only under `MUTEX`
 static mut SSID: Bytes<32> = Bytes::new();
 static mut PASSWORD: Bytes<32> = Bytes::new();
 static mut AUTH: Auth = Auth::Wpa2;
+static MUTEX: OnceBox<RawMutex> = OnceBox::new();
 static ENABLED: AtomicBool = AtomicBool::new(false);
 static INITIALIZED: AtomicBool = AtomicBool::new(false);
 
-static mut FSM_STATUS_CURRENT: WifiStatus = WifiStatus::Disabled;
-static mut FSM_STATUS_OLD: WifiStatus = WifiStatus::Disabled;
+// `WifiStatus` as `u8`: the WiFi thread runs the FSM, `Drop` can stop it
+static FSM_STATUS_CURRENT: AtomicU8 = AtomicU8::new(WifiStatus::Disabled as u8);
+static FSM_STATUS_OLD: AtomicU8 = AtomicU8::new(WifiStatus::Disabled as u8);
+
+#[inline]
+fn credentials_lock() -> RawMutexGuard<RawMutex> {
+    RawMutexGuard::acquire(MUTEX.get_or_try_init(RawMutex::new).expect("Failed to create WiFi mutex"))
+}
+
+#[inline]
+fn status_current() -> WifiStatus {
+    WifiStatus::from(FSM_STATUS_CURRENT.load(Ordering::Acquire))
+}
+
+#[inline]
+fn status_old() -> WifiStatus {
+    WifiStatus::from(FSM_STATUS_OLD.load(Ordering::Acquire))
+}
 
 // Macro per semplificare il cambio di stato WiFi
 macro_rules! transition_wifi_status {
     ($new_status:expr, $callback:expr) => {
-        FSM_STATUS_OLD = FSM_STATUS_CURRENT;
-        FSM_STATUS_CURRENT = $new_status;
-        let _ = $callback.on_status_change(FSM_STATUS_OLD, FSM_STATUS_CURRENT);
+        let new_status: WifiStatus = $new_status;
+        let old_status = WifiStatus::from(FSM_STATUS_CURRENT.swap(new_status as u8, Ordering::AcqRel));
+        FSM_STATUS_OLD.store(old_status as u8, Ordering::Release);
+        let _ = $callback.on_status_change(old_status, new_status);
     };
 }
 
@@ -164,7 +183,7 @@ impl Initializable for Wifi {
 
 impl Drop for Wifi {
     fn drop(&mut self) {
-        unsafe {FSM_STATUS_CURRENT = Disconnected };
+        FSM_STATUS_CURRENT.store(Disconnected as u8, Ordering::Release);
         System::delay_with_to_tick(Duration::from_millis(200));
         (WIFI_FN.drop)(self.handle);
     }
@@ -187,7 +206,7 @@ impl Wifi {
         }
         System::delay_with_to_tick(Duration::from_millis(2_500));
         *count_error = 0;
-        unsafe { transition_wifi_status!(Enabled, on_wifi_change_status); }
+        transition_wifi_status!(Enabled, on_wifi_change_status);
         on_wifi_change_status.on_rssi_change(RSSIStatus::Unknown);
         WifiFsmControl::Next
     }
@@ -201,7 +220,7 @@ impl Wifi {
         gpio.write(&GpioPeripheral::Cyw43Led, 0);
         (WIFI_FN.enable_sta_mode)(null_mut());
         *count_error = 0;
-        unsafe { transition_wifi_status!(Connecting, on_wifi_change_status); }
+        transition_wifi_status!(Connecting, on_wifi_change_status);
         on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
         WifiFsmControl::Next
     }
@@ -213,16 +232,19 @@ impl Wifi {
     ) -> WifiFsmControl {
         use WifiStatus::*;
         gpio.write(&GpioPeripheral::Cyw43Led, 0);
-        let ret = unsafe {
-            (WIFI_FN.connect)(null_mut(), (*&raw const SSID).as_str(), (*&raw const PASSWORD).as_str(), AUTH).unwrap_or(1)
+        // Copied out: `connect` takes seconds, `set_config` must not wait for it
+        let (ssid, password, auth) = {
+            let _lock = credentials_lock();
+            unsafe { (*&raw const SSID, *&raw const PASSWORD, AUTH) }
         };
+        let ret = (WIFI_FN.connect)(null_mut(), ssid.as_str(), password.as_str(), auth).unwrap_or(1);
         if ret != PICO_OK as i32 {
             log_error!(APP_TAG, "Error connecting to WiFi, errno: {ret}");
-            unsafe { transition_wifi_status!(Error, on_wifi_change_status); }
+            transition_wifi_status!(Error, on_wifi_change_status);
             return WifiFsmControl::Continue;
         }
         *count_error = 0;
-        unsafe { transition_wifi_status!(WaitForIp, on_wifi_change_status); }
+        transition_wifi_status!(WaitForIp, on_wifi_change_status);
         on_wifi_change_status.on_rssi_change(RSSIStatus::NoSignal);
         WifiFsmControl::Continue
     }
@@ -234,7 +256,7 @@ impl Wifi {
     ) -> WifiFsmControl {
         use WifiStatus::*;
         gpio.write(&GpioPeripheral::Cyw43Led, 0);
-        unsafe {
+        {
             *link_status = (WIFI_FN.link_status)(null_mut());
             match *link_status {
                 LinkStatus::Up => {
@@ -269,7 +291,7 @@ impl Wifi {
         on_wifi_change_status: &'a dyn OnWifiChangeStatus,
     ) -> WifiFsmControl {
         use WifiStatus::*;
-        unsafe {
+        {
             *link_status = (WIFI_FN.link_status)(null_mut());
             match *link_status {
                 LinkStatus::Up => {
@@ -334,20 +356,16 @@ impl Wifi {
         use WifiStatus::*;
         if *count_error < MAX_ERROR {
             *count_error += 1;
-            unsafe {
-                FSM_STATUS_CURRENT = FSM_STATUS_OLD;
-                FSM_STATUS_OLD = Error;
-                log_error!(APP_TAG, "Error status_current:{status_current} status_old:{status_old} {count_error}/{MAX_ERROR} retry...", status_current = *(&raw const FSM_STATUS_CURRENT), status_old = *(&raw const FSM_STATUS_OLD));
-            }
+            FSM_STATUS_CURRENT.store(FSM_STATUS_OLD.load(Ordering::Acquire), Ordering::Release);
+            FSM_STATUS_OLD.store(Error as u8, Ordering::Release);
+            log_error!(APP_TAG, "Error status_current:{status_current} status_old:{status_old} {count_error}/{MAX_ERROR} retry...", status_current = status_current(), status_old = status_old());
             System::delay_with_to_tick(Duration::from_millis(1_000));
         } else {
-            unsafe {
-                FSM_STATUS_OLD = Error;
-                //FSM_STATUS_CURRENT = if link_status == LinkStatus::BadAuth { Disconnected } else { Resetting };
-                FSM_STATUS_CURRENT = Resetting;
-                log_error!(APP_TAG, "Resetting status_current:{status_current} status_old:{status_old} WiFi after {MAX_ERROR} retry...", status_current = *(&raw const FSM_STATUS_CURRENT), status_old = *(&raw const FSM_STATUS_OLD));
-                let _ = on_wifi_change_status.on_status_change(Error, FSM_STATUS_CURRENT);
-            }
+            FSM_STATUS_OLD.store(Error as u8, Ordering::Release);
+            //FSM_STATUS_CURRENT = if link_status == LinkStatus::BadAuth { Disconnected } else { Resetting };
+            FSM_STATUS_CURRENT.store(Resetting as u8, Ordering::Release);
+            log_error!(APP_TAG, "Resetting status_current:{status_current} status_old:{status_old} WiFi after {MAX_ERROR} retry...", status_current = status_current(), status_old = status_old());
+            let _ = on_wifi_change_status.on_status_change(Error, status_current());
         }
         WifiFsmControl::Next
     }
@@ -363,7 +381,7 @@ impl Wifi {
         let _ = (WIFI_FN.drop)(null_mut());
         INITIALIZED.store(false, Ordering::Release);
         System::delay_with_to_tick(Duration::from_millis(2_500));
-        unsafe { transition_wifi_status!(Disabled, on_wifi_change_status); }
+        transition_wifi_status!(Disabled, on_wifi_change_status);
         WifiFsmControl::Next
     }
 }
@@ -395,15 +413,15 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
 
             let mut led_on = true;
 
-            unsafe {
+            {
                 'no_rtc: loop {
                     if !ENABLED.load(Ordering::Acquire) {
-                        if FSM_STATUS_CURRENT != Disconnected && FSM_STATUS_CURRENT != Disabled {
+                        if status_current() != Disconnected && status_current() != Disabled {
                             transition_wifi_status!(Disconnected, on_wifi_change_status);
-                        } else if FSM_STATUS_CURRENT == Disconnected {
+                        } else if status_current() == Disconnected {
                             transition_wifi_status!(Disconnected, on_wifi_change_status);
                             continue;
-                        } if FSM_STATUS_CURRENT == Disabled {
+                        } if status_current() == Disabled {
                             on_wifi_change_status.on_rssi_change(RSSIStatus::Unknown);
                             System::delay_with_to_tick(Duration::from_millis(1_000));
                             continue;
@@ -411,7 +429,7 @@ impl SetOnWifiChangeStatus<'static> for Wifi {
                     }
                     
 
-                    let ctrl = match FSM_STATUS_CURRENT {
+                    let ctrl = match status_current() {
                         Disabled        => Self::handle_disabled(&gpio, &mut count_error, on_wifi_change_status),
                         Enabled         => Self::handle_enabled(&gpio, &mut count_error, on_wifi_change_status),
                         Connecting      => Self::handle_connecting(&gpio, &mut count_error, on_wifi_change_status),
@@ -451,12 +469,15 @@ impl Wifi {
         auth: Auth,
         enabled: bool,
     ) {
-        unsafe {
-            SSID = ssid;
-            PASSWORD = password;
-            AUTH = auth;
-            ENABLED.store(enabled, Ordering::Release);
+        {
+            let _lock = credentials_lock();
+            unsafe {
+                SSID = ssid;
+                PASSWORD = password;
+                AUTH = auth;
+            }
         }
+        ENABLED.store(enabled, Ordering::Release);
     }
 
     pub fn shared() -> Self {

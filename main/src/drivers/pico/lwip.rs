@@ -19,20 +19,29 @@
  ***************************************************************************/
 
 use osal_rs::os::types::TickType;
-use core::ffi::{c_char, c_void};
+use core::ffi::{CStr, c_char, c_void};
 use core::ptr::null_mut;
-use core::slice::{from_raw_parts, from_raw_parts_mut};
+use core::slice::from_raw_parts_mut;
+use core::sync::atomic::{AtomicU8, AtomicU32, Ordering};
 use osal_rs::os::{System, SystemFn};
 use osal_rs::log_error;
 use osal_rs::utils::{Bytes, Error, Result};
 use crate::drivers::network::{IP4Addr, NetworkFn};
-use crate::drivers::pico::ffi::{lwip_ip_addr_type::IPADDR_TYPE_V4, hhg_cyw43_arch_lwip_begin, hhg_cyw43_arch_lwip_end, hhg_cyw43_arch_poll, hhg_dns_gethostbyname, hhg_pbuf_alloc, hhg_pbuf_copy_partial, hhg_pbuf_free, hhg_pbuf_get_at, hhg_udp_new_ip_type, hhg_udp_recv, hhg_udp_sendto, ip_addr, pbuf, udp_pcb, hhg_dhcp_get_binary_ip_address, hhg_dhcp_get_ip_address, hhg_dhcp_supplied_address, hhg_netif_is_link_up};
-use crate::traits::network::{IPV6_ADDR_LEN, IpAddress};
+use crate::drivers::pico::ffi::{lwip_ip_addr_type::IPADDR_TYPE_V4, hhg_cyw43_arch_lwip_begin, hhg_cyw43_arch_lwip_end, hhg_cyw43_arch_poll, hhg_dns_gethostbyname, hhg_pbuf_alloc, hhg_pbuf_copy_partial, hhg_pbuf_free, hhg_pbuf_get_at, hhg_udp_new_ip_type, hhg_udp_recv, hhg_udp_remove, hhg_udp_sendto, ip_addr, pbuf, udp_pcb, hhg_dhcp_get_binary_ip_address, hhg_dhcp_get_ip_address, hhg_dhcp_supplied_address, hhg_netif_is_link_up};
+use crate::traits::network::IPV6_ADDR_LEN;
 
 const APP_TAG: &str = "LWIP";
 
-static mut IP_ADDRES_FOUND: Option<IP4Addr> = None;
-static mut TIMESTAMP: i64 = 0;
+const DNS_PENDING: u8 = 0;
+const DNS_FOUND: u8 = 1;
+const DNS_FAILED: u8 = 2;
+
+// Written by the lwIP callbacks, which run on the lwIP (tcpip) thread with
+// `pico_cyw43_arch_lwip_sys_freertos`, and polled by the requesting thread
+static DNS_STATE: AtomicU8 = AtomicU8::new(DNS_PENDING);
+static DNS_ADDR: AtomicU32 = AtomicU32::new(0);
+/// Seconds since 1970 of the last NTP answer, 0 while none came
+static NTP_SECONDS: AtomicU32 = AtomicU32::new(0);
 
 pub(in crate::drivers) static NETWORK_FN: NetworkFn = NetworkFn {
     dhcp_get_ip_address,
@@ -44,17 +53,18 @@ pub(in crate::drivers) static NETWORK_FN: NetworkFn = NetworkFn {
 };
 
 fn dhcp_get_ip_address() -> Bytes<IPV6_ADDR_LEN> {
+    let mut bytes = Bytes::<IPV6_ADDR_LEN>::new();
 
     let ret = unsafe { hhg_dhcp_get_ip_address() };
 
     if !ret.is_null() {
-        let slice = unsafe { from_raw_parts(ret as *const _, IPV6_ADDR_LEN) };
-        let mut bytes = Bytes::<IPV6_ADDR_LEN>::new();
-        bytes.as_mut_slice().copy_from_slice(slice);
-        return bytes;
+        // `ip4addr_ntoa` text: NUL terminated, in a buffer shorter than `IPV6_ADDR_LEN`
+        let text = unsafe { CStr::from_ptr(ret) }.to_bytes();
+        let len = text.len().min(IPV6_ADDR_LEN);
+        bytes.as_mut_slice()[..len].copy_from_slice(&text[..len]);
     }
 
-    Bytes::<IPV6_ADDR_LEN>::new()
+    bytes
 }
 
 #[inline]
@@ -68,82 +78,63 @@ fn dhcp_supplied_address() -> bool {
 }
 
 
-extern "C" fn dns_found_callback(_name: *const c_char, ipaddr: *const IP4Addr, _: *mut c_void) {
+extern "C" fn dns_found_callback(_name: *const c_char, ipaddr: *const ip_addr, _: *mut c_void) {
     // lwIP passes a NULL ipaddr when the lookup fails (NXDOMAIN, no answer from the server, ...)
     if ipaddr.is_null() {
         log_error!(APP_TAG, "DNS lookup failed: no address returned");
+        DNS_STATE.store(DNS_FAILED, Ordering::Release);
         return;
     }
 
     // SAFETY: The callback is called by the C code, ipaddr was checked for NULL above
-    let ipaddr = unsafe { &*(ipaddr as *const IP4Addr) };
-
-
-    unsafe {
-        IP_ADDRES_FOUND = Some(*ipaddr);
-    }
+    DNS_ADDR.store(unsafe { (*ipaddr).addr }, Ordering::Relaxed);
+    DNS_STATE.store(DNS_FOUND, Ordering::Release);
 }
 
-fn dns_resolve_addrress<'a>(hostname: &Bytes<64>) -> Result<&'a dyn IpAddress> {
+fn dns_resolve_addrress(hostname: &Bytes<64>) -> Result<IP4Addr> {
 
-    unsafe {
-        IP_ADDRES_FOUND = None;
-    }
-
-    unsafe {
-        hhg_cyw43_arch_lwip_begin();   
-    }
+    DNS_STATE.store(DNS_PENDING, Ordering::Release);
 
     let mut addr = IP4Addr::default();
-    let dns_result = unsafe { 
-        hhg_dns_gethostbyname(
-            hostname.as_cstr().as_ptr(), 
-            &mut addr, 
-            dns_found_callback, 
-            null_mut()
-        ) 
-    };
 
-    unsafe {
-        hhg_cyw43_arch_lwip_end();   
-    }
+    let dns_result = unsafe {
+        hhg_cyw43_arch_lwip_begin();
+        let ret = hhg_dns_gethostbyname(
+            hostname.as_cstr().as_ptr(),
+            &mut addr,
+            dns_found_callback,
+            null_mut()
+        );
+        hhg_cyw43_arch_lwip_end();
+        ret
+    };
 
     // 0 (ERR_OK): Address already in cache, callback won't be called
     // -5 (ERR_INPROGRESS): query sent, waiting for response, callback will be called when response is received
     // anthings else: error, callback won't be called
-    
+
     if dns_result == 0 {
-        // Address already in cache, callback won't be called
-        unsafe {
-            IP_ADDRES_FOUND = Some(addr);
-        }
-        return if let Some(ipaddr) = unsafe { &*&raw const IP_ADDRES_FOUND } {
-            Ok(ipaddr)
-        } else {
-            Err(Error::Empty)
-        };
+        Ok(addr)
     } else if dns_result == -5 {
         // Query sent, waiting for response, callback will be called when response is received
         const TIMEOUT_MS: TickType = 5000;
         const POLL_INTERVAL_MS: TickType = 10;
         let max_attempts = TIMEOUT_MS / POLL_INTERVAL_MS;
-        
+
         for _ in 0..max_attempts {
             unsafe { hhg_cyw43_arch_poll(); }
-            
-            if unsafe { IP_ADDRES_FOUND }.is_some() {
-                break;
+
+            match DNS_STATE.load(Ordering::Acquire) {
+                DNS_FOUND => return Ok(IP4Addr { addr: DNS_ADDR.load(Ordering::Relaxed) }),
+                DNS_FAILED => return Err(Error::Empty),
+                _ => {}
             }
-            
+
             System::delay(POLL_INTERVAL_MS);
         }
 
-        if let Some(ipaddr) = unsafe { &*&raw const IP_ADDRES_FOUND } {
-            Ok(ipaddr)
-        } else {
-            log_error!(APP_TAG, "DNS lookup for {} got no answer within {}ms", hostname, TIMEOUT_MS);
-            Err(Error::Empty)
-        }
+        log_error!(APP_TAG, "DNS lookup for {} got no answer within {}ms", hostname, TIMEOUT_MS);
+        Err(Error::Empty)
     } else {
         // -6 (ERR_VAL): no DNS server configured, -16 (ERR_ARG): bad hostname or DNS not initialized, -1 (ERR_MEM): DNS table full
         log_error!(APP_TAG, "dns_gethostbyname({}) failed with err={}", hostname, dns_result);
@@ -152,6 +143,9 @@ fn dns_resolve_addrress<'a>(hostname: &Bytes<64>) -> Result<&'a dyn IpAddress> {
 }
 
 extern "C" fn ntp_recv(_: *mut c_void, _: *mut udp_pcb, p: *mut pbuf, _: *const ip_addr, _: u16) {
+    if p.is_null() {
+        return;
+    }
 
     let  mode  = unsafe {
         hhg_pbuf_get_at(p, 0) & 0x7
@@ -160,46 +154,42 @@ extern "C" fn ntp_recv(_: *mut c_void, _: *mut udp_pcb, p: *mut pbuf, _: *const 
         hhg_pbuf_get_at(p, 1)
     };
 
-    
+
     if mode == 0x4 && stratum != 0 {
         const NTP_DELTA: u32 = 2_208_988_800; // Seconds between 1900 and 1970
-        
-        let mut seconds_buf: [u8; 4] = [0, 0, 0, 0];
-        unsafe {
-            hhg_pbuf_copy_partial(p, seconds_buf.as_mut_ptr() as *mut c_void, seconds_buf.len() as u16, 40);   
-        }
-        let seconds_since_1900: u32 = (seconds_buf[0] as u32) << 24 
-            | (seconds_buf[1] as u32) << 16 
-            | (seconds_buf[2] as u32) << 8 
-            | (seconds_buf[3] as u32);
-        let seconds_since_1970: u32 = seconds_since_1900 - NTP_DELTA;
-        let epoch: i64 = seconds_since_1970 as i64;
-        
-        unsafe {
-            TIMESTAMP = epoch;
-            hhg_pbuf_free(p);
-        }
 
-        
+        let mut seconds_buf: [u8; 4] = [0, 0, 0, 0];
+        let copied = unsafe {
+            hhg_pbuf_copy_partial(p, seconds_buf.as_mut_ptr() as *mut c_void, seconds_buf.len() as u16, 40)
+        };
+        let seconds_since_1900 = u32::from_be_bytes(seconds_buf);
+
+        if copied as usize == seconds_buf.len() {
+            if let Some(seconds_since_1970) = seconds_since_1900.checked_sub(NTP_DELTA) {
+                NTP_SECONDS.store(seconds_since_1970, Ordering::Release);
+            }
+        }
+    }
+
+    // The receive callback owns `p`, whatever it holds
+    unsafe {
+        hhg_pbuf_free(p);
     }
 }
 
-fn ntp_request(ipaddr_dest: &'static dyn IpAddress, port: u16, msg_len: u16) -> Result<i64> {
-    
+fn ntp_request(ipaddr_dest: IP4Addr, port: u16, msg_len: u16) -> Result<i64> {
+
+    NTP_SECONDS.store(0, Ordering::Release);
 
     unsafe {
-        TIMESTAMP = 0;
-    }
-
-    unsafe {
-        hhg_cyw43_arch_lwip_begin();   
+        hhg_cyw43_arch_lwip_begin();
     }
 
 
     let pcb = unsafe { hhg_udp_new_ip_type(IPADDR_TYPE_V4) };
     if pcb.is_null() {
         unsafe {
-            hhg_cyw43_arch_lwip_end();   
+            hhg_cyw43_arch_lwip_end();
         }
         return Err(Error::NullPtr);
     }
@@ -207,7 +197,8 @@ fn ntp_request(ipaddr_dest: &'static dyn IpAddress, port: u16, msg_len: u16) -> 
     let pbuf = unsafe { hhg_pbuf_alloc(msg_len) };
     if pbuf.is_null() {
         unsafe {
-            hhg_cyw43_arch_lwip_end();   
+            hhg_udp_remove(pcb);
+            hhg_cyw43_arch_lwip_end();
         }
         return Err(Error::NullPtr);
     }
@@ -222,43 +213,46 @@ fn ntp_request(ipaddr_dest: &'static dyn IpAddress, port: u16, msg_len: u16) -> 
     req.fill(0);
     req[0] = 0x1b;
 
-
-    let ipaddr = unsafe { &*(ipaddr_dest as *const dyn IpAddress as *const IP4Addr) };
-
     let ret = unsafe {
-        hhg_udp_sendto(pcb, pbuf, ipaddr, port)
+        // Before sending: the answer could otherwise come back with no callback set
+        hhg_udp_recv(pcb, ntp_recv, null_mut());
+        let ret = hhg_udp_sendto(pcb, pbuf, &ipaddr_dest, port);
+        // udp_sendto() does not take the pbuf
+        hhg_pbuf_free(pbuf);
+        if ret < 0 {
+            hhg_udp_remove(pcb);
+        }
+        hhg_cyw43_arch_lwip_end();
+        ret
     };
     if ret < 0 {
-        unsafe {
-            hhg_pbuf_free(pbuf);
-            hhg_cyw43_arch_lwip_end();   
-        }
         return Err(Error::ReturnWithCode(ret as i32));
-    }
-
-    unsafe {
-        hhg_cyw43_arch_lwip_end();   
-        hhg_udp_recv(pcb, ntp_recv, null_mut());
     }
 
     const TIMEOUT_MS: TickType = 5000;
     const POLL_INTERVAL_MS: TickType = 10;
     let max_attempts = TIMEOUT_MS / POLL_INTERVAL_MS;
-    
+
     for _ in 0..max_attempts {
         unsafe { hhg_cyw43_arch_poll(); }
-        
-        if unsafe { TIMESTAMP != 0 } {
+
+        if NTP_SECONDS.load(Ordering::Acquire) != 0 {
             break;
         }
-        
+
         System::delay(POLL_INTERVAL_MS);
     }
 
-    if unsafe {TIMESTAMP == 0} {
-        Err(Error::Empty)
-    } else {
-        Ok(unsafe { TIMESTAMP })
+    // Under the core lock: no callback of this pcb runs while it is freed
+    unsafe {
+        hhg_cyw43_arch_lwip_begin();
+        hhg_udp_remove(pcb);
+        hhg_cyw43_arch_lwip_end();
+    }
+
+    match NTP_SECONDS.load(Ordering::Acquire) {
+        0 => Err(Error::Empty),
+        seconds => Ok(seconds as i64),
     }
 }
 

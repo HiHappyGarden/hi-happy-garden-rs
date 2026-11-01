@@ -113,7 +113,7 @@ impl ScreenUser {
         user.set_password(EncryptGeneric::get_sha256(passwd.as_raw_bytes())?.as_str());
         Config::shared().get_session().set_user(&user);
         Config::shared().apply_session();
-        Config::save()?;
+        Config::shared().save()?;
         Ok(())
     }
 

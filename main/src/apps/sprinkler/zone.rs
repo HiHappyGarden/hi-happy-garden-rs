@@ -387,7 +387,7 @@ impl ZoneController {
             APP_TAG, 
             FS_CONFIG_DIR, 
             ZoneController::FILE_NAME, 
-            unsafe {&*&raw const SHARED}
+            self
         )
     }
 

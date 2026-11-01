@@ -95,7 +95,7 @@ fn test_json_has_no_plain_password() -> Result<()> {
 
 fn test_save_reload() -> Result<()> {
     let expected = json(Config::shared())?;
-    Config::save()?;
+    Config::shared().save()?;
     let reloaded: Config = deserialize_file(MUTEX.get().ok_or(Error::Unhandled("Mutex not initialized"))?, TAG, FS_CONFIG_DIR, Config::FILE_NAME)?;
     test_assert_eq!(json(&reloaded)?, expected);
     Ok(())

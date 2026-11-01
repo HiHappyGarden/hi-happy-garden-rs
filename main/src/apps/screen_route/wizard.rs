@@ -326,7 +326,7 @@ impl ScreenWizard {
         self.config.apply_ntp();
         self.config.apply_wifi();
         self.config.apply_session();
-        Config::save()?;
+        self.config.save()?;
 
         Ok(())
     }
