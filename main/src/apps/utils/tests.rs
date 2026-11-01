@@ -27,7 +27,7 @@
 
 use osal_rs::log_debug;
 use osal_rs::os::RawMutex;
-use osal_rs::utils::{Bytes, Result};
+use osal_rs::utils::{Bytes, OnceBox, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
 use super::{CROCKFORD, deserialize_file, fnv1a64, luhn32_check, serial_from_uid, serialize_file};
@@ -41,7 +41,7 @@ const TAG: &str = "UtilsTests";
 
 const TEST_FILE: &str = "hhg_utils_test.json";
 
-static mut MUTEX: Option<RawMutex> = None;
+static MUTEX: OnceBox<RawMutex> = OnceBox::new();
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 struct Doc {
@@ -58,8 +58,8 @@ impl Default for Doc {
     }
 }
 
-fn mutex() -> &'static Option<RawMutex> {
-    unsafe { &*&raw const MUTEX }
+fn mutex() -> &'static RawMutex {
+    MUTEX.get().expect("setup() not called")
 }
 
 fn file_path(suffix: &str) -> FileBytes {
@@ -76,9 +76,7 @@ fn remove_test_files() {
 }
 
 fn setup() -> Result<()> {
-    unsafe {
-        MUTEX = Some(RawMutex::new()?);
-    }
+    MUTEX.get_or_try_init(RawMutex::new)?;
     remove_test_files();
     Ok(())
 }

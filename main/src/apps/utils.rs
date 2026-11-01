@@ -26,7 +26,7 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 use cjson_binding::{from_json, to_json};
-use osal_rs::{access_static_option, log_error, log_info, log_warning};
+use osal_rs::{log_error, log_info, log_warning};
 use osal_rs::os::{RawMutex, RawMutexGuard};
 use osal_rs::utils::{Error, Result};
 use osal_rs_serde::{Deserialize, Serialize};
@@ -38,11 +38,11 @@ use crate::drivers::platform::FS_SEPARATOR_DIR;
 
 const CROCKFORD: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
-pub(in crate::apps) fn deserialize_file<T>(mutex: &'static Option<RawMutex>, app_tag: &str, dir: &str, name: &str) -> Result<T> 
+pub(in crate::apps) fn deserialize_file<T>(mutex: &'static RawMutex, app_tag: &str, dir: &str, name: &str) -> Result<T> 
 where 
     T: Deserialize + Serialize + Default
 {
-    let _lock = RawMutexGuard::acquire(access_static_option!(mutex));
+    let _lock = RawMutexGuard::acquire(mutex);
 
     let mut file_name = FileBytes::from(dir);
     file_name.append_str(FS_SEPARATOR_DIR);
@@ -108,11 +108,11 @@ where
     }
 }
 
-pub(in crate::apps) fn serialize_file<'a, T>(mutex: &'static Option<RawMutex>, app_tag: &str, dir: &str, name: &str, t: &'a T) -> Result<&'a T> 
+pub(in crate::apps) fn serialize_file<'a, T>(mutex: &'static RawMutex, app_tag: &str, dir: &str, name: &str, t: &'a T) -> Result<&'a T> 
 where 
     T: Deserialize + Serialize + Default
 {
-    let _lock = RawMutexGuard::acquire(access_static_option!(mutex));
+    let _lock = RawMutexGuard::acquire(mutex);
 
     let mut file_name = FileBytes::from(dir);
     file_name.append_str(FS_SEPARATOR_DIR);

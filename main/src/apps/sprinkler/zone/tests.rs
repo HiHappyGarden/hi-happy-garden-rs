@@ -31,7 +31,7 @@ use alloc::vec::Vec;
 
 use at_parser_rs::Args;
 use at_parser_rs::context::AtContext;
-use osal_rs::utils::Result;
+use osal_rs::utils::{Error, Result};
 
 use super::{MUTEX, SHARED, ZONE_TMP, Zone, ZoneController, ZoneRelay};
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
@@ -188,7 +188,7 @@ fn test_save_reload() -> Result<()> {
     with_zones_restored(|controller| logged(|| {
         let expected = zones();
         test_assert!(set(controller, "0,sv")?.is_empty());
-        let reloaded: ZoneController = deserialize_file(unsafe { &*&raw const MUTEX }, TAG, FS_CONFIG_DIR, ZoneController::FILE_NAME)?;
+        let reloaded: ZoneController = deserialize_file(MUTEX.get().ok_or(Error::Unhandled("Mutex not initialized"))?, TAG, FS_CONFIG_DIR, ZoneController::FILE_NAME)?;
         test_assert_eq!(reloaded.zones, expected);
         Ok(())
     }))
@@ -216,7 +216,7 @@ fn test_save() -> Result<()> {
         controller[2].weight = controller[2].weight.wrapping_add(1);
         let expected = zones();
         controller.save()?;
-        let reloaded: ZoneController = deserialize_file(unsafe { &*&raw const MUTEX }, TAG, FS_CONFIG_DIR, ZoneController::FILE_NAME)?;
+        let reloaded: ZoneController = deserialize_file(MUTEX.get().ok_or(Error::Unhandled("Mutex not initialized"))?, TAG, FS_CONFIG_DIR, ZoneController::FILE_NAME)?;
         test_assert_eq!(reloaded.zones, expected);
         Ok(())
     })();

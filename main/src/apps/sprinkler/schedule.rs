@@ -26,9 +26,9 @@ use core::ops::{Deref, DerefMut};
 use at_parser_rs::{Args, AtError, AtResult};
 use at_parser_rs::context::AtContext;
 use osal_rs::os::types::EventBits;
-use osal_rs::{access_static_option, log_info};
+use osal_rs::log_info;
 use osal_rs::os::{RawMutex, RawMutexGuard};
-use osal_rs::utils::{Bytes, Result};
+use osal_rs::utils::{Bytes, Error, OnceBox, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
@@ -46,7 +46,7 @@ use super::commons::Status;
 static mut SHARED: ScheduleController = ScheduleController::DEFAULT;
 
 
-static mut MUTEX: Option<RawMutex> = None;
+static MUTEX: OnceBox<RawMutex> = OnceBox::new();
 
 /// Temporary schedule data used to stage changes from `set` until `exec` persists them
 static mut SCHEDULE_TMP: (usize, Schedule) = (0, Schedule::new());
@@ -367,9 +367,16 @@ impl Initializable for ScheduleController {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init Schedule");
 
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
 
-        *self = deserialize_file::<ScheduleController>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, ScheduleController::FILE_NAME)?;
+        let mutex = MUTEX.get().ok_or(Error::Unhandled("Mutex not initialized"))?;
+
+        let _lock = RawMutexGuard::acquire(mutex);
+
+        *self = deserialize_file::<ScheduleController>(mutex, 
+            APP_TAG, 
+            FS_CONFIG_DIR, 
+            ScheduleController::FILE_NAME
+        )?;
 
         Ok(())
     }
@@ -392,7 +399,7 @@ impl<'a> IntoIterator for &'a mut ScheduleController {
 
 impl AtContext<{Parser::CMD_SIZE}> for ScheduleController {
     fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?);
 
         if StatusSignal::get() & <StatusFlag as Into<EventBits>>::into(StatusFlag::UserLogged) == 0 {
             return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
@@ -416,7 +423,8 @@ impl AtContext<{Parser::CMD_SIZE}> for ScheduleController {
     }
 
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?);
+
         
         let (index, schedule) = unsafe {
             &*&raw mut SCHEDULE_TMP
@@ -468,7 +476,7 @@ impl AtContext<{Parser::CMD_SIZE}> for ScheduleController {
             return Err((at_response, AtError::InvalidArgs));
         }
 
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?);
 
         let schedule = unsafe {
             &mut *&raw mut SCHEDULE_TMP
@@ -552,7 +560,10 @@ impl AtContext<{Parser::CMD_SIZE}> for ScheduleController {
                 schedule.1.status = Status::from(value);
             }
             "sv" => {// save
-                serialize_file(unsafe {&*&raw const MUTEX},  APP_TAG, FS_CONFIG_DIR, ScheduleController::FILE_NAME, unsafe {&*&raw const SHARED}).map_err(|_| (at_response, AtError::Unhandled("Impossible save")))?;
+                serialize_file(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?,  
+                APP_TAG,
+                FS_CONFIG_DIR, 
+                ScheduleController::FILE_NAME, unsafe {&*&raw const SHARED}).map_err(|_| (at_response, AtError::Unhandled("Impossible save")))?;
             }
             _ => return Err((at_response, AtError::InvalidArgs)),
         }
@@ -567,14 +578,14 @@ impl Deref for ScheduleController {
     type Target = [Schedule];
 
     fn deref(&self) -> &Self::Target {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         &self.schedules
     }
 }
 
 impl DerefMut for ScheduleController {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         &mut self.schedules
     }
 }
@@ -596,23 +607,16 @@ impl ScheduleController {
     };
 
     pub(in crate::apps) fn shared() -> &'static mut Self {
-        unsafe {
-            if (*&raw const MUTEX).is_none() {
-                MUTEX = match RawMutex::new() {
-                    Ok(mutex) => Some(mutex),
-                    Err(_) =>  panic!("MUTEX is not initialized",),
-                }
-            }
-        }
+        let mutex = MUTEX.get_or_try_init(RawMutex::new).expect("Failed to create schedule mutex");
 
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(mutex);
         unsafe { &mut *&raw mut SHARED }
     }
 
 
 
     pub(in crate::apps) fn new_selections() -> ScreenSelections<{ScheduleController::SIZE}> {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
 
         let schedule_controller = unsafe {
             &mut *&raw mut SHARED
@@ -631,7 +635,7 @@ impl ScheduleController {
 
     pub(in crate::apps) fn save<'a>(&'a self) -> Result<&'a Self> {
         serialize_file(
-            unsafe {&*&raw const MUTEX},  
+            MUTEX.get().ok_or(Error::Unhandled("Mutex not initialized"))?,  
             APP_TAG, 
             FS_CONFIG_DIR, 
             ScheduleController::FILE_NAME, 

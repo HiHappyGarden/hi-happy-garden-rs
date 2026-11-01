@@ -27,10 +27,10 @@ use core::time::Duration;
 use at_parser_rs::AtError;
 use at_parser_rs::context::AtContext;
 use at_parser_rs::parser::AtParser;
-use osal_rs::{access_static_option, log_error, log_info};
+use osal_rs::{log_error, log_info};
 use osal_rs::os::{Queue, QueueFn, Thread, ThreadFn};
 use osal_rs::os::types::{EventBits, StackType, TickType, UBaseType};
-use osal_rs::utils::{Error, Result};
+use osal_rs::utils::{Error, OnceBox, Result};
 
 use crate::apps::config::{Config, ConfigAt, DaylightSavingTime, WifiConfig, NtpConfig};
 use crate::apps::session::{Session, User};
@@ -55,7 +55,7 @@ const KO_RESPONSE: &str = "KO";
 const BUFFER_SIZE: usize = 256;
 const QUEUE_SIZE: UBaseType = BUFFER_SIZE as UBaseType;
 
-static mut QUEUE: Option<Queue> = None;
+static QUEUE: OnceBox<Queue> = OnceBox::new();
 static mut SOURCE: Option<Source> = None;
 
 static mut UART_CHANNEL: Option<&'static dyn SetTransmit> = None;
@@ -91,7 +91,7 @@ impl OnReceive for Parser {
             SOURCE = local_source;
         }
 
-        let queue = access_static_option!(QUEUE);
+        let queue = QUEUE.get().ok_or(Error::Unhandled("Queue not initialized"))?;
 
         for &byte in data {
             match &source {
@@ -108,14 +108,7 @@ impl Initializable for Parser {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init app parser");
 
-        if let Ok(queue) =  Queue::new(QUEUE_SIZE, 1) {
-            unsafe {
-                QUEUE = Some(queue);
-            }
-        } else {
-            log_error!(APP_TAG, "Error creating queue");
-            return Err(Error::OutOfMemory)
-        }
+        QUEUE.get_or_try_init(|| Queue::new(QUEUE_SIZE, 1))?;
 
         self.0 = self.0.spawn_simple(move || {
 
@@ -146,11 +139,13 @@ impl Initializable for Parser {
             let mut buffer = [0u8; BUFFER_SIZE];
             let mut buffer_count = 0;
 
+            let queue = QUEUE.get().ok_or(Error::Unhandled("Queue not initialized"))?;
+
             loop {
 
 
                 let mut byte = [0u8; 1];
-                if access_static_option!(QUEUE).fetch(&mut byte, TickType::MAX).is_ok() {
+                if queue.fetch(&mut byte, TickType::MAX).is_ok() {
                     buffer[buffer_count] = byte[0];
                     buffer_count += 1;
                     if buffer_count >= buffer.len() {

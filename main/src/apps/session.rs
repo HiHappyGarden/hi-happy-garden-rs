@@ -123,7 +123,7 @@ impl User {
 impl AtContext<{Parser::CMD_SIZE}> for User {
 
     fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?);
 
         if unsafe { USER_LOGGED }.is_none() {
             return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE.into())));
@@ -139,7 +139,7 @@ impl AtContext<{Parser::CMD_SIZE}> for User {
     }
 
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?);
 
         if unsafe { USER_LOGGED }.is_none() {
             return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE.into())));
@@ -153,7 +153,7 @@ impl AtContext<{Parser::CMD_SIZE}> for User {
     } 
     
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?);
 
         if unsafe { USER_LOGGED }.is_none() {
             return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE.into())));
@@ -214,7 +214,7 @@ pub(super) struct Session {
 impl AtContext<{Parser::CMD_SIZE}> for Session {
 
     fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?);
 
         let user_tmp = unsafe { &*&raw mut USER_TMP };
         match user_tmp {
@@ -232,7 +232,7 @@ impl AtContext<{Parser::CMD_SIZE}> for Session {
     }
 
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?);
 
         let logged = unsafe { *&raw const USER_LOGGED };
         if logged.is_some() { 
@@ -250,7 +250,7 @@ impl AtContext<{Parser::CMD_SIZE}> for Session {
     }
 
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?);
 
         let arg0 = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
 
@@ -357,7 +357,7 @@ impl Session {
     // Called from the AT parser task (under lock, recursion is safe)
     // and from the session timeout timer task (unlocked entry point).
     fn logout() {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
 
         unsafe { USER_LOGGED = None; }
         User::get_local().clear();
@@ -368,22 +368,22 @@ impl Session {
     }
 
     pub fn set_user(&mut self, user: &User) {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.users[1] = *user;
     }
 
     pub fn set_user_local(&self) {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         unsafe { USER_LOCAL = self.users[1]; }
     }
 
     pub fn get_user_local(&self) -> User {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.users[1]
     }
 
     pub fn is_set_user_local(&self) -> bool {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.users[1].email.len() > 0 && self.users[1].password.len() > 0
     }
 
@@ -391,7 +391,9 @@ impl Session {
         if email.is_empty() || password.is_empty() {
             return Err(Error::Empty);
         }
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(
+            MUTEX.get().ok_or(Error::Unhandled("Mutex not initialized"))?
+        );
         self.users[0].email = Bytes::from(email);
         self.users[0].password = Bytes::from(password);
         Ok(())

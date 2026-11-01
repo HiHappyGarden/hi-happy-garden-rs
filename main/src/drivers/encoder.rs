@@ -20,10 +20,10 @@
  
 use core::sync::atomic::{AtomicI32, AtomicBool, Ordering};
 
-use osal_rs::{access_static_option, log_error, log_info, log_warning};
+use osal_rs::{log_error, log_info, log_warning};
 use osal_rs::os::types::{StackType, TickType};
 use osal_rs::os::{EventGroup, EventGroupFn, System, SystemFn, Thread, ThreadFn};
-use osal_rs::utils::{Error, OsalRsBool, Result};
+use osal_rs::utils::{Error, OnceBox, OsalRsBool, Result};
 
 use crate::drivers::gpio::{InterruptType};
 use crate::drivers::platform::{GpioPeripheral, ThreadPriority};
@@ -59,7 +59,7 @@ static BUTTON_IS_PRESSED: AtomicBool = AtomicBool::new(false);
 static LAST_BUTTON_INTERRUPT_TIME: AtomicTickType = AtomicTickType::new(0);
 static LAST_CCW_INTERRUPT_TIME: AtomicTickType = AtomicTickType::new(0);
 static LAST_CW_INTERRUPT_TIME: AtomicTickType = AtomicTickType::new(0);
-static mut EVENT_HANDLER: Option<EventGroup> = None;
+static EVENT_HANDLER: OnceBox<EventGroup> = OnceBox::new();
 
 #[allow(dead_code)]
 pub struct Encoder {
@@ -71,8 +71,8 @@ pub struct Encoder {
 }
 
 extern "C" fn encoder_button_isr() {
-    let encoder_events = access_static_option!(EVENT_HANDLER);
-    
+    let Some(encoder_events) = EVENT_HANDLER.get() else { return };
+
     let current_time = System::get_tick_count();
     let last_time = LAST_BUTTON_INTERRUPT_TIME.load(Ordering::Relaxed);
     
@@ -104,8 +104,8 @@ extern "C" fn encoder_button_isr() {
 }
 
 extern "C" fn encoder_ccw_isr() {
-    let encoder_events = access_static_option!(EVENT_HANDLER);
-    
+    let Some(encoder_events) = EVENT_HANDLER.get() else { return };
+
     let current_time = System::get_tick_count();
     let last_time = LAST_CCW_INTERRUPT_TIME.load(Ordering::Relaxed);
     
@@ -133,7 +133,7 @@ extern "C" fn encoder_ccw_isr() {
 }
 
 extern "C" fn encoder_cw_isr() {
-    let encoder_events = access_static_option!(EVENT_HANDLER);
+    let Some(encoder_events) = EVENT_HANDLER.get() else { return };
     
     let current_time = System::get_tick_count();
     let last_time = LAST_CW_INTERRUPT_TIME.load(Ordering::Relaxed);
@@ -165,6 +165,8 @@ impl Initializable for Encoder {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init encoder");
 
+        EVENT_HANDLER.get_or_try_init(EventGroup::new)?;
+
         let mut gpio = Gpio::shared();
 
         if gpio.set_interrupt(&self.gpio_ccw_ref, InterruptType::BothEdge, true, encoder_ccw_isr) == OsalRsBool::False {
@@ -181,14 +183,6 @@ impl Initializable for Encoder {
             return Err(Error::NotFound);
         }
 
-        if let Ok(event_group) = EventGroup::new() {
-            unsafe {
-                EVENT_HANDLER = Some(event_group);
-            }
-        } else {
-            log_error!(APP_TAG, "Error creating encoder event group");
-            return Err(Error::OutOfMemory)
-        }
 
         Ok(())
     }
@@ -225,8 +219,8 @@ impl SetRotatableAndClickable<'static> for Encoder {
 
         let ret = self.thread.spawn_simple( move || {
 
-            let event_handler = access_static_option!(EVENT_HANDLER);
-
+            let Some(event_handler) = EVENT_HANDLER.get() else { return Err(Error::OutOfMemory) };
+            
             let gpio = Gpio::shared();
 
             // State tracking: use 2-bit encoding where bit1=CCW, bit0=CW

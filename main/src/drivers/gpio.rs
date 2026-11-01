@@ -31,8 +31,8 @@ use alloc::sync::Arc;
 
 use osal_rs::os::RawMutex;
 use osal_rs::os::RawMutexGuard;
-use osal_rs::{access_static_option, log_info, log_warning};
-use osal_rs::utils::{AsSyncStr, Error, OsalRsBool, Ptr, Result};
+use osal_rs::{log_info, log_warning};
+use osal_rs::utils::{AsSyncStr, Error, OnceBox, OsalRsBool, Ptr, Result};
 
 
 use crate::traits::state::{Deinitializable, Initializable};
@@ -129,7 +129,7 @@ unsafe impl Sync for GpioFn {}
 
 // Single mutex shared by every Gpio instance: it protects the global
 // GPIO_CONFIGS, so a per-instance mutex would not provide mutual exclusion.
-static mut MUTEX: Option<RawMutex> = None;
+static MUTEX: OnceBox<RawMutex> = OnceBox::new();
 
 pub struct Gpio<const GPIO_CONFIG_SIZE: usize> {
     configs: &'static mut GpioConfigs<'static, GPIO_CONFIG_SIZE>,
@@ -144,7 +144,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Initializable for Gpio<GPIO_CONFIG_SIZE> {
         
         log_info!(APP_TAG, "Init GPIO");
 
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
 
         if let Some(init) = &GPIO_FN.init {
             init()?;
@@ -227,7 +227,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Deinitializable for Gpio<GPIO_CONFIG_SIZE> {
 
     fn deinit(&mut self) -> Result<()> {
 
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
 
         if let Some(deinit) = &GPIO_FN.deinit {
             deinit()?;
@@ -245,15 +245,7 @@ impl Gpio<{GPIO_CONFIG_SIZE}> {
 
         // First call happens during single-threaded hardware init,
         // before any other task can contend on the mutex creation.
-        unsafe {
-            if (&*&raw const MUTEX).is_none() {
-                let mutex = match RawMutex::new() {
-                    Ok(mutex) => mutex,
-                    Err(_) => panic!("Failed to create GPIO mutex"),
-                };
-                MUTEX = Some(mutex);
-            }
-        }
+        MUTEX.get_or_try_init(RawMutex::new).expect("Failed to create GPIO mutex");
 
         Self {
             configs:  unsafe { &mut *(&raw mut GPIO_CONFIGS ) },
@@ -265,7 +257,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
 
 
     pub fn write(&self, name: &dyn AsSyncStr, state: u32) -> OsalRsBool {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
 
         if let Some(config) = &self.configs[name] {
             match &config.get_io_type() {
@@ -286,7 +278,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
     }
 
     pub fn read(&self, name: &dyn AsSyncStr) -> Result<u32> {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
 
         if let Some(config) = &self.configs[name] {
             match &config.get_io_type() {
@@ -313,7 +305,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
     }
 
     pub fn set_pwm(&self, name: &dyn AsSyncStr, pwm_duty_cycle: u16) -> OsalRsBool {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
 
         if let Some(config) = &self.configs[name] {
 
@@ -341,7 +333,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
         callback: InterruptCallback
     ) -> OsalRsBool {
 
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
 
         if let Some(config) = &mut self.configs[name] {
             match &config.get_io_type() {
@@ -370,7 +362,7 @@ impl<const GPIO_CONFIG_SIZE: usize> Gpio<GPIO_CONFIG_SIZE> {
     }
 
     pub fn enable_interrupt(&mut self, name: &dyn AsSyncStr, enable: bool) -> OsalRsBool {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
 
         if let Some(config) = &mut self.configs[name] {
             match &config.get_io_type() {

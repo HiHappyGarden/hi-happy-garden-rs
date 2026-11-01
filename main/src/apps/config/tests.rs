@@ -31,7 +31,7 @@ use alloc::format;
 
 use at_parser_rs::Args;
 use at_parser_rs::context::AtContext;
-use osal_rs::utils::Result;
+use osal_rs::utils::{Error, Result};
 
 use super::defaults::*;
 use super::{Config, DaylightSavingTime, MUTEX, NtpConfig, WifiConfig};
@@ -96,7 +96,7 @@ fn test_json_has_no_plain_password() -> Result<()> {
 fn test_save_reload() -> Result<()> {
     let expected = json(Config::shared())?;
     Config::save()?;
-    let reloaded: Config = deserialize_file(unsafe { &*&raw const MUTEX }, TAG, FS_CONFIG_DIR, Config::FILE_NAME)?;
+    let reloaded: Config = deserialize_file(MUTEX.get().ok_or(Error::Unhandled("Mutex not initialized"))?, TAG, FS_CONFIG_DIR, Config::FILE_NAME)?;
     test_assert_eq!(json(&reloaded)?, expected);
     Ok(())
 }

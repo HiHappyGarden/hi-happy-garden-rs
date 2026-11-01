@@ -24,8 +24,8 @@ use core::sync::atomic::{AtomicBool, Ordering};
 
 use osal_rs::os::types::{StackType, TickType};
 use osal_rs::os::{EventGroup, EventGroupFn, System, SystemFn, Thread, ThreadFn};
-use osal_rs::utils::{Error, OsalRsBool, Result};
-use osal_rs::{access_static_option, log_error, log_info, log_warning};
+use osal_rs::utils::{Error, OnceBox, OsalRsBool, Result};
+use osal_rs::{log_error, log_info, log_warning};
 
 use crate::drivers::gpio::{Gpio, InterruptType};
 use crate::drivers::platform::{GpioPeripheral, ThreadPriority};
@@ -52,7 +52,7 @@ pub mod button_events {
 
 static BUTTON_STATE: AtomicEventBits = AtomicEventBits::new(0);
 static LAST_INTERRUPT_TIME: AtomicTickType = AtomicTickType::new(0);
-static mut EVENT_HANDLER: Option<EventGroup> = None;
+static EVENT_HANDLER: OnceBox<EventGroup> = OnceBox::new();
 
 pub struct Button {
     gpio_ref: GpioPeripheral,
@@ -64,8 +64,8 @@ pub struct Button {
 
 
 extern "C" fn button_isr() {
-    let event_handler = access_static_option!(EVENT_HANDLER);
-    
+    let Some(button_events) = EVENT_HANDLER.get() else { return };
+
     let current_time = System::get_tick_count();
     let last_time = LAST_INTERRUPT_TIME.load(Ordering::Relaxed);
     
@@ -80,10 +80,10 @@ extern "C" fn button_isr() {
 
     if state == BUTTON_NONE || state & BUTTON_RELEASED == BUTTON_RELEASED {
         BUTTON_STATE.store(BUTTON_PRESSED, Ordering::Relaxed);
-        event_handler.set_from_isr(BUTTON_PRESSED).unwrap();
+        button_events.set_from_isr(BUTTON_PRESSED).unwrap();
     } else if state & BUTTON_PRESSED == BUTTON_PRESSED {
         BUTTON_STATE.store(BUTTON_RELEASED, Ordering::Relaxed);
-        event_handler.set_from_isr(BUTTON_RELEASED).unwrap();
+        button_events.set_from_isr(BUTTON_RELEASED).unwrap();
     }
 }
 
@@ -99,7 +99,7 @@ impl SetClickable<'static> for Button {
         self.thread_started.store(true, Ordering::Release);
 
         let ret = self.thread.spawn_simple( move || {
-            let event_handler = access_static_option!(EVENT_HANDLER);
+            let Some(event_handler) = EVENT_HANDLER.get() else { return Err(Error::OutOfMemory) };
 
             loop {
                 
@@ -140,6 +140,8 @@ impl Initializable for Button {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init button");
 
+        EVENT_HANDLER.get_or_try_init(EventGroup::new)?;
+
         let mut gpio = Gpio::shared();
 
         if gpio.set_interrupt(&self.gpio_ref, InterruptType::BothEdge, true, button_isr) == OsalRsBool::False {
@@ -148,14 +150,7 @@ impl Initializable for Button {
         }
 
 
-        if let Ok(event_group) = EventGroup::new() {
-            unsafe {
-                EVENT_HANDLER = Some(event_group);
-            }
-        } else {
-            log_error!(APP_TAG, "Error creating button event group");
-            return Err(Error::OutOfMemory)
-        }
+
 
         Ok(())
     }

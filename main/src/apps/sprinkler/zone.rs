@@ -29,11 +29,11 @@ use core::ops::{Deref, DerefMut};
 use at_parser_rs::at_quoted as quoted;
 use at_parser_rs::context::AtContext;
 use at_parser_rs::{Args, AtError, AtResult};
-use osal_rs::{access_static_option, log_info};
+use osal_rs::log_info;
 use osal_rs::os::RawMutex;
 use osal_rs::os::RawMutexGuard;
 use osal_rs::os::types::EventBits;
-use osal_rs::utils::{Bytes, Result};
+use osal_rs::utils::{Bytes, Error, OnceBox, Result};
 use osal_rs_serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
@@ -49,7 +49,7 @@ use ZoneRelay::*;
 
 static mut SHARED: ZoneController = ZoneController::DEFAULT;
 
-static mut MUTEX: Option<RawMutex> = None;
+static MUTEX: OnceBox<RawMutex> = OnceBox::new();
 
 /// Temporary zone data used to stage changes from `set` until `exec` persists them
 static mut ZONE_TMP: Zone = Zone::new(Relay0);
@@ -207,9 +207,11 @@ impl Initializable for ZoneController {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init Zone");
 
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let mutex = MUTEX.get().ok_or(Error::Unhandled("Mutex not initialized"))?;
 
-        *self = deserialize_file::<ZoneController>(unsafe { &*&raw const MUTEX }, APP_TAG, FS_CONFIG_DIR, ZoneController::FILE_NAME)?;
+        let _lock = RawMutexGuard::acquire(mutex);
+
+        *self = deserialize_file::<ZoneController>(mutex, APP_TAG, FS_CONFIG_DIR, ZoneController::FILE_NAME)?;
 
         Ok(())
     }
@@ -217,7 +219,7 @@ impl Initializable for ZoneController {
 
 impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
     fn exec(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?);
 
         if StatusSignal::get() & <StatusFlag as Into<EventBits>>::into(StatusFlag::UserLogged) == 0 {
             return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
@@ -242,7 +244,7 @@ impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
     }
 
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, {Parser::CMD_SIZE}> {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?);
         if StatusSignal::get() & <StatusFlag as Into<EventBits>>::into(StatusFlag::UserLogged) == 0 {
             return Err((at_response, AtError::Unhandled(Parser::NOT_LOGGED_RESPONSE)));
         }
@@ -278,7 +280,7 @@ impl AtContext<{Parser::CMD_SIZE}> for ZoneController {
         let zone_relay = ZoneRelay::from(zone_relay);
         let cmd = args.get(1).ok_or((at_response, AtError::InvalidArgs))?;
 
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?);
 
         let zone = self.zones.iter().find(|zone| zone.zone_relay == zone_relay)
             .ok_or((at_response, AtError::InvalidArgs))?;
@@ -327,14 +329,14 @@ impl Deref for ZoneController {
     type Target = [Zone];
 
     fn deref(&self) -> &Self::Target {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         &self.zones
     }
 }
 
 impl DerefMut for ZoneController {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         &mut self.zones
     }
 }
@@ -355,21 +357,14 @@ impl ZoneController {
     ]};
 
     pub(in crate::apps) fn shared() -> &'static mut Self {
-        unsafe {
-            if (*&raw const MUTEX).is_none() {
-                MUTEX = match RawMutex::new() {
-                    Ok(mutex) => Some(mutex),
-                    Err(_) =>  panic!("MUTEX is not initialized",),
-                }
-            }
-        }
+        let mutex = MUTEX.get_or_try_init(RawMutex::new).expect("Failed to create zone mutex");
 
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(mutex);
         unsafe { &mut *&raw mut SHARED }
     }
 
     pub(in crate::apps) fn new_selections() -> ScreenSelections<{ZoneController::SIZE}> {
-        let _lock = RawMutexGuard::acquire(access_static_option!(MUTEX));
+        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
 
         let zone_controller = unsafe {
             &mut *&raw mut SHARED
@@ -388,7 +383,7 @@ impl ZoneController {
 
     pub(in crate::apps) fn save<'a>(&'a self) -> Result<&'a Self> {
         serialize_file(
-            unsafe {&*&raw const MUTEX},  
+            MUTEX.get().unwrap(),  
             APP_TAG, 
             FS_CONFIG_DIR, 
             ZoneController::FILE_NAME, 

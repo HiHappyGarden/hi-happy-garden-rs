@@ -30,7 +30,7 @@ use alloc::string::String;
 
 use at_parser_rs::Args;
 use at_parser_rs::context::AtContext;
-use osal_rs::utils::Result;
+use osal_rs::utils::{Error, Result};
 
 use super::{Day, MUTEX, Month, SCHEDULE_TMP, SHARED, Schedule, ScheduleController, ScheduleZone};
 use crate::apps::parser::Parser;
@@ -206,7 +206,7 @@ fn test_save_reload() -> Result<()> {
     with_schedules_restored(|controller| logged(|| {
         let expected = unsafe { (*&raw const SHARED).schedules };
         test_assert!(set(controller, "0,sv")?.is_empty());
-        let reloaded: ScheduleController = deserialize_file(unsafe { &*&raw const MUTEX }, TAG, FS_CONFIG_DIR, ScheduleController::FILE_NAME)?;
+        let reloaded: ScheduleController = deserialize_file(MUTEX.get().ok_or(Error::Unhandled("Mutex not initialized"))?, TAG, FS_CONFIG_DIR, ScheduleController::FILE_NAME)?;
         test_assert_eq!(reloaded.schedules, expected);
         Ok(())
     }))
