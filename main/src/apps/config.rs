@@ -25,6 +25,7 @@ pub(super) mod tests;
 use core::ops::Deref;
 use core::ops::DerefMut;
 
+use osal_rs::os::Mutex;
 use osal_rs::os::RawMutex;
 use osal_rs::os::RawMutexGuard;
 use osal_rs::os::types::EventBits;
@@ -64,7 +65,7 @@ const APP_TAG: &str = "AppConfig";
 pub(super) static MUTEX: OnceBox<RawMutex> = OnceBox::new();
 
 
-static mut SHARED: Config = Config {
+static mut SHARED: OnceBox<Mutex<Config>> = Config {
     version: 0,
     serial: Bytes::new(),
     timezone: 0,
