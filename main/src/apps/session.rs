@@ -368,7 +368,6 @@ impl Session {
     }
 
     pub fn set_user(&mut self, user: &User) {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.users[1] = *user;
     }
 
@@ -378,12 +377,10 @@ impl Session {
     }
 
     pub fn get_user_local(&self) -> User {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.users[1]
     }
 
     pub fn is_set_user_local(&self) -> bool {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.users[1].email.len() > 0 && self.users[1].password.len() > 0
     }
 
@@ -391,9 +388,6 @@ impl Session {
         if email.is_empty() || password.is_empty() {
             return Err(Error::Empty);
         }
-        let _lock = RawMutexGuard::acquire(
-            MUTEX.get().ok_or(Error::Unhandled("Mutex not initialized"))?
-        );
         self.users[0].email = Bytes::from(email);
         self.users[0].password = Bytes::from(password);
         Ok(())

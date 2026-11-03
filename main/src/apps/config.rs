@@ -22,12 +22,10 @@
 #[cfg(feature = "tests")]
 pub(super) mod tests;
 
-use core::ops::Deref;
-use core::ops::DerefMut;
 
 use osal_rs::os::Mutex;
+use osal_rs::os::MutexFn;
 use osal_rs::os::RawMutex;
-use osal_rs::os::RawMutexGuard;
 use osal_rs::os::types::EventBits;
 use osal_rs::utils::Bytes;
 use osal_rs::utils::Error;
@@ -65,32 +63,9 @@ const APP_TAG: &str = "AppConfig";
 pub(super) static MUTEX: OnceBox<RawMutex> = OnceBox::new();
 
 
-static mut SHARED: OnceBox<Mutex<Config>> = Config {
-    version: 0,
-    serial: Bytes::new(),
-    timezone: 0,
-    daylight_saving_time: DaylightSavingTime {
-        start_month: 3,
-        start_day: 0xFF,
-        start_hour: 2,
-        end_month: 10,
-        end_day: 0xFF,
-        end_hour: 3,
-        enabled: false,
-    },
-    session: Session::new(),
-    wifi: WifiConfig {
-        ssid: Bytes::new(),
-        password: Bytes::new(),
-        auth: Auth::Wpa2,
-        enabled: false,
-    },
-    ntp: NtpConfig {
-        server: Bytes::new(),
-        port: 123,
-        msg_len: 48,
-    },
-};
+static SHARED: OnceBox<Mutex<Config>> = OnceBox::new();
+
+
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub(in crate::apps) struct DaylightSavingTime {
@@ -122,17 +97,14 @@ impl DaylightSavingTime {
     pub(in crate::apps) const AT_RESP: &'static str = "+DST: ";
 
     pub(in crate::apps) fn is_enabled(&self) -> bool {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.enabled
     }
 
     pub(in crate::apps) fn set_enabled(&mut self, enabled: bool) {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.enabled = enabled;
     }
 
     pub(in crate::apps) fn apply(&self) {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         DateTime::set_daylight_saving_time_whit_param(
             self.enabled,
             self.start_month,
@@ -147,7 +119,6 @@ impl DaylightSavingTime {
 
 impl AtContext<{ Parser::CMD_SIZE }> for DaylightSavingTime {
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?);
         let mut response = Bytes::<{ Parser::CMD_SIZE }>::new();
         response.format(format_args!("{},{},{},{},{},{},{}",
             self.start_month, self.start_day, self.start_hour,
@@ -168,7 +139,6 @@ impl AtContext<{ Parser::CMD_SIZE }> for DaylightSavingTime {
         }
         let cmd = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
 
-        let _lock = RawMutexGuard::acquire(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?);
 
         match cmd.as_ref() {
             "smo" => { // start_month
@@ -277,47 +247,38 @@ impl WifiConfig {
     pub(in crate::apps) const AT_RESP: &'static str = "+WIFI: ";
 
     pub(in crate::apps) fn get_ssid(&self) -> Bytes<32> {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.ssid
     }
 
     pub(in crate::apps) fn get_password(&self) -> Bytes<32> {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.password
     }
 
     pub(in crate::apps) fn is_enabled(&self) -> bool {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.enabled
     }
 
     pub(in crate::apps) fn get_auth(&self) -> Auth {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.auth
     }
 
     pub(in crate::apps) fn set_ssid(&mut self, ssid: &str) {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.ssid = Bytes::from(ssid);
     }
 
     pub(in crate::apps) fn set_password(&mut self, password: &str) {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.password = Bytes::from(password);
     }
 
     pub(in crate::apps) fn set_enabled(&mut self, enabled: bool) {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.enabled = enabled;
     }
 
     pub(in crate::apps) fn set_auth(&mut self, auth: Auth) {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.auth = auth;
     }
 
     pub(in crate::apps) fn apply(&self) {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         Wifi::set_config(self.ssid, self.password, self.auth, self.enabled);
     }
 
@@ -326,7 +287,6 @@ impl WifiConfig {
 impl AtContext<{ Parser::CMD_SIZE }> for WifiConfig {
     
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?);
         Ok(at_cmd_response!(at_response; quoted!(self.ssid.as_str()), <Auth as Into<u8>>::into(self.auth), self.enabled as u8))
     }
 
@@ -352,7 +312,6 @@ impl AtContext<{ Parser::CMD_SIZE }> for WifiConfig {
         let enabled: u8 = args.get(3).ok_or((at_response, AtError::InvalidArgs))?
             .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
 
-        let _lock = RawMutexGuard::acquire(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?);
 
         self.ssid = Bytes::from(ssid.as_ref());
         self.password = Bytes::from(password.as_ref());
@@ -387,44 +346,36 @@ impl NtpConfig {
     pub(in crate::apps) const AT_RESP: &'static str = "+NTP: ";
 
     pub(in crate::apps) fn get_server(&self) -> Bytes<64> {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.server
     }
 
     pub(in crate::apps) fn get_port(&self) -> u16 {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.port
     }
 
     pub(in crate::apps) fn get_msg_len(&self) -> u16 {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.msg_len
     }
 
     pub(in crate::apps) fn set_server(&mut self, server: &str) {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.server = Bytes::from(server);
     }
 
     pub(in crate::apps) fn set_port(&mut self, port: u16) {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.port = port;
     }
 
     pub(in crate::apps) fn set_msg_len(&mut self, msg_len: u16) {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.msg_len = msg_len;
     }
 
     pub(in crate::apps) fn apply(&self) {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         Network::set_ntp(self.server, self.port, self.msg_len);
     }
 }
 
 impl AtContext<{ Parser::CMD_SIZE }> for NtpConfig {
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         Ok(at_cmd_response!(at_response; quoted!(self.server.as_str()), self.port, self.msg_len))
     }
 
@@ -446,7 +397,6 @@ impl AtContext<{ Parser::CMD_SIZE }> for NtpConfig {
         let msg_len: u16 = args.get(2).ok_or((at_response, AtError::InvalidArgs))?
             .parse().map_err(|_| (at_response, AtError::InvalidArgs))?;
 
-        let _lock = RawMutexGuard::acquire(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?);
 
         self.server = Bytes::from(server.as_ref());
         self.port = port;
@@ -518,7 +468,6 @@ impl Initializable for Config {
 
 impl AtContext<{ Parser::CMD_SIZE }> for Config {
     fn query(&mut self, at_response: &'static str) -> AtResult<'_, { Parser::CMD_SIZE }> {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?);
         Ok(at_cmd_response!(at_response; quoted!(self.serial.as_str()), self.timezone))
     }
 
@@ -534,7 +483,6 @@ impl AtContext<{ Parser::CMD_SIZE }> for Config {
         }
         let cmd = args.get(0).ok_or((at_response, AtError::InvalidArgs))?;
 
-        let _lock = RawMutexGuard::acquire(MUTEX.get().ok_or((at_response, AtError::Unhandled("Mutex not initialized")))?);
 
         match cmd.as_ref() {
             "sn" => { // serial
@@ -565,7 +513,6 @@ impl Config {
     pub(in crate::apps) const AT_RESP: &'static str = "+CNF: ";
 
     pub(in crate::apps) fn apply_locale(&self) {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         DateTime::set_timezone(self.timezone);
     }
 
@@ -582,12 +529,11 @@ impl Config {
     }
 
     pub(in crate::apps) fn apply_session(&self) {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.session.set_user_local();
     }
 
-    pub(in crate::apps) const fn shared() -> &'static mut Self {
-        unsafe { &mut *&raw mut SHARED }
+    pub(in crate::apps) const fn shared() -> &'static OnceBox<Mutex<Config>> {
+        &SHARED
     }
 
     /// Through `self`: reaching `SHARED` anew would invalidate a caller's `&mut` to it
@@ -601,40 +547,33 @@ impl Config {
 
     #[allow(dead_code)]
     pub(in crate::apps) fn get_version(&self) -> u8 {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.version
     }
 
     pub(in crate::apps) fn get_serial(&self) -> Bytes<16> {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.serial
     }
 
     pub(in crate::apps) fn set_serial(&mut self, serial: &Bytes<16>) {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.serial = serial.clone();
     }
 
     #[allow(dead_code)]
     pub(in crate::apps) fn get_timezone(&self) -> i16 {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.timezone
     }
 
     #[allow(dead_code)]
     pub(in crate::apps) fn set_timezone(&mut self, timezone: i16) {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.timezone = timezone;
     }
 
     pub(in crate::apps) fn get_ntp_config(&self) -> NtpConfig {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.ntp
     }
 
-    // The *_mut accessors hand out references that outlive any lock scope:
-    // the data they point to is protected by the locks taken inside the
-    // methods of the returned types, not by locking here.
+    // The *_mut accessors borrow from `self`, so the references they hand out
+    // cannot outlive the `SHARED` guard `self` came from.
 
     pub(in crate::apps) fn get_ntp_config_mut(&mut self) -> &mut NtpConfig {
         &mut self.ntp
@@ -659,20 +598,25 @@ impl Config {
 ///
 /// The parser keeps its handlers for ever. Holding `&mut Config` and `&mut`
 /// to its fields at the same time would alias, so it gets stateless forwarders
-/// that reach `SHARED` only under `MUTEX`, for the length of one command.
-pub(in crate::apps) struct ConfigAt<T: 'static>(pub(in crate::apps) fn(&'static mut Config) -> &'static mut T);
+/// that lock `SHARED` only for the length of one command.
+pub(in crate::apps) struct ConfigAt<T: 'static>(
+    pub(in crate::apps) fn(&'static mut Config) -> &'static mut T
+);
 
 impl<T> ConfigAt<T>
 where T: AtContext<{ Parser::CMD_SIZE }> + 'static {
 
     #[inline]
     fn with<R>(&self, f: impl FnOnce(&'static mut T) -> R) -> R {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
-        // SAFETY: the only `&mut` into `SHARED` the parser has, made under `MUTEX`
-        // and dropped before it is released. The `'static` is the one the parser
-        // handed its contexts before: an `AtError::Unhandled` borrowed from the
-        // context would outlive the lock, but all of them are string literals.
-        f((self.0)(unsafe { &mut *&raw mut SHARED }))
+        let mut guard = SHARED.get().unwrap().lock().unwrap();
+        // SAFETY: the `&mut` comes from the guard and is dropped, with everything
+        // `f` derives from it, before the guard releases the lock at the end of
+        // this function. The `'static` is the one the parser handed its contexts
+        // before: an `AtError::Unhandled` borrowed from the context would outlive
+        // the lock, but all of them are string literals.
+        let shared: &'static mut Config = unsafe { &mut *(&mut *guard as *mut Config) };
+
+        f((self.0)(shared))
     }
 }
 
@@ -697,29 +641,5 @@ where T: AtContext<{ Parser::CMD_SIZE }> + 'static {
     #[inline]
     fn set(&mut self, at_response: &'static str, args: at_parser_rs::Args) -> AtResult<'_, { Parser::CMD_SIZE }> {
         self.with(|ctx| ctx.set(at_response, args))
-    }
-}
-
-
-//TODO: Consider implementing a more ergonomic way to access the shared `Config` under the mutex,
-// potentially with RAII guards or higher-level abstractions to avoid repetitive unsafe blocks.
-#[allow(dead_code)]
-pub(in crate::apps) struct ConfigGuard(RawMutexGuard<RawMutex>);
-
-
-impl Deref for ConfigGuard {
-    type Target = Config;
-    fn deref(&self) -> &Config { unsafe { &*&raw const SHARED } }
-}
-
-impl DerefMut for ConfigGuard {
-    fn deref_mut(&mut self) -> &mut Config { unsafe { &mut *&raw mut SHARED } }
-}
-
-impl Config {
-    
-    #[allow(dead_code)]
-    pub(in crate::apps) fn lock() -> ConfigGuard {
-        ConfigGuard(RawMutexGuard::acquire(MUTEX.get().unwrap()))
     }
 }
