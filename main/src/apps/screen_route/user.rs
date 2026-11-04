@@ -22,7 +22,6 @@ use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
-use crate::apps::config::Config;
 use crate::apps::display::input::Input;
 use crate::apps::session::User;
 use crate::apps::signals::display::request_redraw;

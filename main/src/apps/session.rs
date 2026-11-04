@@ -31,7 +31,7 @@ use osal_rs::os::{RawMutexGuard, Timer, TimerFn, ToTick};
 use osal_rs::utils::{Bytes, Error, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
-use crate::apps::config::{Config, MUTEX};
+use crate::apps::config::MUTEX;
 use crate::apps::parser::{Parser, at_cmd_response};
 use crate::drivers::encrypt::{EncryptGeneric, SHA256_RESULT_BYTES};
 use crate::shared;
@@ -132,7 +132,7 @@ impl AtContext<{Parser::CMD_SIZE}> for User {
 
         let email = self.email.clone();
 
-        shared!().set_user(self);
+        shared!( (at_response, AtError::NotSupported) ).get_session().set_user(self);
 
         self.clear();
 

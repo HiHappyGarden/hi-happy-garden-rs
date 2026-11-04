@@ -22,7 +22,6 @@ use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
-use crate::apps::config::Config;
 use crate::apps::display::check::Check;
 use crate::apps::display::input::Input;
 use crate::apps::display::select::Select;
@@ -162,7 +161,10 @@ impl ScreenWifi {
     }
 
     fn save(&mut self) -> Result<()> {
-        let wifi_config = shared!(Error::NullPtr).get_wifi_config();
+
+        let mut config = shared!(Error::NullPtr);
+
+        let wifi_config = config.get_wifi_config();
 
         if self.enable.get_value().unwrap_or(false) {
             let ssid   = self.ssid.get_value()?;

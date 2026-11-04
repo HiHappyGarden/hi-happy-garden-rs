@@ -23,15 +23,14 @@ use core::sync::atomic::{AtomicU8, Ordering};
 use osal_rs::os::{Mutex, MutexFn, RawMutex, RawMutexGuard, System, SystemFn};
 use osal_rs::os::types::EventBits;
 use osal_rs::{log_info};
-use osal_rs::utils::{Bytes, OnceBox, Result};
+use osal_rs::utils::{Bytes, Error, OnceBox, Result};
 
-use crate::apps::config::Config;
 use crate::apps::signals::display::DisplaySignal;
 use crate::apps::signals::error::{ErrorFlag, ErrorSignal};
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::drivers::date_time::DateTime;
 use crate::drivers::network::Network;
-use crate::set_app_error;
+use crate::{set_app_error, shared};
 use crate::traits::rtc::RTC;
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
@@ -98,7 +97,7 @@ impl OnWifiChangeStatus for Wifi {
 
         STATUS.store(status as u8, Ordering::Release);
 
-        let config = Config::shared();
+        let config = shared!(Error::NullPtr);
 
         match status {
             Disabled | Enabled | Connecting | WaitForIp => {

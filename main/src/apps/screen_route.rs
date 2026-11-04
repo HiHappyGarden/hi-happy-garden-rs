@@ -41,7 +41,6 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use alloc::sync::Arc;
 
-use crate::apps::config::Config;
 use crate::apps::signals::display::{DisplayFlag, request_redraw};
 use crate::apps::signals::status::StatusFlag;
 use crate::apps::screen_route::login::ScreenLogin;
@@ -54,7 +53,7 @@ use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
 use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
-use osal_rs::utils::{OnceBox, Result};
+use osal_rs::utils::Result;
 
 
 trait StateMachine<S> {
