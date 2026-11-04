@@ -19,7 +19,7 @@
  ***************************************************************************/
 
 use osal_rs::os::types::EventBits;
-use osal_rs::utils::{Bytes, Result};
+use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::config::Config;
@@ -29,6 +29,7 @@ use crate::apps::display::select::Select;
 use crate::apps::screen_route::auth::{fill_auth_selections, selected_auth_from_selections};
 use crate::apps::signals::display::request_redraw;
 use crate::drivers::wifi::Auth;
+use crate::shared;
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -77,7 +78,7 @@ impl ScreenWifi {
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Enable WiFi?"),
-            ScreenParam::Check(Config::shared().get_wifi_config().is_enabled()),
+            ScreenParam::Check(shared!(Error::NullPtr).get_wifi_config().is_enabled()),
         )? {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(param) => {
@@ -104,7 +105,7 @@ impl ScreenWifi {
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("WiFi SSID"),
-            ScreenParam::Input { value: Bytes::from_as_sync_str(&Config::shared().get_wifi_config().get_ssid()), secret_mode: false }
+            ScreenParam::Input { value: Bytes::from_as_sync_str(&shared!(Error::NullPtr).get_wifi_config().get_ssid()), secret_mode: false }
         )? {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(_) => {
@@ -125,7 +126,7 @@ impl ScreenWifi {
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("WiFi Password"),
-            ScreenParam::Input { value: Bytes::from_as_sync_str(&Config::shared().get_wifi_config().get_password()), secret_mode: true },
+            ScreenParam::Input { value: Bytes::from_as_sync_str(&shared!(Error::NullPtr).get_wifi_config().get_password()), secret_mode: true },
         )? {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(_) => {
@@ -146,7 +147,7 @@ impl ScreenWifi {
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("WiFi Auth"),
-            ScreenParam::Selects(fill_auth_selections(Config::shared().get_wifi_config().get_auth())),
+            ScreenParam::Selects(fill_auth_selections(shared!(Error::NullPtr).get_wifi_config().get_auth())),
         )? {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(_) => {
@@ -161,7 +162,7 @@ impl ScreenWifi {
     }
 
     fn save(&mut self) -> Result<()> {
-        let wifi_config = Config::shared().get_wifi_config();
+        let wifi_config = shared!(Error::NullPtr).get_wifi_config();
 
         if self.enable.get_value().unwrap_or(false) {
             let ssid   = self.ssid.get_value()?;
@@ -180,7 +181,7 @@ impl ScreenWifi {
         }
 
         wifi_config.apply();
-        Config::shared().save()?;
+        shared!(Error::NullPtr).save()?;
         Ok(())
     }
 

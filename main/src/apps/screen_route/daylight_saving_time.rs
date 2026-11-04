@@ -18,12 +18,12 @@
  *
  ***************************************************************************/
 
-use osal_rs::utils::{Bytes, Result};
+use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
-use crate::apps::config::Config;
 use crate::apps::display::check::Check;
 use crate::drivers::date_time::DateTime;
+use crate::shared;
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 
 pub(super) struct ScreenDaylightSavingTime {
@@ -36,13 +36,13 @@ impl ScreenRoute for ScreenDaylightSavingTime {
     }
 
     fn renderize(&mut self, ScreenRouteCtx { lcd, display_signal, status_signal: _, rtc }: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
-    
+
         match self.enable_dst.draw(
             *lcd,
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Enable DST?"),
-            ScreenParam::Check(Config::shared().get_daylight_saving_time().is_enabled()),
+            ScreenParam::Check(shared!(Error::NullPtr).get_daylight_saving_time().is_enabled()),
         )? {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(param) => {
@@ -65,9 +65,10 @@ impl ScreenDaylightSavingTime {
 
     fn save(enabled: bool) -> Result<()> {
         DateTime::set_daylight_saving_time(enabled);
-        Config::shared().get_daylight_saving_time().set_enabled(enabled);
-        Config::shared().apply_daylight_saving_time();
-        Config::shared().save()?;
+        let mut config = shared!(Error::NullPtr);
+        config.get_daylight_saving_time().set_enabled(enabled);
+        config.apply_daylight_saving_time();
+        config.save()?;
         Ok(())
     }
 

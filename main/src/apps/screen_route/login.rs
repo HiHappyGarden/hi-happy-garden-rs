@@ -20,8 +20,9 @@
 
 use at_parser_rs::Args;
 use at_parser_rs::context::AtContext;
+use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
-use osal_rs::utils::{Bytes, Result};
+use osal_rs::utils::{Bytes, OnceBox, Result};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::config::Config;
@@ -29,6 +30,7 @@ use crate::apps::display::input::Input;
 use crate::apps::display::text::Text;
 use crate::apps::signals::display::request_redraw;
 use crate::drivers::encrypt::{EncryptGeneric, SHA256_RESULT_BYTES};
+use crate::get_config;
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 
 /// Worst case of `i,"<email>","<sha256 hex>"` with every email byte escaped.
@@ -42,7 +44,7 @@ enum FSMState {
 }
 
 pub(super) struct ScreenLogin {
-    config: &'static mut Config,
+    config: &'static OnceBox<Mutex<Config>>,
     fsm_state: FSMState,
     logged: bool,
     email: Input,
@@ -168,7 +170,8 @@ impl ScreenLogin {
             raw: raw.as_str()
         };
 
-        let session = self.config.get_session();
+        let mut config = get_config!(self.config);
+        let session = config.get_session();
         Ok(session.set("", args).is_ok() && session.exec("").is_ok())
     }
 

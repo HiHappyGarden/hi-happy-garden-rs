@@ -65,7 +65,53 @@ pub(super) static MUTEX: OnceBox<RawMutex> = OnceBox::new();
 
 static SHARED: OnceBox<Mutex<Config>> = OnceBox::new();
 
+#[macro_export]
+macro_rules! shared {
+    () => {
+        $crate::get_config!($crate::apps::config::Config::shared())
+    };
+    ($error:expr) => {
+        $crate::get_config!($crate::apps::config::Config::shared(), $error)
+    };
+    ($error1:expr, $error2:expr) => {
+        $crate::get_config!($crate::apps::config::Config::shared(), $error1, $error2)
+    };
+}
 
+
+#[macro_export]
+macro_rules! get_config {
+    ($config:expr) => {
+        {
+            use $crate::osal_rs::os::MutexFn;
+            $config.get().unwrap().lock().unwrap()
+        }
+    };
+    ($config:expr, $error:expr) => {
+        {
+            use $crate::osal_rs::os::MutexFn;
+            match $config.get() {
+                Some(mutex) => match mutex.lock() {
+                    Ok(guard) => guard,
+                    Err(_) => return Err($error),
+                },
+                None => return Err($error),
+            }
+        }
+    };
+    ($config:expr, $error1:expr, $error2:expr) => {
+        {
+            use $crate::osal_rs::os::MutexFn;
+            match $config.get() {
+                Some(mutex) => match mutex.lock() {
+                    Ok(guard) => guard,
+                    Err(_) => return Err($error1),
+                },
+                None => return Err($error2),
+            }
+        }
+    };
+}
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub(in crate::apps) struct DaylightSavingTime {

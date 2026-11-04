@@ -47,13 +47,14 @@ use crate::apps::signals::status::StatusFlag;
 use crate::apps::screen_route::login::ScreenLogin;
 use crate::apps::screen_route::wizard::ScreenWizard;
 use crate::apps::screen_route::menu::ScreenMenu;
+use crate::shared;
 use crate::traits::integer::Integer;
 use crate::traits::screen::{Answer, BoxedScreenRoute, Nav, ScreenRoute as ScreenRouteFn, ScreenRouteCtx};
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rtc::RTC;
 use osal_rs::os::Mutex;
 use osal_rs::os::types::EventBits;
-use osal_rs::utils::Result;
+use osal_rs::utils::{OnceBox, Result};
 
 
 trait StateMachine<S> {
@@ -83,7 +84,6 @@ where S: StateMachine<FSMS>
 
 
 pub(in crate::apps) struct ScreenRoute {
-    config: &'static mut Config,
     stack: Vec<(&'static str, BoxedScreenRoute)>,
     check_staus_counter: u8,
 }
@@ -98,7 +98,6 @@ impl ScreenRoute {
 
     pub(super) fn new() -> Self {
         Self {
-            config: Config::shared(),
             stack: Vec::new(),
             check_staus_counter: 0,
         }
@@ -189,7 +188,7 @@ impl ScreenRoute {
     fn push(&mut self, id: &'static str, screen: BoxedScreenRoute, status_signal: &EventBits) {
 
         if screen.requires_auth()
-            && self.config.get_session().is_set_user_local()
+            && shared!().get_session().is_set_user_local()
             && !StatusFlag::UserLogged.check_signal(*status_signal)
         {
             self.stack.push((ScreenLogin::id(), Box::new(ScreenLogin::new())));

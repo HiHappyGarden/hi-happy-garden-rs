@@ -19,7 +19,7 @@
  ***************************************************************************/
 
 use osal_rs::os::types::EventBits;
-use osal_rs::utils::{Bytes, Result};
+use osal_rs::utils::{Bytes, Error, Result};
 
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::config::Config;
@@ -27,6 +27,7 @@ use crate::apps::display::input::Input;
 use crate::apps::session::User;
 use crate::apps::signals::display::request_redraw;
 use crate::drivers::encrypt::EncryptGeneric;
+use crate::shared;
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -70,7 +71,7 @@ impl ScreenUser {
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("User Email"),
-            ScreenParam::Input { value: Config::shared().get_session().get_user_local().get_email().clone(), secret_mode: false }
+            ScreenParam::Input { value: shared!(Error::NullPtr).get_session().get_user_local().get_email().clone(), secret_mode: false }
         )? {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(_) => {
@@ -111,9 +112,12 @@ impl ScreenUser {
         user.set_email(email.as_str());
         user.set_empty_passwd(passwd.is_empty());
         user.set_password(EncryptGeneric::get_sha256(passwd.as_raw_bytes())?.as_str());
-        Config::shared().get_session().set_user(&user);
-        Config::shared().apply_session();
-        Config::shared().save()?;
+
+        let mut config = shared!(Error::NullPtr);
+        config.get_session().set_user(&user);
+        config.apply_session();
+        config.save()?;
+
         Ok(())
     }
 
