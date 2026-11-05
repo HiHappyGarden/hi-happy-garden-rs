@@ -489,6 +489,8 @@ impl Initializable for Config {
     fn init(&mut self) -> Result<()> {
         log_info!(APP_TAG, "Init app config");
 
+        SHARED.get_or_try_init(|| Ok::<_, Error>(Mutex::new(Config::default())))?;
+
         let mutex = MUTEX.get_or_try_init(RawMutex::new)?;
 
 

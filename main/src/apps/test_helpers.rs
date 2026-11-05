@@ -32,6 +32,7 @@ use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Error, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
+use crate::apps::config::Config;
 use crate::apps::parser::Parser;
 use crate::apps::session::User;
 use crate::apps::signals::display::{DisplayFlag, DisplaySignal};
@@ -51,11 +52,13 @@ pub(in crate::apps) const TEST_PASSWORD: &str = "t3st-p4ss";
 
 /// Brings the application layer up the way `AppMain::init` does, without
 /// the tasks (display, wifi, system led) the tests do not need. The display
-/// signal is created anyway: screens raise `Draw` on it.
+/// signal is created anyway: screens raise `Draw` on it. The shared config
+/// is initialized before its first access.
 pub(in crate::apps) fn setup() -> Result<()> {
     StatusSignal::init()?;
     ErrorSignal::init()?;
     DisplaySignal::init()?;
+    Config::shared().get_or_try_init(|| Ok::<_, Error>(Mutex::new(Config::default())))?;
     shared!().init()?;
     Sprinkler::new().init()
 }
