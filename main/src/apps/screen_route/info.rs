@@ -18,12 +18,12 @@
  *
  ***************************************************************************/
 
-use crate::apps::config::Config;
 use crate::apps::display::text::Text;
 use crate::apps::wifi::Wifi;
 use crate::apps::DISPLAY_INPUT_MAX_SIZE;
+use crate::shared;
 use crate::traits::screen::{Answer, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx, Nav};
-use osal_rs::utils::{Bytes, Result};
+use osal_rs::utils::{Bytes, Error, Result};
 
 
 pub(super) struct ScreenInfo {
@@ -40,7 +40,7 @@ impl ScreenRoute for ScreenInfo {
 
         let mut text = Bytes::<DISPLAY_INPUT_MAX_SIZE>::new();
 
-        if Config::shared().get_wifi_config().is_enabled() {
+        if shared!(Error::NullPtr).get_wifi_config().is_enabled() {
             text.format(format_args!("Ip Address|{}", Wifi::get_ip_address()));
         } else {
             text.append_str("Wifi: Disabled");

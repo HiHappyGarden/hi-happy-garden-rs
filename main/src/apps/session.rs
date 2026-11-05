@@ -31,9 +31,10 @@ use osal_rs::os::{RawMutexGuard, Timer, TimerFn, ToTick};
 use osal_rs::utils::{Bytes, Error, Result};
 use osal_rs_serde::{Deserialize, Serialize};
 
-use crate::apps::config::{Config, MUTEX};
+use crate::apps::config::MUTEX;
 use crate::apps::parser::{Parser, at_cmd_response};
 use crate::drivers::encrypt::{EncryptGeneric, SHA256_RESULT_BYTES};
+use crate::shared;
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
 use crate::apps::signals::status::{StatusSignal, StatusFlag};
@@ -131,7 +132,7 @@ impl AtContext<{Parser::CMD_SIZE}> for User {
 
         let email = self.email.clone();
 
-        Config::shared().get_session().set_user(self);
+        shared!( (at_response, AtError::NotSupported) ).get_session().set_user(self);
 
         self.clear();
 
@@ -368,7 +369,6 @@ impl Session {
     }
 
     pub fn set_user(&mut self, user: &User) {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.users[1] = *user;
     }
 
@@ -378,12 +378,10 @@ impl Session {
     }
 
     pub fn get_user_local(&self) -> User {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.users[1]
     }
 
     pub fn is_set_user_local(&self) -> bool {
-        let _lock = RawMutexGuard::acquire(MUTEX.get().unwrap());
         self.users[1].email.len() > 0 && self.users[1].password.len() > 0
     }
 
@@ -391,9 +389,6 @@ impl Session {
         if email.is_empty() || password.is_empty() {
             return Err(Error::Empty);
         }
-        let _lock = RawMutexGuard::acquire(
-            MUTEX.get().ok_or(Error::Unhandled("Mutex not initialized"))?
-        );
         self.users[0].email = Bytes::from(email);
         self.users[0].password = Bytes::from(password);
         Ok(())

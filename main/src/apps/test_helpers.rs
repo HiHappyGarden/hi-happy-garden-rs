@@ -44,6 +44,7 @@ use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use crate::traits::rtc::RTC;
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
+use crate::shared;
 
 /// Credentials of the user installed by [`with_test_user`]
 pub(in crate::apps) const TEST_EMAIL: &str = "test@hhg.local";
@@ -51,12 +52,14 @@ pub(in crate::apps) const TEST_PASSWORD: &str = "t3st-p4ss";
 
 /// Brings the application layer up the way `AppMain::init` does, without
 /// the tasks (display, wifi, system led) the tests do not need. The display
-/// signal is created anyway: screens raise `Draw` on it.
+/// signal is created anyway: screens raise `Draw` on it. The shared config
+/// is initialized before its first access.
 pub(in crate::apps) fn setup() -> Result<()> {
     StatusSignal::init()?;
     ErrorSignal::init()?;
     DisplaySignal::init()?;
-    Config::shared().init()?;
+    Config::shared().get_or_try_init(|| Ok::<_, Error>(Mutex::new(Config::default())))?;
+    shared!().init()?;
     Sprinkler::new().init()
 }
 
@@ -71,16 +74,21 @@ pub(in crate::apps) fn logged<R>(test: impl FnOnce() -> Result<R>) -> Result<R> 
 /// Runs `test` with [`TEST_EMAIL`] installed as local user, restoring the
 /// real one afterwards. Memory only: `/etc/config.json` is not written.
 pub(in crate::apps) fn with_test_user<R>(test: impl FnOnce() -> Result<R>) -> Result<R> {
-    let session = Config::shared().get_session();
-    let backup = session.get_user_local();
-
     let mut user = User::default();
     user.set_email(TEST_EMAIL);
     user.set_password(EncryptGeneric::get_sha256(TEST_PASSWORD.as_bytes())?.as_str());
-    session.set_user(&user);
+
+    // Guard released before `test`, which locks `Config` again
+    let backup = {
+        let mut config = shared!();
+        let session = config.get_session();
+        let backup = session.get_user_local();
+        session.set_user(&user);
+        backup
+    };
 
     let ret = test();
-    Config::shared().get_session().set_user(&backup);
+    shared!().get_session().set_user(&backup);
     ret
 }
 

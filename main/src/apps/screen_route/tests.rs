@@ -35,13 +35,13 @@ use osal_rs::utils::Result;
 
 use super::ScreenRoute as Router;
 use super::menu::ScreenMenu;
-use crate::apps::config::Config;
 use crate::apps::session::User;
 use crate::apps::signals::display::DisplayFlag;
 use crate::apps::signals::status::StatusFlag;
 use crate::apps::test_helpers::{DRAW, MockLcd, mock_rtc, with_draw_restored, with_test_user};
 use crate::tests::{TestStats, run_tests, test_assert, test_assert_eq};
 use crate::traits::screen::{Nav, ScreenRoute as ScreenRouteFn, ScreenRouteCtx};
+use crate::shared;
 
 const TAG: &str = "ScreenRouteTests";
 
@@ -95,11 +95,16 @@ fn ids(router: &Router) -> alloc::vec::Vec<&'static str> {
 
 /// Runs `test` with no local user, restoring the real one afterwards.
 fn without_local_user<R>(test: impl FnOnce() -> Result<R>) -> Result<R> {
-    let session = Config::shared().get_session();
-    let backup = session.get_user_local();
-    session.set_user(&User::default());
+    // Guard released before `test`, which locks `Config` again
+    let backup = {
+        let mut config = shared!();
+        let session = config.get_session();
+        let backup = session.get_user_local();
+        session.set_user(&User::default());
+        backup
+    };
     let ret = test();
-    Config::shared().get_session().set_user(&backup);
+    shared!().get_session().set_user(&backup);
     ret
 }
 

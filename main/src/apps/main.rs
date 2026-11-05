@@ -27,7 +27,7 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use osal_rs::{log_debug, log_info};
 use osal_rs::os::types::StackType;
-use osal_rs::os::{MutexFn as _, System, Thread, ThreadFn, ThreadParam};
+use osal_rs::os::{Mutex, MutexFn as _, System, Thread, ThreadFn, ThreadParam};
 use osal_rs::utils::{Error, Result};
 
 use crate::apps::config::Config;
@@ -40,6 +40,7 @@ use crate::apps::system_led::SystemLed;
 use crate::apps::wifi::Wifi;
 use crate::drivers::date_time::DateTime;
 use crate::drivers::platform::{Hardware, LCDDisplay, ThreadPriority};
+use crate::shared;
 use crate::traits::hardware::HardwareFn;
 use crate::traits::rx_tx::SetOnReceive;
 use crate::traits::signal::Signal;
@@ -87,15 +88,15 @@ impl Initializable for AppMain{
         StatusSignal::init()?;
         ErrorSignal::init()?;
 
-        let config = Config::shared();
-        
+        Config::shared().get_or_try_init(|| Ok::<_, Error>(Mutex::new(Config::default())))?;
 
-        config.init()?;
+
+        shared!(Error::NullPtr).init()?;
         self.sprinkler.init()?;
         self.system_led.init()?;
         self.parser.init()?;
         self.wifi.init()?;
-        self.display.set_enabled_wifi(config.get_wifi_config().is_enabled());
+        self.display.set_enabled_wifi(shared!(Error::NullPtr).get_wifi_config().is_enabled());
         self.display.init()?;
 
  
@@ -124,9 +125,8 @@ impl AppMain {
         }
     }
 
-    fn check_config(config: &Config, status_current: &mut StatusFlag, status_old: &mut StatusFlag) {
-        let serial = config.get_serial();
-        if !serial.is_empty() {
+    fn check_config(status_current: &mut StatusFlag, status_old: &mut StatusFlag) {
+        if !shared!().get_serial().is_empty() {
             set_current_status!(*status_old, *status_current, StatusFlag::EnableWifi);
         }
     }
@@ -141,8 +141,6 @@ impl AppMain {
         .ok_or(Error::Unhandled("Missing AppMain thread param"))? }; // Extract AppMain pointer or return error if missing
 
         let rtc = me.hardware.get_rtc();
-
-        let config = Config::shared();
 
         let mut status_current = StatusFlag::None;
         let mut status_old = StatusFlag::None;
@@ -187,9 +185,9 @@ impl AppMain {
                         (&mut *display_ptr).set_on_receive(&me.parser);
                         set_current_status!(status_old, status_current, StatusFlag::CheckConfig);
                     }
-                    StatusFlag::CheckConfig => Self::check_config(&config, &mut status_current, &mut status_old),
+                    StatusFlag::CheckConfig => Self::check_config(&mut status_current, &mut status_old),
                     StatusFlag::EnableWifi => {
-                        if !config.get_wifi_config().is_enabled() {
+                        if !shared!(Error::NullPtr).get_wifi_config().is_enabled() {
                             log_info!(APP_TAG, "Wifi disabled in config");
                             set_current_status!(status_old, status_current, StatusFlag::Ready);
                             continue;
