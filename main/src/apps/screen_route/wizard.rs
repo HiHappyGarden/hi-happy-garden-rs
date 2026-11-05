@@ -41,7 +41,7 @@ use crate::drivers::date_time::DateTime;
 use crate::drivers::encrypt::EncryptGeneric;
 use crate::drivers::platform::Hardware;
 use crate::drivers::wifi::Auth;
-use crate::get_config;
+use crate::apps::config::config_get;
 use crate::traits::hardware::HardwareFn;
 use crate::traits::rtc::RTC;
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
@@ -131,7 +131,7 @@ impl ScreenWizard {
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Insert Email"),
-            ScreenParam::Input { value: Bytes::from_as_sync_str(get_config!(self.config).get_session().get_user_local().get_email()), secret_mode: false },
+            ScreenParam::Input { value: Bytes::from_as_sync_str(config_get!(self.config).get_session().get_user_local().get_email()), secret_mode: false },
         )?;
 
         Ok(step(self, display_signal, answer, FSMState::EmailPasswd, FSMState::Serial))
@@ -157,7 +157,7 @@ impl ScreenWizard {
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Enable WiFi?"),
-            ScreenParam::Check (get_config!(self.config).get_wifi_config().is_enabled()),
+            ScreenParam::Check (config_get!(self.config).get_wifi_config().is_enabled()),
         )? {
             Answer::Pending => {}
             Answer::Confirmed(param) => {
@@ -186,7 +186,7 @@ impl ScreenWizard {
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("WiFi SSID"),
-            ScreenParam::Input { value: get_config!(self.config).get_wifi_config().get_ssid(), secret_mode: false },
+            ScreenParam::Input { value: config_get!(self.config).get_wifi_config().get_ssid(), secret_mode: false },
         )?;
 
         Ok(step(self, display_signal, answer, FSMState::Passwd, FSMState::EnableWifi))
@@ -199,7 +199,7 @@ impl ScreenWizard {
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("WiFi Password"),
-            ScreenParam::Input { value: Bytes::from_as_sync_str(&get_config!(self.config).get_wifi_config().get_password()), secret_mode: true },
+            ScreenParam::Input { value: Bytes::from_as_sync_str(&config_get!(self.config).get_wifi_config().get_password()), secret_mode: true },
         )?;
 
         Ok(step(self, display_signal, answer, FSMState::Auth, FSMState::Ssid))
@@ -212,7 +212,7 @@ impl ScreenWizard {
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("WiFi Auth"),
-            ScreenParam::Selects(fill_auth_selections(get_config!(self.config).get_wifi_config().get_auth())),
+            ScreenParam::Selects(fill_auth_selections(config_get!(self.config).get_wifi_config().get_auth())),
         )?;
 
         Ok(step(self, display_signal, answer, FSMState::EnableDst, FSMState::Passwd))
@@ -251,14 +251,14 @@ impl ScreenWizard {
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Enable DST?"),
-            ScreenParam::Check(get_config!(self.config).get_daylight_saving_time().is_enabled()),
+            ScreenParam::Check(config_get!(self.config).get_daylight_saving_time().is_enabled()),
         )? {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(answer) => {
                 match answer {
                     ScreenParam::Check(check) => {
                         if check {
-                            get_config!(self.config).get_daylight_saving_time().set_enabled(check);
+                            config_get!(self.config).get_daylight_saving_time().set_enabled(check);
                             self.save(rtc)?;
                             return Ok(Nav::Replace{ id: Self::id(), screen: Box::new(ScreenMenu::new())})
                         } else {
@@ -287,7 +287,7 @@ impl ScreenWizard {
         user.set_email(email.as_str());
         user.set_empty_passwd(email_passwd.is_empty());
         user.set_password(EncryptGeneric::get_sha256(email_passwd.as_raw_bytes())?.as_str());
-        get_config!(self.config).get_session().set_user(&user);
+        config_get!(self.config).get_session().set_user(&user);
 
         if wifi_enable {
             let wifi_ssid = self.wifi_ssid.get_value()?;
@@ -297,18 +297,18 @@ impl ScreenWizard {
                 .get_value()
                 .map(|values| selected_auth_from_selections(&values))
                 .unwrap_or(Auth::Open);
-            get_config!(self.config).get_wifi_config().set_ssid(wifi_ssid.as_str());
-            get_config!(self.config).get_wifi_config().set_password(wifi_passwd.as_str());
-            get_config!(self.config).get_wifi_config().set_auth(selected_auth);
-            get_config!(self.config).get_wifi_config().set_enabled(true);
+            config_get!(self.config).get_wifi_config().set_ssid(wifi_ssid.as_str());
+            config_get!(self.config).get_wifi_config().set_password(wifi_passwd.as_str());
+            config_get!(self.config).get_wifi_config().set_auth(selected_auth);
+            config_get!(self.config).get_wifi_config().set_enabled(true);
         } else {
-            get_config!(self.config).get_wifi_config().set_ssid("");
-            get_config!(self.config).get_wifi_config().set_password("");
-            get_config!(self.config).get_wifi_config().set_auth(Auth::Open);
-            get_config!(self.config).get_wifi_config().set_enabled(false);
-            get_config!(self.config).get_ntp_config_mut().set_server("");
-            get_config!(self.config).get_ntp_config_mut().set_port(0);
-            get_config!(self.config).get_ntp_config_mut().set_msg_len(0);
+            config_get!(self.config).get_wifi_config().set_ssid("");
+            config_get!(self.config).get_wifi_config().set_password("");
+            config_get!(self.config).get_wifi_config().set_auth(Auth::Open);
+            config_get!(self.config).get_wifi_config().set_enabled(false);
+            config_get!(self.config).get_ntp_config_mut().set_server("");
+            config_get!(self.config).get_ntp_config_mut().set_port(0);
+            config_get!(self.config).get_ntp_config_mut().set_msg_len(0);
             let DateTime{year, month, mday, wday, ..} = self.date.get_value()?;
             let DateTime{hour, minute, second, ..} = self.time.get_value()?;
             let date_time = DateTime::new(year, month, wday, mday, hour, minute, second)?;
@@ -318,16 +318,16 @@ impl ScreenWizard {
 
         let enable_dst = self.enable_dst.get_value().unwrap_or_default();
         DateTime::set_daylight_saving_time(enable_dst);
-        get_config!(self.config).get_daylight_saving_time().set_enabled(enable_dst);
+        config_get!(self.config).get_daylight_saving_time().set_enabled(enable_dst);
 
-        get_config!(self.config).set_serial(&Bytes::from_as_sync_str(&serial));
+        config_get!(self.config).set_serial(&Bytes::from_as_sync_str(&serial));
 
-        get_config!(self.config).apply_locale();
-        get_config!(self.config).apply_daylight_saving_time();
-        get_config!(self.config).apply_ntp();
-        get_config!(self.config).apply_wifi();
-        get_config!(self.config).apply_session();
-        get_config!(self.config).save()?;
+        config_get!(self.config).apply_locale();
+        config_get!(self.config).apply_daylight_saving_time();
+        config_get!(self.config).apply_ntp();
+        config_get!(self.config).apply_wifi();
+        config_get!(self.config).apply_session();
+        config_get!(self.config).save()?;
 
         Ok(())
     }

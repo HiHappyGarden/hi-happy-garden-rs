@@ -30,15 +30,15 @@ use super::AppMain;
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::tests::{TestStats, run_tests, test_assert, test_assert_eq};
 use crate::traits::signal::Signal;
-use crate::shared;
+use crate::apps::config::config_shared;
 
 const TAG: &str = "AppMainTests";
 
 /// Runs `check_config` from `CheckConfig` with `serial`, restoring the serial
 /// and the status bits it touches.
 fn check_config_with(serial: &str) -> Result<(StatusFlag, StatusFlag, EventBits)> {
-    let backup = shared!().get_serial();
-    shared!().set_serial(&Bytes::from(serial));
+    let backup = config_shared!().get_serial();
+    config_shared!().set_serial(&Bytes::from(serial));
 
     let mut current = StatusFlag::CheckConfig;
     let mut old = StatusFlag::EnableDisplay;
@@ -47,7 +47,7 @@ fn check_config_with(serial: &str) -> Result<(StatusFlag, StatusFlag, EventBits)
     let status = StatusSignal::get();
 
     StatusSignal::clear(EventBits::from(StatusFlag::CheckConfig) | EventBits::from(StatusFlag::EnableWifi));
-    shared!().set_serial(&backup);
+    config_shared!().set_serial(&backup);
     Ok((current, old, status))
 }
 

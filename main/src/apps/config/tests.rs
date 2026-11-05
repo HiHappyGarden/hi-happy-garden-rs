@@ -42,14 +42,14 @@ use crate::drivers::date_time::DateTime;
 use crate::drivers::platform::FS_CONFIG_DIR;
 use crate::drivers::wifi::Auth;
 use crate::tests::{TestStats, run_tests, test_assert, test_assert_eq};
-use crate::shared;
+use crate::apps::config::config_shared;
 
 const TAG: &str = "ConfigTests";
 
 /// Runs `test` on the live configuration and restores it afterwards,
 /// re-applying the restored values to DateTime, Wifi and Network.
 fn with_config_restored(test: impl FnOnce(&mut Config) -> Result<()>) -> Result<()> {
-    let mut config = shared!();
+    let mut config = config_shared!();
     let backup = *config;
     let ret = test(&mut config);
     *config = backup;
@@ -80,7 +80,7 @@ fn test_defaults() -> Result<()> {
 }
 
 fn test_json_roundtrip() -> Result<()> {
-    let first = json(&*shared!())?;
+    let first = json(&*config_shared!())?;
     let parsed: Config = from_json(&first)?;
     test_assert_eq!(json(&parsed)?, first);
     Ok(())
@@ -88,22 +88,22 @@ fn test_json_roundtrip() -> Result<()> {
 
 fn test_json_has_no_plain_password() -> Result<()> {
     with_test_user(|| {
-        let text = json(&*shared!())?;
+        let text = json(&*config_shared!())?;
         test_assert!(!text.contains(TEST_PASSWORD), "user password stored in clear");
         Ok(())
     })
 }
 
 fn test_save_reload() -> Result<()> {
-    let expected = json(&*shared!())?;
-    shared!().save()?;
+    let expected = json(&*config_shared!())?;
+    config_shared!().save()?;
     let reloaded: Config = deserialize_file(MUTEX.get().ok_or(Error::Unhandled("Mutex not initialized"))?, TAG, FS_CONFIG_DIR, Config::FILE_NAME)?;
     test_assert_eq!(json(&reloaded)?, expected);
     Ok(())
 }
 
 fn test_cnf_query_and_test() -> Result<()> {
-    let mut config = shared!();
+    let mut config = config_shared!();
     let expected = format!("\"{}\",{}", config.get_serial().as_str(), config.get_timezone());
     test_assert_eq!(at_body(config.query(Config::AT_RESP))?, expected);
     test_assert!(!at_body(config.test(Config::AT_RESP))?.is_empty());

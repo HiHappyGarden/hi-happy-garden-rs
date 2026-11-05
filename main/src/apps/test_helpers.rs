@@ -44,7 +44,7 @@ use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use crate::traits::rtc::RTC;
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
-use crate::shared;
+use crate::apps::config::config_shared;
 
 /// Credentials of the user installed by [`with_test_user`]
 pub(in crate::apps) const TEST_EMAIL: &str = "test@hhg.local";
@@ -59,7 +59,7 @@ pub(in crate::apps) fn setup() -> Result<()> {
     ErrorSignal::init()?;
     DisplaySignal::init()?;
     Config::shared().get_or_try_init(|| Ok::<_, Error>(Mutex::new(Config::default())))?;
-    shared!().init()?;
+    config_shared!().init()?;
     Sprinkler::new().init()
 }
 
@@ -80,7 +80,7 @@ pub(in crate::apps) fn with_test_user<R>(test: impl FnOnce() -> Result<R>) -> Re
 
     // Guard released before `test`, which locks `Config` again
     let backup = {
-        let mut config = shared!();
+        let mut config = config_shared!();
         let session = config.get_session();
         let backup = session.get_user_local();
         session.set_user(&user);
@@ -88,7 +88,7 @@ pub(in crate::apps) fn with_test_user<R>(test: impl FnOnce() -> Result<R>) -> Re
     };
 
     let ret = test();
-    shared!().get_session().set_user(&backup);
+    config_shared!().get_session().set_user(&backup);
     ret
 }
 

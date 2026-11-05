@@ -30,7 +30,7 @@ use crate::apps::display::input::Input;
 use crate::apps::display::text::Text;
 use crate::apps::signals::display::request_redraw;
 use crate::drivers::encrypt::{EncryptGeneric, SHA256_RESULT_BYTES};
-use crate::get_config;
+use crate::apps::config::config_get;
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 
 /// Worst case of `i,"<email>","<sha256 hex>"` with every email byte escaped.
@@ -170,7 +170,7 @@ impl ScreenLogin {
             raw: raw.as_str()
         };
 
-        let mut config = get_config!(self.config);
+        let mut config = config_get!(self.config);
         let session = config.get_session();
         Ok(session.set("", args).is_ok() && session.exec("").is_ok())
     }

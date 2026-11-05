@@ -27,7 +27,7 @@ use osal_rs::os::types::StackType;
 
 use crate::drivers::platform::ThreadPriority;
 use crate::drivers::rgb_led::RgbLed;
-use crate::shared;
+use crate::apps::config::config_shared;
 use crate::traits::rgb_led::{Color, RgbLed as _};
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
@@ -86,7 +86,7 @@ const COLOR_OFF: Color = Color::new(0, 0, 0);
                 let status = StatusSignal::get();
             
                 let system_ready = Ready.check_signal(status);
-                let wifi_ready = shared!().get_wifi_config().is_enabled() 
+                let wifi_ready = config_shared!().get_wifi_config().is_enabled() 
                                         && (WifiReady.check_signal(status) || NtpError.check_signal(status));
                 let error = Error.check_signal(status);
 

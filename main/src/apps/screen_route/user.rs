@@ -26,7 +26,7 @@ use crate::apps::display::input::Input;
 use crate::apps::session::User;
 use crate::apps::signals::display::request_redraw;
 use crate::drivers::encrypt::EncryptGeneric;
-use crate::shared;
+use crate::apps::config::config_shared;
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -70,7 +70,7 @@ impl ScreenUser {
             display_signal,
             rtc,
             &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("User Email"),
-            ScreenParam::Input { value: shared!(Error::NullPtr).get_session().get_user_local().get_email().clone(), secret_mode: false }
+            ScreenParam::Input { value: config_shared!(Error::NullPtr).get_session().get_user_local().get_email().clone(), secret_mode: false }
         )? {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(_) => {
@@ -112,7 +112,7 @@ impl ScreenUser {
         user.set_empty_passwd(passwd.is_empty());
         user.set_password(EncryptGeneric::get_sha256(passwd.as_raw_bytes())?.as_str());
 
-        let mut config = shared!(Error::NullPtr);
+        let mut config = config_shared!(Error::NullPtr);
         config.get_session().set_user(&user);
         config.apply_session();
         config.save()?;

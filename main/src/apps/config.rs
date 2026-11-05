@@ -65,22 +65,23 @@ pub(super) static MUTEX: OnceBox<RawMutex> = OnceBox::new();
 
 static SHARED: OnceBox<Mutex<Config>> = OnceBox::new();
 
-#[macro_export]
-macro_rules! shared {
+macro_rules! config_shared {
     () => {
-        $crate::get_config!($crate::apps::config::Config::shared())
+        $crate::apps::config::config_get!($crate::apps::config::Config::shared())
     };
     ($error:expr) => {
-        $crate::get_config!($crate::apps::config::Config::shared(), $error)
+        $crate::apps::config::config_get!($crate::apps::config::Config::shared(), $error)
     };
     ($error1:expr, $error2:expr) => {
-        $crate::get_config!($crate::apps::config::Config::shared(), $error1, $error2)
+        $crate::apps::config::config_get!($crate::apps::config::Config::shared(), $error1, $error2)
     };
 }
 
+pub(in crate::apps) use config_shared;
 
-#[macro_export]
-macro_rules! get_config {
+
+
+macro_rules! config_get {
     ($config:expr) => {
         {
             use $crate::osal_rs::os::MutexFn;
@@ -112,6 +113,8 @@ macro_rules! get_config {
         }
     };
 }
+
+pub(in crate::apps) use config_get;
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub(in crate::apps) struct DaylightSavingTime {

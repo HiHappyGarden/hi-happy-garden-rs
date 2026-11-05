@@ -30,7 +30,8 @@ use crate::apps::signals::error::{ErrorFlag, ErrorSignal};
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::drivers::date_time::DateTime;
 use crate::drivers::network::Network;
-use crate::{set_app_error, shared};
+use crate::apps::config::config_shared;
+use crate::set_app_error;
 use crate::traits::rtc::RTC;
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
@@ -97,7 +98,7 @@ impl OnWifiChangeStatus for Wifi {
 
         STATUS.store(status as u8, Ordering::Release);
 
-        let config = shared!(Error::NullPtr);
+        let config = config_shared!(Error::NullPtr);
 
         match status {
             Disabled | Enabled | Connecting | WaitForIp => {

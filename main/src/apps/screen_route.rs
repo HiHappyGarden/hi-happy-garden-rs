@@ -46,7 +46,7 @@ use crate::apps::signals::status::StatusFlag;
 use crate::apps::screen_route::login::ScreenLogin;
 use crate::apps::screen_route::wizard::ScreenWizard;
 use crate::apps::screen_route::menu::ScreenMenu;
-use crate::shared;
+use crate::apps::config::config_shared;
 use crate::traits::integer::Integer;
 use crate::traits::screen::{Answer, BoxedScreenRoute, Nav, ScreenRoute as ScreenRouteFn, ScreenRouteCtx};
 use crate::traits::lcd_display::LCDDisplayFn;
@@ -187,7 +187,7 @@ impl ScreenRoute {
     fn push(&mut self, id: &'static str, screen: BoxedScreenRoute, status_signal: &EventBits) {
 
         if screen.requires_auth()
-            && shared!().get_session().is_set_user_local()
+            && config_shared!().get_session().is_set_user_local()
             && !StatusFlag::UserLogged.check_signal(*status_signal)
         {
             self.stack.push((ScreenLogin::id(), Box::new(ScreenLogin::new())));

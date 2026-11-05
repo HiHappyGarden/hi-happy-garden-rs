@@ -41,7 +41,7 @@ use crate::apps::signals::status::StatusFlag;
 use crate::apps::test_helpers::{DRAW, MockLcd, mock_rtc, with_draw_restored, with_test_user};
 use crate::tests::{TestStats, run_tests, test_assert, test_assert_eq};
 use crate::traits::screen::{Nav, ScreenRoute as ScreenRouteFn, ScreenRouteCtx};
-use crate::shared;
+use crate::apps::config::config_shared;
 
 const TAG: &str = "ScreenRouteTests";
 
@@ -97,14 +97,14 @@ fn ids(router: &Router) -> alloc::vec::Vec<&'static str> {
 fn without_local_user<R>(test: impl FnOnce() -> Result<R>) -> Result<R> {
     // Guard released before `test`, which locks `Config` again
     let backup = {
-        let mut config = shared!();
+        let mut config = config_shared!();
         let session = config.get_session();
         let backup = session.get_user_local();
         session.set_user(&User::default());
         backup
     };
     let ret = test();
-    shared!().get_session().set_user(&backup);
+    config_shared!().get_session().set_user(&backup);
     ret
 }
 

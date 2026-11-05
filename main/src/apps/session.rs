@@ -34,7 +34,7 @@ use osal_rs_serde::{Deserialize, Serialize};
 use crate::apps::config::MUTEX;
 use crate::apps::parser::{Parser, at_cmd_response};
 use crate::drivers::encrypt::{EncryptGeneric, SHA256_RESULT_BYTES};
-use crate::shared;
+use crate::apps::config::config_shared;
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
 use crate::apps::signals::status::{StatusSignal, StatusFlag};
@@ -132,7 +132,7 @@ impl AtContext<{Parser::CMD_SIZE}> for User {
 
         let email = self.email.clone();
 
-        shared!( (at_response, AtError::NotSupported) ).get_session().set_user(self);
+        config_shared!( (at_response, AtError::NotSupported) ).get_session().set_user(self);
 
         self.clear();
 
@@ -399,4 +399,3 @@ impl Session {
         access_static_option!(TIMER).reset(0);
     }
 }
-

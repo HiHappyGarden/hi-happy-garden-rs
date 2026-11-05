@@ -40,7 +40,7 @@ use crate::apps::system_led::SystemLed;
 use crate::apps::wifi::Wifi;
 use crate::drivers::date_time::DateTime;
 use crate::drivers::platform::{Hardware, LCDDisplay, ThreadPriority};
-use crate::shared;
+use crate::apps::config::config_shared;
 use crate::traits::hardware::HardwareFn;
 use crate::traits::rx_tx::SetOnReceive;
 use crate::traits::signal::Signal;
@@ -91,12 +91,12 @@ impl Initializable for AppMain{
         Config::shared().get_or_try_init(|| Ok::<_, Error>(Mutex::new(Config::default())))?;
 
 
-        shared!(Error::NullPtr).init()?;
+        config_shared!(Error::NullPtr).init()?;
         self.sprinkler.init()?;
         self.system_led.init()?;
         self.parser.init()?;
         self.wifi.init()?;
-        self.display.set_enabled_wifi(shared!(Error::NullPtr).get_wifi_config().is_enabled());
+        self.display.set_enabled_wifi(config_shared!(Error::NullPtr).get_wifi_config().is_enabled());
         self.display.init()?;
 
  
@@ -126,7 +126,7 @@ impl AppMain {
     }
 
     fn check_config(status_current: &mut StatusFlag, status_old: &mut StatusFlag) {
-        if !shared!().get_serial().is_empty() {
+        if !config_shared!().get_serial().is_empty() {
             set_current_status!(*status_old, *status_current, StatusFlag::EnableWifi);
         }
     }
@@ -187,7 +187,7 @@ impl AppMain {
                     }
                     StatusFlag::CheckConfig => Self::check_config(&mut status_current, &mut status_old),
                     StatusFlag::EnableWifi => {
-                        if !shared!(Error::NullPtr).get_wifi_config().is_enabled() {
+                        if !config_shared!(Error::NullPtr).get_wifi_config().is_enabled() {
                             log_info!(APP_TAG, "Wifi disabled in config");
                             set_current_status!(status_old, status_current, StatusFlag::Ready);
                             continue;
