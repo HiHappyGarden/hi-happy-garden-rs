@@ -39,7 +39,7 @@ use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Error, Result};
 
 use super::Parser;
-use crate::apps::config::{Config, DaylightSavingTime, NtpConfig, WifiConfig};
+use crate::apps::config::{Config, ConfigAt, DaylightSavingTime, NtpConfig, WifiConfig};
 use crate::apps::session::{Session, User};
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::apps::sprinkler::schedule::ScheduleController;
@@ -119,14 +119,19 @@ fn setup() -> Result<()> {
 /// The same command table the parser task builds.
 fn with_parser(test: impl FnOnce(&mut AtParser<dyn AtContext<{ Parser::CMD_SIZE }>, { Parser::CMD_SIZE }>) -> Result<()>) -> Result<()> {
     let mut parser: AtParser<dyn AtContext<{ Parser::CMD_SIZE }>, { Parser::CMD_SIZE }> = AtParser::new();
+    let mut config_at = ConfigAt::<Config>(|config| config);
+    let mut session_at = ConfigAt::<Session>(Config::get_session);
+    let mut daylight_saving_time_at = ConfigAt::<DaylightSavingTime>(Config::get_daylight_saving_time);
+    let mut wifi_config_at = ConfigAt::<WifiConfig>(Config::get_wifi_config);
+    let mut ntp_config_at = ConfigAt::<NtpConfig>(Config::get_ntp_config_mut);
     let commands: &mut [(&str, &str, &mut dyn AtContext<{ Parser::CMD_SIZE }>)] = &mut [
-        (Config::AT_CMD, Config::AT_RESP, Config::shared()),
-        (Session::AT_CMD, Session::AT_RESP, Config::shared().get_session()),
+        (Config::AT_CMD, Config::AT_RESP, &mut config_at),
+        (Session::AT_CMD, Session::AT_RESP, &mut session_at),
         (User::AT_CMD, User::AT_RESP, User::get_local()),
         (SystemHandler::AT_CMD, SystemHandler::AT_RESP, SystemHandler::get()),
-        (DaylightSavingTime::AT_CMD, DaylightSavingTime::AT_RESP, Config::shared().get_daylight_saving_time()),
-        (WifiConfig::AT_CMD, WifiConfig::AT_RESP, Config::shared().get_wifi_config()),
-        (NtpConfig::AT_CMD, NtpConfig::AT_RESP, Config::shared().get_ntp_config_mut()),
+        (DaylightSavingTime::AT_CMD, DaylightSavingTime::AT_RESP, &mut daylight_saving_time_at),
+        (WifiConfig::AT_CMD, WifiConfig::AT_RESP, &mut wifi_config_at),
+        (NtpConfig::AT_CMD, NtpConfig::AT_RESP, &mut ntp_config_at),
         (ScheduleController::AT_CMD, ScheduleController::AT_RESP, ScheduleController::shared()),
         (ZoneController::AT_CMD, ZoneController::AT_RESP, ZoneController::shared()),
     ];

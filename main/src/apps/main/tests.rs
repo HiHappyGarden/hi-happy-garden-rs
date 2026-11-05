@@ -27,28 +27,27 @@ use osal_rs::os::types::EventBits;
 use osal_rs::utils::{Bytes, Result};
 
 use super::AppMain;
-use crate::apps::config::Config;
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::tests::{TestStats, run_tests, test_assert, test_assert_eq};
 use crate::traits::signal::Signal;
+use crate::shared;
 
 const TAG: &str = "AppMainTests";
 
 /// Runs `check_config` from `CheckConfig` with `serial`, restoring the serial
 /// and the status bits it touches.
 fn check_config_with(serial: &str) -> Result<(StatusFlag, StatusFlag, EventBits)> {
-    let config = Config::shared();
-    let backup = config.get_serial();
-    config.set_serial(&Bytes::from(serial));
+    let backup = shared!().get_serial();
+    shared!().set_serial(&Bytes::from(serial));
 
     let mut current = StatusFlag::CheckConfig;
     let mut old = StatusFlag::EnableDisplay;
     StatusSignal::set(StatusFlag::CheckConfig.into());
-    AppMain::check_config(config, &mut current, &mut old);
+    AppMain::check_config(&mut current, &mut old);
     let status = StatusSignal::get();
 
     StatusSignal::clear(EventBits::from(StatusFlag::CheckConfig) | EventBits::from(StatusFlag::EnableWifi));
-    config.set_serial(&backup);
+    shared!().set_serial(&backup);
     Ok((current, old, status))
 }
 

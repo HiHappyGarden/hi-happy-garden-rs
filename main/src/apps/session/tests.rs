@@ -41,6 +41,7 @@ use crate::apps::test_helpers::{from_json, to_json, at_body, at_error, with_test
 use crate::drivers::encrypt::EncryptGeneric;
 use crate::tests::{TestStats, run_tests, test_assert, test_assert_eq};
 use crate::traits::signal::Signal;
+use crate::shared;
 
 const TAG: &str = "SessionTests";
 
@@ -49,7 +50,8 @@ fn is_logged() -> bool {
 }
 
 fn login(email: &str, password: &str) -> Result<String> {
-    let session = Config::shared().get_session();
+    let mut config = shared!();
+    let session = config.get_session();
     let raw = format!("i,{email},{password}");
     at_body(session.set(Session::AT_RESP, Args { raw: &raw }))?;
     at_body(session.exec(Session::AT_RESP))
@@ -82,7 +84,8 @@ fn test_login_logout() -> Result<()> {
         test_assert!(is_logged());
         test_assert!(unsafe { (*&raw const USER_LOGGED).is_some() });
 
-        let session = Config::shared().get_session();
+        let mut config = shared!();
+        let session = config.get_session();
         test_assert_eq!(at_body(session.query(Session::AT_RESP))?, TEST_EMAIL);
 
         at_body(session.set(Session::AT_RESP, Args { raw: "o" }))?;
@@ -109,7 +112,8 @@ fn test_logout_clears_source_flags() -> Result<()> {
 
 fn test_login_rejected() -> Result<()> {
     with_test_user(|| logged_out_after(|| {
-        let session = Config::shared().get_session();
+        let mut config = shared!();
+        let session = config.get_session();
         for raw in [
             format!("i,{TEST_EMAIL},wrong"),
             format!("i,{TEST_EMAIL},"),
@@ -126,14 +130,16 @@ fn test_login_rejected() -> Result<()> {
 }
 
 fn test_logout_requires_login() -> Result<()> {
-    let session = Config::shared().get_session();
+    let mut config = shared!();
+    let session = config.get_session();
     at_body(session.set(Session::AT_RESP, Args { raw: "o" }))?;
     test_assert_eq!(at_error(session.exec(Session::AT_RESP))?, Parser::NOT_LOGGED_RESPONSE);
     Ok(())
 }
 
 fn test_set_invalid_args() -> Result<()> {
-    let session = Config::shared().get_session();
+    let mut config = shared!();
+    let session = config.get_session();
     for raw in ["", "x", "i", "i,a@b"] {
         test_assert_eq!(at_error(session.set(Session::AT_RESP, Args { raw }))?, "InvalidArgs");
     }
@@ -158,10 +164,10 @@ fn test_user_change() -> Result<()> {
         test_assert_eq!(at_body(user.query(User::AT_RESP))?, "\"new@hhg.local\"");
         test_assert_eq!(at_body(user.exec(User::AT_RESP))?, "new@hhg.local");
 
-        let local = Config::shared().get_session().get_user_local();
+        let local = shared!().get_session().get_user_local();
         test_assert_eq!(local.get_email().as_str(), "new@hhg.local");
         test_assert_eq!(local.get_password().as_str(), EncryptGeneric::get_sha256(b"n3w-pass")?.as_str());
-        test_assert!(Config::shared().get_session().is_set_user_local());
+        test_assert!(shared!().get_session().is_set_user_local());
         // The staging user is wiped once applied
         test_assert!(User::get_local().get_email().is_empty());
 

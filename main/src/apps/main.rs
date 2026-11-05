@@ -27,9 +27,10 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use osal_rs::{log_debug, log_info};
 use osal_rs::os::types::StackType;
-use osal_rs::os::{MutexFn as _, System, Thread, ThreadFn, ThreadParam};
+use osal_rs::os::{Mutex, MutexFn as _, System, Thread, ThreadFn, ThreadParam};
 use osal_rs::utils::{Error, Result};
 
+use crate::apps::config::Config;
 use crate::apps::display::{DISPLAY_INPUT, Display};
 use crate::apps::parser::Parser;
 use crate::apps::signals::error::ErrorSignal;
@@ -86,7 +87,9 @@ impl Initializable for AppMain{
 
         StatusSignal::init()?;
         ErrorSignal::init()?;
-        
+
+        Config::shared().get_or_try_init(|| Ok::<_, Error>(Mutex::new(Config::default())))?;
+
 
         shared!(Error::NullPtr).init()?;
         self.sprinkler.init()?;
