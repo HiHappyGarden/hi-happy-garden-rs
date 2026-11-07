@@ -190,8 +190,110 @@ impl Drop for Wifi {
 }
 
 
+impl SetOnWifiChangeStatus<'static> for Wifi {
+    fn set_on_wifi_change_status(&mut self, on_wifi_change_status: &'static dyn OnWifiChangeStatus) {
+        // Check if thread is already running
+        if self.thread_started.load(Ordering::Acquire) {
+            log_warning!(APP_TAG, "Wifi thread already started, ignoring new callback");
+            return;
+        }
+
+        // Mark thread as started
+        self.thread_started.store(true, Ordering::Release);
+
+        let ret = self.thread.spawn_simple(move || {
+
+            use WifiStatus::*;
+
+            let mut count_error = 0;
+
+            log_debug!(APP_TAG, "Start WIFI FSM");
+
+            let mut link_status = LinkStatus::Down;
+
+            let gpio = Gpio::shared();
+
+            let mut rssi_old : i8 = Unknown.into();
+
+            let mut led_on = true;
+
+            {
+                'no_rtc: loop {
+                    if !ENABLED.load(Ordering::Acquire) {
+                        if status_current() != Disconnected && status_current() != Disabled {
+                            transition_wifi_status!(Disconnected, on_wifi_change_status);
+                        } else if status_current() == Disconnected {
+                            transition_wifi_status!(Disconnected, on_wifi_change_status);
+                            continue;
+                        } if status_current() == Disabled {
+                            on_wifi_change_status.on_rssi_change(RSSIStatus::Unknown);
+                            System::delay_with_to_tick(Duration::from_millis(1_000));
+                            continue;
+                        }
+                    }
+                    
+
+                    let ctrl = match status_current() {
+                        Disabled        => Self::handle_disabled(&gpio, &mut count_error, on_wifi_change_status),
+                        Enabled         => Self::handle_enabled(&gpio, &mut count_error, on_wifi_change_status),
+                        Connecting      => Self::handle_connecting(&gpio, &mut count_error, on_wifi_change_status),
+                        WaitForIp       => Self::handle_wait_for_ip(&gpio, &mut link_status, on_wifi_change_status),
+                        Connected       => Self::handle_connected(&gpio, &mut link_status, &mut rssi_old, led_on, on_wifi_change_status),
+                        Disconnected    => Self::handle_disconnected(&gpio, on_wifi_change_status),
+                        Error           => Self::handle_error(link_status, &mut count_error, on_wifi_change_status),
+                        Resetting       => Self::handle_resetting(&gpio, on_wifi_change_status),
+                    };
+
+                    match ctrl {
+                        WifiFsmControl::Continue => continue 'no_rtc,
+                        WifiFsmControl::Break    => break Ok(Arc::new(())),
+                        WifiFsmControl::Next     => {}
+                    }
+
+                    led_on = !led_on;
+                    System::delay_with_to_tick(Duration::from_millis(100));
+                }
+            }
+        });
+
+        if let Err(e) = &ret {
+            log_error!(APP_TAG, "Error spawning wifi thread: {:?}", e);
+            self.thread_started.store(false, Ordering::Release);
+        }
+
+        self.thread = ret.unwrap();
+    }
+}
+
 impl Wifi {
-    fn handle_disabled<const N: usize>(
+
+    pub fn set_config(
+        ssid: Bytes<32>,
+        password: Bytes<32>,
+        auth: Auth,
+        enabled: bool,
+    ) {
+        {
+            let _lock = credentials_lock();
+            unsafe {
+                SSID = ssid;
+                PASSWORD = password;
+                AUTH = auth;
+            }
+        }
+        ENABLED.store(enabled, Ordering::Release);
+    }
+
+    pub fn shared() -> Self {
+        Self {
+            handle: null_mut(),
+            thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),
+            thread_started: AtomicBool::new(false),
+        }
+    }
+
+
+        fn handle_disabled<const N: usize>(
         gpio: &Gpio<N>,
         count_error: &mut StackType,
         on_wifi_change_status: &'static dyn OnWifiChangeStatus,
@@ -383,109 +485,6 @@ impl Wifi {
         System::delay_with_to_tick(Duration::from_millis(2_500));
         transition_wifi_status!(Disabled, on_wifi_change_status);
         WifiFsmControl::Next
-    }
-}
-
-impl SetOnWifiChangeStatus<'static> for Wifi {
-    fn set_on_wifi_change_status(&mut self, on_wifi_change_status: &'static dyn OnWifiChangeStatus) {
-        // Check if thread is already running
-        if self.thread_started.load(Ordering::Acquire) {
-            log_warning!(APP_TAG, "Wifi thread already started, ignoring new callback");
-            return;
-        }
-
-        // Mark thread as started
-        self.thread_started.store(true, Ordering::Release);
-
-        let ret = self.thread.spawn_simple(move || {
-
-            use WifiStatus::*;
-
-            let mut count_error = 0;
-
-            log_debug!(APP_TAG, "Start WIFI FSM");
-
-            let mut link_status = LinkStatus::Down;
-
-            let gpio = Gpio::shared();
-
-            let mut rssi_old : i8 = Unknown.into();
-
-            let mut led_on = true;
-
-            {
-                'no_rtc: loop {
-                    if !ENABLED.load(Ordering::Acquire) {
-                        if status_current() != Disconnected && status_current() != Disabled {
-                            transition_wifi_status!(Disconnected, on_wifi_change_status);
-                        } else if status_current() == Disconnected {
-                            transition_wifi_status!(Disconnected, on_wifi_change_status);
-                            continue;
-                        } if status_current() == Disabled {
-                            on_wifi_change_status.on_rssi_change(RSSIStatus::Unknown);
-                            System::delay_with_to_tick(Duration::from_millis(1_000));
-                            continue;
-                        }
-                    }
-                    
-
-                    let ctrl = match status_current() {
-                        Disabled        => Self::handle_disabled(&gpio, &mut count_error, on_wifi_change_status),
-                        Enabled         => Self::handle_enabled(&gpio, &mut count_error, on_wifi_change_status),
-                        Connecting      => Self::handle_connecting(&gpio, &mut count_error, on_wifi_change_status),
-                        WaitForIp       => Self::handle_wait_for_ip(&gpio, &mut link_status, on_wifi_change_status),
-                        Connected       => Self::handle_connected(&gpio, &mut link_status, &mut rssi_old, led_on, on_wifi_change_status),
-                        Disconnected    => Self::handle_disconnected(&gpio, on_wifi_change_status),
-                        Error           => Self::handle_error(link_status, &mut count_error, on_wifi_change_status),
-                        Resetting       => Self::handle_resetting(&gpio, on_wifi_change_status),
-                    };
-
-                    match ctrl {
-                        WifiFsmControl::Continue => continue 'no_rtc,
-                        WifiFsmControl::Break    => break Ok(Arc::new(())),
-                        WifiFsmControl::Next     => {}
-                    }
-
-                    led_on = !led_on;
-                    System::delay_with_to_tick(Duration::from_millis(100));
-                }
-            }
-        });
-
-        if let Err(e) = &ret {
-            log_error!(APP_TAG, "Error spawning wifi thread: {:?}", e);
-            self.thread_started.store(false, Ordering::Release);
-        }
-
-        self.thread = ret.unwrap();
-    }
-}
-
-impl Wifi {
-
-    pub fn set_config(
-        ssid: Bytes<32>,
-        password: Bytes<32>,
-        auth: Auth,
-        enabled: bool,
-    ) {
-        {
-            let _lock = credentials_lock();
-            unsafe {
-                SSID = ssid;
-                PASSWORD = password;
-                AUTH = auth;
-            }
-        }
-        ENABLED.store(enabled, Ordering::Release);
-    }
-
-    pub fn shared() -> Self {
-        Self {
-            handle: null_mut(),
-            thread: Thread::new_with_to_priority(THREAD_NAME, STACK_SIZE, ThreadPriority::Normal),
-            thread_started: AtomicBool::new(false),
-        }
     }
 
 }
