@@ -337,7 +337,7 @@ mod tests {
         while unsafe { get_g_setup_called() } != 1 {}
 
         unsafe {
-            HARDWARE = Some(Hardware::new());
+            HARDWARE = Hardware::new().ok().and_then(|h| Some(h)); 
         }
 
         if let Err(err) = hardware().init() {
