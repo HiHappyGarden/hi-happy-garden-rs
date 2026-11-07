@@ -53,7 +53,7 @@ macro_rules! blink_led {
 
 const APP_TAG: &str = "AppSystemLed";
 const THREAD_NAME: &str = "system_led_thr";
-const STACK_SIZE: StackType = 256;
+const STACK_SIZE: StackType = 512;
 const BLINK_INTERVAL_MS: u16 = 500;
 const TICK_INTERVAL_MS: u16 = 100; 
 static TIMER: AtomicU16 = AtomicU16::new(0);
