@@ -19,14 +19,15 @@
  ***************************************************************************/
 
 use osal_rs::utils::Result;
+use core::any::Any;
 
 pub trait SetScheduler<'a> {
-     fn set_on_scheduler_trig(&mut self, on_scheduler_trig: &'a dyn OnSchedulerTrig);
+     fn set_on_scheduler_trig(&mut self, on_scheduler_trig: &'a dyn OnSchedulerTrig) -> Result<()>;
 }
 
 
-pub trait OnSchedulerTrig: Send + Sync {
+pub trait OnSchedulerTrig: Any + Send + Sync {
 
-    fn on_trigger(&self, timestamp: i64) -> Result<()>;
+    fn on_triggered(&self, timestamp: i64) -> Result<()>;
     
 }

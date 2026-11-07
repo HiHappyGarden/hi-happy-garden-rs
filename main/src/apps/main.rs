@@ -43,6 +43,7 @@ use crate::drivers::platform::{Hardware, LCDDisplay, ThreadPriority};
 use crate::apps::config::config_shared;
 use crate::traits::hardware::HardwareFn;
 use crate::traits::rx_tx::SetOnReceive;
+use crate::traits::scheduler::SetScheduler;
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
 use crate::traits::wifi::SetOnWifiChangeStatus;
@@ -164,6 +165,9 @@ impl AppMain {
                         set_current_status!(status_old, status_current, StatusFlag::EnableSystemHandler);
                     }
                     StatusFlag::EnableSystemHandler => {
+                        
+                        (*hardware_ptr).set_on_scheduler_trig(Sprinkler::trigger_handler())?;
+
                         set_current_status!(status_old, status_current, StatusFlag::EnableSession);
                     }
                     StatusFlag::EnableSession => {

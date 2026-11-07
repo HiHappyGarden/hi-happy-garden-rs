@@ -107,7 +107,7 @@ mod app {
         log_debug!(APP_TAG, "Initial tick count: {}", System::get_tick_count());
 
         unsafe {
-            HARDWARE = Some(Hardware::new()); 
+            HARDWARE = Hardware::new().ok().and_then(|h| Some(h)); 
 
             let hardware = &mut *&raw mut HARDWARE;
 

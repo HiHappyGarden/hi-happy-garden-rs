@@ -41,6 +41,10 @@ pub struct Timer {
     instance: *mut c_void,
 }
 
+unsafe impl Sync for Timer {}
+unsafe impl Send for Timer {}
+    
+
 impl Timer {
     pub(in crate::drivers) fn new(instance: *mut c_void) -> Self {
         Timer { 

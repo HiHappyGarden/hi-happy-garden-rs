@@ -29,13 +29,14 @@ pub(in crate::apps) mod schedule;
 
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-use osal_rs::log_info;
+use osal_rs::{log_info, println};
 use osal_rs::utils::Result;
 
 use crate::apps::sprinkler::commons::Status;
 use crate::apps::sprinkler::schedule::ScheduleController;
 use crate::apps::sprinkler::zone::ZoneController;
 use crate::drivers::date_time::DateTime;
+use crate::traits::scheduler::OnSchedulerTrig;
 use crate::traits::state::Initializable;
 
 
@@ -45,6 +46,8 @@ static DISBURSEMENT_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 
 /// Index of the schedule returned by `query`, set via `AT+SPK=select,<index>`
 static SELECTED_SCHEDULE: AtomicUsize = AtomicUsize::new(0);
+
+static TRIGGER_HANDLER: SprinklerTriggerHandler = SprinklerTriggerHandler::new();
 
 #[derive(Debug)]
 pub(in crate::apps) struct Sprinkler {
@@ -58,6 +61,8 @@ impl Initializable for Sprinkler {
         
         self.zone_comntroller.init()?;
         self.schedule_controller.init()?;
+
+           
 
         Ok(())
     }
@@ -97,4 +102,28 @@ impl Sprinkler {
         }
     }
 
+    pub(in crate::apps) const fn trigger_handler() -> &'static dyn OnSchedulerTrig {
+        &TRIGGER_HANDLER
+    }
+
+}
+
+
+pub(in crate::apps) struct SprinklerTriggerHandler;
+
+impl OnSchedulerTrig for SprinklerTriggerHandler {
+
+    fn on_triggered(&self, _timestamp: i64) -> Result<()> {
+        // Implement the logic to handle the scheduler trigger here
+        
+        //println!("Scheduler triggered at timestamp: {}", _timestamp);
+        
+        Ok(())
+    }
+}
+
+impl SprinklerTriggerHandler {
+    pub(in crate::apps) const fn new() -> Self {
+        Self
+    }
 }
