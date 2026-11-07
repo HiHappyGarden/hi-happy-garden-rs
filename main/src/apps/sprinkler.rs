@@ -29,7 +29,7 @@ pub(in crate::apps) mod schedule;
 
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-use osal_rs::{log_info, println};
+use osal_rs::log_info;
 use osal_rs::utils::Result;
 
 use crate::apps::sprinkler::commons::Status;
@@ -113,10 +113,10 @@ pub(in crate::apps) struct SprinklerTriggerHandler;
 
 impl OnSchedulerTrig for SprinklerTriggerHandler {
 
-    fn on_triggered(&self, _timestamp: i64) -> Result<()> {
+    fn on_triggered(&self) -> Result<()> {
         // Implement the logic to handle the scheduler trigger here
         
-        //println!("Scheduler triggered at timestamp: {}", _timestamp);
+        log_info!(APP_TAG, "Scheduler triggered");
         
         Ok(())
     }

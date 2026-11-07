@@ -110,17 +110,9 @@ impl ThreadPriority {
 }
 
 extern "C" fn scheduler_callback(user_data: *mut c_void) {
+    let scheduler_trigger: &dyn OnSchedulerTrig = *unsafe { &*(user_data as *const &'static dyn OnSchedulerTrig) };    
 
-
-    let scheduler_trigger = *unsafe { &*(user_data as *const &'static dyn OnSchedulerTrig) };    
-
-    scheduler_trigger.on_triggered(
-        RTC::shared()
-        .get_rtc_timestamp()
-        .unwrap_or(0)
-    ).unwrap();
-
-    // _scheduler.on_triggered(timestamp).ok();
+    scheduler_trigger.on_triggered().unwrap();
 }
 
 pub(crate) struct Hardware {
@@ -312,7 +304,7 @@ impl Hardware {
             relays: Relays::shared(),
             display: LCDDisplay::new(),
             i2c0: I2C::new(),
-            i2c1: i2c1,
+            i2c1,
             wifi: Wifi::shared(),
             rtc: Mutex::new_arc(RTC::shared()),
             timer: None,

@@ -28,6 +28,6 @@ pub trait SetScheduler<'a> {
 
 pub trait OnSchedulerTrig: Any + Send + Sync {
 
-    fn on_triggered(&self, timestamp: i64) -> Result<()>;
+    fn on_triggered(&self) -> Result<()>;
     
 }

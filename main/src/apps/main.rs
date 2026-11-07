@@ -75,7 +75,6 @@ pub(crate) struct AppMain {
     parser: Parser,
     system_led: SystemLed,
     sprinkler: Sprinkler,
-    //thread: Option<Thread>
 }
 
 unsafe impl Sync for AppMain {}
@@ -121,8 +120,7 @@ impl AppMain {
             wifi: Wifi::shared(),
             parser: Parser::shared(),
             system_led: SystemLed::new(),
-            sprinkler: Sprinkler::new(),
-            //thread: None,
+            sprinkler: Sprinkler::new()
         }
     }
 
