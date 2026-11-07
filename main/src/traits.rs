@@ -29,6 +29,7 @@ pub mod rgb_led;
 pub mod rtc;
 pub mod signal;
 pub mod rx_tx;
+pub mod scheduler;
 pub mod screen;
 pub mod state;
 pub mod wifi;
