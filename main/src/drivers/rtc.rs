@@ -22,7 +22,8 @@
 pub(super) mod tests;
 
 use osal_rs::log_info;
-use osal_rs::utils::{Error, Result};
+use osal_rs::os::{RawMutex, RawMutexGuard};
+use osal_rs::utils::{Error, OnceBox, Result};
 
 use crate::drivers::i2c::I2C;
 use crate::drivers::pico::rtc_ds3231::RTC_FN;
@@ -30,6 +31,13 @@ use crate::drivers::platform::{I2C0_INSTANCE, I2C_BAUDRATE};
 use crate::traits::state::Initializable;
 
 const APP_TAG: &str = "RTC";
+
+static MUTEX: OnceBox<RawMutex> = OnceBox::new();
+
+#[inline]
+fn lock() -> RawMutexGuard<RawMutex> {
+    RawMutexGuard::acquire(MUTEX.get_or_try_init(RawMutex::new).expect("Failed to create RTC mutex"))
+}
 
 #[derive(Clone, Debug)]
 pub(in crate::drivers) struct RTCFn {
@@ -63,6 +71,8 @@ impl Initializable for RTC {
 
 impl crate::traits::rtc::RTC for RTC {
     fn set_timestamp(&self, timestamp: i64) -> Result<()> {
+
+        let _lock = lock();
         self.set_rtc_timestamp(timestamp)?;
         self.set_timestamp(timestamp as u64)
     }
@@ -98,6 +108,7 @@ impl RTC {
         if self.0.is_none() {
             return Err(Error::NullPtr);
         }
+        let _lock = lock();
         (RTC_FN.set_timestamp)(&self.0.as_ref().unwrap(), timestamp);
         Ok(())
     } 
@@ -108,6 +119,7 @@ impl RTC {
         if self.0.is_none() {
             return Err(Error::NullPtr);
         }
+        let _lock = lock();
         Ok((RTC_FN.get_timestamp)(&self.0.as_ref().unwrap()))
     }
 
@@ -117,6 +129,7 @@ impl RTC {
         if self.0.is_none() {
             return Err(Error::NullPtr);
         }
+        let _lock = lock();
         (RTC_FN.set_rtc_timestamp)(&self.0.as_ref().unwrap(), timestamp)
     }
 
@@ -125,6 +138,7 @@ impl RTC {
         if self.0.is_none() {
             return Err(Error::NullPtr);
         }
+        let _lock = lock();
         (RTC_FN.get_rtc_timestamp)(&self.0.as_ref().unwrap())
     }
 
