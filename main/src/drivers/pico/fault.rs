@@ -206,27 +206,32 @@ unsafe fn hardfault_uart_print_hex(val: u32) {
     }
 }
 
+/// HardFault entry point. Naked so that MSP/PSP and LR are sampled before any
+/// prologue touches them: a regular fn would `push` + `sub sp` first, and for
+/// a fault taken in handler mode the frame read from MSP would be stale stack.
+#[unsafe(naked)]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn isr_hardfault() -> ! {
-    // Determine which stack pointer was in use and get the exception frame
-    let stack_ptr: *const ExceptionFrame;
-    let exc_return: u32;
-    let (msp, msplim, psp, psplim): (u32, u32, u32, u32);
+    core::arch::naked_asm!(
+        "mov r1, lr",           // arg1: EXC_RETURN
+        "mrs r2, msp",          // arg2: MSP at exception entry
+        "tst lr, #4",           // bit 2 of EXC_RETURN: 0 = MSP, 1 = PSP
+        "ite eq",
+        "mrseq r0, msp",        // arg0: stacked exception frame
+        "mrsne r0, psp",
+        "b.w {handler}",
+        handler = sym hardfault_handler,
+    );
+}
+
+unsafe extern "C" fn hardfault_handler(stack_ptr: *const ExceptionFrame, exc_return: u32, msp: u32) -> ! {
+    let (msplim, psp, psplim): (u32, u32, u32);
 
     unsafe {
         core::arch::asm!(
-            "mov {1}, lr",          // Save EXC_RETURN
-            "tst lr, #4",           // Test bit 2 of LR (EXC_RETURN)
-            "ite eq",               // If-Then-Else
-            "mrseq {0}, msp",       // If using MSP, move MSP to output register
-            "mrsne {0}, psp",       // If using PSP, move PSP to output register
-            "mrs {2}, msp",
-            "mrs {3}, msplim",
-            "mrs {4}, psp",
-            "mrs {5}, psplim",
-            out(reg) stack_ptr,
-            out(reg) exc_return,
-            out(reg) msp,
+            "mrs {0}, msplim",
+            "mrs {1}, psp",
+            "mrs {2}, psplim",
             out(reg) msplim,
             out(reg) psp,
             out(reg) psplim,

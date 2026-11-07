@@ -25,7 +25,7 @@ use alloc::sync::Arc;
 use osal_rs::log_info;
 use osal_rs::os::types::UBaseType;
 use osal_rs::os::{Mutex, MutexFn, System, SystemFn, ToPriority};
-use osal_rs::utils::{Error, OsalRsBool, Result};
+use osal_rs::utils::{Error, OnceBox, OsalRsBool, Result};
 
 use crate::drivers::button::Button;
 use crate::drivers::date_time::DateTime;
@@ -62,8 +62,10 @@ const APP_TAG: &str = "Hardware";
 static HAS_INSTANCE: AtomicBool = AtomicBool::new(false);
 
 /// Fat `&dyn OnSchedulerTrig` kept at a stable address, so the timer can get
-/// a thin pointer to it as `user_data`
-// static SCHEDULER_TRIG: OnceBox<&'static dyn OnSchedulerTrig> = OnceBox::new();
+/// a thin pointer to it as `user_data`. The trigger itself cannot be passed:
+/// its address is that of the object (a ZST may sit anywhere in .rodata), not
+/// of a fat reference, which is what `scheduler_callback` reads back.
+static SCHEDULER_TRIG: OnceBox<&'static dyn OnSchedulerTrig> = OnceBox::new();
 
 #[allow(dead_code)]
 #[repr(u32)]
@@ -236,11 +238,13 @@ impl SetScheduler<'static> for Hardware {
     #[inline]
     fn set_on_scheduler_trig(&mut self, on_scheduler_trig: &'static dyn OnSchedulerTrig) -> Result<()> {
 
-        // if SCHEDULER_TRIG.get().is_some() {
-        //     return Err(Error::ReturnWithCode(LFS_ERR_EXIST));
-        // }
-        // let on_scheduler_trig: &'static &'static dyn OnSchedulerTrig =
-        //     SCHEDULER_TRIG.get_or_try_init(|| Ok::<_, Error>(on_scheduler_trig))?;
+        if SCHEDULER_TRIG.get().is_some() {
+            return Err(Error::Unhandled("Scheduler trigger already set"));
+        }
+        // `&'static &'static dyn ..`: the thin pointer the timer hands back is
+        // the address of the fat reference stored in the OnceBox
+        let on_scheduler_trig: &'static &'static dyn OnSchedulerTrig =
+            SCHEDULER_TRIG.get_or_try_init(|| Ok::<_, Error>(on_scheduler_trig))?;
 
         self.timer = Some(Timer::add_repeating_ms(Hardware::SCHEDULER_REPEATING_MS, on_scheduler_trig, scheduler_callback)?);
 
