@@ -213,6 +213,10 @@ impl LCDDisplayFn for MockLcd {
     }
 
     fn draw_str(&mut self, str: &str, x: u8, y: u8, _: &[u8]) -> Result<()> {
+        // Same as the SH1106 driver: an empty string is an error
+        if str.is_empty() {
+            return Err(Error::Empty);
+        }
         self.texts.push(DrawnText { text: str.as_bytes().to_vec(), x, y });
         Ok(())
     }

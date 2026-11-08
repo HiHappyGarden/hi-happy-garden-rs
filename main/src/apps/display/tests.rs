@@ -423,6 +423,21 @@ fn test_select_cancel_and_drop() -> Result<()> {
     Ok(())
 }
 
+/// An entry without label (e.g. a zone with no description) must not stop
+/// the buttons from being handled.
+fn test_select_empty_label() -> Result<()> {
+    let mut lcd = MockLcd::new();
+    let mut empty: ScreenSelections<3> = selections(Some(0));
+    empty[0] = (Bytes::new(), true);
+
+    let (answer, _) = frame(&mut Select::<3>::new(), &mut lcd, bits(EncoderButtonReleased), ScreenParam::Selects(empty.clone()))?;
+    test_assert!(matches!(answer, Answer::Confirmed(_)), "encoder button ignored on an empty label");
+
+    let (answer, _) = frame(&mut Select::<3>::new(), &mut lcd, bits(ButtonReleased), ScreenParam::Selects(empty))?;
+    test_assert!(is_cancelled(&answer), "button ignored on an empty label");
+    Ok(())
+}
+
 // ------------------------------------------------------------------ input
 
 fn input_param(value: &str, secret_mode: bool) -> ScreenParam {
@@ -814,6 +829,7 @@ pub(in crate::apps) fn run_all_tests(stats: &mut TestStats) {
         test_select_rotation_wraps,
         test_select_confirm,
         test_select_cancel_and_drop,
+        test_select_empty_label,
         test_input_type_text,
         test_input_edit_existing,
         test_input_backspace,
