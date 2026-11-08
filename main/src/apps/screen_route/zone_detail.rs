@@ -107,6 +107,11 @@ impl ScreenZoneDetail {
                 }
             )?;
 
+        // First field: cancelling leaves the screen without saving.
+        if let Answer::Cancelled = answer {
+            return Ok(Nav::Pop(false));
+        }
+
         Ok(step(self, display_signal, answer, FSMState::Weight, FSMState::Description))
     }
 
