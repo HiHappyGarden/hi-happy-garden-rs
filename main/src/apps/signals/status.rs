@@ -42,7 +42,8 @@ pub(in crate::apps) enum StatusFlag {
     Error = 0x02_00,
     Reset = 0x04_00,
     NtpError = 0x08_00,
-    
+    DisbursementInProgress = 0x10_00,
+
     SystemCmd = 0x00_10_00_00,
     MqttCmd = 0x00_20_00_00,
     UartCmd = 0x00_40_00_00,
@@ -66,6 +67,7 @@ impl From<EventBits> for StatusFlag {
             0x02_00 => Error,
             0x04_00 => Reset,
             0x08_00 => NtpError,
+            0x10_00 => DisbursementInProgress,
             0x00_10_00_00 => SystemCmd,
             0x00_20_00_00 => MqttCmd,
             0x00_40_00_00 => UartCmd, 
@@ -109,6 +111,7 @@ impl StatusFlag {
             Error => Bytes::from("Error"),
             Reset => Bytes::from("Reset"),
             NtpError => Bytes::from("NtpError"),
+            DisbursementInProgress => Bytes::from("DisbursementInProgress"),
             SystemCmd => Bytes::from("SystemCmd"),
             MqttCmd => Bytes::from("MqttCmd"),
             UartCmd => Bytes::from("UartCmd"),

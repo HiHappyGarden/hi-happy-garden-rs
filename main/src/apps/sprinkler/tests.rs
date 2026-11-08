@@ -26,22 +26,30 @@
 //! `check` works on the shared schedules: they are restored, together with
 //! the disbursement flag, at the end of each test.
 
-use core::sync::atomic::Ordering;
-
 use osal_rs::utils::Result;
 
 use super::commons::Status;
 use super::schedule::{Schedule, ScheduleController, ScheduleZone};
 use super::zone::ZoneRelay;
-use super::{DISBURSEMENT_IN_PROGRESS, Sprinkler};
+use super::Sprinkler;
+use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::drivers::date_time::DateTime;
 use crate::tests::{TestStats, run_tests, test_assert, test_assert_eq};
+use crate::traits::signal::Signal;
 
 const TAG: &str = "SprinklerTests";
 
 /// A valid local time, with the weekday computed from the date.
 fn at(year: i32, month: u8, mday: u8, hour: u8, minute: u8) -> Result<DateTime> {
     DateTime::from_timestamp(DateTime::new(year, month, 0, mday, hour, minute, 0)?.to_timestamp())
+}
+
+fn disbursement_in_progress() -> bool {
+    StatusFlag::DisbursementInProgress.check_signal(StatusSignal::get())
+}
+
+fn clear_disbursement() {
+    StatusSignal::clear(StatusFlag::DisbursementInProgress.into());
 }
 
 fn statuses() -> [Status; ScheduleController::SIZE] {
@@ -161,7 +169,7 @@ fn test_inactive_not_executable() -> Result<()> {
 fn test_check_starts_matching_schedule() -> Result<()> {
     let controller = ScheduleController::shared();
     let backup = *controller;
-    DISBURSEMENT_IN_PROGRESS.store(false, Ordering::Relaxed);
+    clear_disbursement();
 
     let ret = (|| {
         for (idx, schedule) in ScheduleController::shared().into_iter().enumerate() {
@@ -174,7 +182,7 @@ fn test_check_starts_matching_schedule() -> Result<()> {
         sprinkler.check(at(2024, 6, 17, 12, 0)?);
 
         test_assert_eq!(statuses(), [Status::ACTIVE, Status::ACTIVE, Status::RUN, Status::ACTIVE]);
-        test_assert!(DISBURSEMENT_IN_PROGRESS.load(Ordering::Relaxed));
+        test_assert!(disbursement_in_progress());
 
         // One disbursement at a time: nothing else starts meanwhile
         sprinkler.check(at(2024, 6, 17, 12, 0)?);
@@ -183,13 +191,13 @@ fn test_check_starts_matching_schedule() -> Result<()> {
     })();
 
     *ScheduleController::shared() = backup;
-    DISBURSEMENT_IN_PROGRESS.store(false, Ordering::Relaxed);
+    clear_disbursement();
     ret
 }
 
 fn test_check_idle() -> Result<()> {
     let backup = *ScheduleController::shared();
-    DISBURSEMENT_IN_PROGRESS.store(false, Ordering::Relaxed);
+    clear_disbursement();
 
     let ret = (|| {
         for schedule in ScheduleController::shared().into_iter() {
@@ -197,13 +205,13 @@ fn test_check_idle() -> Result<()> {
             schedule.hour = 1;
         }
         Sprinkler::new().check(at(2024, 6, 17, 12, 0)?);
-        test_assert!(!DISBURSEMENT_IN_PROGRESS.load(Ordering::Relaxed));
+        test_assert!(!disbursement_in_progress());
         test_assert!(ScheduleController::shared().into_iter().all(|s| s.status == Status::ACTIVE));
         Ok(())
     })();
 
     *ScheduleController::shared() = backup;
-    DISBURSEMENT_IN_PROGRESS.store(false, Ordering::Relaxed);
+    clear_disbursement();
     ret
 }
 
