@@ -204,7 +204,7 @@ impl AppMain {
                     }
                     StatusFlag::Ready => {
 
-                        let now: DateTime = DateTime::from_timestamp(rtc.lock()?.get_timestamp()?)?;
+                        let now: DateTime = DateTime::from_timestamp_locale(rtc.lock()?.get_timestamp()?, true)?;
 
                         me.sprinkler.check(now);
 

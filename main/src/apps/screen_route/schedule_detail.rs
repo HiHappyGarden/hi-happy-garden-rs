@@ -161,7 +161,7 @@ impl ScreenScheduleDetail {
                 display_signal,
                 rtc,
                 &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Start at minute"),
-                ScreenParam::Number(self.schedule.minute)
+                ScreenParam::Number(self.schedule.minute.saturating_sub(1))
             )?;
 
         Ok(step(self, display_signal, answer, FSMState::Hour, FSMState::Description))
@@ -173,7 +173,7 @@ impl ScreenScheduleDetail {
                 display_signal,
                 rtc,
                 &Bytes::<DISPLAY_INPUT_MAX_SIZE>::from("Start at hours"),
-                ScreenParam::Number(self.schedule.hour)
+                ScreenParam::Number(self.schedule.hour.saturating_sub(1))
             )?;
 
         self.fsm_day = Day::Monday;
@@ -477,8 +477,8 @@ impl ScreenScheduleDetail {
                             .clone();
 
                         let new_schedule = Schedule {
-                            minute: self.minute.get_value()?,
-                            hour: self.hour.get_value()?,
+                            minute: self.minute.get_value()? + 1,
+                            hour: self.hour.get_value()? + 1,
                             days: self.days,
                             months: self.months,
                             description: self.description.get_value()?,
