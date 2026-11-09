@@ -301,6 +301,7 @@ impl Initializable for Session {
             Self::logout();
             
             log_warning!(APP_TAG, "Session timeout, user logged out");
+//            todo!("fix: Handle session timeout");
 
             Ok(Arc::new(()))
         }) {
@@ -382,7 +383,7 @@ impl Session {
     }
 
     pub fn is_set_user_local(&self) -> bool {
-        self.users[1].email.len() > 0 && self.users[1].password.len() > 0
+        self.users[1].email.len() > 0
     }
 
     pub fn set_system_user(&mut self, email: &str, password: &str) -> Result<()> {

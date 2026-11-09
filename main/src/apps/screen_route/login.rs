@@ -29,12 +29,12 @@ use crate::apps::config::Config;
 use crate::apps::display::input::Input;
 use crate::apps::display::text::Text;
 use crate::apps::signals::display::request_redraw;
-use crate::drivers::encrypt::{EncryptGeneric, SHA256_RESULT_BYTES};
 use crate::apps::config::config_get;
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 
-/// Worst case of `i,"<email>","<sha256 hex>"` with every email byte escaped.
-const LOGIN_RAW_SIZE: usize = 2 + (2 * DISPLAY_INPUT_MAX_SIZE + 2) + 1 + (SHA256_RESULT_BYTES * 2 + 2);
+/// Worst case of `i,"<email>","<password>"` with every byte escaped.
+/// The password goes in clear: `Session::set` hashes it, like `AT+SESS=i,...`.
+const LOGIN_RAW_SIZE: usize = 2 + (2 * DISPLAY_INPUT_MAX_SIZE + 2) + 1 + (2 * DISPLAY_INPUT_MAX_SIZE + 2);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum FSMState {
@@ -159,7 +159,7 @@ impl ScreenLogin {
 
     fn login(&mut self) -> Result<bool> {
         let email = self.email.get_value()?;
-        let email_passwd = EncryptGeneric::get_sha256(self.email_passwd.get_value()?.as_raw_bytes())?;
+        let email_passwd = self.email_passwd.get_value()?;
 
         let mut raw = Bytes::<LOGIN_RAW_SIZE>::from("i,");
         Self::push_quoted(&mut raw, email.as_str())?;
