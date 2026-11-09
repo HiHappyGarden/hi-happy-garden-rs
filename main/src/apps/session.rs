@@ -194,6 +194,16 @@ impl User {
         }
     }
 
+    /// User with `password` stored as its SHA256 hex digest, the form
+    /// `Session::login` compares against. Used by every screen that saves a user.
+    pub fn from_credentials(email: &str, password: &str) -> Result<Self> {
+        Ok(Self {
+            email: Bytes::from(email),
+            password: EncryptGeneric::get_sha256(password.as_bytes())?,
+            empty_passwd: password.is_empty(),
+        })
+    }
+
     pub fn get_local() -> &'static mut User {
         unsafe { &mut *&raw mut USER_LOCAL }
     }

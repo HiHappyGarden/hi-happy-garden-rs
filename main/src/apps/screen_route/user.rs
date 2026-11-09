@@ -25,7 +25,6 @@ use crate::apps::DISPLAY_INPUT_MAX_SIZE;
 use crate::apps::display::input::Input;
 use crate::apps::session::User;
 use crate::apps::signals::display::request_redraw;
-use crate::drivers::encrypt::EncryptGeneric;
 use crate::apps::config::config_shared;
 use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 
@@ -107,10 +106,7 @@ impl ScreenUser {
         let email  = self.email.get_value()?;
         let passwd = self.passwd.get_value()?;
 
-        let mut user = User::default();
-        user.set_email(email.as_str());
-        user.set_empty_passwd(passwd.is_empty());
-        user.set_password(EncryptGeneric::get_sha256(passwd.as_raw_bytes())?.as_str());
+        let user = User::from_credentials(email.as_str(), passwd.as_str())?;
 
         let mut config = config_shared!(Error::NullPtr);
         config.get_session().set_user(&user);

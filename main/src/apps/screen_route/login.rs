@@ -18,6 +18,9 @@
  *
  ***************************************************************************/
 
+#[cfg(feature = "tests")]
+pub(super) mod tests;
+
 use at_parser_rs::Args;
 use at_parser_rs::context::AtContext;
 use osal_rs::os::Mutex;
@@ -160,11 +163,16 @@ impl ScreenLogin {
     fn login(&mut self) -> Result<bool> {
         let email = self.email.get_value()?;
         let email_passwd = self.email_passwd.get_value()?;
+        self.login_with(email.as_str(), email_passwd.as_str())
+    }
 
+    /// Logs in through `AT+SESS=i,...` with the password in clear:
+    /// `Session::set` hashes it, as the users saved by the wizard expect.
+    fn login_with(&self, email: &str, password: &str) -> Result<bool> {
         let mut raw = Bytes::<LOGIN_RAW_SIZE>::from("i,");
-        Self::push_quoted(&mut raw, email.as_str())?;
+        Self::push_quoted(&mut raw, email)?;
         raw.push(b',')?;
-        Self::push_quoted(&mut raw, email_passwd.as_str())?;
+        Self::push_quoted(&mut raw, password)?;
 
         let args = Args {
             raw: raw.as_str()

@@ -361,4 +361,5 @@ pub(in crate::apps) fn run_all_tests(stats: &mut TestStats) {
         test_menu_confirm_pushes_item,
     );
     super::zone_detail::tests::run_all_tests(stats);
+    super::login::tests::run_all_tests(stats);
 }

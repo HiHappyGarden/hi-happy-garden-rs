@@ -39,7 +39,6 @@ use crate::apps::signals::display::{DisplayFlag, DisplaySignal};
 use crate::apps::signals::error::ErrorSignal;
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::apps::sprinkler::Sprinkler;
-use crate::drivers::encrypt::EncryptGeneric;
 use crate::traits::lcd_display::{LCDDisplayFn, LCDWriteMode};
 use crate::traits::rtc::RTC;
 use crate::traits::signal::Signal;
@@ -74,9 +73,7 @@ pub(in crate::apps) fn logged<R>(test: impl FnOnce() -> Result<R>) -> Result<R> 
 /// Runs `test` with [`TEST_EMAIL`] installed as local user, restoring the
 /// real one afterwards. Memory only: `/etc/config.json` is not written.
 pub(in crate::apps) fn with_test_user<R>(test: impl FnOnce() -> Result<R>) -> Result<R> {
-    let mut user = User::default();
-    user.set_email(TEST_EMAIL);
-    user.set_password(EncryptGeneric::get_sha256(TEST_PASSWORD.as_bytes())?.as_str());
+    let user = User::from_credentials(TEST_EMAIL, TEST_PASSWORD)?;
 
     // Guard released before `test`, which locks `Config` again
     let backup = {

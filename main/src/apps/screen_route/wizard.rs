@@ -38,7 +38,6 @@ use crate::apps::screen_route::auth::{fill_auth_selections, selected_auth_from_s
 use crate::apps::screen_route::menu::ScreenMenu;
 use crate::apps::utils::serial_from_uid;
 use crate::drivers::date_time::DateTime;
-use crate::drivers::encrypt::EncryptGeneric;
 use crate::drivers::platform::Hardware;
 use crate::drivers::wifi::Auth;
 use crate::apps::config::config_get;
@@ -283,10 +282,7 @@ impl ScreenWizard {
         let email_passwd = self.email_passwd.get_value()?;
         let wifi_enable = self.wifi_enable.get_value()?;
 
-        let mut user = User::default();
-        user.set_email(email.as_str());
-        user.set_empty_passwd(email_passwd.is_empty());
-        user.set_password(EncryptGeneric::get_sha256(email_passwd.as_raw_bytes())?.as_str());
+        let user = User::from_credentials(email.as_str(), email_passwd.as_str())?;
         config_get!(self.config).get_session().set_user(&user);
 
         if wifi_enable {
