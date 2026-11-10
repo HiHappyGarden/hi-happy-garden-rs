@@ -37,7 +37,7 @@ use osal_rs::utils::{OnceBox, Result};
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::apps::sprinkler::commons::Status;
 use crate::apps::sprinkler::schedule::{ScheduleController, ScheduleZone};
-use crate::apps::sprinkler::zone::{ZoneController, ZoneRelay};
+use crate::apps::sprinkler::zone::{Zone, ZoneController};
 use crate::drivers::date_time::DateTime;
 use crate::traits::scheduler::OnSchedulerTrig;
 use crate::traits::signal::Signal;
@@ -50,7 +50,7 @@ static SELECTED_SCHEDULE: AtomicUsize = AtomicUsize::new(0);
 
 static TRIGGER_HANDLER: SprinklerTriggerHandler = SprinklerTriggerHandler::new();
 
-static QUEUE_ZONES: OnceBox<Mutex<[ScheduleZone; ZoneController::SIZE]>> = OnceBox::new();
+static QUEUE_ZONES: OnceBox<Mutex<[Option<SprinklerTriggerData>; ZoneController::SIZE]>> = OnceBox::new();
 
 const DISBURSEMENT_MASK: EventBits = 
                 StatusFlag::DisbursementZoneRelay0 as EventBits
@@ -69,10 +69,10 @@ impl Initializable for Sprinkler {
         log_info!(APP_TAG, "Init app sprinkler");
         
         QUEUE_ZONES.get_or_try_init(|| Ok(Mutex::new([
-            ScheduleZone::new(ZoneRelay::Relay0),
-            ScheduleZone::new(ZoneRelay::Relay1),
-            ScheduleZone::new(ZoneRelay::Relay2),
-            ScheduleZone::new(ZoneRelay::Relay3)
+            None,
+            None,
+            None,
+            None
         ])))?;
 
         self.zone_controller.init()?;
@@ -126,10 +126,15 @@ impl Sprinkler {
                         continue 'main_loop;
                     }
 
+                    todo!("Handle zone activation logic here");
                     if minutes > 0 && zone.status == Status::ACTIVE {
-                        let a = &mut QUEUE_ZONES.get().unwrap().lock().unwrap();
-                        let zone_queue = &mut a[i];
-                        zone_queue.minutes = minutes;
+                        let zones = &mut QUEUE_ZONES.get().unwrap().lock().unwrap();
+                        zones[i] = Some(SprinklerTriggerData {
+                            zone: zone.clone(),
+                            start: now.clone(),
+                            duration: minutes,
+                            status: zone.status
+                        });
                     }
                 }
 
@@ -143,6 +148,15 @@ impl Sprinkler {
         &TRIGGER_HANDLER
     }
 
+}
+
+
+
+struct SprinklerTriggerData {
+    zone: Zone,
+    start: DateTime,
+    duration: u8,
+    status: Status
 }
 
 
