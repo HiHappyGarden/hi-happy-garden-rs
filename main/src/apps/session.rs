@@ -105,20 +105,6 @@ impl User {
         &self.password
     }
 
-    #[inline]
-    pub fn set_email(&mut self, email: &str) {
-        self.email = Bytes::from(email);
-    }
-
-    #[inline]
-    pub fn set_empty_passwd(&mut self, empty_passwd: bool) {
-        self.empty_passwd = empty_passwd;
-    }
-
-    #[inline]
-    pub fn set_password(&mut self, password: &str) {
-        self.password = Bytes::from(password);
-    }
 }
 
 impl AtContext<{Parser::CMD_SIZE}> for User {
@@ -311,7 +297,7 @@ impl Initializable for Session {
             Self::logout();
             
             log_warning!(APP_TAG, "Session timeout, user logged out");
-//            todo!("fix: Handle session timeout");
+           todo!("fix: Handle session timeout");
 
             Ok(Arc::new(()))
         }) {
