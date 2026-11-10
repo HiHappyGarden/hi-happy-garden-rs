@@ -297,7 +297,7 @@ impl Initializable for Session {
             Self::logout();
             
             log_warning!(APP_TAG, "Session timeout, user logged out");
-           todo!("fix: Handle session timeout");
+        //    todo!("fix: Handle session timeout");
 
             Ok(Arc::new(()))
         }) {

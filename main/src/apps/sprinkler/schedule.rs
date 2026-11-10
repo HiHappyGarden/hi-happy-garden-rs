@@ -357,6 +357,18 @@ impl Schedule {
 
 }
 
+impl Iterator for Schedule {
+    type Item = ScheduleZone;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        
+        for zone in self.zones.iter_mut() {
+            return Some(*zone);
+        }
+        None
+    }
+}
+
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub(in crate::apps) struct ScheduleController {
     schedules: [Schedule; ScheduleController::SIZE],
@@ -589,7 +601,6 @@ impl DerefMut for ScheduleController {
         &mut self.schedules
     }
 }
-
 
 impl ScheduleController {
     pub(in crate::apps) const SIZE: usize = 4;
