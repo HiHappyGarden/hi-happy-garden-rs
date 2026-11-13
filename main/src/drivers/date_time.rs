@@ -28,6 +28,7 @@ use core::sync::atomic::{AtomicBool, AtomicI16, AtomicU8, Ordering};
 
 use alloc::string::String;
 use osal_rs::utils::{Error, Result};
+use osal_rs_serde::{Deserialize, Serialize};
 
 use crate::drivers::rtc::RTC;
 
@@ -42,7 +43,7 @@ static END_DAY: AtomicU8 = AtomicU8::new(0);
 static END_HOUR: AtomicU8 = AtomicU8::new(0);
 
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct DateTime {
     pub year: i32,     //starting from 1970, can be negative for dates before 1970
     pub month: u8,     // 1-12
