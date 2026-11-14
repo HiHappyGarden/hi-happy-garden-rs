@@ -31,7 +31,7 @@ use alloc::string::String;
 use at_parser_rs::Args;
 use at_parser_rs::context::AtContext;
 use osal_rs::os::types::EventBits;
-use osal_rs::utils::{Error, Result};
+use osal_rs::utils::{Bytes, Error, Result};
 
 use super::{Session, User, USER_LOGGED, USER_TMP};
 use crate::apps::config::Config;
@@ -193,9 +193,11 @@ fn test_user_limits() -> Result<()> {
 }
 
 fn test_user_json() -> Result<()> {
-    let mut user = User::default();
-    user.set_email(TEST_EMAIL);
-    user.set_password(EncryptGeneric::get_sha256(TEST_PASSWORD.as_bytes())?.as_str());
+    let user = User {
+        email: Bytes::from(TEST_EMAIL),
+        password: Bytes::from(EncryptGeneric::get_sha256(TEST_PASSWORD.as_bytes())?.as_str()),
+        empty_passwd: false,
+    };
 
     let text = to_json(&user)?;
     test_assert!(text.contains(TEST_EMAIL));

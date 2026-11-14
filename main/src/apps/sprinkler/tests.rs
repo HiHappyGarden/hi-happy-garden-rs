@@ -31,8 +31,8 @@ use osal_rs::utils::Result;
 use super::commons::Status;
 use super::schedule::{Schedule, ScheduleController, ScheduleZone};
 use super::zone::ZoneRelay;
-use super::Sprinkler;
-use crate::apps::signals::status::{StatusFlag, StatusSignal};
+use super::{Sprinkler, DISBURSEMENT_MASK};
+use crate::apps::signals::status::StatusSignal;
 use crate::drivers::date_time::DateTime;
 use crate::tests::{TestStats, run_tests, test_assert, test_assert_eq};
 use crate::traits::signal::Signal;
@@ -45,11 +45,11 @@ fn at(year: i32, month: u8, mday: u8, hour: u8, minute: u8) -> Result<DateTime> 
 }
 
 fn disbursement_in_progress() -> bool {
-    StatusFlag::DisbursementInProgress.check_signal(StatusSignal::get())
+    StatusSignal::get() & DISBURSEMENT_MASK != 0
 }
 
 fn clear_disbursement() {
-    StatusSignal::clear(StatusFlag::DisbursementInProgress.into());
+    StatusSignal::clear(DISBURSEMENT_MASK);
 }
 
 fn statuses() -> [Status; ScheduleController::SIZE] {

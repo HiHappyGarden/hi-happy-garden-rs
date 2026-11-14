@@ -129,11 +129,11 @@ impl Sprinkler {
             return;
         }
 
-        'main_loop: while let Some(mut schedule) = self.schedule_controller.into_iter().next() {
+        'main_loop: for schedule in self.schedule_controller.into_iter() {
             if schedule.executable(&now) {
                 if schedule.status == Status::UNACTIVE {
 
-                    if !Self::handle_schedule_not_running(&mut schedule, now) {
+                    if !Self::handle_schedule_not_running(schedule, now) {
                         continue 'main_loop;
                     }
 
