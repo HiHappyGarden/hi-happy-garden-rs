@@ -21,7 +21,9 @@
 #[cfg(feature = "tests")]
 pub(super) mod tests;
 
+use core::iter::Copied;
 use core::ops::{Deref, DerefMut};
+use core::slice::Iter;
 
 use at_parser_rs::{Args, AtError, AtResult};
 use at_parser_rs::context::AtContext;
@@ -357,15 +359,12 @@ impl Schedule {
 
 }
 
-impl Iterator for Schedule {
+impl<'a> IntoIterator for &'a Schedule {
     type Item = ScheduleZone;
+    type IntoIter = Copied<Iter<'a, ScheduleZone>>;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        
-        for zone in self.zones.iter_mut() {
-            return Some(*zone);
-        }
-        None
+    fn into_iter(self) -> Self::IntoIter {
+        self.zones.iter().copied()
     }
 }
 

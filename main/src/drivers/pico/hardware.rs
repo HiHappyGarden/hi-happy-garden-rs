@@ -18,14 +18,13 @@
  *
  ***************************************************************************/
 
-use core::ffi::c_void;
 use core::sync::atomic::{AtomicBool, Ordering};
 
 use alloc::sync::Arc;
 use osal_rs::log_info;
 use osal_rs::os::types::UBaseType;
 use osal_rs::os::{Mutex, MutexFn, System, SystemFn, ToPriority};
-use osal_rs::utils::{Error, OnceBox, OsalRsBool, Result};
+use osal_rs::utils::{Error, OsalRsBool, Result};
 
 use crate::drivers::button::Button;
 use crate::drivers::date_time::DateTime;
@@ -37,7 +36,6 @@ use crate::drivers::pico::ffi::{hhg_get_unique_id, hhg_system_reset};
 use crate::drivers::relays::Relays;
 use crate::drivers::rgb_led::RgbLed;
 use crate::drivers::rtc::RTC;
-use crate::drivers::timer::Timer;
 use crate::drivers::uart::Uart;
 use crate::drivers::gpio::Gpio;
 use crate::drivers::platform::{GpioPeripheral, I2C_BAUDRATE, I2C0_INSTANCE, I2C1_INSTANCE, LCDDisplay};
@@ -52,7 +50,6 @@ use crate::traits::encoder::{OnRotatableAndClickable as EncoderOnRotatableAndCli
 use crate::traits::hardware::HardwareFn;
 use crate::traits::rtc::RTC as RTCFn;
 use crate::traits::rx_tx::{OnReceive, SetOnReceive, SetTransmit};
-use crate::traits::scheduler::{OnSchedulerTrig, SetScheduler};
 use crate::traits::state::Initializable;
 use crate::traits::wifi::{OnWifiChangeStatus, SetOnWifiChangeStatus};
 
@@ -60,12 +57,6 @@ use crate::traits::wifi::{OnWifiChangeStatus, SetOnWifiChangeStatus};
 const APP_TAG: &str = "Hardware";
 
 static HAS_INSTANCE: AtomicBool = AtomicBool::new(false);
-
-/// Fat `&dyn OnSchedulerTrig` kept at a stable address, so the timer can get
-/// a thin pointer to it as `user_data`. The trigger itself cannot be passed:
-/// its address is that of the object (a ZST may sit anywhere in .rodata), not
-/// of a fat reference, which is what `scheduler_callback` reads back.
-static SCHEDULER_TRIG: OnceBox<&'static dyn OnSchedulerTrig> = OnceBox::new();
 
 #[allow(dead_code)]
 #[repr(u32)]
@@ -109,11 +100,6 @@ impl ThreadPriority {
     }
 }
 
-extern "C" fn scheduler_callback(user_data: *mut c_void) {
-    let scheduler_trigger: &dyn OnSchedulerTrig = *unsafe { &*(user_data as *const &'static dyn OnSchedulerTrig) };    
-
-    scheduler_trigger.on_triggered().unwrap();
-}
 
 pub(crate) struct Hardware {
     uart: Uart,
@@ -125,7 +111,6 @@ pub(crate) struct Hardware {
     i2c1: I2C<{I2C1_INSTANCE}, {I2C_BAUDRATE}>,
     wifi: Wifi,
     rtc: Arc<Mutex<RTC>>,
-    timer: Option<Timer>,
 }
 
 impl Initializable for Hardware {
@@ -225,25 +210,6 @@ impl SetTransmit for UartTransmitter {
     }
 }
 
-impl SetScheduler<'static> for Hardware {
-
-    #[inline]
-    fn set_on_scheduler_trig(&mut self, on_scheduler_trig: &'static dyn OnSchedulerTrig) -> Result<()> {
-
-        if SCHEDULER_TRIG.get().is_some() {
-            return Err(Error::Unhandled("Scheduler trigger already set"));
-        }
-        // `&'static &'static dyn ..`: the thin pointer the timer hands back is
-        // the address of the fat reference stored in the OnceBox
-        let on_scheduler_trig: &'static &'static dyn OnSchedulerTrig =
-            SCHEDULER_TRIG.get_or_try_init(|| Ok::<_, Error>(on_scheduler_trig))?;
-
-        self.timer = Some(Timer::add_repeating_ms(Hardware::SCHEDULER_REPEATING_MS, on_scheduler_trig, scheduler_callback)?);
-
-        Ok(())
-    }
-}
-
 impl HardwareFn<'static> for Hardware {
 
     #[inline]
@@ -285,8 +251,6 @@ impl HardwareFn<'static> for Hardware {
 }
 
 impl Hardware {
-    const SCHEDULER_REPEATING_MS: i32 = 1_000; 
-
 
     pub(crate) fn new() -> Result<Self> {        
 
@@ -307,7 +271,6 @@ impl Hardware {
             i2c1,
             wifi: Wifi::shared(),
             rtc: Mutex::new_arc(RTC::shared()),
-            timer: None,
         })  
     }
 

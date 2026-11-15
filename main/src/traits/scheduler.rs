@@ -17,6 +17,7 @@
  * with this program; if not, see <https://www.gnu.org/licenses/>.
  *
  ***************************************************************************/
+#![allow(dead_code)]
 
 use osal_rs::utils::Result;
 use core::any::Any;
