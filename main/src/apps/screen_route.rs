@@ -190,7 +190,7 @@ impl ScreenRoute {
             && config_shared!().get_session().is_set_user_local()
             && !StatusFlag::UserLogged.check_signal(*status_signal)
         {
-            self.stack.push((ScreenLogin::id(), Box::new(ScreenLogin::new())));
+            self.stack.push((ScreenLogin::id(), Box::new(ScreenLogin::new(id, screen))));
         } else {
             self.stack.push((id, screen));
         }

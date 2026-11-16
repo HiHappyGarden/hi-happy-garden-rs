@@ -33,7 +33,7 @@ use crate::apps::display::input::Input;
 use crate::apps::display::text::Text;
 use crate::apps::signals::display::request_redraw;
 use crate::apps::config::config_get;
-use crate::traits::screen::{Answer, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
+use crate::traits::screen::{Answer, BoxedScreenRoute, Nav, Screen, ScreenParam, ScreenRoute, ScreenRouteCtx};
 
 /// Worst case of `i,"<email>","<password>"` with every byte escaped.
 /// The password goes in clear: `Session::set` hashes it, like `AT+SESS=i,...`.
@@ -53,6 +53,7 @@ pub(super) struct ScreenLogin {
     email: Input,
     email_passwd: Input,
     status: Text,
+    next_screen: Option<(&'static str, BoxedScreenRoute)>
 }
 
 impl ScreenRoute for ScreenLogin {
@@ -74,7 +75,7 @@ impl ScreenRoute for ScreenLogin {
 }
 
 impl ScreenLogin {
-    pub(super) fn new() -> Self {
+    pub(super) fn new(id: &'static str, screen: BoxedScreenRoute) -> Self {
         Self {
             config: Config::shared(),
             fsm_state: FSMState::Email,
@@ -82,6 +83,7 @@ impl ScreenLogin {
             email: Input::new(),
             email_passwd: Input::new(),
             status: Text::new(),
+            next_screen: Some((id, screen)),
         }
     }
 
@@ -151,7 +153,14 @@ impl ScreenLogin {
             Answer::Pending => Ok(Nav::Stay),
             Answer::Confirmed(_) | Answer::Cancelled => {
                 if self.logged {
-                    Ok(Nav::Pop(false))
+
+
+                    match self.next_screen.take() {
+                        Some((id, screen)) => Ok(Nav::Replace { id, screen }),
+                        None => Ok(Nav::Pop(false)),
+                    }
+
+                    // Ok(Nav::Replace{ id: self.next_screen.0, screen: self.next_screen.1.clone() })
                 } else {
                     self.set_state(display_signal, FSMState::Email);
                     Ok(Nav::Stay)
