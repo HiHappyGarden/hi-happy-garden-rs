@@ -25,6 +25,7 @@ use osal_rs::log_info;
 use osal_rs::os::{System, Thread, ThreadFn};
 use osal_rs::os::types::StackType;
 
+use crate::apps::sprinkler::DISBURSEMENT_MASK;
 use crate::drivers::platform::ThreadPriority;
 use crate::drivers::rgb_led::RgbLed;
 use crate::apps::config::config_shared;
@@ -63,6 +64,7 @@ const COLOR_RED: Color = Color::new(255, 0, 0);
 const COLOR_ORANGE: Color = Color::new(255, 165, 0);
 const COLOR_GREEN: Color = Color::new(0, 255, 0);
 const COLOR_YELLOW: Color = Color::new(255, 128, 0);
+const COLOR_BLUE: Color = Color::new(0, 0, 255);
 const COLOR_OFF: Color = Color::new(0, 0, 0);
 
  pub struct SystemLed{
@@ -84,16 +86,22 @@ const COLOR_OFF: Color = Color::new(0, 0, 0);
 
             loop {
                 let status = StatusSignal::get();
-            
+                
+                let disbursement_active: bool = status & DISBURSEMENT_MASK != 0;
                 let system_ready = Ready.check_signal(status);
                 let wifi_ready = config_shared!().get_wifi_config().is_enabled() 
                                         && (WifiReady.check_signal(status) || NtpError.check_signal(status));
                 let error = Error.check_signal(status);
 
-                match (system_ready, wifi_ready, error) {
 
-                    (_, _, true) => {
+
+                match (system_ready, wifi_ready, disbursement_active, error) {
+
+                    (_, _, _, true) => {
                         blink_led!(rgb_led, COLOR_RED);
+                    }
+                    (_, _, true, _) => {
+                        blink_led!(rgb_led, COLOR_BLUE);
                     }
                     (true, false, ..) => {
                         blink_led!(rgb_led, COLOR_YELLOW);
@@ -108,61 +116,6 @@ const COLOR_OFF: Color = Color::new(0, 0, 0);
                     }
                 }
 
-
-                // if None.check_signal(status) 
-                //     || Startup.check_signal(status) 
-                //     || EnableSystemHandler.check_signal(status)
-                //     || EnableSession.check_signal(status)
-                //     || EnableParser.check_signal(status)
-                //     || EnableDisplay.check_signal(status)
-                //     || CheckConfig.check_signal(status)
-                //     || (is_wifi_enabled && EnableWifi.check_signal(status))
-                // {
-                    
-                //     // println!(r#"System not ready, blinking orange LED 
-                //     //             {} 
-                //     //             {} 
-                //     //             {} 
-                //     //             {} 
-                //     //             {} 
-                //     //             {} 
-                //     //             {} 
-                //     //             "#
-                //     //     , Startup.check_signal(status)
-                //     //     , EnableSystemHandler.check_signal(status)
-                //     //     , EnableSession.check_signal(status)
-                //     //     , EnableParser.check_signal(status)
-                //     //     , EnableDisplay.check_signal(status)
-                //     //     , CheckConfig.check_signal(status)
-                //     //     , (is_wifi_enabled && EnableWifi.check_signal(status))
-                //     // );
-                //     println!(r#"WiFi not ready, blinking orange LED"#);
-
-                //     blink_led!(rgb_led, COLOR_ORANGE);
-
-                // } else if is_wifi_enabled && Ready.check_signal(status) && !WifiReady.check_signal(status) {
-                    
-                //     println!(r#"WiFi not ready, blinking yellow LED"#);
-
-                //     blink_led!(rgb_led, COLOR_YELLOW);
-
-                // } else if Ready.check_signal(status) {
-
-                //     println!(r#"System ready, blinking green LED"#);
-                //     Self::handle_ready(&rgb_led);
-
-                // } else if Error.check_signal(status) {
-                    
-                //     println!(r#"System error, blinking red LED"#);
-
-                //     blink_led!(rgb_led, COLOR_RED);
-
-                // } else {
-
-                //    rgb_led.set_color(&COLOR_OFF);
-                   
-                // }
-                
                 System::delay_with_to_tick(Duration::from_millis(TICK_INTERVAL_MS as u64));
                 TIMER.fetch_add(TICK_INTERVAL_MS as u16, Ordering::SeqCst);
             }

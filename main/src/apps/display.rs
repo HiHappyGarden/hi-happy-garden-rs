@@ -44,21 +44,23 @@ use osal_rs::os::types::{EventBits, StackType, TickType};
 use osal_rs::utils::{Bytes, Error, OsalRsBool, Result};
 
 use crate::apps::display::header::Header;
-use crate::apps::display::commons::MAX_SIZE;
+use crate::apps::display::commons::{MAX_SIZE, clean_context};
 
 use crate::apps::display::text::Text;
 use crate::apps::screen_route::ScreenRoute;
 use crate::apps::signals::display::DisplayFlag;
 use crate::apps::signals::display::{DisplayFlag::{*}, DisplaySignal};
 use crate::apps::signals::error::{ErrorSignal, ErrorFlag};
-use crate::apps::signals::status::StatusSignal;
+use crate::apps::signals::status::{StatusFlag, StatusSignal};
+use crate::apps::sprinkler::DISBURSEMENT_MASK;
+use crate::apps::sprinkler::zone::ZoneController;
 use crate::drivers::platform::ThreadPriority;
 
 use crate::traits::button::{ButtonState::{self, *}, OnClickable};
 use crate::traits::encoder::{EncoderDirection::{self, *}, OnRotatableAndClickable};
 use crate::traits::lcd_display::LCDDisplayFn;
 use crate::traits::rx_tx::{OnReceive, SetOnReceive, SetTransmit};
-use crate::traits::screen::{Screen, ScreenParam};
+use crate::traits::screen::{Answer, Screen, ScreenParam};
 use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
 use crate::traits::rtc::RTC;
@@ -69,12 +71,20 @@ const THREAD_NAME: &str = "app_display_thr";
 const STACK_SIZE: StackType = 1_024 * 7;
 const TICK_INTERVAL_MS: u16 = 100;
 const SLEEP_PERIOD: Duration = Duration::from_secs(60);
+const BLINK_PERIOD: Duration = Duration::from_millis(500);
 
 /// Input events that bring the display out of sleep.
 const WAKE_MASK: EventBits = ButtonReleased as EventBits
                 | EncoderButtonReleased as EventBits
                 | EncoderRotatedClockwise as EventBits
                 | EncoderRotatedCounterClockwise as EventBits;
+
+/// Status bits that keep the display awake while set: an active irrigation
+/// or an open remote command session.
+const KEEP_AWAKE_MASK: EventBits = DISBURSEMENT_MASK
+                | StatusFlag::SystemCmd as EventBits
+                | StatusFlag::MqttCmd as EventBits
+                | StatusFlag::UartCmd as EventBits;
 
 pub(crate) const DISPLAY_INPUT_MAX_SIZE: usize = MAX_SIZE;
 
@@ -126,21 +136,32 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
             let mut sleep_mode = false;
             let mut sleep_timer = System::get_current_time();
 
+            let mut disbursement_blink_timer = System::get_current_time();
+            let mut disbursement_blink_state = false;
+
+            let mut disbursement_text= Option::<Text>::None;
 
             loop {
                 //wait for display signal
                 let mut display_signal = DisplaySignal::wait(EventGroup::MAX_MASK, TICK_INTERVAL_MS as TickType);
                 DisplaySignal::clear(display_signal);
 
-                if !sleep_mode && DisplayFlag::Sleep.check_signal(display_signal) {
+                //get status signal (after the wait, so it is up to date)
+                let mut status_signal = StatusSignal::get();
+                let keep_awake = status_signal & KEEP_AWAKE_MASK != 0;
+
+                if keep_awake {
+                    //irrigation or remote command in progress: never sleep, restart the timer
+                    sleep_timer = System::get_current_time();
+                }
+
+                if !sleep_mode && !keep_awake && DisplayFlag::Sleep.check_signal(display_signal) {
                     lcd.turn_off()?;
                     sleep_mode = true;
                 }
 
                 if sleep_mode {
-                    //stay off until the user completes a gesture; presses are ignored so the
-                    //matching release doesn't reach the screen as an action
-                    if display_signal & WAKE_MASK == 0 {
+                    if display_signal & WAKE_MASK == 0 && !keep_awake {
                         continue;
                     }
 
@@ -152,10 +173,6 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                     display_signal = Draw as EventBits;
                 }
 
-
-                //get status signal
-                let mut status_signal = StatusSignal::get();
-
                 //build header
                 if let Err(e) =  header.draw(lcd, &mut display_signal, &status_signal, &rtc, WIFI_ENABLED.load(Ordering::Relaxed)) {
                     if let Error::ReturnWithCode(_) = e {} else {
@@ -164,12 +181,62 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                     }
                 }
 
-                
-                //draw current screen
-                screen_route.draw(lcd, &mut display_signal, &mut status_signal, &rtc).unwrap_or_else(|e| {
-                    log_info!(APP_TAG, "Error drawing screen route: {:?}", e);
-                    ErrorSignal::set(ErrorFlag::Display.into());
-                });
+                let disbursement_active: bool = status_signal & DISBURSEMENT_MASK != 0;
+                if disbursement_active {
+
+
+                    Self::disbursement_handler(
+                        &mut display_signal, 
+                        &mut status_signal,
+                        lcd, 
+                        rtc.clone(), 
+                        &mut disbursement_text, 
+                        &mut disbursement_blink_state, 
+                        &mut disbursement_blink_timer).unwrap_or_else(|e| {
+                            log_info!(APP_TAG, "Error drawing disbursement: {:?}", e);
+                            ErrorSignal::set(ErrorFlag::Display.into());
+                        });
+
+                    // if System::check_timer(&disbursement_blink_timer, &BLINK_PERIOD) == OsalRsBool::True {
+                    //     disbursement_blink_state = !disbursement_blink_state;
+                    //     disbursement_blink_timer = System::get_current_time();
+                    // }
+
+                    // if disbursement_blink_state {
+                    //     // draw the blinking indicator
+                    //     // if !Draw.check_signal(display_signal) {
+                    //         display_signal |= Draw as EventBits;
+
+                    //         if disbursement_text.is_none() {
+                    //             //disbursement_text = Some(Text::new());
+                    //             let mut text = Text::new();
+                    //             text.draw(lcd, &mut display_signal, &rtc, &Bytes::<MAX_SIZE>::from("CIOao"), ScreenParam::None)?;
+                    //         }
+
+                    //     // }
+                        
+                    // } else {
+                    //     // clear the blinking indicator
+                    //     // if !Draw.check_signal(display_signal) {
+                    //         display_signal |= Draw as EventBits;
+                    //         lcd.clear();
+                    //     // }
+                        
+                    // }
+
+                } else {
+                    if disbursement_text.take().is_some() {
+                        //disbursement just ended: force a full redraw of the current screen
+                        display_signal |= Draw as EventBits;
+                    }
+
+                    //draw current screen
+                    screen_route.draw(lcd, &mut display_signal, &mut status_signal, &rtc).unwrap_or_else(|e| {
+                        log_info!(APP_TAG, "Error drawing screen route: {:?}", e);
+                        ErrorSignal::set(ErrorFlag::Display.into());
+                    });
+                }
+
 
                 
                 //check if draw signal is set, if so, redraw the screen
@@ -232,6 +299,69 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         WIFI_ENABLED.store(enabled, Ordering::Relaxed);
     }
 
+    fn disbursement_handler(
+        display_signal: &mut EventBits, 
+        status_signal: &mut EventBits, 
+        lcd: &mut dyn LCDDisplayFn, 
+        rtc: Arc<Mutex<dyn RTC + 'static>>, 
+        disbursement_text: &mut Option<Text>, 
+        disbursement_blink_state: &mut bool, 
+        disbursement_blink_timer: &mut Duration) -> Result<()> {
+
+        let idx = if StatusFlag::DisbursementZoneRelay0.check_signal(*status_signal) {
+            0usize
+        } else if StatusFlag::DisbursementZoneRelay1.check_signal(*status_signal) {
+            1usize
+        } else if StatusFlag::DisbursementZoneRelay2.check_signal(*status_signal) {
+            2usize
+        } else if StatusFlag::DisbursementZoneRelay3.check_signal(*status_signal) {
+            3usize
+        } else {
+            // disbursement ended between the mask check and here: nothing to draw
+            return Ok(());
+        };
+
+        // first tick of a disbursement: start in the "visible" phase
+        if disbursement_text.is_none() {
+            *disbursement_text = Some(Text::new());
+            *disbursement_blink_state = true;
+            *disbursement_blink_timer = System::get_current_time();
+            *display_signal |= Draw as EventBits;
+        }
+
+        if System::check_timer(disbursement_blink_timer, &BLINK_PERIOD) == OsalRsBool::True {
+            *disbursement_blink_state = !*disbursement_blink_state;
+            *disbursement_blink_timer = System::get_current_time();
+            *display_signal |= Draw as EventBits;
+        }
+
+        if *disbursement_blink_state {
+            // visible phase: redraw the zone description every tick (keeps scrolling alive)
+            let description = ZoneController::shared()[idx].description.clone();
+
+            let answer = if let Some(text) = disbursement_text.as_mut() {
+                if description.as_str().is_empty() {
+                    text.draw(lcd, display_signal, &rtc, &Bytes::<MAX_SIZE>::from("Disbursement"), ScreenParam::None)?
+                } else {
+                    text.draw(lcd, display_signal, &rtc, &description, ScreenParam::None)?
+                }
+            } else {
+                Answer::Pending
+            };
+
+            *display_signal |= DrawInternal as EventBits;
+
+            if let Answer::Cancelled = answer {
+                // TODO: stop the running disbursement on cancel
+                log_info!(APP_TAG, "Disbursement cancel requested (not handled yet)");
+            }
+        } else {
+            // hidden phase: clear only the content area, keep the header
+            clean_context(lcd)?;
+        }
+
+        Ok(())
+    }
 }
 
 /// Button and encoder input for the display, as seen by the drivers.

@@ -59,7 +59,7 @@ const THREAD_NAME: &str = "app_sprinkler_thr";
 const STACK_SIZE: StackType = 1_024;
 const SLEEP_PERIOD: Duration = Duration::from_millis(1_000);
 
-const DISBURSEMENT_MASK: EventBits = 
+pub (super) const DISBURSEMENT_MASK: EventBits = 
                 StatusFlag::DisbursementZoneRelay0 as EventBits
                 | StatusFlag::DisbursementZoneRelay1 as EventBits
                 | StatusFlag::DisbursementZoneRelay2 as EventBits
