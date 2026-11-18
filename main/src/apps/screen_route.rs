@@ -182,8 +182,8 @@ impl ScreenRoute {
     }
 
     /// Pushes `screen`, or the login screen in its place when it is protected,
-    /// a local user exists and nobody is logged in. After the login pops, the
-    /// user is back on the screen that was on top (usually the menu).
+    /// a local user exists and nobody is logged in. The login holds `screen`
+    /// and replaces itself with it once the user is in.
     fn push(&mut self, id: &'static str, screen: BoxedScreenRoute, status_signal: &EventBits) {
 
         if screen.requires_auth()

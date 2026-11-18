@@ -23,6 +23,7 @@
 //! Input editing needs the encoder and is not covered here: the tests call
 //! `login_with` with the values the inputs would hold.
 
+use alloc::boxed::Box;
 use alloc::string::String;
 
 use at_parser_rs::Args;
@@ -37,9 +38,27 @@ use crate::apps::session::{Session, User};
 use crate::apps::signals::status::{StatusFlag, StatusSignal};
 use crate::apps::test_helpers::{TEST_EMAIL, TEST_PASSWORD, with_test_user};
 use crate::tests::{TestStats, run_tests, test_assert};
+use crate::traits::screen::{Nav, ScreenRoute, ScreenRouteCtx};
 use crate::traits::signal::Signal;
 
 const TAG: &str = "LoginTests";
+
+/// Protected screen the login opens once the user is in: never rendered here.
+struct Target;
+
+impl ScreenRoute for Target {
+    fn id() -> &'static str {
+        "Target"
+    }
+
+    fn renderize(&mut self, _: &mut ScreenRouteCtx<'_>) -> Result<Nav> {
+        Ok(Nav::Stay)
+    }
+}
+
+fn new_screen() -> ScreenLogin {
+    ScreenLogin::new(Target::id(), Box::new(Target))
+}
 
 fn is_logged() -> bool {
     StatusSignal::get() & EventBits::from(StatusFlag::UserLogged) != 0
@@ -75,7 +94,7 @@ fn test_login_wizard_user() -> Result<()> {
     with_test_user(|| {
         let ret = (|| {
             test_assert!(!is_logged());
-            test_assert!(ScreenLogin::new().login_with(TEST_EMAIL, TEST_PASSWORD)?, "user saved by the wizard rejected");
+            test_assert!(new_screen().login_with(TEST_EMAIL, TEST_PASSWORD)?, "user saved by the wizard rejected");
             test_assert!(is_logged());
             Ok(())
         })();
@@ -86,7 +105,7 @@ fn test_login_wizard_user() -> Result<()> {
 
 fn test_login_rejected() -> Result<()> {
     with_test_user(|| {
-        let screen = ScreenLogin::new();
+        let screen = new_screen();
         for (email, password) in [
             (TEST_EMAIL, "wrong"),
             (TEST_EMAIL, ""),
@@ -103,7 +122,7 @@ fn test_login_rejected() -> Result<()> {
 /// The wizard accepts an empty password: it must log in with an empty one.
 fn test_login_empty_password() -> Result<()> {
     with_user("empty@hhg.local", "", || {
-        let screen = ScreenLogin::new();
+        let screen = new_screen();
         test_assert!(!screen.login_with("empty@hhg.local", "x")?);
         test_assert!(screen.login_with("empty@hhg.local", "")?, "empty password rejected");
         Ok(())
@@ -115,7 +134,7 @@ fn test_login_special_chars() -> Result<()> {
     const EMAIL: &str = "a\"b\\c,d@hhg.local";
     const PASSWORD: &str = "p\"a,s\\s";
     with_user(EMAIL, PASSWORD, || {
-        test_assert!(ScreenLogin::new().login_with(EMAIL, PASSWORD)?, "escaped credentials rejected");
+        test_assert!(new_screen().login_with(EMAIL, PASSWORD)?, "escaped credentials rejected");
         Ok(())
     })
 }
@@ -125,7 +144,7 @@ fn test_login_max_len() -> Result<()> {
     let email: String = "\"".repeat(DISPLAY_INPUT_MAX_SIZE);
     let password: String = "\\".repeat(DISPLAY_INPUT_MAX_SIZE);
     with_user(&email, &password, || {
-        test_assert!(ScreenLogin::new().login_with(&email, &password)?, "max length credentials rejected");
+        test_assert!(new_screen().login_with(&email, &password)?, "max length credentials rejected");
         Ok(())
     })
 }
