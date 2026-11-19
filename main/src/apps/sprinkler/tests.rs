@@ -369,6 +369,41 @@ fn test_disbursement_cycle() -> Result<()> {
     })
 }
 
+fn test_forced_stop() -> Result<()> {
+    // Thread side: DisbursementForcedStop closes every running relay, drops
+    // the pending zones and is acknowledged by clearing the flag
+    with_shared_restored(|| {
+        let queue = QUEUE_ZONES.get().ok_or(osal_rs::utils::Error::Unhandled("queue not initialized"))?;
+        for relay in [ZoneRelay::Relay0, ZoneRelay::Relay2] {
+            let mut zone = Zone::new(relay);
+            zone.status = Status::ACTIVE;
+            queue.post(&SprinklerTriggerData {
+                zone,
+                start: at(2024, 6, 17, 12, 0)?,
+                duration: 60,
+                weight: 0,
+                status: Status::ACTIVE,
+            }, Duration::from_millis(100).to_ticks())?;
+        }
+
+        let both = relay_flag(ZoneRelay::Relay0) | relay_flag(ZoneRelay::Relay2);
+        test_assert!(wait_until(Duration::from_millis(3_000), || StatusSignal::get() & both == both),
+            "disbursements never started");
+
+        StatusSignal::set(StatusFlag::DisbursementForcedStop as EventBits);
+
+        let stop = StatusFlag::DisbursementForcedStop as EventBits;
+        test_assert!(wait_until(Duration::from_millis(1_500), || StatusSignal::get() & stop == 0),
+            "forced stop never acknowledged");
+        test_assert!(!disbursement_in_progress(), "relays still open after forced stop");
+
+        // nothing left in the thread or in the queue restarts a zone
+        System::delay_with_to_tick(Duration::from_millis(2_500));
+        test_assert!(!disbursement_in_progress(), "a zone restarted after forced stop");
+        Ok(())
+    })
+}
+
 fn test_check_waters_active_zone() -> Result<()> {
     // End to end: a matching schedule on an ACTIVE zone reaches the thread,
     // which opens that zone's relay. The item stays queued in the thread for
@@ -415,6 +450,7 @@ pub(in crate::apps) fn run_all_tests(stats: &mut TestStats) {
         test_handle_marks_running,
         test_handle_relay_mismatch,
         test_disbursement_cycle,
+        test_forced_stop,
         // Last: leaves a one-minute disbursement running in the thread
         test_check_waters_active_zone,
     );

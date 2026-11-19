@@ -92,7 +92,15 @@ impl Initializable for Sprinkler {
 
             loop {
                 let mut data = SprinklerTriggerData::default();
-                if let Ok(()) = QUEUE_ZONES.get().unwrap().fetch(&mut data, SLEEP_PERIOD.to_ticks()) {
+                let fetched = QUEUE_ZONES.get().unwrap().fetch(&mut data, SLEEP_PERIOD.to_ticks()).is_ok();
+
+                if StatusSignal::get() & StatusFlag::DisbursementForcedStop as EventBits != 0 {
+                    // the item just fetched (if any) is dropped together with the others
+                    Self::forced_stop(&mut sprinkler_trigger_data_vector);
+                    continue;
+                }
+
+                if fetched {
                     Vec::<SprinklerTriggerData>::push(&mut sprinkler_trigger_data_vector, data);
                 }
 
@@ -101,47 +109,13 @@ impl Initializable for Sprinkler {
                     if data.status == Status::ACTIVE && data.duration > 0 {
                         data.status = Status::RUN;
 
-                        match data.zone.zone_relay {
-                            ZoneRelay::Relay0 => {
-                                StatusSignal::set(StatusFlag::DisbursementZoneRelay0 as EventBits);
-                                Gpio::shared().write(&GpioPeripheral::Relay0, 1);
-                            }
-                            ZoneRelay::Relay1 => {
-                                StatusSignal::set(StatusFlag::DisbursementZoneRelay1 as EventBits);
-                                Gpio::shared().write(&GpioPeripheral::Relay1, 1);
-                            }
-                            ZoneRelay::Relay2 => {
-                                StatusSignal::set(StatusFlag::DisbursementZoneRelay2 as EventBits);
-                                Gpio::shared().write(&GpioPeripheral::Relay2, 1);
-                            }
-                            ZoneRelay::Relay3 => {
-                                StatusSignal::set(StatusFlag::DisbursementZoneRelay3 as EventBits);
-                                Gpio::shared().write(&GpioPeripheral::Relay3, 1);
-                            }
-                        }
+                        Self::set_relay(data.zone.zone_relay, true);
 
                     } else if data.status == Status::RUN && data.duration > 0 {
                         data.duration -= SLEEP_PERIOD.as_secs() as u16;
                     } else if data.status == Status::RUN && data.duration == 0{
                         
-                        match data.zone.zone_relay {
-                            ZoneRelay::Relay0 => {
-                                StatusSignal::clear(StatusFlag::DisbursementZoneRelay0 as EventBits);
-                                Gpio::shared().write(&GpioPeripheral::Relay0, 0);
-                            }
-                            ZoneRelay::Relay1 => {
-                                StatusSignal::clear(StatusFlag::DisbursementZoneRelay1 as EventBits);
-                                Gpio::shared().write(&GpioPeripheral::Relay1, 0);
-                            }
-                            ZoneRelay::Relay2 => {
-                                StatusSignal::clear(StatusFlag::DisbursementZoneRelay2 as EventBits);
-                                Gpio::shared().write(&GpioPeripheral::Relay2, 0);
-                            }
-                            ZoneRelay::Relay3 => {
-                                StatusSignal::clear(StatusFlag::DisbursementZoneRelay3 as EventBits);
-                                Gpio::shared().write(&GpioPeripheral::Relay3, 0);
-                            }
-                        }
+                        Self::set_relay(data.zone.zone_relay, false);
                         data.status = Status::UNACTIVE;
                     }
                 }
@@ -230,6 +204,44 @@ impl Sprinkler {
 
         schedule.status = Status::RUN;
         true
+    }
+
+    /// Drives one zone relay and its `Disbursement*` status flag together,
+    /// so the flags always mirror the GPIO outputs.
+    fn set_relay(relay: ZoneRelay, on: bool) {
+        let (flag, gpio) = match relay {
+            ZoneRelay::Relay0 => (StatusFlag::DisbursementZoneRelay0, GpioPeripheral::Relay0),
+            ZoneRelay::Relay1 => (StatusFlag::DisbursementZoneRelay1, GpioPeripheral::Relay1),
+            ZoneRelay::Relay2 => (StatusFlag::DisbursementZoneRelay2, GpioPeripheral::Relay2),
+            ZoneRelay::Relay3 => (StatusFlag::DisbursementZoneRelay3, GpioPeripheral::Relay3),
+        };
+
+        if on {
+            StatusSignal::set(flag as EventBits);
+            Gpio::shared().write(&gpio, 1);
+        } else {
+            Gpio::shared().write(&gpio, 0);
+            StatusSignal::clear(flag as EventBits);
+        }
+    }
+
+    /// Handles [`StatusFlag::DisbursementForcedStop`]: closes every relay,
+    /// drops the running and the still queued zones, then acknowledges the
+    /// request by clearing the flag.
+    fn forced_stop(running: &mut Vec<SprinklerTriggerData>) {
+        log_info!(APP_TAG, "Disbursement forced stop");
+
+        for relay in [ZoneRelay::Relay0, ZoneRelay::Relay1, ZoneRelay::Relay2, ZoneRelay::Relay3] {
+            Self::set_relay(relay, false);
+        }
+
+        running.clear();
+
+        let queue = QUEUE_ZONES.get().unwrap();
+        let mut data = SprinklerTriggerData::default();
+        while queue.fetch(&mut data, 0).is_ok() {}
+
+        StatusSignal::clear(StatusFlag::DisbursementForcedStop as EventBits);
     }
 
 }

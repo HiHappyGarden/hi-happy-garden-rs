@@ -316,8 +316,9 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
             *display_signal |= DrawInternal as EventBits;
 
             if let Answer::Cancelled = answer {
-                // TODO: stop the running disbursement on cancel
-                log_info!(APP_TAG, "Disbursement cancel requested (not handled yet)");
+                // only a request: AppSprinkler closes the relays and clears
+                // the Disbursement* flags together with the GPIO outputs
+                StatusSignal::set(StatusFlag::DisbursementForcedStop as EventBits);
             }
         } else {
             // hidden phase: clear only the content area, keep the header
