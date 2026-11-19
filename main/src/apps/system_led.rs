@@ -134,6 +134,7 @@ const COLOR_OFF: Color = Color::new(0, 0, 0);
                         DisplaySignal::set(DisplayFlag::DrawInternal as EventBits);
                     }
                 } else {
+                    disbursement_visible = false;
                     DisplaySignal::clear(DisplayFlag::Disbursement as EventBits);   
                 }
 
