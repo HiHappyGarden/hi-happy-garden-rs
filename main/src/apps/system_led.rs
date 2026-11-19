@@ -111,10 +111,12 @@ const COLOR_OFF: Color = Color::new(0, 0, 0);
                         blink_led!(rgb_led, COLOR_YELLOW);
                     }
                     (true, ..) => {
+                        disbursement_permitted = false;
                         rgb_led.set_color(&COLOR_GREEN);
                         TIMER.store(0, Ordering::SeqCst);
                     }
                     _ => {
+                        disbursement_permitted = false;
                         //println!(r#"WiFi not ready, blinking orange LED"#);
                         blink_led!(rgb_led, COLOR_ORANGE);
                     }
