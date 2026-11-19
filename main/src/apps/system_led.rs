@@ -23,7 +23,7 @@ use core::time::Duration;
 
 use osal_rs::log_info;
 use osal_rs::os::{System, Thread, ThreadFn};
-use osal_rs::os::types::StackType;
+use osal_rs::os::types::{EventBits, StackType};
 
 use crate::apps::sprinkler::DISBURSEMENT_MASK;
 use crate::drivers::platform::ThreadPriority;
@@ -34,6 +34,8 @@ use crate::traits::signal::Signal;
 use crate::traits::state::Initializable;
 
 use crate::apps::signals::status::{StatusFlag::*, StatusSignal};
+use crate::apps::signals::display::{DisplayFlag, DisplaySignal};
+
 
 macro_rules! blink_led {
     ($rgb_led:expr, $color:expr) => {
@@ -80,9 +82,8 @@ const COLOR_OFF: Color = Color::new(0, 0, 0);
 
             let rgb_led = RgbLed::new();
             rgb_led.set_color(&COLOR_OFF);
-            
 
-            
+            let mut disbursement_visible = false;
 
             loop {
                 let status = StatusSignal::get();
@@ -114,6 +115,19 @@ const COLOR_OFF: Color = Color::new(0, 0, 0);
                         //println!(r#"WiFi not ready, blinking orange LED"#);
                         blink_led!(rgb_led, COLOR_ORANGE);
                     }
+                }
+
+                // sync the disbursement text blink with the LED: Disbursement is a level
+                // flag (set = text visible); on every phase change wake the display now
+                let visible = disbursement_active && BLINK.load(Ordering::SeqCst);
+                if visible != disbursement_visible {
+                    disbursement_visible = visible;
+                    if visible {
+                        DisplaySignal::set(DisplayFlag::Disbursement as EventBits);
+                    } else {
+                        DisplaySignal::clear(DisplayFlag::Disbursement as EventBits);
+                    }
+                    DisplaySignal::set(DisplayFlag::DrawInternal as EventBits);
                 }
 
                 System::delay_with_to_tick(Duration::from_millis(TICK_INTERVAL_MS as u64));

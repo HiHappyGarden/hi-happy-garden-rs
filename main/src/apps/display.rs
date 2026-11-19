@@ -71,7 +71,6 @@ const THREAD_NAME: &str = "app_display_thr";
 const STACK_SIZE: StackType = 1_024 * 7;
 const TICK_INTERVAL_MS: u16 = 100;
 const SLEEP_PERIOD: Duration = Duration::from_secs(60);
-const BLINK_PERIOD: Duration = Duration::from_millis(500);
 
 /// Input events that bring the display out of sleep.
 const WAKE_MASK: EventBits = ButtonReleased as EventBits
@@ -85,6 +84,11 @@ const KEEP_AWAKE_MASK: EventBits = DISBURSEMENT_MASK
                 | StatusFlag::SystemCmd as EventBits
                 | StatusFlag::MqttCmd as EventBits
                 | StatusFlag::UartCmd as EventBits;
+
+/// Event bits the display task waits on and consumes. `Disbursement` is a level
+/// flag driven by AppSystemLed (blink phase): it is only read, never waited on
+/// (it would busy-loop the task) nor cleared here.
+const EVENT_MASK: EventBits = EventGroup::MAX_MASK & !(Disbursement as EventBits);
 
 pub(crate) const DISPLAY_INPUT_MAX_SIZE: usize = MAX_SIZE;
 
@@ -136,14 +140,11 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
             let mut sleep_mode = false;
             let mut sleep_timer = System::get_current_time();
 
-            let mut disbursement_blink_timer = System::get_current_time();
-            let mut disbursement_blink_state = false;
-
             let mut disbursement_text= Option::<Text>::None;
 
             loop {
                 //wait for display signal
-                let mut display_signal = DisplaySignal::wait(EventGroup::MAX_MASK, TICK_INTERVAL_MS as TickType);
+                let mut display_signal = DisplaySignal::wait(EVENT_MASK, TICK_INTERVAL_MS as TickType) & EVENT_MASK;
                 DisplaySignal::clear(display_signal);
 
                 //get status signal (after the wait, so it is up to date)
@@ -190,39 +191,11 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
                         &mut status_signal,
                         lcd, 
                         rtc.clone(), 
-                        &mut disbursement_text, 
-                        &mut disbursement_blink_state, 
-                        &mut disbursement_blink_timer).unwrap_or_else(|e| {
+                        &mut disbursement_text
+                    ).unwrap_or_else(|e| {
                             log_info!(APP_TAG, "Error drawing disbursement: {:?}", e);
                             ErrorSignal::set(ErrorFlag::Display.into());
                         });
-
-                    // if System::check_timer(&disbursement_blink_timer, &BLINK_PERIOD) == OsalRsBool::True {
-                    //     disbursement_blink_state = !disbursement_blink_state;
-                    //     disbursement_blink_timer = System::get_current_time();
-                    // }
-
-                    // if disbursement_blink_state {
-                    //     // draw the blinking indicator
-                    //     // if !Draw.check_signal(display_signal) {
-                    //         display_signal |= Draw as EventBits;
-
-                    //         if disbursement_text.is_none() {
-                    //             //disbursement_text = Some(Text::new());
-                    //             let mut text = Text::new();
-                    //             text.draw(lcd, &mut display_signal, &rtc, &Bytes::<MAX_SIZE>::from("CIOao"), ScreenParam::None)?;
-                    //         }
-
-                    //     // }
-                        
-                    // } else {
-                    //     // clear the blinking indicator
-                    //     // if !Draw.check_signal(display_signal) {
-                    //         display_signal |= Draw as EventBits;
-                    //         lcd.clear();
-                    //     // }
-                        
-                    // }
 
                 } else {
                     if disbursement_text.take().is_some() {
@@ -304,9 +277,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         status_signal: &mut EventBits, 
         lcd: &mut dyn LCDDisplayFn, 
         rtc: Arc<Mutex<dyn RTC + 'static>>, 
-        disbursement_text: &mut Option<Text>, 
-        disbursement_blink_state: &mut bool, 
-        disbursement_blink_timer: &mut Duration) -> Result<()> {
+        disbursement_text: &mut Option<Text>) -> Result<()> {
 
         let idx = if StatusFlag::DisbursementZoneRelay0.check_signal(*status_signal) {
             0usize
@@ -321,21 +292,14 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
             return Ok(());
         };
 
-        // first tick of a disbursement: start in the "visible" phase
+        // first tick of a disbursement: full redraw (header + content)
         if disbursement_text.is_none() {
             *disbursement_text = Some(Text::new());
-            *disbursement_blink_state = true;
-            *disbursement_blink_timer = System::get_current_time();
             *display_signal |= Draw as EventBits;
         }
 
-        if System::check_timer(disbursement_blink_timer, &BLINK_PERIOD) == OsalRsBool::True {
-            *disbursement_blink_state = !*disbursement_blink_state;
-            *disbursement_blink_timer = System::get_current_time();
-            *display_signal |= Draw as EventBits;
-        }
-
-        if *disbursement_blink_state {
+        // blink phase is owned by AppSystemLed (in sync with the LED)
+        if DisplaySignal::get() & Disbursement as EventBits != 0 {
             // visible phase: redraw the zone description every tick (keeps scrolling alive)
             let description = ZoneController::shared()[idx].description.clone();
 
@@ -358,6 +322,7 @@ where T: LCDDisplayFn + Sync + Send + Clone + 'static
         } else {
             // hidden phase: clear only the content area, keep the header
             clean_context(lcd)?;
+            *display_signal |= DrawInternal as EventBits;
         }
 
         Ok(())

@@ -42,6 +42,7 @@ pub(in crate::apps) enum DisplayFlag {
     WifiStatusWeak = 0x01_40,
     WifiStatusNoSignal = 0x01_80,
     Sleep = 0x02_00,
+    Disbursement = 0x04_00,
     DrawInternal = 0x00_40_00_00, // Special flag to indicate that the display should be redrawn by internal logic
     Draw = 0x00_80_00_00, // Special flag to indicate that the display should be redrawn by user command
 }
@@ -63,6 +64,7 @@ impl From<EventBits> for DisplayFlag {
             0x01_40 => WifiStatusWeak,
             0x01_80 => WifiStatusNoSignal,
             0x02_00 => Sleep,
+            0x04_00 => Disbursement,
             0x00_40_00_00 => DrawInternal,
             0x00_80_00_00 => Draw,
             _ => None, // Default case, can be adjusted as needed
