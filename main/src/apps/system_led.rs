@@ -95,16 +95,19 @@ const COLOR_OFF: Color = Color::new(0, 0, 0);
                 let error = Error.check_signal(status);
 
 
-
+                let mut disbursement_permitted = false;
                 match (system_ready, wifi_ready, disbursement_active, error) {
 
                     (_, _, _, true) => {
+                        disbursement_permitted = false;
                         blink_led!(rgb_led, COLOR_RED);
                     }
                     (_, _, true, _) => {
+                        disbursement_permitted = true;
                         blink_led!(rgb_led, COLOR_BLUE);
                     }
                     (true, false, ..) => {
+                        disbursement_permitted = false;
                         blink_led!(rgb_led, COLOR_YELLOW);
                     }
                     (true, ..) => {
@@ -117,17 +120,21 @@ const COLOR_OFF: Color = Color::new(0, 0, 0);
                     }
                 }
 
-                // sync the disbursement text blink with the LED: Disbursement is a level
-                // flag (set = text visible); on every phase change wake the display now
-                let visible = disbursement_active && BLINK.load(Ordering::SeqCst);
-                if visible != disbursement_visible {
-                    disbursement_visible = visible;
-                    if visible {
-                        DisplaySignal::set(DisplayFlag::Disbursement as EventBits);
-                    } else {
-                        DisplaySignal::clear(DisplayFlag::Disbursement as EventBits);
+                if disbursement_permitted {
+                    // sync the disbursement text blink with the LED: Disbursement is a level
+                    // flag (set = text visible); on every phase change wake the display now
+                    let visible =  disbursement_active && BLINK.load(Ordering::SeqCst);
+                    if visible != disbursement_visible {
+                        disbursement_visible = visible;
+                        if visible {
+                            DisplaySignal::set(DisplayFlag::Disbursement as EventBits);
+                        } else {
+                            DisplaySignal::clear(DisplayFlag::Disbursement as EventBits);
+                        }
+                        DisplaySignal::set(DisplayFlag::DrawInternal as EventBits);
                     }
-                    DisplaySignal::set(DisplayFlag::DrawInternal as EventBits);
+                } else {
+                    DisplaySignal::clear(DisplayFlag::Disbursement as EventBits);   
                 }
 
                 System::delay_with_to_tick(Duration::from_millis(TICK_INTERVAL_MS as u64));
