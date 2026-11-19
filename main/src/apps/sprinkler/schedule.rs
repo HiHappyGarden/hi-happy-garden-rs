@@ -305,10 +305,12 @@ impl Schedule {
     }
 
     pub(in super) fn executable(&self, now: &DateTime) -> bool {
-        if self.status != Status::ACTIVE {
-            return false;
-        }
+        self.status == Status::ACTIVE && self.matches(now)
+    }
 
+    /// True when `now` falls in the schedule time window (months, days,
+    /// hour, minute), whatever its status.
+    pub(in super) fn matches(&self, now: &DateTime) -> bool {
         let mut check = [true; 4];
 
         if self.months != Self::NOT_SET as u16 {

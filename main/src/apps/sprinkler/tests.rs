@@ -23,8 +23,8 @@
 //! `Sprinkler::check` tick of the main FSM. The zone and schedule AT
 //! handlers live in `zone::tests` and `schedule::tests`.
 //!
-//! `check` works on the shared schedules: they are restored, together with
-//! the disbursement flag, at the end of each test.
+//! `check` works on the shared schedules: they are restored at the end of
+//! each test, and the disbursement thread is reset with a forced stop.
 //!
 //! The disbursement thread is already running (started by
 //! `test_helpers::setup`): it is driven through `QUEUE_ZONES` and observed
@@ -58,8 +58,28 @@ fn disbursement_in_progress() -> bool {
     StatusSignal::get() & DISBURSEMENT_MASK != 0
 }
 
+/// Resets the disbursement thread through a forced stop: closes the relays
+/// and drops the running and queued zones left by a test.
 fn clear_disbursement() {
-    StatusSignal::clear(DISBURSEMENT_MASK);
+    StatusSignal::set(StatusFlag::DisbursementForcedStop as EventBits);
+    let stop = StatusFlag::DisbursementForcedStop as EventBits;
+    if !wait_until(Duration::from_millis(1_500), || StatusSignal::get() & stop == 0) {
+        // thread not answering: at least leave the flags clean
+        StatusSignal::clear(stop | DISBURSEMENT_MASK);
+    }
+}
+
+fn post(relay: ZoneRelay, duration: u16) -> Result<()> {
+    let mut zone = Zone::new(relay);
+    zone.status = Status::ACTIVE;
+    QUEUE_ZONES.get().ok_or(osal_rs::utils::Error::Unhandled("queue not initialized"))?
+        .post(&SprinklerTriggerData {
+            zone,
+            start: at(2024, 6, 17, 12, 0)?,
+            duration,
+            weight: 0,
+            status: Status::ACTIVE,
+        }, Duration::from_millis(100).to_ticks())
 }
 
 fn statuses() -> [Status; ScheduleController::SIZE] {
@@ -78,7 +98,7 @@ fn active() -> Schedule {
 }
 
 /// Polls `cond` every 50 ms for at most `timeout`.
-fn wait_until(timeout: Duration, cond: impl Fn() -> bool) -> bool {
+fn wait_until(timeout: Duration, mut cond: impl FnMut() -> bool) -> bool {
     const STEP: Duration = Duration::from_millis(50);
     let mut waited = Duration::ZERO;
     while !cond() {
@@ -369,26 +389,47 @@ fn test_disbursement_cycle() -> Result<()> {
     })
 }
 
-fn test_forced_stop() -> Result<()> {
-    // Thread side: DisbursementForcedStop closes every running relay, drops
-    // the pending zones and is acknowledged by clearing the flag
+fn test_zones_in_sequence() -> Result<()> {
+    // Thread side: queued zones are watered one at a time, in queue order,
+    // with no gap in DISBURSEMENT_MASK between them
     with_shared_restored(|| {
-        let queue = QUEUE_ZONES.get().ok_or(osal_rs::utils::Error::Unhandled("queue not initialized"))?;
-        for relay in [ZoneRelay::Relay0, ZoneRelay::Relay2] {
-            let mut zone = Zone::new(relay);
-            zone.status = Status::ACTIVE;
-            queue.post(&SprinklerTriggerData {
-                zone,
-                start: at(2024, 6, 17, 12, 0)?,
-                duration: 60,
-                weight: 0,
-                status: Status::ACTIVE,
-            }, Duration::from_millis(100).to_ticks())?;
-        }
+        post(ZoneRelay::Relay1, 2)?;
+        post(ZoneRelay::Relay2, 2)?;
 
-        let both = relay_flag(ZoneRelay::Relay0) | relay_flag(ZoneRelay::Relay2);
-        test_assert!(wait_until(Duration::from_millis(3_000), || StatusSignal::get() & both == both),
-            "disbursements never started");
+        let first = relay_flag(ZoneRelay::Relay1);
+        let second = relay_flag(ZoneRelay::Relay2);
+        test_assert!(wait_until(Duration::from_millis(1_500), || StatusSignal::get() & first != 0),
+            "first zone never started");
+        test_assert!(StatusSignal::get() & DISBURSEMENT_MASK == first, "zones started together");
+
+        // poll the handover: the mask must never be empty or hold both relays
+        let mut gap = false;
+        let mut overlap = false;
+        test_assert!(wait_until(Duration::from_millis(5_000), || {
+            let mask = StatusSignal::get() & DISBURSEMENT_MASK;
+            gap |= mask == 0;
+            overlap |= mask == first | second;
+            mask == second
+        }), "second zone never started");
+        test_assert!(!gap, "DISBURSEMENT_MASK dropped to zero between zones");
+        test_assert!(!overlap, "both zones open together");
+
+        test_assert!(wait_until(Duration::from_millis(5_000), || !disbursement_in_progress()),
+            "second zone never stopped");
+        Ok(())
+    })
+}
+
+fn test_forced_stop() -> Result<()> {
+    // Thread side: DisbursementForcedStop closes the running relay, drops
+    // the zones waiting behind it and is acknowledged by clearing the flag
+    with_shared_restored(|| {
+        post(ZoneRelay::Relay0, 60)?;
+        post(ZoneRelay::Relay2, 2)?;
+
+        let flag = relay_flag(ZoneRelay::Relay0);
+        test_assert!(wait_until(Duration::from_millis(1_500), || StatusSignal::get() & flag != 0),
+            "disbursement never started");
 
         StatusSignal::set(StatusFlag::DisbursementForcedStop as EventBits);
 
@@ -397,9 +438,42 @@ fn test_forced_stop() -> Result<()> {
             "forced stop never acknowledged");
         test_assert!(!disbursement_in_progress(), "relays still open after forced stop");
 
-        // nothing left in the thread or in the queue restarts a zone
+        // the pending Relay2 zone must not start
         System::delay_with_to_tick(Duration::from_millis(2_500));
         test_assert!(!disbursement_in_progress(), "a zone restarted after forced stop");
+        Ok(())
+    })
+}
+
+fn test_check_rearms_schedule() -> Result<()> {
+    // A RUN schedule goes back to ACTIVE only when nothing is watering and
+    // its time window is over, so it can run again next time
+    with_shared_restored(|| {
+        for schedule in ScheduleController::shared().into_iter() {
+            *schedule = Schedule::new();
+        }
+        let schedule = ScheduleController::shared().into_iter().next()
+            .ok_or(osal_rs::utils::Error::Unhandled("no schedules"))?;
+        *schedule = active();
+        schedule.hour = 13; // 12:xx
+        schedule.status = Status::RUN;
+
+        let mut sprinkler = Sprinkler::new();
+
+        // still inside the window: no re-arm, no second run
+        sprinkler.check(at(2024, 6, 17, 12, 30)?);
+        test_assert_eq!(statuses()[0], Status::RUN);
+
+        // window over but a zone is watering: no re-arm
+        StatusSignal::set(relay_flag(ZoneRelay::Relay0));
+        sprinkler.check(at(2024, 6, 17, 13, 0)?);
+        StatusSignal::clear(DISBURSEMENT_MASK);
+        test_assert_eq!(statuses()[0], Status::RUN);
+
+        // window over and idle: re-armed
+        sprinkler.check(at(2024, 6, 17, 13, 0)?);
+        test_assert_eq!(statuses()[0], Status::ACTIVE);
+        test_assert!(!disbursement_in_progress(), "re-arm started a disbursement");
         Ok(())
     })
 }
@@ -407,7 +481,7 @@ fn test_forced_stop() -> Result<()> {
 fn test_check_waters_active_zone() -> Result<()> {
     // End to end: a matching schedule on an ACTIVE zone reaches the thread,
     // which opens that zone's relay. The item stays queued in the thread for
-    // its whole minute: keep this test last.
+    // its whole minute until the final forced stop of with_shared_restored.
     with_shared_restored(|| {
         for zone in ZoneController::shared().iter_mut() {
             zone.status = Status::UNACTIVE;
@@ -450,8 +524,9 @@ pub(in crate::apps) fn run_all_tests(stats: &mut TestStats) {
         test_handle_marks_running,
         test_handle_relay_mismatch,
         test_disbursement_cycle,
+        test_zones_in_sequence,
         test_forced_stop,
-        // Last: leaves a one-minute disbursement running in the thread
+        test_check_rearms_schedule,
         test_check_waters_active_zone,
     );
 

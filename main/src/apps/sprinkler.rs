@@ -100,25 +100,12 @@ impl Initializable for Sprinkler {
                     continue;
                 }
 
-                if fetched {
-                    Vec::<SprinklerTriggerData>::push(&mut sprinkler_trigger_data_vector, data);
+                if fetched && data.status == Status::ACTIVE && data.duration > 0 {
+                    sprinkler_trigger_data_vector.push(data);
                 }
 
-
-                for data in &mut sprinkler_trigger_data_vector {
-                    if data.status == Status::ACTIVE && data.duration > 0 {
-                        data.status = Status::RUN;
-
-                        Self::set_relay(data.zone.zone_relay, true);
-
-                    } else if data.status == Status::RUN && data.duration > 0 {
-                        data.duration -= SLEEP_PERIOD.as_secs() as u16;
-                    } else if data.status == Status::RUN && data.duration == 0{
-                        
-                        Self::set_relay(data.zone.zone_relay, false);
-                        data.status = Status::UNACTIVE;
-                    }
-                }
+                // a full SLEEP_PERIOD has elapsed only when fetch timed out
+                Self::step(&mut sprinkler_trigger_data_vector, !fetched);
             }
         })?;
 
@@ -154,6 +141,14 @@ impl Sprinkler {
 
         if (status & DISBURSEMENT_MASK) != 0 {
             return;
+        }
+
+        // re-arm the schedules that ran (or were stopped) once their time
+        // window is over: inside it they would start again
+        for schedule in self.schedule_controller.into_iter() {
+            if schedule.status == Status::RUN && !schedule.matches(&now) {
+                schedule.status = Status::ACTIVE;
+            }
         }
 
         'main_loop: for schedule in self.schedule_controller.into_iter() {
@@ -206,14 +201,64 @@ impl Sprinkler {
         true
     }
 
+    /// Advances the disbursement FIFO by one loop: only its head is watered.
+    /// A finished zone is removed and the next one is opened in the same
+    /// step, so `DISBURSEMENT_MASK` never drops to zero in between (`check`
+    /// relies on it) and two valves are never open together.
+    fn step(fifo: &mut Vec<SprinklerTriggerData>, elapsed: bool) {
+        let Some(current) = fifo.first_mut() else {
+            return;
+        };
+
+        if current.status == Status::ACTIVE {
+            current.status = Status::RUN;
+            Self::set_relay(current.zone.zone_relay, true);
+            return;
+        }
+
+        if elapsed {
+            current.duration = current.duration.saturating_sub(SLEEP_PERIOD.as_secs() as u16);
+        }
+
+        if current.duration > 0 {
+            return;
+        }
+
+        let finished = fifo.remove(0).zone.zone_relay;
+
+        match fifo.first_mut() {
+            Some(next) => {
+                next.status = Status::RUN;
+                if next.zone.zone_relay != finished {
+                    // raise the next flag first: no gap in DISBURSEMENT_MASK
+                    StatusSignal::set(Self::relay_flag(next.zone.zone_relay) as EventBits);
+                    Self::set_relay(finished, false);
+                    Self::set_relay(next.zone.zone_relay, true);
+                }
+            }
+            None => Self::set_relay(finished, false),
+        }
+    }
+
+    #[inline]
+    fn relay_flag(relay: ZoneRelay) -> StatusFlag {
+        match relay {
+            ZoneRelay::Relay0 => StatusFlag::DisbursementZoneRelay0,
+            ZoneRelay::Relay1 => StatusFlag::DisbursementZoneRelay1,
+            ZoneRelay::Relay2 => StatusFlag::DisbursementZoneRelay2,
+            ZoneRelay::Relay3 => StatusFlag::DisbursementZoneRelay3,
+        }
+    }
+
     /// Drives one zone relay and its `Disbursement*` status flag together,
     /// so the flags always mirror the GPIO outputs.
     fn set_relay(relay: ZoneRelay, on: bool) {
-        let (flag, gpio) = match relay {
-            ZoneRelay::Relay0 => (StatusFlag::DisbursementZoneRelay0, GpioPeripheral::Relay0),
-            ZoneRelay::Relay1 => (StatusFlag::DisbursementZoneRelay1, GpioPeripheral::Relay1),
-            ZoneRelay::Relay2 => (StatusFlag::DisbursementZoneRelay2, GpioPeripheral::Relay2),
-            ZoneRelay::Relay3 => (StatusFlag::DisbursementZoneRelay3, GpioPeripheral::Relay3),
+        let flag = Self::relay_flag(relay);
+        let gpio = match relay {
+            ZoneRelay::Relay0 => GpioPeripheral::Relay0,
+            ZoneRelay::Relay1 => GpioPeripheral::Relay1,
+            ZoneRelay::Relay2 => GpioPeripheral::Relay2,
+            ZoneRelay::Relay3 => GpioPeripheral::Relay3,
         };
 
         if on {
